@@ -1,0 +1,24 @@
+IndiaMultiBaggerAI/
+├── app/                      # Streamlit Web App
+│   ├── main.py
+│   ├── pages/
+│   │   ├── 1_Dashboard.py
+│   │   ├── 2_Scan_Results.py
+│   │   └── 3_Theme_Analysis.py
+│   └── utils.py
+├── bot/                      # Telegram Bot
+│   ├── telegram_bot.py
+│   └── alerts.py
+├── core/
+│   ├── data_collector.py
+│   ├── analyzer.py
+│   ├── scorer.py
+│   └── nse_data.py
+├── data/                     # Cache folder (gitignore)
+├── models/                   # Optional local models
+├── config.py
+├── requirements.txt
+├── .env.example
+├── run_daily.py              # Scheduler script
+├── README.md
+└── .gitignore# Multibagger

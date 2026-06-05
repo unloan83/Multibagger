@@ -1,10 +1,11 @@
 import yfinance as yf
 from langchain_core.prompts import PromptTemplate
 from langchain_core.output_parsers import JsonOutputParser
-from langchain_community.llms import Grok
+from langchain_openai import ChatOpenAI
 import pandas as pd
 from datetime import datetime
 import json
+import os
 
 class MultiBaggerAnalyzer:
     def __init__(self, llm=None):
@@ -46,7 +47,10 @@ class MultiBaggerAnalyzer:
         """)
 
     def _get_default_llm(self):
-        return Grok(api_key="your_grok_api_key_here")
+        api_key = os.getenv("OPENAI_API_KEY")
+        if not api_key:
+            raise ValueError("OPENAI_API_KEY environment variable not set")
+        return ChatOpenAI(model="gpt-4o-mini", api_key=api_key, temperature=0.3)
 
     def get_stock_fundamentals(self, ticker: str):
         """Fetch basic India stock data"""
@@ -90,10 +94,10 @@ class MultiBaggerAnalyzer:
         })
 
         try:
-            result = json.loads(response.strip())
+            result = json.loads(response.content.strip())
             result.update(fundamentals)
             result["ticker"] = ticker
             result["analyzed_at"] = datetime.now().strftime("%Y-%m-%d %H:%M")
             return result
         except:
-            return {"error": "Failed to parse LLM response", "raw": response}
+            return {"error": "Failed to parse LLM response", "raw": response.content}

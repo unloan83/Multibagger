@@ -1,7 +1,7 @@
 import yfinance as yf
 from langchain_core.prompts import PromptTemplate
-from langchain.chains import LLMChain
-from langchain_community.llms import Grok  # or use ChatGroq, Claude, etc.
+from langchain_core.output_parsers import JsonOutputParser
+from langchain_community.llms import Grok
 import pandas as pd
 from datetime import datetime
 import json
@@ -34,7 +34,7 @@ class MultiBaggerAnalyzer:
 
         Return your analysis in this exact JSON format:
         {{
-            "conviction_score": X,           // 1 to 10 (only give high scores to exceptional cases)
+            "conviction_score": X,
             "potential_multiplier": "5x-10x" or "10x-20x" or "20x+",
             "key_strengths": ["point1", "point2", "point3"],
             "key_risks": ["risk1", "risk2"],
@@ -46,8 +46,7 @@ class MultiBaggerAnalyzer:
         """)
 
     def _get_default_llm(self):
-        # Change according to your preference
-        return Grok(api_key="your_grok_api_key_here")  # or use ChatOpenAI, Claude, etc.
+        return Grok(api_key="your_grok_api_key_here")
 
     def get_stock_fundamentals(self, ticker: str):
         """Fetch basic India stock data"""
@@ -56,7 +55,7 @@ class MultiBaggerAnalyzer:
             info = stock.info
             
             market_cap = info.get('marketCap', 0)
-            market_cap_cr = round(market_cap / 10000000, 2)  # Convert to ₹ Cr
+            market_cap_cr = round(market_cap / 10000000, 2)
             
             return {
                 "company_name": info.get('longName', ticker),
@@ -77,21 +76,20 @@ class MultiBaggerAnalyzer:
 
         context = "\n\n".join(context_docs[-15:]) if context_docs else "No recent context available."
 
-        chain = LLMChain(llm=self.llm, prompt=self.multi_bagger_prompt)
+        chain = self.multi_bagger_prompt | self.llm
         
-        response = chain.run(
-            company_name=fundamentals["company_name"],
-            ticker=ticker,
-            market_cap_cr=fundamentals["market_cap_cr"],
-            sector=fundamentals["sector"],
-            current_price=fundamentals["current_price"],
-            high_52w=fundamentals["high_52w"],
-            low_52w=fundamentals["low_52w"],
-            context=context
-        )
+        response = chain.invoke({
+            "company_name": fundamentals["company_name"],
+            "ticker": ticker,
+            "market_cap_cr": fundamentals["market_cap_cr"],
+            "sector": fundamentals["sector"],
+            "current_price": fundamentals["current_price"],
+            "high_52w": fundamentals["high_52w"],
+            "low_52w": fundamentals["low_52w"],
+            "context": context
+        })
 
         try:
-            # Extract JSON from LLM response
             result = json.loads(response.strip())
             result.update(fundamentals)
             result["ticker"] = ticker

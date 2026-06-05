@@ -10,6 +10,7 @@ python-telegram-bot==21.4
 langchain
 langchain-core
 langchain-community
+langchain-openai
 python-dotenv
 apscheduler
 scikit-learn

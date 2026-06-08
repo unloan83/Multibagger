@@ -3,6 +3,7 @@ import {
   PortfolioInputRow,
   PortfolioList,
   PortfolioPosition,
+  parseQuantity,
   resolveStockProfile,
 } from "@/lib/portfolio";
 
@@ -60,10 +61,18 @@ export async function POST(request: Request) {
 function normalizeRows(rows: Array<Partial<PortfolioInputRow>>): PortfolioInputRow[] {
   return rows
     .map((row) => {
-      const stockCode = String(row.stockCode ?? "").trim().toUpperCase();
+      const rowWithLooseKeys = row as Partial<PortfolioInputRow> & {
+        "stock code"?: string;
+        code?: string;
+      };
+      const stockCode = String(
+        rowWithLooseKeys.stockCode ?? rowWithLooseKeys["stock code"] ?? rowWithLooseKeys.code ?? "",
+      )
+        .trim()
+        .toUpperCase();
       const company = String(row.company ?? "").trim();
       const stock = String(row.stock ?? (stockCode || company)).trim();
-      const rawQuantity = Number(row.quantity ?? 0);
+      const rawQuantity = parseQuantity(row.quantity);
       const list: PortfolioList =
         row.list === "watchlist" || rawQuantity <= 0 ? "watchlist" : "current";
       const quantity = list === "watchlist" ? 0 : rawQuantity;

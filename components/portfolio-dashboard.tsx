@@ -44,6 +44,8 @@ import {
   formatCurrency,
   formatPercent,
   generateRecommendations,
+  marketRecommendationPortfolio,
+  parseQuantity,
   samplePortfolio,
 } from "@/lib/portfolio";
 import { cn } from "@/lib/utils";
@@ -78,6 +80,7 @@ type CsvRow = {
 
 export function PortfolioDashboard() {
   const [portfolios, setPortfolios] = useState<ManagedPortfolio[]>([
+    marketRecommendationPortfolio,
     samplePortfolio,
   ]);
   const [history, setHistory] = useState<Recommendation[]>([]);
@@ -90,6 +93,7 @@ export function PortfolioDashboard() {
   ]);
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
+  const [expandedPortfolioId, setExpandedPortfolioId] = useState<string | null>(null);
   const [hydrated, setHydrated] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -98,10 +102,21 @@ export function PortfolioDashboard() {
     const savedHistory = window.localStorage.getItem(historyStorageKey);
 
     if (savedPortfolios) {
+      const parsedPortfolios = JSON.parse(savedPortfolios) as ManagedPortfolio[];
+      const hasMarketPortfolio = parsedPortfolios.some(
+        (portfolio) => portfolio.id === marketRecommendationPortfolio.id,
+      );
+
       setPortfolios(
-        (JSON.parse(savedPortfolios) as ManagedPortfolio[]).map((portfolio) => ({
+        [
+          ...(hasMarketPortfolio ? [] : [marketRecommendationPortfolio]),
+          ...parsedPortfolios,
+        ].map((portfolio) => ({
           ...portfolio,
           appetite: portfolio.appetite ?? "moderate",
+          isMarketPortfolio:
+            portfolio.isMarketPortfolio ??
+            portfolio.id === marketRecommendationPortfolio.id,
           inputs: portfolio.inputs.map((row) => ({
             ...buildPortfolioInputRow({
               stockCode: row.stockCode || row.stock,
@@ -145,12 +160,12 @@ export function PortfolioDashboard() {
       complete: (result) => {
         const parsed = result.data
           .map((row) => {
-            const stockCode = (row["stock code"] ?? row.stockCode ?? row.code ?? "")
+            const stockCode = getCsvValue(row, ["stock code", "stockCode", "code"])
               .trim()
               .toUpperCase();
-            const company = (row.company ?? row.stock ?? row.name ?? "").trim();
-            const quantity = Number(row.quantity ?? row.qty ?? 0);
-            const listValue = (row.list ?? row.type ?? "")
+            const company = getCsvValue(row, ["company", "stock", "name"]).trim();
+            const quantity = parseQuantity(getCsvValue(row, ["quantity", "qty"]));
+            const listValue = getCsvValue(row, ["list", "type"])
               .trim()
               .toLowerCase();
             const list: PortfolioInputRow["list"] =
@@ -266,6 +281,41 @@ export function PortfolioDashboard() {
     }
   }
 
+  async function updatePortfolioInputs(
+    portfolio: ManagedPortfolio,
+    rows: PortfolioInputRow[],
+  ) {
+    const cleanRows = rows.filter((row) => row.stockCode || row.company);
+    setIsLoading(true);
+    setError(null);
+
+    try {
+      const positions = await fetchQuotePositions(cleanRows);
+      const updated = {
+        ...portfolio,
+        inputs: cleanRows,
+        positions,
+        refreshedAt: new Date().toISOString(),
+      };
+
+      setPortfolios((items) =>
+        items.map((item) => (item.id === portfolio.id ? updated : item)),
+      );
+      setHistory((items) => [
+        ...generateRecommendationList(updated, items),
+        ...items,
+      ]);
+    } catch (fetchError) {
+      setError(
+        fetchError instanceof Error
+          ? fetchError.message
+          : "Unable to update portfolio details.",
+      );
+    } finally {
+      setIsLoading(false);
+    }
+  }
+
   async function fetchQuotePositions(rows: PortfolioInputRow[]) {
     const response = await fetch("/api/quotes", {
       method: "POST",
@@ -365,6 +415,13 @@ export function PortfolioDashboard() {
               onRefresh={() => refreshPortfolio(portfolio)}
               onRemove={() => removePortfolio(portfolio.id)}
               onStatusChange={updateHistoryStatus}
+              onUpdateInputs={(rows) => updatePortfolioInputs(portfolio, rows)}
+              isValueExpanded={expandedPortfolioId === portfolio.id}
+              onToggleValue={() =>
+                setExpandedPortfolioId((current) =>
+                  current === portfolio.id ? null : portfolio.id,
+                )
+              }
             />
           ))}
         </section>
@@ -568,6 +625,9 @@ function PortfolioColumn({
   onRefresh,
   onRemove,
   onStatusChange,
+  onUpdateInputs,
+  isValueExpanded,
+  onToggleValue,
 }: {
   portfolio: ManagedPortfolio;
   history: Recommendation[];
@@ -575,6 +635,9 @@ function PortfolioColumn({
   onRefresh: () => void;
   onRemove: () => void;
   onStatusChange: (id: string, status: RecommendationStatus) => void;
+  onUpdateInputs: (rows: PortfolioInputRow[]) => void;
+  isValueExpanded: boolean;
+  onToggleValue: () => void;
 }) {
   const metrics = calculatePortfolioMetrics(portfolio.positions);
   const recommendations = generateRecommendations(portfolio, history);
@@ -609,6 +672,7 @@ function PortfolioColumn({
               variant="outline"
               size="icon"
               onClick={onRemove}
+              disabled={portfolio.isMarketPortfolio}
               aria-label="Remove portfolio"
             >
               <Trash2 className="h-4 w-4" aria-hidden="true" />
@@ -621,7 +685,12 @@ function PortfolioColumn({
           <SummaryCard
             title="Portfolio Value"
             value={formatCurrency(metrics.totalValue)}
-            detail={`${metrics.holdings.length} active holdings`}
+            detail={
+              portfolio.isMarketPortfolio
+                ? "Market idea board"
+                : `${metrics.holdings.length} active holdings`
+            }
+            onClick={portfolio.isMarketPortfolio ? undefined : onToggleValue}
           />
           <SummaryCard
             title="Recommendation History"
@@ -634,6 +703,13 @@ function PortfolioColumn({
             detail="CMP, previous close, volume, headlines"
           />
         </div>
+        {isValueExpanded ? (
+          <PortfolioDetailsEditor
+            portfolio={portfolio}
+            isLoading={isLoading}
+            onSave={onUpdateInputs}
+          />
+        ) : null}
         <PortfolioMiniSummary metrics={metrics} />
 
         <RecommendationBlock
@@ -695,6 +771,111 @@ function PortfolioMiniSummary({
   );
 }
 
+function PortfolioDetailsEditor({
+  portfolio,
+  isLoading,
+  onSave,
+}: {
+  portfolio: ManagedPortfolio;
+  isLoading: boolean;
+  onSave: (rows: PortfolioInputRow[]) => void;
+}) {
+  const [rows, setRows] = useState<PortfolioInputRow[]>(portfolio.inputs);
+
+  useEffect(() => {
+    setRows(portfolio.inputs);
+  }, [portfolio.inputs]);
+
+  function updateRow(index: number, nextRow: Partial<PortfolioInputRow>) {
+    setRows((items) =>
+      items.map((row, rowIndex) =>
+        rowIndex === index ? { ...row, ...nextRow } : row,
+      ),
+    );
+  }
+
+  return (
+    <section className="space-y-3 rounded-md border bg-background p-3">
+      <div>
+        <h2 className="text-sm font-semibold">Portfolio Value Details</h2>
+        <p className="text-xs text-muted-foreground">
+          Edit stock code, company, or quantity. Blank or zero quantity becomes watchlist.
+        </p>
+      </div>
+      <div className="space-y-2">
+        {rows.map((row, index) => (
+          <div
+            key={`${row.stockCode}-${row.company}-${index}`}
+            className="grid gap-2 md:grid-cols-[120px_1fr_100px_40px]"
+          >
+            <input
+              value={row.stockCode}
+              onChange={(event) => {
+                const stockCode = event.target.value.toUpperCase();
+                updateRow(index, {
+                  stockCode,
+                  stock: stockCode || row.company,
+                });
+              }}
+              placeholder="Stock code"
+              className="h-9 rounded-md border bg-background px-2 text-sm outline-none focus:ring-2 focus:ring-ring"
+            />
+            <input
+              value={row.company}
+              onChange={(event) =>
+                updateRow(index, {
+                  company: event.target.value,
+                  stock: row.stockCode || event.target.value,
+                })
+              }
+              placeholder="Company"
+              className="h-9 rounded-md border bg-background px-2 text-sm outline-none focus:ring-2 focus:ring-ring"
+            />
+            <input
+              value={row.quantity || ""}
+              onChange={(event) => {
+                const quantity = parseQuantity(event.target.value);
+                updateRow(index, {
+                  list: quantity > 0 ? "current" : "watchlist",
+                  quantity,
+                });
+              }}
+              placeholder="Qty"
+              type="number"
+              className="h-9 rounded-md border bg-background px-2 text-sm outline-none focus:ring-2 focus:ring-ring"
+            />
+            <Button
+              type="button"
+              variant="outline"
+              size="icon"
+              onClick={() =>
+                setRows((items) => items.filter((_, rowIndex) => rowIndex !== index))
+              }
+              aria-label="Delete holding"
+            >
+              <Trash2 className="h-4 w-4" aria-hidden="true" />
+            </Button>
+          </div>
+        ))}
+      </div>
+      <div className="flex flex-col gap-2 sm:flex-row">
+        <Button
+          type="button"
+          variant="outline"
+          onClick={() => setRows((items) => [...items, buildPortfolioInputRow({})])}
+        >
+          <Plus className="h-4 w-4" aria-hidden="true" />
+          Add Stock
+        </Button>
+        <Button type="button" onClick={() => onSave(rows)} disabled={isLoading}>
+          <RefreshCw className="h-4 w-4" aria-hidden="true" />
+          {isLoading ? "Updating" : "Update Portfolio"}
+        </Button>
+      </div>
+    </section>
+  );
+}
+
 function RecommendationBlock({
   title,
   items,
@@ -711,7 +892,7 @@ function RecommendationBlock({
             <div className="flex items-start justify-between gap-3">
               <div>
                 <div className="text-sm font-semibold">
-                  {item.symbol} · {item.action}
+                  {item.symbol} | {item.action}
                 </div>
                 <div className="text-xs text-muted-foreground">
                   {item.company} | {item.horizon}
@@ -722,6 +903,9 @@ function RecommendationBlock({
               </div>
             </div>
             <p className="mt-2 text-xs leading-5 text-muted-foreground">
+              {item.action === "Urgent Sell"
+                ? "Urgent Sell means the model expects significant near-term downside risk and weak recovery probability. "
+                : "Accumulate means the model sees future growth potential and supports staged buying. "}
               {item.rationale}
             </p>
           </div>
@@ -840,13 +1024,15 @@ function SummaryCard({
   title,
   value,
   detail,
+  onClick,
 }: {
   title: string;
   value: string;
   detail: string;
+  onClick?: () => void;
 }) {
-  return (
-    <Card>
+  const content = (
+    <>
       <CardHeader className="pb-3">
         <CardDescription>{title}</CardDescription>
       </CardHeader>
@@ -854,7 +1040,23 @@ function SummaryCard({
         <div className="truncate text-2xl font-semibold">{value}</div>
         <p className="mt-1 text-sm text-muted-foreground">{detail}</p>
       </CardContent>
-    </Card>
+    </>
+  );
+
+  if (onClick) {
+    return (
+      <button
+        type="button"
+        onClick={onClick}
+        className="rounded-lg text-left transition-colors hover:bg-muted/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+      >
+        <Card>{content}</Card>
+      </button>
+    );
+  }
+
+  return (
+    <Card>{content}</Card>
   );
 }
 
@@ -893,4 +1095,24 @@ function getQuoteScore(positions: PortfolioPosition[]) {
   }, 0);
 
   return Math.round((availableSignals / totalSignals) * 100);
+}
+
+function getCsvValue(row: CsvRow, keys: string[]) {
+  const looseRow = row as Record<string, string | undefined>;
+  const normalizedLookup = Object.entries(looseRow).reduce<Record<string, string>>(
+    (acc, [key, value]) => {
+      acc[key.trim().toLowerCase()] = value ?? "";
+      return acc;
+    },
+    {},
+  );
+
+  for (const key of keys) {
+    const value = normalizedLookup[key.trim().toLowerCase()];
+    if (value) {
+      return value;
+    }
+  }
+
+  return "";
 }

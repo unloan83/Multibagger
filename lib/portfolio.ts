@@ -61,6 +61,7 @@ export type ManagedPortfolio = {
   id: string;
   name: string;
   appetite: InvestmentAppetite;
+  isMarketPortfolio?: boolean;
   inputs: PortfolioInputRow[];
   positions: PortfolioPosition[];
   refreshedAt?: string;
@@ -82,7 +83,7 @@ export type Recommendation = {
   section: RecommendationSection;
   symbol: string;
   company: string;
-  action: "Buy" | "Sell" | "Hold" | "Watch" | "Accumulate" | "Trim";
+  action: "Accumulate" | "Urgent Sell";
   horizon: string;
   rationale: string;
   confidence: number;
@@ -96,26 +97,22 @@ const appetiteProfiles: Record<
     confidenceShift: number;
     maxIntraday: number;
     riskLabel: string;
-    preferredActions: Array<Recommendation["action"]>;
   }
 > = {
   safe: {
     confidenceShift: 6,
     maxIntraday: 3,
     riskLabel: "capital protection and lower churn",
-    preferredActions: ["Hold", "Buy", "Watch"],
   },
   moderate: {
     confidenceShift: 0,
     maxIntraday: 4,
     riskLabel: "balanced compounding and controlled risk",
-    preferredActions: ["Hold", "Accumulate", "Watch"],
   },
   aggressive: {
     confidenceShift: -4,
     maxIntraday: 5,
     riskLabel: "higher growth appetite and wider drawdown tolerance",
-    preferredActions: ["Accumulate", "Buy", "Watch"],
   },
 };
 
@@ -437,7 +434,7 @@ export function buildPortfolioInputRow({
 }): PortfolioInputRow {
   const cleanStockCode = stockCode?.trim().toUpperCase() ?? "";
   const cleanCompany = company?.trim() ?? "";
-  const cleanQuantity = Number(quantity ?? 0);
+  const cleanQuantity = parseQuantity(quantity);
 
   return {
     list: cleanQuantity > 0 ? "current" : "watchlist",
@@ -446,6 +443,14 @@ export function buildPortfolioInputRow({
     stock: cleanStockCode || cleanCompany,
     quantity: cleanQuantity > 0 ? cleanQuantity : 0,
   };
+}
+
+export function parseQuantity(value: unknown) {
+  if (typeof value === "number") {
+    return Number.isFinite(value) ? value : 0;
+  }
+
+  return Number(String(value ?? "").replace(/,/g, "").trim()) || 0;
 }
 
 export function identifySector(symbol: string, company = "", fallback = "Unclassified") {
@@ -594,6 +599,26 @@ export const samplePortfolio: ManagedPortfolio = {
   refreshedAt: new Date("2026-06-08T06:00:00.000Z").toISOString(),
 };
 
+export const marketRecommendationPortfolio: ManagedPortfolio = {
+  id: "market-recommendations",
+  name: "Market Recommendation",
+  appetite: "moderate",
+  isMarketPortfolio: true,
+  inputs: [
+    buildPortfolioInputRow({ stockCode: "TCS", company: "Tata Consultancy Services" }),
+    buildPortfolioInputRow({ stockCode: "RELIANCE", company: "Reliance Industries" }),
+    buildPortfolioInputRow({ stockCode: "MARUTI", company: "Maruti Suzuki India" }),
+    buildPortfolioInputRow({ stockCode: "SUNPHARMA", company: "Sun Pharmaceutical Industries" }),
+    buildPortfolioInputRow({ stockCode: "TITAN", company: "Titan Company" }),
+  ],
+  positions: samplePositions.map((position) => ({
+    ...position,
+    list: "watchlist",
+    quantity: 0,
+  })),
+  refreshedAt: new Date("2026-06-08T06:00:00.000Z").toISOString(),
+};
+
 export function generateRecommendations(
   portfolio: ManagedPortfolio,
   history: Recommendation[] = [],
@@ -627,7 +652,7 @@ export function generateRecommendations(
         createdAt,
         section: "Intraday",
         position,
-        action: score >= 0 ? "Watch" : portfolio.appetite === "aggressive" ? "Watch" : "Trim",
+        action: score >= 0 || portfolio.appetite === "aggressive" ? "Accumulate" : "Urgent Sell",
         horizon: "Today",
         confidence: confidenceFromScore(score + appetite.confidenceShift, 4),
         rationale: `${formatPercent(getDayChangePercent(position))} day move with ${formatVolume(position.volume)} volume signal. ${formatNewsSignal(position.newsHeadlines)} Appetite mode: ${appetite.riskLabel}.`,
@@ -693,7 +718,7 @@ export function generateRecommendations(
         createdAt,
         section: "Multibagger",
         position,
-        action: "Watch",
+        action: score > 1 ? "Accumulate" : "Urgent Sell",
         horizon: "6-12 months",
         confidence: confidenceFromScore(score + appetite.confidenceShift, 4),
         rationale: `${position.sector} exposure with momentum; ${portfolio.appetite} appetite allows ${portfolio.appetite === "aggressive" ? "higher growth optionality" : portfolio.appetite === "safe" ? "only selective tracking" : "balanced tracking"}. Validate earnings growth, debt, and valuation before entry.`,
@@ -728,7 +753,7 @@ export function generateRecommendations(
         symbol: etf.symbol,
         company: etf.company,
       },
-      action: "Buy",
+      action: "Accumulate",
       horizon: "6-12 months",
       confidence: 68 - index * 4 + appetite.confidenceShift,
       rationale: `${etf.rationale} Appetite mode: ${appetite.riskLabel}.`,
@@ -827,18 +852,18 @@ function getLongTermAction(
   appetite: InvestmentAppetite,
 ): Recommendation["action"] {
   if (sectorWeight > 40 && appetite !== "aggressive") {
-    return "Trim";
+    return "Urgent Sell";
   }
 
   if (score > (appetite === "aggressive" ? 1.5 : appetite === "safe" ? 3 : 2)) {
-    return appetite === "safe" ? "Buy" : "Accumulate";
+    return "Accumulate";
   }
 
   if (score < -1.5) {
-    return appetite === "aggressive" ? "Hold" : "Sell";
+    return appetite === "aggressive" ? "Accumulate" : "Urgent Sell";
   }
 
-  return "Hold";
+  return score >= 0 ? "Accumulate" : "Urgent Sell";
 }
 
 function formatVolume(volume?: number) {

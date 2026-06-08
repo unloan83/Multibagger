@@ -96,6 +96,30 @@ type MarketOverview = {
   refreshedAt: string;
 };
 
+type ExpertMatrixQuote = {
+  symbol: string;
+  name: string;
+  price: number;
+  target: number;
+  upside: number;
+  volumeShock: number;
+};
+
+type ExpertMatrixCategory = {
+  key: string;
+  title: string;
+  longTermUpsides: ExpertMatrixQuote[];
+  intradayBreakouts: ExpertMatrixQuote[];
+};
+
+type ExpertActionMatrix = {
+  title: string;
+  verified: string;
+  source: string;
+  asOf: string;
+  categories: ExpertMatrixCategory[];
+};
+
 export function PortfolioDashboard() {
   const [portfolios, setPortfolios] = useState<ManagedPortfolio[]>([
     marketRecommendationPortfolio,
@@ -113,6 +137,8 @@ export function PortfolioDashboard() {
   const [isLoading, setIsLoading] = useState(false);
   const [marketOverview, setMarketOverview] = useState<MarketOverview | null>(null);
   const [isMarketLoading, setIsMarketLoading] = useState(false);
+  const [expertMatrix, setExpertMatrix] = useState<ExpertActionMatrix | null>(null);
+  const [isExpertLoading, setIsExpertLoading] = useState(false);
   const [expandedPortfolioId, setExpandedPortfolioId] = useState<string | null>(null);
   const [hasRepricedSavedPortfolios, setHasRepricedSavedPortfolios] = useState(false);
   const [hydrated, setHydrated] = useState(false);
@@ -208,6 +234,7 @@ export function PortfolioDashboard() {
 
   useEffect(() => {
     refreshMarketOverview();
+    refreshExpertMatrix();
   }, []);
 
   useEffect(() => {
@@ -248,6 +275,21 @@ export function PortfolioDashboard() {
       }
     } finally {
       setIsMarketLoading(false);
+    }
+  }
+
+  async function refreshExpertMatrix() {
+    setIsExpertLoading(true);
+
+    try {
+      const response = await fetch("/api/expert-action-matrix");
+      const payload = (await response.json()) as ExpertActionMatrix;
+
+      if (response.ok) {
+        setExpertMatrix(payload);
+      }
+    } finally {
+      setIsExpertLoading(false);
     }
   }
 
@@ -456,6 +498,12 @@ export function PortfolioDashboard() {
           market={marketOverview}
           isLoading={isMarketLoading}
           onRefresh={refreshMarketOverview}
+        />
+
+        <ExpertActionMatrixSection
+          matrix={expertMatrix}
+          isLoading={isExpertLoading}
+          onRefresh={refreshExpertMatrix}
         />
 
         {isAddOpen ? (
@@ -765,7 +813,7 @@ function MarketOverviewSection({
           </div>
         </div>
 
-        <div className="grid gap-4 lg:grid-cols-2">
+        <div className="grid gap-3 lg:grid-cols-2">
           <MoverTable title="Top 10 Gainers" quotes={market?.gainers ?? []} />
           <MoverTable title="Top 10 Losers" quotes={market?.losers ?? []} />
         </div>
@@ -804,31 +852,33 @@ function TickerSkeleton() {
 
 function MoverTable({ title, quotes }: { title: string; quotes: MarketQuote[] }) {
   return (
-    <section className="space-y-2">
-      <h2 className="text-sm font-semibold">{title}</h2>
-      <Table>
+    <section className="space-y-2 rounded-md border bg-background p-2">
+      <h2 className="px-1 text-xs font-semibold uppercase tracking-normal text-muted-foreground">
+        {title}
+      </h2>
+      <Table className="text-xs">
         <TableHeader>
           <TableRow>
-            <TableHead>Stock</TableHead>
-            <TableHead className="text-right">Price</TableHead>
-            <TableHead className="text-right">Move</TableHead>
+            <TableHead className="h-7 px-2">Stock</TableHead>
+            <TableHead className="h-7 px-2 text-right">Price</TableHead>
+            <TableHead className="h-7 px-2 text-right">Move</TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
           {quotes.map((quote) => (
             <TableRow key={`${title}-${quote.symbol}`}>
-              <TableCell>
+              <TableCell className="px-2 py-1.5">
                 <div className="font-medium">{quote.symbol}</div>
-                <div className="max-w-48 truncate text-xs text-muted-foreground">
+                <div className="max-w-36 truncate text-[11px] text-muted-foreground">
                   {quote.name}
                 </div>
               </TableCell>
-              <TableCell className="text-right">
+              <TableCell className="px-2 py-1.5 text-right">
                 {quote.price.toLocaleString("en-IN")}
               </TableCell>
               <TableCell
                 className={cn(
-                  "text-right font-medium",
+                  "px-2 py-1.5 text-right font-medium",
                   quote.change >= 0 ? "text-emerald-700" : "text-destructive",
                 )}
               >
@@ -838,13 +888,139 @@ function MoverTable({ title, quotes }: { title: string; quotes: MarketQuote[] })
           ))}
           {quotes.length === 0 ? (
             <TableRow>
-              <TableCell colSpan={3} className="text-sm text-muted-foreground">
+              <TableCell colSpan={3} className="px-2 py-2 text-xs text-muted-foreground">
                 Loading market movers.
               </TableCell>
             </TableRow>
           ) : null}
         </TableBody>
       </Table>
+    </section>
+  );
+}
+
+function ExpertActionMatrixSection({
+  matrix,
+  isLoading,
+  onRefresh,
+}: {
+  matrix: ExpertActionMatrix | null;
+  isLoading: boolean;
+  onRefresh: () => void;
+}) {
+  return (
+    <Card>
+      <CardHeader className="pb-3">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+          <div>
+            <CardTitle>Expert Action Matrix</CardTitle>
+            <CardDescription>
+              Daily recommendation feed adapted from the Expert Insight matrix format.
+            </CardDescription>
+          </div>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={onRefresh}
+            disabled={isLoading}
+          >
+            <RefreshCw className="h-4 w-4" aria-hidden="true" />
+            {isLoading ? "Refreshing" : "Refresh"}
+          </Button>
+        </div>
+      </CardHeader>
+      <CardContent className="space-y-3">
+        <div className="flex flex-col gap-1 rounded-md border bg-muted/30 px-3 py-2 text-xs text-muted-foreground sm:flex-row sm:items-center sm:justify-between">
+          <span>{matrix?.verified ?? "Fetching live NSE recommendation matrix."}</span>
+          <span>
+            {matrix?.asOf
+              ? `As of ${new Date(matrix.asOf).toLocaleString("en-IN")}`
+              : "Live feed pending"}
+          </span>
+        </div>
+        <div className="grid gap-3 lg:grid-cols-2 2xl:grid-cols-4">
+          {(matrix?.categories ?? []).map((category) => (
+            <ExpertCategoryCard key={category.key} category={category} />
+          ))}
+          {!matrix ? (
+            <>
+              <ExpertSkeleton />
+              <ExpertSkeleton />
+              <ExpertSkeleton />
+              <ExpertSkeleton />
+            </>
+          ) : null}
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
+function ExpertCategoryCard({ category }: { category: ExpertMatrixCategory }) {
+  return (
+    <section className="rounded-md border bg-background p-3">
+      <h2 className="text-sm font-semibold">{category.title}</h2>
+      <ExpertPickList
+        title="Long-Term Upsides"
+        items={category.longTermUpsides}
+        mode="target"
+      />
+      <ExpertPickList
+        title="Intraday Breakouts"
+        items={category.intradayBreakouts}
+        mode="volume"
+      />
+    </section>
+  );
+}
+
+function ExpertPickList({
+  title,
+  items,
+  mode,
+}: {
+  title: string;
+  items: ExpertMatrixQuote[];
+  mode: "target" | "volume";
+}) {
+  return (
+    <div className="mt-3 space-y-1.5">
+      <h3 className="text-xs font-semibold text-muted-foreground">{title}</h3>
+      {items.map((item) => (
+        <div
+          key={`${title}-${item.symbol}`}
+          className="rounded-md bg-muted/35 px-2 py-1.5 text-xs"
+        >
+          <div className="flex items-center justify-between gap-2">
+            <span className="font-semibold">{item.symbol}</span>
+            <span className="text-muted-foreground">{formatCurrency(item.price)}</span>
+          </div>
+          <div className="mt-0.5 text-[11px] leading-4 text-muted-foreground">
+            {mode === "target"
+              ? `Target ${formatCurrency(item.target)} (${formatPercent(item.upside)})`
+              : `Volume shock ${item.volumeShock.toFixed(2)}x`}
+          </div>
+        </div>
+      ))}
+      {items.length === 0 ? (
+        <div className="rounded-md bg-muted/35 px-2 py-2 text-xs text-muted-foreground">
+          No qualifying picks available yet.
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
+function ExpertSkeleton() {
+  return (
+    <section className="rounded-md border bg-background p-3">
+      <div className="h-4 w-36 rounded bg-muted" />
+      <div className="mt-4 space-y-2">
+        <div className="h-10 rounded bg-muted" />
+        <div className="h-10 rounded bg-muted" />
+        <div className="h-10 rounded bg-muted" />
+      </div>
     </section>
   );
 }

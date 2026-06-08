@@ -78,6 +78,24 @@ type CsvRow = {
   qty?: string;
 };
 
+type MarketQuote = {
+  symbol: string;
+  name: string;
+  price: number;
+  change: number;
+  changePercent: number;
+  volume: number;
+};
+
+type MarketOverview = {
+  sentiment: "Positive" | "Negative" | "Neutral";
+  averageMove: number;
+  indices: MarketQuote[];
+  gainers: MarketQuote[];
+  losers: MarketQuote[];
+  refreshedAt: string;
+};
+
 export function PortfolioDashboard() {
   const [portfolios, setPortfolios] = useState<ManagedPortfolio[]>([
     marketRecommendationPortfolio,
@@ -93,6 +111,8 @@ export function PortfolioDashboard() {
   ]);
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
+  const [marketOverview, setMarketOverview] = useState<MarketOverview | null>(null);
+  const [isMarketLoading, setIsMarketLoading] = useState(false);
   const [expandedPortfolioId, setExpandedPortfolioId] = useState<string | null>(null);
   const [hasRepricedSavedPortfolios, setHasRepricedSavedPortfolios] = useState(false);
   const [hydrated, setHydrated] = useState(false);
@@ -187,6 +207,10 @@ export function PortfolioDashboard() {
   }, []);
 
   useEffect(() => {
+    refreshMarketOverview();
+  }, []);
+
+  useEffect(() => {
     if (!hydrated) {
       return;
     }
@@ -210,6 +234,21 @@ export function PortfolioDashboard() {
         rowIndex === index ? { ...row, ...nextRow } : row,
       ),
     );
+  }
+
+  async function refreshMarketOverview() {
+    setIsMarketLoading(true);
+
+    try {
+      const response = await fetch("/api/market");
+      const payload = (await response.json()) as MarketOverview;
+
+      if (response.ok) {
+        setMarketOverview(payload);
+      }
+    } finally {
+      setIsMarketLoading(false);
+    }
   }
 
   function parseCsvRows(file: File) {
@@ -397,8 +436,8 @@ export function PortfolioDashboard() {
               unloan stock portfolio dashboard
             </h1>
             <p className="max-w-3xl text-sm leading-6 text-muted-foreground">
-              Add portfolios, fetch CMP and previous close, compare allocation,
-              and track recommendation hit rate over time.
+              Track market mood first, then review added portfolios in columns with
+              short-term and long-term buy/sell insights.
             </p>
           </div>
           <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
@@ -412,6 +451,12 @@ export function PortfolioDashboard() {
             </Button>
           </div>
         </header>
+
+        <MarketOverviewSection
+          market={marketOverview}
+          isLoading={isMarketLoading}
+          onRefresh={refreshMarketOverview}
+        />
 
         {isAddOpen ? (
           <AddPortfolioPanel
@@ -657,6 +702,153 @@ function AddPortfolioPanel({
   );
 }
 
+function MarketOverviewSection({
+  market,
+  isLoading,
+  onRefresh,
+}: {
+  market: MarketOverview | null;
+  isLoading: boolean;
+  onRefresh: () => void;
+}) {
+  const sentimentClass =
+    market?.sentiment === "Positive"
+      ? "text-emerald-700"
+      : market?.sentiment === "Negative"
+        ? "text-destructive"
+        : "text-muted-foreground";
+
+  return (
+    <Card>
+      <CardHeader className="flex flex-row items-start justify-between gap-3">
+        <div>
+          <CardTitle>Market Overview Today</CardTitle>
+          <CardDescription>
+            Live market sentiment, index tickers, and daily movers from a broad Indian-stock universe.
+          </CardDescription>
+        </div>
+        <Button
+          type="button"
+          variant="outline"
+          size="icon"
+          onClick={onRefresh}
+          disabled={isLoading}
+          aria-label="Refresh market overview"
+        >
+          <RefreshCw className="h-4 w-4" aria-hidden="true" />
+        </Button>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        <div className="grid gap-3 lg:grid-cols-[220px_1fr]">
+          <div className="rounded-md border bg-muted/30 p-3">
+            <div className="text-xs uppercase text-muted-foreground">
+              Market Sentiment
+            </div>
+            <div className={cn("mt-1 text-2xl font-semibold", sentimentClass)}>
+              {market?.sentiment ?? "Loading"}
+            </div>
+            <div className="mt-1 text-sm text-muted-foreground">
+              Index average: {formatPercent(market?.averageMove ?? 0)}
+            </div>
+          </div>
+          <div className="grid gap-2 md:grid-cols-3">
+            {(market?.indices ?? []).map((index) => (
+              <MarketTicker key={index.symbol} quote={index} />
+            ))}
+            {!market ? (
+              <>
+                <TickerSkeleton />
+                <TickerSkeleton />
+                <TickerSkeleton />
+              </>
+            ) : null}
+          </div>
+        </div>
+
+        <div className="grid gap-4 lg:grid-cols-2">
+          <MoverTable title="Top 10 Gainers" quotes={market?.gainers ?? []} />
+          <MoverTable title="Top 10 Losers" quotes={market?.losers ?? []} />
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
+function MarketTicker({ quote }: { quote: MarketQuote }) {
+  return (
+    <div className="rounded-md border bg-background p-3">
+      <div className="text-sm font-semibold">{quote.name}</div>
+      <div className="mt-1 text-xl font-semibold">{quote.price.toLocaleString("en-IN")}</div>
+      <div
+        className={cn(
+          "text-sm font-medium",
+          quote.change >= 0 ? "text-emerald-700" : "text-destructive",
+        )}
+      >
+        {quote.change >= 0 ? "+" : ""}
+        {quote.change.toFixed(2)} ({formatPercent(quote.changePercent)})
+      </div>
+    </div>
+  );
+}
+
+function TickerSkeleton() {
+  return (
+    <div className="rounded-md border bg-background p-3">
+      <div className="h-4 w-24 rounded bg-muted" />
+      <div className="mt-3 h-6 w-20 rounded bg-muted" />
+      <div className="mt-2 h-4 w-28 rounded bg-muted" />
+    </div>
+  );
+}
+
+function MoverTable({ title, quotes }: { title: string; quotes: MarketQuote[] }) {
+  return (
+    <section className="space-y-2">
+      <h2 className="text-sm font-semibold">{title}</h2>
+      <Table>
+        <TableHeader>
+          <TableRow>
+            <TableHead>Stock</TableHead>
+            <TableHead className="text-right">Price</TableHead>
+            <TableHead className="text-right">Move</TableHead>
+          </TableRow>
+        </TableHeader>
+        <TableBody>
+          {quotes.map((quote) => (
+            <TableRow key={`${title}-${quote.symbol}`}>
+              <TableCell>
+                <div className="font-medium">{quote.symbol}</div>
+                <div className="max-w-48 truncate text-xs text-muted-foreground">
+                  {quote.name}
+                </div>
+              </TableCell>
+              <TableCell className="text-right">
+                {quote.price.toLocaleString("en-IN")}
+              </TableCell>
+              <TableCell
+                className={cn(
+                  "text-right font-medium",
+                  quote.change >= 0 ? "text-emerald-700" : "text-destructive",
+                )}
+              >
+                {formatPercent(quote.changePercent)}
+              </TableCell>
+            </TableRow>
+          ))}
+          {quotes.length === 0 ? (
+            <TableRow>
+              <TableCell colSpan={3} className="text-sm text-muted-foreground">
+                Loading market movers.
+              </TableCell>
+            </TableRow>
+          ) : null}
+        </TableBody>
+      </Table>
+    </section>
+  );
+}
+
 function PortfolioColumn({
   portfolio,
   history,
@@ -753,11 +945,11 @@ function PortfolioColumn({
         <PortfolioMiniSummary metrics={metrics} />
 
         <RecommendationBlock
-          title="1. Intraday Recommendations"
+          title="1. Short-term Buy/Sell Analysis"
           items={recommendations.intraday}
         />
         <RecommendationBlock
-          title="2. 1-3 Yr Portfolio Growth Plan"
+          title="2. Long-term Buy/Sell Plan"
           items={recommendations.longTermPlan}
         />
         <RecommendationBlock

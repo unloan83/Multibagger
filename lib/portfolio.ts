@@ -41,12 +41,14 @@ export type PortfolioMetrics = {
   growth: GrowthPoint[];
 };
 
-const numberFormatter = new Intl.NumberFormat("en-US", {
+const numberFormatter = new Intl.NumberFormat("en-IN", {
+  currency: "INR",
+  style: "currency",
   maximumFractionDigits: 0,
 });
 
 export function formatCurrency(value: number) {
-  return `$${numberFormatter.format(value)}`;
+  return numberFormatter.format(value);
 }
 
 export function formatPercent(value: number) {
@@ -152,77 +154,145 @@ function buildGrowthSeries(totalCost: number, totalValue: number): GrowthPoint[]
   });
 }
 
+const sectorBySymbol: Record<string, string> = {
+  ASIANPAINT: "Consumer Discretionary",
+  AXISBANK: "Financial Services",
+  BAJFINANCE: "Financial Services",
+  BHARTIARTL: "Telecommunication",
+  HCLTECH: "Information Technology",
+  HDFCBANK: "Financial Services",
+  HINDUNILVR: "Fast Moving Consumer Goods",
+  ICICIBANK: "Financial Services",
+  INFY: "Information Technology",
+  ITC: "Fast Moving Consumer Goods",
+  KOTAKBANK: "Financial Services",
+  LT: "Construction",
+  MARUTI: "Automobile and Auto Components",
+  NESTLEIND: "Fast Moving Consumer Goods",
+  NTPC: "Power",
+  RELIANCE: "Oil Gas and Consumable Fuels",
+  SBIN: "Financial Services",
+  SUNPHARMA: "Healthcare",
+  TCS: "Information Technology",
+  TATAMOTORS: "Automobile and Auto Components",
+  TATASTEEL: "Metals and Mining",
+  TITAN: "Consumer Durables",
+  ULTRACEMCO: "Construction Materials",
+  WIPRO: "Information Technology",
+};
+
+const companySectorKeywords: Array<[string, string]> = [
+  ["bank", "Financial Services"],
+  ["finance", "Financial Services"],
+  ["financial", "Financial Services"],
+  ["insurance", "Financial Services"],
+  ["technologies", "Information Technology"],
+  ["technology", "Information Technology"],
+  ["software", "Information Technology"],
+  ["pharma", "Healthcare"],
+  ["hospital", "Healthcare"],
+  ["motors", "Automobile and Auto Components"],
+  ["auto", "Automobile and Auto Components"],
+  ["steel", "Metals and Mining"],
+  ["cement", "Construction Materials"],
+  ["power", "Power"],
+  ["energy", "Oil Gas and Consumable Fuels"],
+  ["oil", "Oil Gas and Consumable Fuels"],
+  ["gas", "Oil Gas and Consumable Fuels"],
+  ["telecom", "Telecommunication"],
+  ["consumer", "Fast Moving Consumer Goods"],
+  ["foods", "Fast Moving Consumer Goods"],
+];
+
+export function identifySector(symbol: string, company = "", fallback = "Unclassified") {
+  const normalizedSymbol = symbol
+    .trim()
+    .toUpperCase()
+    .replace(/\.NS$|\.BO$/u, "");
+
+  if (sectorBySymbol[normalizedSymbol]) {
+    return sectorBySymbol[normalizedSymbol];
+  }
+
+  const normalizedCompany = company.trim().toLowerCase();
+  const match = companySectorKeywords.find(([keyword]) =>
+    normalizedCompany.includes(keyword),
+  );
+
+  return match?.[1] ?? fallback;
+}
+
 export const sampleHoldings: PortfolioHolding[] = [
   {
-    symbol: "AAPL",
-    company: "Apple Inc.",
-    sector: "Technology",
-    quantity: 48,
-    averagePrice: 164.2,
-    currentPrice: 193.48,
-    previousClose: 190.88,
+    symbol: "RELIANCE",
+    company: "Reliance Industries",
+    sector: "Oil Gas and Consumable Fuels",
+    quantity: 42,
+    averagePrice: 2380,
+    currentPrice: 2864,
+    previousClose: 2838,
   },
   {
-    symbol: "MSFT",
-    company: "Microsoft Corp.",
-    sector: "Technology",
-    quantity: 26,
-    averagePrice: 328.8,
-    currentPrice: 421.9,
-    previousClose: 419.12,
+    symbol: "TCS",
+    company: "Tata Consultancy Services",
+    sector: "Information Technology",
+    quantity: 28,
+    averagePrice: 3310,
+    currentPrice: 3925,
+    previousClose: 3898,
   },
   {
-    symbol: "V",
-    company: "Visa Inc.",
-    sector: "Financials",
-    quantity: 32,
-    averagePrice: 226.4,
-    currentPrice: 274.1,
-    previousClose: 276.6,
+    symbol: "HDFCBANK",
+    company: "HDFC Bank",
+    sector: "Financial Services",
+    quantity: 68,
+    averagePrice: 1425,
+    currentPrice: 1668,
+    previousClose: 1656,
   },
   {
-    symbol: "LLY",
-    company: "Eli Lilly",
+    symbol: "INFY",
+    company: "Infosys",
+    sector: "Information Technology",
+    quantity: 54,
+    averagePrice: 1288,
+    currentPrice: 1516,
+    previousClose: 1502,
+  },
+  {
+    symbol: "ICICIBANK",
+    company: "ICICI Bank",
+    sector: "Financial Services",
+    quantity: 82,
+    averagePrice: 905,
+    currentPrice: 1118,
+    previousClose: 1106,
+  },
+  {
+    symbol: "SUNPHARMA",
+    company: "Sun Pharmaceutical Industries",
     sector: "Healthcare",
+    quantity: 36,
+    averagePrice: 1025,
+    currentPrice: 1512,
+    previousClose: 1496,
+  },
+  {
+    symbol: "MARUTI",
+    company: "Maruti Suzuki India",
+    sector: "Automobile and Auto Components",
     quantity: 9,
-    averagePrice: 512.5,
-    currentPrice: 796.3,
-    previousClose: 787.4,
+    averagePrice: 8420,
+    currentPrice: 12680,
+    previousClose: 12592,
   },
   {
-    symbol: "XOM",
-    company: "Exxon Mobil",
-    sector: "Energy",
-    quantity: 58,
-    averagePrice: 98.6,
-    currentPrice: 112.2,
-    previousClose: 113.7,
-  },
-  {
-    symbol: "COST",
-    company: "Costco Wholesale",
-    sector: "Consumer Staples",
-    quantity: 8,
-    averagePrice: 574.8,
-    currentPrice: 842.1,
-    previousClose: 836.4,
-  },
-  {
-    symbol: "NVDA",
-    company: "NVIDIA Corp.",
-    sector: "Technology",
-    quantity: 38,
-    averagePrice: 86.5,
-    currentPrice: 121.9,
-    previousClose: 118.7,
-  },
-  {
-    symbol: "NEE",
-    company: "NextEra Energy",
-    sector: "Utilities",
-    quantity: 72,
-    averagePrice: 66.4,
-    currentPrice: 74.8,
-    previousClose: 73.9,
+    symbol: "ITC",
+    company: "ITC",
+    sector: "Fast Moving Consumer Goods",
+    quantity: 190,
+    averagePrice: 344,
+    currentPrice: 438,
+    previousClose: 435,
   },
 ];

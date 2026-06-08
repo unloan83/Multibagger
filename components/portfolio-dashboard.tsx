@@ -35,6 +35,7 @@ import {
   calculatePortfolioMetrics,
   formatCurrency,
   formatPercent,
+  identifySector,
   sampleHoldings,
 } from "@/lib/portfolio";
 import { cn } from "@/lib/utils";
@@ -74,15 +75,21 @@ export function PortfolioDashboard() {
       skipEmptyLines: true,
       complete: (result) => {
         const parsed = result.data
-          .map((row) => ({
-            symbol: row.symbol?.trim().toUpperCase() ?? "",
-            company: row.company?.trim() ?? "",
-            sector: row.sector?.trim() ?? "Unclassified",
-            quantity: Number(row.quantity),
-            averagePrice: Number(row.averagePrice),
-            currentPrice: Number(row.currentPrice),
-            previousClose: Number(row.previousClose),
-          }))
+          .map((row) => {
+            const symbol = row.symbol?.trim().toUpperCase() ?? "";
+            const company = row.company?.trim() ?? "";
+            const suppliedSector = row.sector?.trim();
+
+            return {
+              symbol,
+              company,
+              sector: suppliedSector || identifySector(symbol, company),
+              quantity: Number(row.quantity),
+              averagePrice: Number(row.averagePrice),
+              currentPrice: Number(row.currentPrice),
+              previousClose: Number(row.previousClose),
+            };
+          })
           .filter(
             (row) =>
               row.symbol &&
@@ -95,7 +102,7 @@ export function PortfolioDashboard() {
 
         if (parsed.length === 0) {
           setError(
-            "No valid rows found. Use columns: symbol, company, sector, quantity, averagePrice, currentPrice, previousClose.",
+            "No valid rows found. Use columns: symbol, company, quantity, averagePrice, currentPrice, previousClose. Sector is optional.",
           );
           return;
         }
@@ -120,7 +127,7 @@ export function PortfolioDashboard() {
               Portfolio Command Center
             </h1>
             <p className="max-w-2xl text-sm leading-6 text-muted-foreground">
-              Upload a holdings CSV to refresh valuation, allocation, growth, and concentration analytics.
+              Upload a holdings CSV to refresh INR valuation, sector allocation, growth, and concentration analytics.
             </p>
           </div>
           <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
@@ -204,11 +211,7 @@ export function PortfolioDashboard() {
                   </defs>
                   <CartesianGrid strokeDasharray="3 3" stroke="#d8e1e2" />
                   <XAxis dataKey="month" tickLine={false} axisLine={false} />
-                  <YAxis
-                    tickLine={false}
-                    axisLine={false}
-                    tickFormatter={(value) => `$${Number(value) / 1000}k`}
-                  />
+                  <YAxis tickLine={false} axisLine={false} tickFormatter={formatAxisInr} />
                   <Tooltip formatter={(value) => formatCurrency(Number(value))} />
                   <Area
                     type="monotone"
@@ -264,6 +267,18 @@ export function PortfolioDashboard() {
       </section>
     </main>
   );
+}
+
+function formatAxisInr(value: number) {
+  if (Math.abs(value) >= 10000000) {
+    return `₹${(value / 10000000).toFixed(1)}Cr`;
+  }
+
+  if (Math.abs(value) >= 100000) {
+    return `₹${(value / 100000).toFixed(1)}L`;
+  }
+
+  return `₹${Math.round(value / 1000)}k`;
 }
 
 function SummaryCard({

@@ -1,9 +1,9 @@
 symbol,company,sector,quantity,averagePrice,currentPrice,previousClose
-AAPL,Apple Inc.,Technology,48,164.20,193.48,190.88
-MSFT,Microsoft Corp.,Technology,26,328.80,421.90,419.12
-V,Visa Inc.,Financials,32,226.40,274.10,276.60
-LLY,Eli Lilly,Healthcare,9,512.50,796.30,787.40
-XOM,Exxon Mobil,Energy,58,98.60,112.20,113.70
-COST,Costco Wholesale,Consumer Staples,8,574.80,842.10,836.40
-NVDA,NVIDIA Corp.,Technology,38,86.50,121.90,118.70
-NEE,NextEra Energy,Utilities,72,66.40,74.80,73.90
+RELIANCE,Reliance Industries,,42,2380,2864,2838
+TCS,Tata Consultancy Services,,28,3310,3925,3898
+HDFCBANK,HDFC Bank,,68,1425,1668,1656
+INFY,Infosys,,54,1288,1516,1502
+ICICIBANK,ICICI Bank,,82,905,1118,1106
+SUNPHARMA,Sun Pharmaceutical Industries,,36,1025,1512,1496
+MARUTI,Maruti Suzuki India,,9,8420,12680,12592
+ITC,ITC,,190,344,438,435

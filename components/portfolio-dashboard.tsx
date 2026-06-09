@@ -172,6 +172,7 @@ export function PortfolioDashboard() {
   const [isExpertLoading, setIsExpertLoading] = useState(false);
   const [expandedPortfolioId, setExpandedPortfolioId] = useState<string | null>(null);
   const [hasRepricedSavedPortfolios, setHasRepricedSavedPortfolios] = useState(false);
+  const [isSheetsStorage, setIsSheetsStorage] = useState(false);
   const [hydrated, setHydrated] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -225,37 +226,66 @@ export function PortfolioDashboard() {
     }
   }, [fetchQuotePositions, portfolios]);
 
+  const repricePortfolioList = useCallback(
+    async (items: ManagedPortfolio[]) => {
+      return Promise.all(
+        items.map(async (portfolio) => {
+          if (portfolio.inputs.length === 0) {
+            return portfolio;
+          }
+
+          return {
+            ...portfolio,
+            positions: await fetchQuotePositions(portfolio.inputs),
+            refreshedAt: new Date().toISOString(),
+          };
+        }),
+      );
+    },
+    [fetchQuotePositions],
+  );
+
   useEffect(() => {
-    const savedPortfolios = window.localStorage.getItem(portfoliosStorageKey);
-    const savedHistory = window.localStorage.getItem(historyStorageKey);
+    async function hydratePortfolios() {
+      const savedHistory = window.localStorage.getItem(historyStorageKey);
 
-    if (savedPortfolios) {
-      const parsedPortfolios = JSON.parse(savedPortfolios) as ManagedPortfolio[];
-      const hasMarketPortfolio = parsedPortfolios.some(
-        (portfolio) => portfolio.id === marketRecommendationPortfolio.id,
-      );
+      if (savedHistory) {
+        setHistory(JSON.parse(savedHistory) as Recommendation[]);
+      }
 
-      setPortfolios(
-        [
-          ...(hasMarketPortfolio ? [] : [marketRecommendationPortfolio]),
-          ...parsedPortfolios,
-        ].map((portfolio) => ({
-          ...portfolio,
-          appetite: portfolio.appetite ?? "moderate",
-          isMarketPortfolio:
-            portfolio.isMarketPortfolio ??
-            portfolio.id === marketRecommendationPortfolio.id,
-          inputs: normalizePortfolioRows(portfolio.inputs),
-        })),
-      );
+      try {
+        const response = await fetch("/api/portfolios");
+        const payload = (await response.json()) as {
+          configured?: boolean;
+          portfolios?: ManagedPortfolio[];
+        };
+
+        if (response.ok && payload.configured) {
+          setIsSheetsStorage(true);
+          const loadedPortfolios = normalizeManagedPortfolios(
+            payload.portfolios ?? [],
+          );
+          const refreshed = await repricePortfolioList(loadedPortfolios);
+          setPortfolios(ensureMarketPortfolio(refreshed));
+          setHydrated(true);
+          return;
+        }
+      } catch {
+        setError("Google Sheets storage unavailable. Using this browser's local portfolio cache.");
+      }
+
+      const savedPortfolios = window.localStorage.getItem(portfoliosStorageKey);
+
+      if (savedPortfolios) {
+        const parsedPortfolios = JSON.parse(savedPortfolios) as ManagedPortfolio[];
+        setPortfolios(ensureMarketPortfolio(normalizeManagedPortfolios(parsedPortfolios)));
+      }
+
+      setHydrated(true);
     }
 
-    if (savedHistory) {
-      setHistory(JSON.parse(savedHistory) as Recommendation[]);
-    }
-
-    setHydrated(true);
-  }, []);
+    hydratePortfolios();
+  }, [fetchQuotePositions, repricePortfolioList]);
 
   useEffect(() => {
     refreshMarketOverview();
@@ -339,9 +369,12 @@ export function PortfolioDashboard() {
       return;
     }
 
-    window.localStorage.setItem(portfoliosStorageKey, JSON.stringify(portfolios));
+    if (!isSheetsStorage) {
+      window.localStorage.setItem(portfoliosStorageKey, JSON.stringify(portfolios));
+    }
+
     window.localStorage.setItem(historyStorageKey, JSON.stringify(history));
-  }, [hydrated, portfolios, history]);
+  }, [hydrated, isSheetsStorage, portfolios, history]);
 
   useEffect(() => {
     if (!hydrated || hasRepricedSavedPortfolios) {
@@ -474,6 +507,7 @@ export function PortfolioDashboard() {
         refreshedAt: new Date().toISOString(),
       };
 
+      await persistPortfolio(portfolio);
       setPortfolios((items) => [...items, portfolio]);
       setHistory((items) => [
         ...generateRecommendationList(portfolio, items),
@@ -506,6 +540,7 @@ export function PortfolioDashboard() {
         refreshedAt: new Date().toISOString(),
       };
 
+      await persistPortfolio(refreshed);
       setPortfolios((items) =>
         items.map((item) => (item.id === portfolio.id ? refreshed : item)),
       );
@@ -541,6 +576,7 @@ export function PortfolioDashboard() {
         refreshedAt: new Date().toISOString(),
       };
 
+      await persistPortfolio(updated);
       setPortfolios((items) =>
         items.map((item) => (item.id === portfolio.id ? updated : item)),
       );
@@ -565,7 +601,41 @@ export function PortfolioDashboard() {
     );
   }
 
-  function removePortfolio(id: string) {
+  async function persistPortfolio(portfolio: ManagedPortfolio) {
+    if (!isSheetsStorage || portfolio.isMarketPortfolio) {
+      return;
+    }
+
+    const method = portfolio.id ? "PUT" : "POST";
+    const url =
+      method === "PUT"
+        ? `/api/portfolios/${encodeURIComponent(portfolio.id)}`
+        : "/api/portfolios";
+
+    const response = await fetch(url, {
+      method,
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        portfolio: {
+          ...portfolio,
+          inputs: normalizePortfolioRows(portfolio.inputs),
+          positions: [],
+        },
+      }),
+    });
+
+    if (!response.ok) {
+      throw new Error("Unable to save portfolio to Google Sheets.");
+    }
+  }
+
+  async function removePortfolio(id: string) {
+    if (isSheetsStorage) {
+      await fetch(`/api/portfolios/${encodeURIComponent(id)}`, {
+        method: "DELETE",
+      });
+    }
+
     setPortfolios((items) => items.filter((item) => item.id !== id));
   }
 
@@ -1862,6 +1932,28 @@ function normalizePortfolioRows(rows: Array<Partial<PortfolioInputRow>>) {
   }, {});
 
   return Object.values(merged);
+}
+
+function normalizeManagedPortfolios(portfolios: ManagedPortfolio[]) {
+  return portfolios.map((portfolio) => ({
+    ...portfolio,
+    appetite: portfolio.appetite ?? "moderate",
+    isMarketPortfolio:
+      portfolio.isMarketPortfolio ??
+      portfolio.id === marketRecommendationPortfolio.id,
+    inputs: normalizePortfolioRows(portfolio.inputs ?? []),
+    positions: portfolio.positions ?? [],
+  }));
+}
+
+function ensureMarketPortfolio(portfolios: ManagedPortfolio[]) {
+  const hasMarketPortfolio = portfolios.some(
+    (portfolio) => portfolio.id === marketRecommendationPortfolio.id,
+  );
+
+  return hasMarketPortfolio
+    ? portfolios
+    : [marketRecommendationPortfolio, ...portfolios];
 }
 
 function formatTimestamp(value: string) {

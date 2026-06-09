@@ -3,6 +3,7 @@ import {
   isGoogleSheetsConfigured,
   readPortfoliosFromSheets,
   savePortfolioToSheets,
+  testGoogleSheetsConnection,
 } from "@/lib/google-sheets";
 import { isRequestAuthenticated } from "@/lib/auth";
 import type { ManagedPortfolio } from "@/lib/portfolio";
@@ -18,8 +19,21 @@ export async function GET() {
     return NextResponse.json({ configured: false, portfolios: [] });
   }
 
-  const portfolios = await readPortfoliosFromSheets();
-  return NextResponse.json({ configured: true, portfolios });
+  try {
+    const portfolios = await readPortfoliosFromSheets();
+    return NextResponse.json({ configured: true, portfolios });
+  } catch {
+    const status = await testGoogleSheetsConnection();
+    return NextResponse.json(
+      {
+        configured: true,
+        portfolios: [],
+        error: status.message,
+        status: status.status,
+      },
+      { status: 503 },
+    );
+  }
 }
 
 export async function POST(request: Request) {

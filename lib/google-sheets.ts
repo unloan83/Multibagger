@@ -17,6 +17,41 @@ export function isGoogleSheetsConfigured() {
   return Boolean(spreadsheetId && clientEmail && privateKey);
 }
 
+export function getGoogleSheetsConfigStatus() {
+  return {
+    spreadsheetId: Boolean(spreadsheetId),
+    clientEmail: Boolean(clientEmail),
+    privateKey: Boolean(privateKey),
+    configured: isGoogleSheetsConfigured(),
+  };
+}
+
+export async function testGoogleSheetsConnection() {
+  if (!isGoogleSheetsConfigured()) {
+    return {
+      ok: false,
+      status: getGoogleSheetsConfigStatus(),
+      message: "Google Sheets environment variables are incomplete.",
+    };
+  }
+
+  try {
+    const sheets = await getSheetsClient();
+    await sheets.spreadsheets.get({ spreadsheetId });
+    return {
+      ok: true,
+      status: getGoogleSheetsConfigStatus(),
+      message: "Google Sheets connection is working.",
+    };
+  } catch (error) {
+    return {
+      ok: false,
+      status: getGoogleSheetsConfigStatus(),
+      message: getSafeGoogleError(error),
+    };
+  }
+}
+
 export async function readPortfoliosFromSheets(): Promise<ManagedPortfolio[]> {
   if (!isGoogleSheetsConfigured()) {
     return [];
@@ -180,4 +215,29 @@ async function getSheetsClient() {
   });
 
   return google.sheets({ version: "v4", auth });
+}
+
+function getSafeGoogleError(error: unknown) {
+  const maybeError = error as {
+    code?: number;
+    message?: string;
+    errors?: Array<{ reason?: string; message?: string }>;
+  };
+  const reason = maybeError.errors?.[0]?.reason;
+
+  if (maybeError.code === 403) {
+    return "Google returned 403. Share the Sheet with the service account email as Editor and confirm the Google Sheets API is enabled.";
+  }
+
+  if (maybeError.code === 404) {
+    return "Google returned 404. Check GOOGLE_SHEETS_SPREADSHEET_ID and confirm the service account has access to that Sheet.";
+  }
+
+  if (reason === "authError" || maybeError.code === 401) {
+    return "Google authentication failed. Check GOOGLE_SERVICE_ACCOUNT_EMAIL and GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY formatting.";
+  }
+
+  return maybeError.message
+    ? `Google Sheets error: ${maybeError.message}`
+    : "Unknown Google Sheets error.";
 }

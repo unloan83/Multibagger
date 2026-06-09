@@ -258,6 +258,7 @@ export function PortfolioDashboard() {
         const payload = (await response.json()) as {
           configured?: boolean;
           portfolios?: ManagedPortfolio[];
+          error?: string;
         };
 
         if (response.ok && payload.configured) {
@@ -269,6 +270,10 @@ export function PortfolioDashboard() {
           setPortfolios(ensureMarketPortfolio(refreshed));
           setHydrated(true);
           return;
+        }
+
+        if (payload.configured && payload.error) {
+          setError(payload.error);
         }
       } catch {
         setError("Google Sheets storage unavailable. Using this browser's local portfolio cache.");

@@ -1,13 +1,15 @@
+import fs from "node:fs/promises";
+import path from "node:path";
 import { NextResponse } from "next/server";
 import {
   analyzeStockSignal,
   buildSignalRemark,
-  getSignalAction,
   type PriceBar,
   type StockSignalMetrics,
 } from "@/lib/analysis";
 
 export const dynamic = "force-dynamic";
+export const runtime = "nodejs";
 
 type YahooChartResponse = {
   chart?: {
@@ -43,7 +45,7 @@ type ExpertQuote = {
   target: number;
   upside: number;
   score: number;
-  action: "Accumulate" | "Urgent Sell";
+  action: "Accumulate";
   remark: string;
   caveats: string[];
   metrics: StockSignalMetrics;
@@ -54,6 +56,13 @@ type ExpertCategory = {
   title: string;
   longTermUpsides: ExpertQuote[];
   intradayBreakouts: ExpertQuote[];
+};
+
+type ConsecutivePick = {
+  symbol: string;
+  name: string;
+  appearances: number;
+  categories: string[];
 };
 
 const expertUniverse = {
@@ -122,19 +131,21 @@ export async function GET() {
           ),
         )
       ).filter((quote) => quote.price > 0);
+      const buyCandidates = quotes.filter(isBuyCandidate);
 
       return {
         key,
         title: categoryMeta[key as keyof typeof categoryMeta].title,
-        longTermUpsides: [...quotes]
+        longTermUpsides: [...buyCandidates]
           .sort((a, b) => b.score + b.upside - (a.score + a.upside))
           .slice(0, 5),
-        intradayBreakouts: [...quotes]
+        intradayBreakouts: [...buyCandidates]
           .sort((a, b) => b.metrics.finalScore + b.volumeShock * 5 - (a.metrics.finalScore + a.volumeShock * 5))
           .slice(0, 5),
       } satisfies ExpertCategory;
     }),
   );
+  const consecutivePicks = await getConsecutiveExpertPicks(categories);
 
   return NextResponse.json({
     title: "Expert Action Matrix",
@@ -143,6 +154,7 @@ export async function GET() {
     asOf: new Date().toISOString(),
     refreshCycle: "Intraday breakout signals refresh every 5 minutes; long-term targets refresh every 15 minutes.",
     caveat: "For research and screening only. Validate with fundamentals, news, liquidity, and risk controls before investing.",
+    consecutivePicks,
     categories,
   });
 }
@@ -159,7 +171,7 @@ async function fetchExpertQuote(symbol: string, segment: string): Promise<Expert
     target: 0,
     upside: 0,
     score: 0,
-    action: "Urgent Sell" as const,
+    action: "Accumulate" as const,
     remark: "Quote unavailable.",
     caveats: ["Quote unavailable; do not act without live validation."],
     metrics: analyzeStockSignal({ symbol, price: 0, previousClose: 0 }),
@@ -211,7 +223,7 @@ async function fetchExpertQuote(symbol: string, segment: string): Promise<Expert
       target: metrics.target,
       upside: metrics.upsidePercent,
       score: metrics.finalScore,
-      action: getSignalAction(metrics, "intraday"),
+      action: "Accumulate",
       remark: buildSignalRemark(metrics, "intraday"),
       caveats: metrics.caveats,
       metrics,
@@ -219,6 +231,111 @@ async function fetchExpertQuote(symbol: string, segment: string): Promise<Expert
   } catch {
     return fallback;
   }
+}
+
+function isBuyCandidate(quote: ExpertQuote) {
+  return (
+    quote.score >= 52 &&
+    quote.upside > 0 &&
+    quote.metrics.ema20 >= quote.metrics.ema50 * 0.985 &&
+    quote.metrics.riskScore <= 14
+  );
+}
+
+async function getConsecutiveExpertPicks(
+  categories: ExpertCategory[],
+): Promise<ConsecutivePick[]> {
+  const csvPicks = await readConsecutivePicksFromCsv();
+  const liveSymbols = new Set(
+    categories.flatMap((category) =>
+      [...category.longTermUpsides, ...category.intradayBreakouts].map(
+        (quote) => quote.symbol,
+      ),
+    ),
+  );
+
+  return csvPicks.filter((pick) => liveSymbols.has(pick.symbol));
+}
+
+async function readConsecutivePicksFromCsv(): Promise<ConsecutivePick[]> {
+  try {
+    const csvPath = path.join(process.cwd(), "data", "daily_recommendations.csv");
+    const csv = await fs.readFile(csvPath, "utf8");
+    const [headerLine, ...lines] = csv.split(/\r?\n/u).filter(Boolean);
+    const headers = parseCsvLine(headerLine);
+    const rows = lines.map((line) => {
+      const cells = parseCsvLine(line);
+      return Object.fromEntries(headers.map((header, index) => [header, cells[index] ?? ""]));
+    });
+    const expertRows = rows.filter((row) =>
+      row.source === "expert-action-matrix" &&
+      row.action === "Accumulate" &&
+      row.symbol &&
+      row.date,
+    );
+    const sortedDates = [...new Set(expertRows.map((row) => row.date))].sort().slice(-2);
+
+    if (sortedDates.length < 2) {
+      return [];
+    }
+
+    const bySymbol = expertRows
+      .filter((row) => sortedDates.includes(row.date))
+      .reduce<Record<string, ConsecutivePick & { dates: Set<string> }>>((acc, row) => {
+        const current =
+          acc[row.symbol] ??
+          {
+            symbol: row.symbol,
+            name: row.stock_name || row.symbol,
+            appearances: 0,
+            categories: [],
+            dates: new Set<string>(),
+          };
+
+        current.dates.add(row.date);
+        current.categories = [...new Set([...current.categories, row.segment])];
+        acc[row.symbol] = current;
+        return acc;
+      }, {});
+
+    return Object.values(bySymbol)
+      .filter((item) => item.dates.size >= 2)
+      .map((item) => ({
+        symbol: item.symbol,
+        name: item.name,
+        appearances: item.dates.size,
+        categories: item.categories,
+      }))
+      .slice(0, 12);
+  } catch {
+    return [];
+  }
+}
+
+function parseCsvLine(line: string) {
+  const cells: string[] = [];
+  let current = "";
+  let quoted = false;
+
+  for (let index = 0; index < line.length; index += 1) {
+    const char = line[index];
+    const next = line[index + 1];
+
+    if (char === '"' && quoted && next === '"') {
+      current += '"';
+      index += 1;
+    } else if (char === '"') {
+      quoted = !quoted;
+    } else if (char === "," && !quoted) {
+      cells.push(current);
+      current = "";
+    } else {
+      current += char;
+    }
+  }
+
+  cells.push(current);
+  return cells;
 }
 
 function buildPriceBars(quote?: {

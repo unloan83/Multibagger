@@ -131,6 +131,12 @@ type ExpertActionMatrix = {
   asOf: string;
   refreshCycle?: string;
   caveat?: string;
+  consecutivePicks?: Array<{
+    symbol: string;
+    name: string;
+    appearances: number;
+    categories: string[];
+  }>;
   categories: ExpertMatrixCategory[];
 };
 
@@ -159,12 +165,13 @@ export function PortfolioDashboard() {
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const fetchQuotePositions = useCallback(async (rows: PortfolioInputRow[]) => {
+    const normalizedRows = normalizePortfolioRows(rows);
     const response = await fetch("/api/quotes", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
       },
-      body: JSON.stringify({ rows }),
+      body: JSON.stringify({ rows: normalizedRows }),
     });
     const payload = (await response.json()) as {
       positions?: PortfolioPosition[];
@@ -227,14 +234,7 @@ export function PortfolioDashboard() {
           isMarketPortfolio:
             portfolio.isMarketPortfolio ??
             portfolio.id === marketRecommendationPortfolio.id,
-          inputs: portfolio.inputs.map((row) => ({
-            ...buildPortfolioInputRow({
-              stockCode: row.stockCode || row.stock,
-              company: row.company,
-              quantity: row.quantity,
-            }),
-            list: row.list,
-          })),
+          inputs: normalizePortfolioRows(portfolio.inputs),
         })),
       );
     }
@@ -270,6 +270,58 @@ export function PortfolioDashboard() {
 
     return () => window.clearInterval(portfolioInterval);
   }, [hydrated, repriceSavedPortfolios]);
+
+  useEffect(() => {
+    if (!expertMatrix?.consecutivePicks) {
+      return;
+    }
+
+    const marketInputs = expertMatrix.consecutivePicks.map((pick) =>
+      buildPortfolioInputRow({
+        stockCode: pick.symbol,
+        company: pick.name,
+      }),
+    );
+
+    if (marketInputs.length === 0) {
+      setPortfolios((items) =>
+        items.map((portfolio) =>
+          portfolio.id === marketRecommendationPortfolio.id
+            ? {
+                ...portfolio,
+                inputs: [],
+                positions: [],
+                refreshedAt: new Date().toISOString(),
+              }
+            : portfolio,
+        ),
+      );
+      return;
+    }
+
+    fetchQuotePositions(marketInputs)
+      .then((positions) => {
+        setPortfolios((items) =>
+          items.map((portfolio) =>
+            portfolio.id === marketRecommendationPortfolio.id
+              ? {
+                  ...portfolio,
+                  inputs: normalizePortfolioRows(marketInputs),
+                  positions: positions.map((position) => ({
+                    ...position,
+                    list: "watchlist" as const,
+                    quantity: 0,
+                  })),
+                  refreshedAt: new Date().toISOString(),
+                }
+              : portfolio,
+          ),
+        );
+      })
+      .catch(() => {
+        setError("Market Recommendation could not refresh repeated expert picks.");
+      });
+  }, [expertMatrix, fetchQuotePositions]);
 
   useEffect(() => {
     if (!hydrated) {
@@ -374,7 +426,7 @@ export function PortfolioDashboard() {
 
   async function addPortfolio() {
     const cleanName = portfolioName.trim();
-    const cleanRows = draftRows.filter(
+    const cleanRows = normalizePortfolioRows(draftRows).filter(
       (row) =>
         row.stock.trim() &&
         (row.list === "watchlist" ||
@@ -459,7 +511,7 @@ export function PortfolioDashboard() {
     portfolio: ManagedPortfolio,
     rows: PortfolioInputRow[],
   ) {
-    const cleanRows = rows.filter((row) => row.stockCode || row.company);
+    const cleanRows = normalizePortfolioRows(rows).filter((row) => row.stockCode || row.company);
     setIsLoading(true);
     setError(null);
 
@@ -1200,7 +1252,7 @@ function PortfolioColumn({
             value={formatCurrency(metrics.totalValue)}
             detail={
               portfolio.isMarketPortfolio
-                ? "Market idea board"
+                ? "2-day repeated Expert Insight picks"
                 : `${metrics.holdings.length} active holdings`
             }
             onClick={portfolio.isMarketPortfolio ? undefined : onToggleValue}
@@ -1478,6 +1530,12 @@ function RecommendationBlock({
             ) : null}
           </div>
         ))}
+        {items.length === 0 ? (
+          <div className="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-xs leading-5 text-amber-950">
+            No buy-grade candidates in this section right now. The model is waiting for
+            better trend, VWAP, ATR, volume, and risk confirmation before showing a stock.
+          </div>
+        ) : null}
       </div>
     </section>
   );
@@ -1663,6 +1721,47 @@ function getQuoteScore(positions: PortfolioPosition[]) {
   }, 0);
 
   return Math.round((availableSignals / totalSignals) * 100);
+}
+
+function normalizePortfolioRows(rows: Array<Partial<PortfolioInputRow>>) {
+  const merged = rows.reduce<Record<string, PortfolioInputRow>>((acc, row) => {
+    const stockCode = String(row.stockCode || "")
+      .trim()
+      .toUpperCase()
+      .replace(/\.NS$|\.BO$/u, "");
+    const company = String(row.company || row.stock || "").trim();
+    const quantity = parseQuantity(row.quantity);
+    const key = stockCode || company.toLowerCase();
+
+    if (!key) {
+      return acc;
+    }
+
+    const normalized = buildPortfolioInputRow({
+      stockCode,
+      company,
+      quantity,
+    });
+    const existing = acc[key];
+
+    if (!existing) {
+      acc[key] = normalized;
+      return acc;
+    }
+
+    const nextQuantity = existing.quantity + normalized.quantity;
+    acc[key] = {
+      ...existing,
+      company: existing.company || normalized.company,
+      stock: existing.stockCode || existing.company || normalized.stock,
+      list: nextQuantity > 0 ? "current" : "watchlist",
+      quantity: nextQuantity,
+    };
+
+    return acc;
+  }, {});
+
+  return Object.values(merged);
 }
 
 function formatTimestamp(value: string) {

@@ -257,9 +257,9 @@ async function buildPortfolioRows() {
         category: "portfolio-short-term",
         source: "portfolio-analysis",
         segment: "Short-Term Buy/Sell Analysis",
-        action: quote.changePercent < -2 ? "Urgent Sell" : "Accumulate",
+        action: "Accumulate",
         portfolio: "public/portfolio.csv",
-        notes: "Repo portfolio recommendation from uploaded-format seed file",
+        notes: "Repo portfolio buy candidate from uploaded-format seed file",
       }),
     ),
     ...longTerm.map((quote) =>
@@ -268,9 +268,9 @@ async function buildPortfolioRows() {
         category: "portfolio-long-term",
         source: "portfolio-analysis",
         segment: "Long-Term Buy/Sell Plan",
-        action: quote.upside > 10 ? "Accumulate" : "Urgent Sell",
+        action: "Accumulate",
         portfolio: "public/portfolio.csv",
-        notes: "Repo portfolio recommendation from uploaded-format seed file",
+        notes: "Repo portfolio buy candidate from uploaded-format seed file",
       }),
     ),
   ];

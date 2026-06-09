@@ -340,7 +340,7 @@ export function formatPercent(value: number) {
 export function calculatePortfolioMetrics(
   positions: PortfolioPosition[],
 ): PortfolioMetrics {
-  const currentPositions = positions.filter(
+  const currentPositions = mergePortfolioPositions(positions).filter(
     (position) => position.list === "current" && position.quantity > 0,
   );
   const baseHoldings = currentPositions.map((holding) => {
@@ -406,6 +406,37 @@ export function calculatePortfolioMetrics(
     sectorAllocations,
     growth: buildGrowthSeries(totalValue - dayChange, totalValue),
   };
+}
+
+function mergePortfolioPositions(positions: PortfolioPosition[]) {
+  return Object.values(
+    positions.reduce<Record<string, PortfolioPosition>>((acc, position) => {
+      const key = `${position.symbol}-${position.list}`;
+      const existing = acc[key];
+
+      if (!existing) {
+        acc[key] = {
+          ...position,
+          quantity: parseQuantity(position.quantity),
+        };
+        return acc;
+      }
+
+      acc[key] = {
+        ...existing,
+        quantity: existing.quantity + parseQuantity(position.quantity),
+        currentPrice: position.currentPrice || existing.currentPrice,
+        previousClose: position.previousClose || existing.previousClose,
+        volume: position.volume || existing.volume,
+        bars: position.bars?.length ? position.bars : existing.bars,
+        newsHeadlines: position.newsHeadlines?.length
+          ? position.newsHeadlines
+          : existing.newsHeadlines,
+      };
+
+      return acc;
+    }, {}),
+  );
 }
 
 function buildGrowthSeries(previousValue: number, totalValue: number): GrowthPoint[] {
@@ -620,18 +651,8 @@ export const marketRecommendationPortfolio: ManagedPortfolio = {
   name: "Market Recommendation",
   appetite: "moderate",
   isMarketPortfolio: true,
-  inputs: [
-    buildPortfolioInputRow({ stockCode: "TCS", company: "Tata Consultancy Services" }),
-    buildPortfolioInputRow({ stockCode: "RELIANCE", company: "Reliance Industries" }),
-    buildPortfolioInputRow({ stockCode: "MARUTI", company: "Maruti Suzuki India" }),
-    buildPortfolioInputRow({ stockCode: "SUNPHARMA", company: "Sun Pharmaceutical Industries" }),
-    buildPortfolioInputRow({ stockCode: "TITAN", company: "Titan Company" }),
-  ],
-  positions: samplePositions.map((position) => ({
-    ...position,
-    list: "watchlist",
-    quantity: 0,
-  })),
+  inputs: [],
+  positions: [],
   refreshedAt: new Date("2026-06-08T06:00:00.000Z").toISOString(),
 };
 
@@ -794,9 +815,11 @@ export function generateRecommendations(
   );
 
   return {
-    intraday,
-    longTermPlan,
-    multibaggerCandidates,
+    intraday: intraday.filter((item) => item.action === "Accumulate"),
+    longTermPlan: longTermPlan.filter((item) => item.action === "Accumulate"),
+    multibaggerCandidates: multibaggerCandidates.filter(
+      (item) => item.action === "Accumulate",
+    ),
     etfs,
   };
 }

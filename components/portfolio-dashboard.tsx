@@ -1532,8 +1532,8 @@ function RecommendationBlock({
         ))}
         {items.length === 0 ? (
           <div className="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-xs leading-5 text-amber-950">
-            No buy-grade candidates in this section right now. The model is waiting for
-            better trend, VWAP, ATR, volume, and risk confirmation before showing a stock.
+            No qualifying signals in this section right now. The model is waiting for
+            clearer trend, VWAP, ATR, volume, and risk confirmation before showing a stock.
           </div>
         ) : null}
       </div>

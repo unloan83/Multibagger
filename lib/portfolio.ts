@@ -815,11 +815,9 @@ export function generateRecommendations(
   );
 
   return {
-    intraday: intraday.filter((item) => item.action === "Accumulate"),
-    longTermPlan: longTermPlan.filter((item) => item.action === "Accumulate"),
-    multibaggerCandidates: multibaggerCandidates.filter(
-      (item) => item.action === "Accumulate",
-    ),
+    intraday,
+    longTermPlan,
+    multibaggerCandidates,
     etfs,
   };
 }

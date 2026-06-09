@@ -70,6 +70,8 @@ type CsvRow = {
   type?: string;
   "stock code"?: string;
   stockCode?: string;
+  symbol?: string;
+  ticker?: string;
   code?: string;
   stock?: string;
   name?: string;
@@ -386,7 +388,13 @@ export function PortfolioDashboard() {
       complete: (result) => {
         const parsed = result.data
           .map((row) => {
-            const stockCode = getCsvValue(row, ["stock code", "stockCode", "code"])
+            const stockCode = getCsvValue(row, [
+              "stock code",
+              "stockCode",
+              "symbol",
+              "ticker",
+              "code",
+            ])
               .trim()
               .toUpperCase();
             const company = getCsvValue(row, ["company", "stock", "name"]).trim();
@@ -413,7 +421,7 @@ export function PortfolioDashboard() {
           );
 
         if (parsed.length === 0) {
-          setError("CSV needs stock code, company, quantity columns.");
+          setError("CSV needs stock code or symbol, company, quantity columns.");
           return;
         }
 
@@ -719,7 +727,7 @@ function AddPortfolioPanel({
       <CardHeader>
         <CardTitle>Add Portfolio</CardTitle>
         <CardDescription>
-          Enter stocks manually or upload CSV with columns: stock code, company, quantity.
+          Enter stocks manually or upload CSV with columns: stock code or symbol, company, quantity.
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">

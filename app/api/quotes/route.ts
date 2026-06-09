@@ -84,9 +84,16 @@ function normalizeRows(rows: Array<Partial<PortfolioInputRow>>): PortfolioInputR
       const rowWithLooseKeys = row as Partial<PortfolioInputRow> & {
         "stock code"?: string;
         code?: string;
+        symbol?: string;
+        ticker?: string;
       };
       const stockCode = String(
-        rowWithLooseKeys.stockCode ?? rowWithLooseKeys["stock code"] ?? rowWithLooseKeys.code ?? "",
+        rowWithLooseKeys.stockCode ??
+          rowWithLooseKeys["stock code"] ??
+          rowWithLooseKeys.symbol ??
+          rowWithLooseKeys.ticker ??
+          rowWithLooseKeys.code ??
+          "",
       )
         .trim()
         .toUpperCase();

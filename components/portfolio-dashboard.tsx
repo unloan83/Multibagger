@@ -982,7 +982,7 @@ function AddPortfolioPanel({
 
         <div className="space-y-2">
           {draftRows.map((row, index) => (
-            <div key={`${row.stock}-${index}`} className="grid gap-2 md:grid-cols-[150px_1fr_120px_120px_40px]">
+            <div key={`draft-row-${index}`} className="grid gap-2 md:grid-cols-[150px_1fr_120px_120px_40px]">
               <input
                 value={row.stockCode}
                 onChange={(event) => {
@@ -1853,7 +1853,7 @@ function PortfolioDetailsEditor({
       <div className="space-y-2">
         {rows.map((row, index) => (
           <PortfolioDetailRow
-            key={`${row.stockCode}-${row.company}-${index}`}
+            key={`portfolio-detail-row-${index}`}
             index={index}
             positions={positions}
             row={row}

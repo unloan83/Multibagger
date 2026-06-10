@@ -1,0 +1,12 @@
+{
+  "crons": [
+    {
+      "path": "/api/snapshots/recommendations",
+      "schedule": "30 4 * * 1-5"
+    },
+    {
+      "path": "/api/snapshots/market-movers",
+      "schedule": "15 11 * * 1-5"
+    }
+  ]
+}

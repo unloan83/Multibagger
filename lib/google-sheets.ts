@@ -5,6 +5,7 @@ import type {
   PortfolioInputRow,
 } from "@/lib/portfolio";
 import { buildPortfolioInputRow } from "@/lib/portfolio";
+import type { MarketQuote } from "@/lib/market-overview";
 
 const spreadsheetId = process.env.GOOGLE_SHEETS_SPREADSHEET_ID;
 const clientEmail = process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL;
@@ -12,6 +13,39 @@ const privateKey = process.env.GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY?.replace(/\\n/
 
 const portfoliosSheet = "Portfolios";
 const holdingsSheet = "Holdings";
+const validationSheet = "Validation";
+const marketMoversSheet = "Market Movers";
+
+export type ValidationSource =
+  | "expert-insight"
+  | "portfolio-recommendation"
+  | "watchlist"
+  | "market-recommendation";
+
+export type ValidationRow = {
+  timestamp: string;
+  source: ValidationSource;
+  portfolioName: string;
+  section: string;
+  symbol: string;
+  company: string;
+  action: string;
+  horizon: string;
+  predictedPrice: number;
+  targetPrice: number;
+  predictedUpsidePercent: number;
+  score: number;
+  confidence: number;
+  caveat: string;
+  rationale: string;
+};
+
+export type MarketMoverRow = {
+  timestamp: string;
+  segment: string;
+  category: "gainer" | "loser";
+  quote: MarketQuote;
+};
 
 export function isGoogleSheetsConfigured() {
   return Boolean(spreadsheetId && clientEmail && privateKey);
@@ -114,6 +148,93 @@ export async function savePortfolioToSheets(portfolio: ManagedPortfolio) {
   await writePortfolios(nextPortfolios);
 }
 
+export async function appendValidationRows(rows: ValidationRow[]) {
+  if (!isGoogleSheetsConfigured()) {
+    throw new Error("Google Sheets is not configured.");
+  }
+
+  if (rows.length === 0) {
+    return;
+  }
+
+  const sheets = await getSheetsClient();
+  await ensureSheets();
+  await sheets.spreadsheets.values.append({
+    spreadsheetId,
+    range: rangeFor(validationSheet, "A:S"),
+    valueInputOption: "USER_ENTERED",
+    insertDataOption: "INSERT_ROWS",
+    requestBody: {
+      values: rows.map((row) => {
+        const date = toIstDate(row.timestamp);
+
+        return [
+          toIstTimestamp(row.timestamp),
+          date,
+          row.source,
+          row.portfolioName,
+          row.section,
+          row.symbol,
+          row.company,
+          row.action,
+          row.horizon,
+          row.predictedPrice,
+          row.targetPrice,
+          row.predictedUpsidePercent,
+          row.score,
+          row.confidence,
+          "NA",
+          "",
+          "",
+          row.caveat,
+          row.rationale,
+        ];
+      }),
+    },
+  });
+}
+
+export async function appendMarketMoverRows(rows: MarketMoverRow[]) {
+  if (!isGoogleSheetsConfigured()) {
+    throw new Error("Google Sheets is not configured.");
+  }
+
+  if (rows.length === 0) {
+    return;
+  }
+
+  const sheets = await getSheetsClient();
+  await ensureSheets();
+  await sheets.spreadsheets.values.append({
+    spreadsheetId,
+    range: rangeFor(marketMoversSheet, "A:N"),
+    valueInputOption: "USER_ENTERED",
+    insertDataOption: "INSERT_ROWS",
+    requestBody: {
+      values: rows.map((row) => {
+        const date = toIstDate(row.timestamp);
+
+        return [
+          toIstTimestamp(row.timestamp),
+          date,
+          row.segment,
+          row.category,
+          row.quote.symbol,
+          row.quote.name,
+          row.quote.price,
+          row.quote.previousClose,
+          row.quote.change,
+          row.quote.changePercent,
+          row.quote.volume,
+          "NA",
+          "",
+          "",
+        ];
+      }),
+    },
+  });
+}
+
 export async function deletePortfolioFromSheets(id: string) {
   if (!isGoogleSheetsConfigured()) {
     throw new Error("Google Sheets is not configured.");
@@ -125,7 +246,10 @@ export async function deletePortfolioFromSheets(id: string) {
 
 async function writePortfolios(portfolios: ManagedPortfolio[]) {
   const sheets = await getSheetsClient();
-  await ensureSheets();
+  const portfolioSheetNames = portfolios
+    .filter((portfolio) => !portfolio.isMarketPortfolio)
+    .map((portfolio) => getPortfolioSheetName(portfolio.name));
+  await ensureSheets(portfolioSheetNames);
   const portfolioValues = portfolios.map((portfolio) => [
     portfolio.id,
     portfolio.name,
@@ -147,7 +271,7 @@ async function writePortfolios(portfolios: ManagedPortfolio[]) {
   await sheets.spreadsheets.values.batchClear({
     spreadsheetId,
     requestBody: {
-      ranges: [`${portfoliosSheet}!A2:E`, `${holdingsSheet}!A2:F`],
+      ranges: [rangeFor(portfoliosSheet, "A2:E"), rangeFor(holdingsSheet, "A2:F")],
     },
   });
   await sheets.spreadsheets.values.batchUpdate({
@@ -156,25 +280,76 @@ async function writePortfolios(portfolios: ManagedPortfolio[]) {
       valueInputOption: "USER_ENTERED",
       data: [
         {
-          range: `${portfoliosSheet}!A2:E`,
+          range: rangeFor(portfoliosSheet, "A2:E"),
           values: portfolioValues,
         },
         {
-          range: `${holdingsSheet}!A2:F`,
+          range: rangeFor(holdingsSheet, "A2:F"),
           values: holdingValues,
+        },
+      ],
+    },
+  });
+
+  await Promise.all(
+    portfolios
+      .filter((portfolio) => !portfolio.isMarketPortfolio)
+      .map((portfolio) => writePortfolioTab(sheets, portfolio)),
+  );
+}
+
+async function writePortfolioTab(
+  sheets: Awaited<ReturnType<typeof getSheetsClient>>,
+  portfolio: ManagedPortfolio,
+) {
+  const title = getPortfolioSheetName(portfolio.name);
+  const updatedAt = new Date().toISOString();
+
+  await sheets.spreadsheets.values.batchClear({
+    spreadsheetId,
+    requestBody: {
+      ranges: [rangeFor(title, "A2:F")],
+    },
+  });
+  await sheets.spreadsheets.values.batchUpdate({
+    spreadsheetId,
+    requestBody: {
+      valueInputOption: "USER_ENTERED",
+      data: [
+        {
+          range: rangeFor(title, "A1:F1"),
+          values: [["stock_code", "company", "quantity", "list", "appetite", "updated_at"]],
+        },
+        {
+          range: rangeFor(title, "A2:F"),
+          values: portfolio.inputs.map((row) => [
+            row.stockCode,
+            row.company,
+            row.quantity,
+            row.list,
+            portfolio.appetite,
+            updatedAt,
+          ]),
         },
       ],
     },
   });
 }
 
-async function ensureSheets() {
+async function ensureSheets(additionalTitles: string[] = []) {
   const sheets = await getSheetsClient();
   const spreadsheet = await sheets.spreadsheets.get({ spreadsheetId });
   const names =
     spreadsheet.data.sheets?.map((sheet) => sheet.properties?.title).filter(Boolean) ??
     [];
-  const requests = [portfoliosSheet, holdingsSheet]
+  const requests = [
+    portfoliosSheet,
+    holdingsSheet,
+    validationSheet,
+    marketMoversSheet,
+    ...additionalTitles,
+  ]
+    .filter((title, index, titles) => titles.indexOf(title) === index)
     .filter((title) => !names.includes(title))
     .map((title) => ({
       addSheet: {
@@ -195,16 +370,91 @@ async function ensureSheets() {
       valueInputOption: "USER_ENTERED",
       data: [
         {
-          range: `${portfoliosSheet}!A1:E1`,
+          range: rangeFor(portfoliosSheet, "A1:E1"),
           values: [["id", "name", "appetite", "is_market_portfolio", "refreshed_at"]],
         },
         {
-          range: `${holdingsSheet}!A1:F1`,
+          range: rangeFor(holdingsSheet, "A1:F1"),
           values: [["portfolio_id", "stock_code", "company", "quantity", "list", "updated_at"]],
+        },
+        {
+          range: rangeFor(validationSheet, "A1:S1"),
+          values: [[
+            "timestamp_ist",
+            "date",
+            "source",
+            "portfolio",
+            "section",
+            "symbol",
+            "company",
+            "action",
+            "horizon",
+            "predicted_price",
+            "target_price",
+            "predicted_upside_percent",
+            "score",
+            "confidence",
+            "validation_status",
+            "hit_timestamp",
+            "actual_price",
+            "caveat",
+            "rationale",
+          ]],
+        },
+        {
+          range: rangeFor(marketMoversSheet, "A1:N1"),
+          values: [[
+            "timestamp_ist",
+            "date",
+            "segment",
+            "category",
+            "symbol",
+            "company",
+            "price",
+            "previous_close",
+            "change",
+            "change_percent",
+            "volume",
+            "validation_status",
+            "hit_timestamp",
+            "actual_price",
+          ]],
         },
       ],
     },
   });
+}
+
+function getPortfolioSheetName(name: string) {
+  const cleanName =
+    name
+      .trim()
+      .replace(/[\[\]:*?/\\]/gu, " ")
+      .replace(/\s+/gu, " ")
+      .slice(0, 88) || "Portfolio";
+
+  return `Portfolio - ${cleanName}`;
+}
+
+function rangeFor(sheet: string, range: string) {
+  return `'${sheet.replace(/'/gu, "''")}'!${range}`;
+}
+
+function toIstDate(timestamp: string) {
+  return new Intl.DateTimeFormat("en-CA", {
+    day: "2-digit",
+    month: "2-digit",
+    timeZone: "Asia/Kolkata",
+    year: "numeric",
+  }).format(new Date(timestamp));
+}
+
+function toIstTimestamp(timestamp: string) {
+  return new Intl.DateTimeFormat("en-IN", {
+    dateStyle: "medium",
+    timeStyle: "medium",
+    timeZone: "Asia/Kolkata",
+  }).format(new Date(timestamp));
 }
 
 async function getSheetsClient() {

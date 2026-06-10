@@ -15,11 +15,12 @@ export async function middleware(request: NextRequest) {
     pathname.startsWith("/favicon") ||
     pathname.match(/\.(?:png|jpg|jpeg|gif|webp|svg|ico|css|js)$/u);
   const isAuthApi = pathname.startsWith("/api/auth");
+  const isSnapshotApi = pathname.startsWith("/api/snapshots");
   const isAuthenticated = await verifySessionValue(
     request.cookies.get(sessionCookieName)?.value,
   );
 
-  if (isPublicAsset || isAuthApi) {
+  if (isPublicAsset || isAuthApi || isSnapshotApi) {
     return NextResponse.next();
   }
 

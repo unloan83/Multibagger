@@ -9,7 +9,6 @@ import {
   Tooltip,
 } from "recharts";
 import {
-  Download,
   ChevronDown,
   FileUp,
   Plus,
@@ -17,9 +16,9 @@ import {
   Sparkles,
   Trash2,
 } from "lucide-react";
+import Image from "next/image";
 import { Button } from "@/components/ui/button";
 import { PortfolioCoach } from "@/components/portfolio-coach";
-import { PortfolioHealthScore } from "@/components/portfolio-health-score";
 import { PortfolioRiskEngine } from "@/components/portfolio-risk-engine";
 import {
   Card,
@@ -42,13 +41,11 @@ import {
   PortfolioInputRow,
   PortfolioPosition,
   Recommendation,
-  RecommendationStatus,
   buildPortfolioInputRow,
   calculatePortfolioMetrics,
   formatCurrency,
   formatPercent,
   generateRecommendations,
-  marketRecommendationPortfolio,
   parseQuantity,
   samplePortfolio,
 } from "@/lib/portfolio";
@@ -156,7 +153,6 @@ type ExpertActionMatrix = {
 
 export function PortfolioDashboard() {
   const [portfolios, setPortfolios] = useState<ManagedPortfolio[]>([
-    marketRecommendationPortfolio,
     samplePortfolio,
   ]);
   const [history, setHistory] = useState<Recommendation[]>([]);
@@ -173,6 +169,7 @@ export function PortfolioDashboard() {
   const [isMarketLoading, setIsMarketLoading] = useState(false);
   const [expertMatrix, setExpertMatrix] = useState<ExpertActionMatrix | null>(null);
   const [isExpertLoading, setIsExpertLoading] = useState(false);
+  const [isAdvancedOpen, setIsAdvancedOpen] = useState(false);
   const [expandedPortfolioId, setExpandedPortfolioId] = useState<string | null>(null);
   const [hasRepricedSavedPortfolios, setHasRepricedSavedPortfolios] = useState(false);
   const [isSheetsStorage, setIsSheetsStorage] = useState(false);
@@ -270,7 +267,7 @@ export function PortfolioDashboard() {
             payload.portfolios ?? [],
           );
           const refreshed = await repricePortfolioList(loadedPortfolios);
-          setPortfolios(ensureMarketPortfolio(refreshed));
+          setPortfolios(filterHomepagePortfolios(refreshed));
           setHydrated(true);
           return;
         }
@@ -286,7 +283,7 @@ export function PortfolioDashboard() {
 
       if (savedPortfolios) {
         const parsedPortfolios = JSON.parse(savedPortfolios) as ManagedPortfolio[];
-        setPortfolios(ensureMarketPortfolio(normalizeManagedPortfolios(parsedPortfolios)));
+        setPortfolios(filterHomepagePortfolios(normalizeManagedPortfolios(parsedPortfolios)));
       }
 
       setHydrated(true);
@@ -319,58 +316,6 @@ export function PortfolioDashboard() {
 
     return () => window.clearInterval(portfolioInterval);
   }, [hydrated, repriceSavedPortfolios]);
-
-  useEffect(() => {
-    if (!expertMatrix?.consecutivePicks) {
-      return;
-    }
-
-    const marketInputs = expertMatrix.consecutivePicks.map((pick) =>
-      buildPortfolioInputRow({
-        stockCode: pick.symbol,
-        company: pick.name,
-      }),
-    );
-
-    if (marketInputs.length === 0) {
-      setPortfolios((items) =>
-        items.map((portfolio) =>
-          portfolio.id === marketRecommendationPortfolio.id
-            ? {
-                ...portfolio,
-                inputs: [],
-                positions: [],
-                refreshedAt: new Date().toISOString(),
-              }
-            : portfolio,
-        ),
-      );
-      return;
-    }
-
-    fetchQuotePositions(marketInputs)
-      .then((positions) => {
-        setPortfolios((items) =>
-          items.map((portfolio) =>
-            portfolio.id === marketRecommendationPortfolio.id
-              ? {
-                  ...portfolio,
-                  inputs: normalizePortfolioRows(marketInputs),
-                  positions: positions.map((position) => ({
-                    ...position,
-                    list: "watchlist" as const,
-                    quantity: 0,
-                  })),
-                  refreshedAt: new Date().toISOString(),
-                }
-              : portfolio,
-          ),
-        );
-      })
-      .catch(() => {
-        setError("Market Recommendation could not refresh repeated expert picks.");
-      });
-  }, [expertMatrix, fetchQuotePositions]);
 
   useEffect(() => {
     if (!hydrated) {
@@ -603,12 +548,6 @@ export function PortfolioDashboard() {
     }
   }
 
-  function updateHistoryStatus(id: string, status: RecommendationStatus) {
-    setHistory((items) =>
-      items.map((item) => (item.id === id ? { ...item, status } : item)),
-    );
-  }
-
   async function persistPortfolio(portfolio: ManagedPortfolio) {
     if (!isSheetsStorage || portfolio.isMarketPortfolio) {
       return;
@@ -649,25 +588,29 @@ export function PortfolioDashboard() {
 
   return (
     <main className="min-h-screen">
-      <section className="mx-auto flex w-full max-w-[1600px] flex-col gap-5 px-4 py-6 sm:px-6 lg:px-8">
-        <header className="market-panel flex flex-col gap-4 rounded-lg border border-white/70 px-5 py-5 shadow-[0_18px_54px_rgba(17,94,89,0.14)] lg:flex-row lg:items-end lg:justify-between">
-          <div className="space-y-2">
-            <p className="text-sm font-semibold text-primary">
-              unloan stock portfolio dashboard
-            </p>
-            <h1 className="text-3xl font-semibold tracking-normal text-foreground sm:text-4xl">
-              unloan stock portfolio dashboard
-            </h1>
-            <p className="max-w-3xl text-sm leading-6 text-muted-foreground">
-              Track market mood first, then review added portfolios in columns with
-              short-term and long-term buy/sell insights.
-            </p>
+      <section className="mx-auto flex w-full max-w-[1600px] flex-col gap-6 px-4 py-6 sm:px-6 lg:px-8">
+        <header className="market-panel flex flex-col gap-5 rounded-xl border border-white/80 px-5 py-5 shadow-[0_18px_54px_rgba(30,58,95,0.12)] lg:flex-row lg:items-end lg:justify-between">
+          <div className="flex items-start gap-3">
+            <Image
+              src="/unloan-logo.svg"
+              alt="Unloan"
+              width={48}
+              height={48}
+              className="rounded-lg shadow-sm"
+              priority
+            />
+            <div className="space-y-2">
+              <p className="text-sm font-semibold text-primary">Unloan Wealth</p>
+              <h1 className="text-3xl font-semibold tracking-normal text-foreground sm:text-4xl">
+                Portfolio Command Center
+              </h1>
+              <p className="max-w-3xl text-sm leading-6 text-muted-foreground">
+                A focused view for portfolio value, construction risk, health, and
+                action signals.
+              </p>
+            </div>
           </div>
           <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
-            <Button type="button" variant="outline" onClick={downloadHistoryCsv}>
-              <Download className="h-4 w-4" aria-hidden="true" />
-              Download History
-            </Button>
             <Button type="button" onClick={() => setIsAddOpen((value) => !value)}>
               <Plus className="h-4 w-4" aria-hidden="true" />
               Add Portfolio
@@ -700,16 +643,28 @@ export function PortfolioDashboard() {
           />
         ) : null}
 
-        <MarketOverviewSection
+        <PortfolioSummarySection portfolios={portfolios} />
+
+        <PortfolioHealthPlaceholder />
+
+        <PortfolioAnalyticsSection portfolios={portfolios} />
+
+        <HoldingsSection portfolios={portfolios} />
+
+        <AdvancedInsightsSection
+          isOpen={isAdvancedOpen}
+          onToggle={() => setIsAdvancedOpen((value) => !value)}
           market={marketOverview}
-          isLoading={isMarketLoading}
-          onRefresh={refreshMarketOverview}
+          isMarketLoading={isMarketLoading}
+          onMarketRefresh={refreshMarketOverview}
+          matrix={expertMatrix}
+          isExpertLoading={isExpertLoading}
+          onExpertRefresh={refreshExpertMatrix}
         />
 
-        <ExpertActionMatrixSection
-          matrix={expertMatrix}
-          isLoading={isExpertLoading}
-          onRefresh={refreshExpertMatrix}
+        <SectionHeader
+          title="My Portfolios"
+          description="Suchi ICICI and future portfolios appear here for detailed review."
         />
 
         {error && !isAddOpen ? (
@@ -720,14 +675,12 @@ export function PortfolioDashboard() {
 
         <section className="grid gap-4 xl:grid-cols-2 2xl:grid-cols-3">
           {portfolios.map((portfolio) => (
-            <PortfolioColumn
+            <PortfolioCard
               key={portfolio.id}
-              history={history}
               portfolio={portfolio}
               isLoading={isLoading}
               onRefresh={() => refreshPortfolio(portfolio)}
               onRemove={() => removePortfolio(portfolio.id)}
-              onStatusChange={updateHistoryStatus}
               onUpdateInputs={(rows) => updatePortfolioInputs(portfolio, rows)}
               isValueExpanded={expandedPortfolioId === portfolio.id}
               onToggleValue={() =>
@@ -738,46 +691,16 @@ export function PortfolioDashboard() {
             />
           ))}
         </section>
+
+        <DailyMoversSection
+          market={marketOverview}
+          isLoading={isMarketLoading}
+          onRefresh={refreshMarketOverview}
+        />
       </section>
     </main>
   );
 
-  function downloadHistoryCsv() {
-    const rows = [
-      [
-        "date",
-        "portfolio",
-        "section",
-        "symbol",
-        "company",
-        "action",
-        "horizon",
-        "confidence",
-        "status",
-        "rationale",
-      ],
-      ...history.map((item) => [
-        item.createdAt,
-        item.portfolioName,
-        item.section,
-        item.symbol,
-        item.company,
-        item.action,
-        item.horizon,
-        String(item.confidence),
-        item.status,
-        item.rationale,
-      ]),
-    ];
-    const csv = rows.map((row) => row.map(csvEscape).join(",")).join("\n");
-    const blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement("a");
-    link.href = url;
-    link.download = "recommendation-history.csv";
-    link.click();
-    URL.revokeObjectURL(url);
-  }
 }
 
 function AddPortfolioPanel({
@@ -931,7 +854,283 @@ function AddPortfolioPanel({
   );
 }
 
-function MarketOverviewSection({
+function SectionHeader({
+  title,
+  description,
+}: {
+  title: string;
+  description: string;
+}) {
+  return (
+    <div className="flex flex-col gap-1 sm:flex-row sm:items-end sm:justify-between">
+      <div>
+        <h2 className="text-xl font-semibold text-primary">{title}</h2>
+        <p className="text-sm text-muted-foreground">{description}</p>
+      </div>
+    </div>
+  );
+}
+
+function PortfolioSummarySection({
+  portfolios,
+}: {
+  portfolios: ManagedPortfolio[];
+}) {
+  const positions = portfolios.flatMap((portfolio) => portfolio.positions);
+  const metrics = calculatePortfolioMetrics(positions);
+  const activePortfolios = portfolios.filter((portfolio) => !portfolio.isMarketPortfolio);
+  const totalHoldings = metrics.holdings.length;
+  const dayTone = metrics.dayChange >= 0 ? "text-secondary" : "text-destructive";
+
+  return (
+    <section className="grid gap-3 md:grid-cols-4">
+      <SummaryTile
+        label="Portfolio Value"
+        value={formatCurrency(metrics.totalValue)}
+        detail={`${activePortfolios.length} portfolios tracked`}
+        accent="blue"
+      />
+      <SummaryTile
+        label="Day Change"
+        value={formatCurrency(metrics.dayChange)}
+        detail={formatPercent(metrics.dayChangePercent)}
+        valueClassName={dayTone}
+        accent="gold"
+      />
+      <SummaryTile
+        label="Holdings"
+        value={String(totalHoldings)}
+        detail="Active current holdings"
+        accent="brown"
+      />
+      <SummaryTile
+        label="Top Sector"
+        value={metrics.sectorAllocations[0]?.sector ?? "NA"}
+        detail={
+          metrics.sectorAllocations[0]
+            ? `${metrics.sectorAllocations[0].percentage.toFixed(1)}% allocation`
+            : "Awaiting holdings"
+        }
+        accent="blue"
+      />
+    </section>
+  );
+}
+
+function SummaryTile({
+  label,
+  value,
+  detail,
+  accent,
+  valueClassName,
+}: {
+  label: string;
+  value: string;
+  detail: string;
+  accent: "blue" | "gold" | "brown";
+  valueClassName?: string;
+}) {
+  const accentClass = {
+    blue: "border-l-[#1E3A5F]",
+    gold: "border-l-[#D9A441]",
+    brown: "border-l-[#8A6A52]",
+  }[accent];
+
+  return (
+    <div className={cn("wealth-card min-h-32 border-l-4 p-4", accentClass)}>
+      <div className="text-xs font-medium uppercase tracking-normal text-muted-foreground">
+        {label}
+      </div>
+      <div className={cn("mt-3 truncate text-2xl font-semibold text-primary", valueClassName)}>
+        {value}
+      </div>
+      <div className="mt-2 text-sm text-muted-foreground">{detail}</div>
+    </div>
+  );
+}
+
+function PortfolioHealthPlaceholder() {
+  return (
+    <section className="wealth-card border-l-4 border-l-[#D9A441] p-5">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <h2 className="text-lg font-semibold text-primary">
+            Portfolio Health Score (Coming Soon)
+          </h2>
+          <p className="mt-1 text-sm text-muted-foreground">
+            Future-ready area for Portfolio Doctor scoring and historical health analytics.
+          </p>
+        </div>
+        <div className="rounded-lg border border-[#D9A441]/40 bg-[#D9A441]/10 px-4 py-2 text-sm font-semibold text-primary">
+          Next sprint
+        </div>
+      </div>
+    </section>
+  );
+}
+
+function PortfolioAnalyticsSection({
+  portfolios,
+}: {
+  portfolios: ManagedPortfolio[];
+}) {
+  const metrics = calculatePortfolioMetrics(portfolios.flatMap((portfolio) => portfolio.positions));
+  const currentValue = metrics.totalValue;
+  const averageQuoteScore =
+    portfolios.length === 0
+      ? 0
+      : Math.round(
+          portfolios.reduce((sum, portfolio) => sum + getQuoteScore(portfolio.positions), 0) /
+            portfolios.length,
+        );
+
+  return (
+    <section className="space-y-3">
+      <SectionHeader
+        title="Portfolio Analytics"
+        description="A concise construction view before deeper portfolio cards."
+      />
+      <div className="grid gap-3 md:grid-cols-3">
+        <SummaryTile
+          label="Invested Value"
+          value={formatCurrency(currentValue)}
+          detail="Current holdings value"
+          accent="blue"
+        />
+        <SummaryTile
+          label="Quote Coverage"
+          value={`${averageQuoteScore}%`}
+          detail="CMP, previous close, volume, headlines"
+          accent="gold"
+        />
+        <SummaryTile
+          label="Sector Count"
+          value={String(metrics.sectorAllocations.length)}
+          detail="Distinct allocation groups"
+          accent="brown"
+        />
+      </div>
+    </section>
+  );
+}
+
+function HoldingsSection({
+  portfolios,
+}: {
+  portfolios: ManagedPortfolio[];
+}) {
+  const holdings = portfolios
+    .flatMap((portfolio) =>
+      calculatePortfolioMetrics(portfolio.positions).holdings.map((holding) => ({
+        ...holding,
+        portfolioName: portfolio.name,
+      })),
+    )
+    .sort((a, b) => b.marketValue - a.marketValue)
+    .slice(0, 12);
+
+  return (
+    <section className="space-y-3">
+      <SectionHeader
+        title="Holdings"
+        description="Top holdings across visible portfolios."
+      />
+      <Card className="wealth-card overflow-hidden">
+        <CardContent className="p-0">
+          <div className="overflow-x-auto">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Portfolio</TableHead>
+                  <TableHead>Stock</TableHead>
+                  <TableHead>Qty</TableHead>
+                  <TableHead>Value</TableHead>
+                  <TableHead>Sector</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {holdings.map((holding) => (
+                  <TableRow key={`${holding.portfolioName}-${holding.symbol}`}>
+                    <TableCell className="text-xs">{holding.portfolioName}</TableCell>
+                    <TableCell className="font-medium">{holding.symbol}</TableCell>
+                    <TableCell>{holding.quantity}</TableCell>
+                    <TableCell>{formatCurrency(holding.marketValue)}</TableCell>
+                    <TableCell className="text-xs text-muted-foreground">{holding.sector}</TableCell>
+                  </TableRow>
+                ))}
+                {holdings.length === 0 ? (
+                  <TableRow>
+                    <TableCell colSpan={5} className="text-sm text-muted-foreground">
+                      Add a portfolio to see holdings.
+                    </TableCell>
+                  </TableRow>
+                ) : null}
+              </TableBody>
+            </Table>
+          </div>
+        </CardContent>
+      </Card>
+    </section>
+  );
+}
+
+function AdvancedInsightsSection({
+  isOpen,
+  onToggle,
+  market,
+  isMarketLoading,
+  onMarketRefresh,
+  matrix,
+  isExpertLoading,
+  onExpertRefresh,
+}: {
+  isOpen: boolean;
+  onToggle: () => void;
+  market: MarketOverview | null;
+  isMarketLoading: boolean;
+  onMarketRefresh: () => void;
+  matrix: ExpertActionMatrix | null;
+  isExpertLoading: boolean;
+  onExpertRefresh: () => void;
+}) {
+  return (
+    <section className="wealth-card overflow-hidden">
+      <button
+        type="button"
+        onClick={onToggle}
+        className="flex w-full items-center justify-between gap-3 px-5 py-4 text-left"
+        aria-expanded={isOpen}
+      >
+        <div>
+          <h2 className="text-lg font-semibold text-primary">Advanced Insights</h2>
+          <p className="text-sm text-muted-foreground">
+            Market scanner, expert matrix, and secondary analytics.
+          </p>
+        </div>
+        <ChevronDown
+          className={cn("h-5 w-5 text-primary transition-transform", isOpen ? "rotate-180" : "")}
+          aria-hidden="true"
+        />
+      </button>
+      {isOpen ? (
+        <div className="space-y-4 border-t bg-[#F7F8FA]/70 p-4">
+          <MarketScannerSummary
+            market={market}
+            isLoading={isMarketLoading}
+            onRefresh={onMarketRefresh}
+          />
+          <ExpertActionMatrixSection
+            matrix={matrix}
+            isLoading={isExpertLoading}
+            onRefresh={onExpertRefresh}
+          />
+        </div>
+      ) : null}
+    </section>
+  );
+}
+
+function MarketScannerSummary({
   market,
   isLoading,
   onRefresh,
@@ -942,19 +1141,17 @@ function MarketOverviewSection({
 }) {
   const sentimentClass =
     market?.sentiment === "Positive"
-      ? "text-emerald-700"
+      ? "text-secondary"
       : market?.sentiment === "Negative"
         ? "text-destructive"
         : "text-muted-foreground";
 
   return (
-    <Card className="market-panel">
+    <Card className="border-[#8A6A52]/20 bg-white">
       <CardHeader className="flex flex-row items-start justify-between gap-3">
         <div>
-          <CardTitle>Market Overview Today</CardTitle>
-          <CardDescription>
-            Segmented large, mid, and small-cap movers with live timestamp.
-          </CardDescription>
+          <CardTitle>Market Scanner</CardTitle>
+          <CardDescription>Sentiment and key index context.</CardDescription>
         </div>
         <Button
           type="button"
@@ -962,63 +1159,78 @@ function MarketOverviewSection({
           size="icon"
           onClick={onRefresh}
           disabled={isLoading}
-          aria-label="Refresh market overview"
+          aria-label="Refresh market scanner"
         >
           <RefreshCw className="h-4 w-4" aria-hidden="true" />
         </Button>
       </CardHeader>
-      <CardContent className="space-y-4">
-        <div className="grid gap-3 lg:grid-cols-[200px_1fr]">
-          <div className="rounded-md border border-teal-100 bg-white/70 p-3 shadow-sm">
-            <div className="text-xs uppercase text-muted-foreground">
-              Market Sentiment
-            </div>
-            <div className={cn("mt-1 text-2xl font-semibold", sentimentClass)}>
-              {market?.sentiment ?? "Loading"}
-            </div>
-            <div className="mt-1 text-sm text-muted-foreground">
-              Index average: {formatPercent(market?.averageMove ?? 0)}
-            </div>
-            <div className="mt-2 text-[11px] leading-4 text-muted-foreground">
-              Updated: {market?.refreshedAt ? formatTimestamp(market.refreshedAt) : "Fetching"}
-            </div>
+      <CardContent className="grid gap-3 md:grid-cols-[200px_1fr]">
+        <div className="rounded-md border border-[#8A6A52]/20 bg-[#8A6A52]/10 p-3">
+          <div className="text-xs uppercase text-muted-foreground">Market Sentiment</div>
+          <div className={cn("mt-1 text-2xl font-semibold", sentimentClass)}>
+            {market?.sentiment ?? "Loading"}
           </div>
-          <div className="grid gap-2 md:grid-cols-3">
-            {(market?.indices ?? []).map((index) => (
-              <MarketTicker key={index.symbol} quote={index} />
-            ))}
-            {!market ? (
-              <>
-                <TickerSkeleton />
-                <TickerSkeleton />
-                <TickerSkeleton />
-              </>
-            ) : null}
+          <div className="mt-1 text-sm text-muted-foreground">
+            Index average: {formatPercent(market?.averageMove ?? 0)}
           </div>
         </div>
-
-        <div className="space-y-2">
-          <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
-            <h2 className="text-sm font-semibold">Daily Movers by Market Cap</h2>
-            <span className="text-xs text-muted-foreground">
-              4 gainers + 4 losers each from large, mid, and small-cap groups
-            </span>
-          </div>
-          <div className="grid gap-2 md:grid-cols-2 xl:grid-cols-3">
-            {(market?.moverGroups ?? []).map((group) => (
-              <MoverSegmentCard key={group.segment} group={group} />
-            ))}
-            {!market ? (
-              <>
-                <MoverSegmentSkeleton />
-                <MoverSegmentSkeleton />
-                <MoverSegmentSkeleton />
-              </>
-            ) : null}
-          </div>
+        <div className="grid gap-2 md:grid-cols-3">
+          {(market?.indices ?? []).map((index) => (
+            <MarketTicker key={index.symbol} quote={index} />
+          ))}
+          {!market ? (
+            <>
+              <TickerSkeleton />
+              <TickerSkeleton />
+              <TickerSkeleton />
+            </>
+          ) : null}
         </div>
       </CardContent>
     </Card>
+  );
+}
+
+function DailyMoversSection({
+  market,
+  isLoading,
+  onRefresh,
+}: {
+  market: MarketOverview | null;
+  isLoading: boolean;
+  onRefresh: () => void;
+}) {
+  return (
+    <section className="space-y-3">
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
+        <SectionHeader
+          title="Daily Movers"
+          description="Secondary market context from large, mid, and small-cap groups."
+        />
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          onClick={onRefresh}
+          disabled={isLoading}
+        >
+          <RefreshCw className="h-4 w-4" aria-hidden="true" />
+          {isLoading ? "Refreshing" : "Refresh"}
+        </Button>
+      </div>
+      <div className="grid gap-2 md:grid-cols-2 xl:grid-cols-3">
+        {(market?.moverGroups ?? []).map((group) => (
+          <MoverSegmentCard key={group.segment} group={group} />
+        ))}
+        {!market ? (
+          <>
+            <MoverSegmentSkeleton />
+            <MoverSegmentSkeleton />
+            <MoverSegmentSkeleton />
+          </>
+        ) : null}
+      </div>
+    </section>
   );
 }
 
@@ -1278,32 +1490,24 @@ function ExpertSkeleton() {
   );
 }
 
-function PortfolioColumn({
+function PortfolioCard({
   portfolio,
-  history,
   isLoading,
   onRefresh,
   onRemove,
-  onStatusChange,
   onUpdateInputs,
   isValueExpanded,
   onToggleValue,
 }: {
   portfolio: ManagedPortfolio;
-  history: Recommendation[];
   isLoading: boolean;
   onRefresh: () => void;
   onRemove: () => void;
-  onStatusChange: (id: string, status: RecommendationStatus) => void;
   onUpdateInputs: (rows: PortfolioInputRow[]) => void;
   isValueExpanded: boolean;
   onToggleValue: () => void;
 }) {
   const metrics = calculatePortfolioMetrics(portfolio.positions);
-  const recommendations = generateRecommendations(portfolio, history);
-  const portfolioHistory = history.filter(
-    (item) => item.portfolioId === portfolio.id,
-  );
   const quoteScore = getQuoteScore(portfolio.positions);
 
   return (
@@ -1352,12 +1556,6 @@ function PortfolioColumn({
             }
             onClick={portfolio.isMarketPortfolio ? undefined : onToggleValue}
           />
-          <PortfolioHealthScore portfolio={portfolio} compact />
-          <SummaryCard
-            title="Recommendation History"
-            value={`${portfolioHistory.length} records`}
-            detail="Portfolio-specific feedback loop"
-          />
           <SummaryCard
             title="Live Quote Score"
             value={`${quoteScore}%`}
@@ -1374,29 +1572,8 @@ function PortfolioColumn({
         ) : null}
         <PortfolioMiniSummary metrics={metrics} />
         <PortfolioRiskEngine portfolio={portfolio} />
-        <PortfolioHealthScore portfolio={portfolio} />
         <PortfolioCoach portfolio={portfolio} />
-        <RecommendationBlock
-          title="1. Short-term Buy/Sell Analysis"
-          items={recommendations.intraday}
-        />
-        <RecommendationBlock
-          title="2. Long-term Buy/Sell Plan"
-          items={recommendations.longTermPlan}
-        />
-        <RecommendationBlock
-          title="3. Potential Multibagger Stocks"
-          items={recommendations.multibaggerCandidates}
-        />
-        <RecommendationBlock
-          title="4. ETF Recommendations"
-          items={recommendations.etfs}
-        />
         <SectorAllocationBlock metrics={metrics} />
-        <HistoryBlock
-          history={portfolioHistory}
-          onStatusChange={onStatusChange}
-        />
       </CardContent>
     </Card>
   );
@@ -1579,69 +1756,6 @@ function PortfolioDetailRow({
   );
 }
 
-function RecommendationBlock({
-  title,
-  items,
-}: {
-  title: string;
-  items: Recommendation[];
-}) {
-  return (
-    <section className="space-y-2">
-      <h2 className="text-sm font-semibold">{title}</h2>
-      <div className="space-y-2">
-        {items.map((item) => (
-          <StockSignalBar
-            key={item.id}
-            symbol={item.symbol}
-            name={item.company}
-            primaryValue={item.action}
-            secondaryValue={`${item.confidence}%`}
-            tone={item.action === "Urgent Sell" ? "down" : item.confidence >= 72 ? "up" : "flat"}
-            details={
-              <div className="space-y-2 text-[11px]">
-                <div className="grid gap-1 sm:grid-cols-2">
-                  <span>Company: {item.company}</span>
-                  <span>Horizon: {item.horizon}</span>
-                  <span>Action: {item.action}</span>
-                  <span>Confidence: {item.confidence}%</span>
-                </div>
-                <p className="leading-5 text-zinc-300">
-                  {item.action === "Urgent Sell"
-                    ? "Urgent Sell means the model expects significant near-term downside risk and weak recovery probability. "
-                    : "Accumulate means the model sees future growth potential and supports staged buying. "}
-                  {item.rationale}
-                </p>
-                {item.metrics ? (
-                  <div className="grid gap-1 rounded border border-white/10 bg-white/5 p-2 text-[11px] text-zinc-200 sm:grid-cols-2">
-                    <span>EMA20: {formatCurrency(item.metrics.ema20)}</span>
-                    <span>EMA50: {formatCurrency(item.metrics.ema50)}</span>
-                    <span>VWAP gap: {formatPercent(item.metrics.vwapDistancePercent)}</span>
-                    <span>ATR risk: {formatPercent(item.metrics.atrPercent)}</span>
-                    <span>Volume shock: {item.metrics.volumeShock.toFixed(2)}x</span>
-                    <span>Risk score: {item.metrics.riskScore.toFixed(1)}</span>
-                  </div>
-                ) : null}
-                {item.caveats?.length ? (
-                  <div className="rounded border border-amber-300/30 bg-amber-300/10 px-2 py-1.5 leading-4 text-amber-200">
-                    {item.caveats[0]}
-                  </div>
-                ) : null}
-              </div>
-            }
-          />
-        ))}
-        {items.length === 0 ? (
-          <div className="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-xs leading-5 text-amber-950">
-            No qualifying signals in this section right now. The model is waiting for
-            clearer trend, VWAP, ATR, volume, and risk confirmation before showing a stock.
-          </div>
-        ) : null}
-      </div>
-    </section>
-  );
-}
-
 function StockSignalBar({
   symbol,
   name,
@@ -1769,64 +1883,6 @@ function SectorAllocationBlock({
   );
 }
 
-function HistoryBlock({
-  history,
-  onStatusChange,
-}: {
-  history: Recommendation[];
-  onStatusChange: (id: string, status: RecommendationStatus) => void;
-}) {
-  return (
-    <section className="space-y-2">
-      <h2 className="text-sm font-semibold">6. Recommendation Performance</h2>
-      <Table>
-        <TableHeader>
-          <TableRow>
-            <TableHead>Date</TableHead>
-            <TableHead>Section</TableHead>
-            <TableHead>Stock</TableHead>
-            <TableHead>Status</TableHead>
-          </TableRow>
-        </TableHeader>
-        <TableBody>
-          {history.slice(0, 8).map((item) => (
-            <TableRow key={item.id}>
-              <TableCell className="text-xs">
-                {new Date(item.createdAt).toLocaleDateString()}
-              </TableCell>
-              <TableCell className="text-xs">{item.section}</TableCell>
-              <TableCell className="font-medium">{item.symbol}</TableCell>
-              <TableCell>
-                <select
-                  value={item.status}
-                  onChange={(event) =>
-                    onStatusChange(
-                      item.id,
-                      event.target.value as RecommendationStatus,
-                    )
-                  }
-                  className="h-8 rounded-md border bg-background px-2 text-xs"
-                >
-                  <option value="NA">NA</option>
-                  <option value="Hit">Hit</option>
-                  <option value="Miss">Miss</option>
-                </select>
-              </TableCell>
-            </TableRow>
-          ))}
-          {history.length === 0 ? (
-            <TableRow>
-              <TableCell colSpan={4} className="text-sm text-muted-foreground">
-                Refresh recommendations to start tracking performance.
-              </TableCell>
-            </TableRow>
-          ) : null}
-        </TableBody>
-      </Table>
-    </section>
-  );
-}
-
 function SummaryCard({
   title,
   value,
@@ -1879,10 +1935,6 @@ function generateRecommendationList(
     ...recommendations.multibaggerCandidates,
     ...recommendations.etfs,
   ];
-}
-
-function csvEscape(value: string) {
-  return `"${value.replace(/"/g, '""')}"`;
 }
 
 function getQuoteScore(positions: PortfolioPosition[]) {
@@ -1951,20 +2003,30 @@ function normalizeManagedPortfolios(portfolios: ManagedPortfolio[]) {
     appetite: portfolio.appetite ?? "moderate",
     isMarketPortfolio:
       portfolio.isMarketPortfolio ??
-      portfolio.id === marketRecommendationPortfolio.id,
+      portfolio.id === "market-recommendations",
     inputs: normalizePortfolioRows(portfolio.inputs ?? []),
     positions: portfolio.positions ?? [],
   }));
 }
 
-function ensureMarketPortfolio(portfolios: ManagedPortfolio[]) {
-  const hasMarketPortfolio = portfolios.some(
-    (portfolio) => portfolio.id === marketRecommendationPortfolio.id,
-  );
+function filterHomepagePortfolios(portfolios: ManagedPortfolio[]) {
+  return portfolios
+    .filter(
+      (portfolio) =>
+        !portfolio.isMarketPortfolio &&
+        portfolio.id !== "market-recommendations" &&
+        portfolio.name.toLowerCase() !== "market recommendation",
+    )
+    .sort((a, b) => {
+      const aIsSuchi = a.name.toLowerCase().includes("suchi icici");
+      const bIsSuchi = b.name.toLowerCase().includes("suchi icici");
 
-  return hasMarketPortfolio
-    ? portfolios
-    : [marketRecommendationPortfolio, ...portfolios];
+      if (aIsSuchi !== bIsSuchi) {
+        return aIsSuchi ? -1 : 1;
+      }
+
+      return a.name.localeCompare(b.name);
+    });
 }
 
 function formatTimestamp(value: string) {

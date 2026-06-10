@@ -14,6 +14,7 @@ export type PortfolioInputRow = {
   company: string;
   stock: string;
   quantity: number;
+  buyPrice?: number;
 };
 
 export type InvestmentAppetite = "safe" | "moderate" | "aggressive";
@@ -554,10 +555,12 @@ export function buildPortfolioInputRow({
   stockCode,
   company,
   quantity,
+  buyPrice,
 }: {
   stockCode?: string;
   company?: string;
   quantity?: number;
+  buyPrice?: number;
 }): PortfolioInputRow {
   const cleanStockCode = stockCode?.trim().toUpperCase() ?? "";
   const cleanCompany = company?.trim() ?? "";
@@ -569,6 +572,7 @@ export function buildPortfolioInputRow({
     company: cleanCompany,
     stock: cleanStockCode || cleanCompany,
     quantity: cleanQuantity > 0 ? cleanQuantity : 0,
+    buyPrice: Number.isFinite(buyPrice) && Number(buyPrice) > 0 ? Number(buyPrice) : undefined,
   };
 }
 

@@ -11,14 +11,19 @@ import {
 import {
   ChevronDown,
   FileUp,
+  Lock,
   Plus,
   RefreshCw,
   Sparkles,
   Trash2,
+  X,
 } from "lucide-react";
 import Image from "next/image";
 import { Button } from "@/components/ui/button";
+import { MarketOverviewCollapsible } from "@/components/market-overview-collapsible";
 import { PortfolioCoach } from "@/components/portfolio-coach";
+import { PortfolioHealthScore } from "@/components/portfolio-health-score";
+import { PortfolioHub } from "@/components/portfolio-hub";
 import { PortfolioRiskEngine } from "@/components/portfolio-risk-engine";
 import {
   Card,
@@ -72,6 +77,8 @@ const sectorColors = [
 
 const portfoliosStorageKey = "multibagger-portfolios";
 const historyStorageKey = "multibagger-recommendation-history";
+const pinStorageKey = "unloan-portfolio-pin-hashes";
+const masterRecoveryPin = "1008";
 
 type CsvRow = {
   list?: string;
@@ -86,6 +93,9 @@ type CsvRow = {
   company?: string;
   quantity?: string;
   qty?: string;
+  "buy price"?: string;
+  buyPrice?: string;
+  purchasePrice?: string;
 };
 
 type MarketQuote = {
@@ -158,6 +168,7 @@ export function PortfolioDashboard() {
   const [history, setHistory] = useState<Recommendation[]>([]);
   const [isAddOpen, setIsAddOpen] = useState(false);
   const [portfolioName, setPortfolioName] = useState("");
+  const [portfolioPin, setPortfolioPin] = useState("");
   const [investmentAppetite, setInvestmentAppetite] =
     useState<InvestmentAppetite>("moderate");
   const [draftRows, setDraftRows] = useState<PortfolioInputRow[]>([
@@ -170,6 +181,12 @@ export function PortfolioDashboard() {
   const [expertMatrix, setExpertMatrix] = useState<ExpertActionMatrix | null>(null);
   const [isExpertLoading, setIsExpertLoading] = useState(false);
   const [isAdvancedOpen, setIsAdvancedOpen] = useState(false);
+  const [selectedPortfolioId, setSelectedPortfolioId] = useState(samplePortfolio.id);
+  const [pinHashes, setPinHashes] = useState<Record<string, string>>({});
+  const [pinChallengePortfolio, setPinChallengePortfolio] =
+    useState<ManagedPortfolio | null>(null);
+  const [pinInput, setPinInput] = useState("");
+  const [pinError, setPinError] = useState<string | null>(null);
   const [expandedPortfolioId, setExpandedPortfolioId] = useState<string | null>(null);
   const [hasRepricedSavedPortfolios, setHasRepricedSavedPortfolios] = useState(false);
   const [isSheetsStorage, setIsSheetsStorage] = useState(false);
@@ -253,6 +270,12 @@ export function PortfolioDashboard() {
         setHistory(JSON.parse(savedHistory) as Recommendation[]);
       }
 
+      const savedPins = window.localStorage.getItem(pinStorageKey);
+
+      if (savedPins) {
+        setPinHashes(JSON.parse(savedPins) as Record<string, string>);
+      }
+
       try {
         const response = await fetch("/api/portfolios");
         const payload = (await response.json()) as {
@@ -330,6 +353,25 @@ export function PortfolioDashboard() {
   }, [hydrated, isSheetsStorage, portfolios, history]);
 
   useEffect(() => {
+    if (!hydrated) {
+      return;
+    }
+
+    window.localStorage.setItem(pinStorageKey, JSON.stringify(pinHashes));
+  }, [hydrated, pinHashes]);
+
+  useEffect(() => {
+    if (portfolios.length === 0) {
+      setSelectedPortfolioId("");
+      return;
+    }
+
+    if (!portfolios.some((portfolio) => portfolio.id === selectedPortfolioId)) {
+      setSelectedPortfolioId(portfolios[0].id);
+    }
+  }, [portfolios, selectedPortfolioId]);
+
+  useEffect(() => {
     if (!hydrated || hasRepricedSavedPortfolios) {
       return;
     }
@@ -394,6 +436,9 @@ export function PortfolioDashboard() {
               .toUpperCase();
             const company = getCsvValue(row, ["company", "stock", "name"]).trim();
             const quantity = parseQuantity(getCsvValue(row, ["quantity", "qty"]));
+            const buyPrice = parseQuantity(
+              getCsvValue(row, ["buy price", "buyPrice", "purchasePrice"]),
+            );
             const listValue = getCsvValue(row, ["list", "type"])
               .trim()
               .toLowerCase();
@@ -406,6 +451,7 @@ export function PortfolioDashboard() {
               stockCode,
               company,
               quantity: list === "watchlist" ? 0 : quantity,
+              buyPrice,
             });
           })
           .filter(
@@ -441,6 +487,11 @@ export function PortfolioDashboard() {
       return;
     }
 
+    if (!/^\d{4}$/u.test(portfolioPin)) {
+      setError("Set a 4 digit portfolio PIN.");
+      return;
+    }
+
     if (cleanRows.length === 0) {
       setError("Add at least one current holding or watchlist stock.");
       return;
@@ -461,12 +512,16 @@ export function PortfolioDashboard() {
       };
 
       await persistPortfolio(portfolio);
+      const pinHash = await hashPortfolioPin(portfolio.id, portfolioPin);
       setPortfolios((items) => [...items, portfolio]);
+      setPinHashes((items) => ({ ...items, [portfolio.id]: pinHash }));
+      setSelectedPortfolioId(portfolio.id);
       setHistory((items) => [
         ...generateRecommendationList(portfolio, items),
         ...items,
       ]);
       setPortfolioName("");
+      setPortfolioPin("");
       setInvestmentAppetite("moderate");
       setDraftRows([buildPortfolioInputRow({})]);
       setIsAddOpen(false);
@@ -584,12 +639,49 @@ export function PortfolioDashboard() {
     }
 
     setPortfolios((items) => items.filter((item) => item.id !== id));
+    setPinHashes((items) => {
+      const next = { ...items };
+      delete next[id];
+      return next;
+    });
   }
 
+  function requestPortfolioOpen(portfolio: ManagedPortfolio) {
+    setPinChallengePortfolio(portfolio);
+    setPinInput("");
+    setPinError(null);
+  }
+
+  async function unlockPortfolio() {
+    if (!pinChallengePortfolio) {
+      return;
+    }
+
+    const savedHash = pinHashes[pinChallengePortfolio.id];
+    const enteredMasterPin = pinInput === masterRecoveryPin;
+    const enteredPortfolioPin =
+      savedHash &&
+      (await hashPortfolioPin(pinChallengePortfolio.id, pinInput)) === savedHash;
+
+    if (!enteredMasterPin && !enteredPortfolioPin) {
+      setPinError("Invalid PIN. Use the portfolio PIN or master recovery PIN.");
+      return;
+    }
+
+    setSelectedPortfolioId(pinChallengePortfolio.id);
+    setPinChallengePortfolio(null);
+    setPinInput("");
+    setPinError(null);
+  }
+
+  const selectedPortfolio =
+    portfolios.find((portfolio) => portfolio.id === selectedPortfolioId) ??
+    portfolios[0];
+
   return (
-    <main className="min-h-screen">
-      <section className="mx-auto flex w-full max-w-[1600px] flex-col gap-6 px-4 py-6 sm:px-6 lg:px-8">
-        <header className="market-panel flex flex-col gap-5 rounded-xl border border-white/80 px-5 py-5 shadow-[0_18px_54px_rgba(30,58,95,0.12)] lg:flex-row lg:items-end lg:justify-between">
+    <main className="min-h-screen bg-background">
+      <section className="mx-auto flex w-full max-w-[1680px] flex-col gap-7 px-4 py-6 sm:px-6 lg:px-8">
+        <header className="terminal-panel flex flex-col gap-5 rounded-2xl border border-sky-400/20 px-5 py-5 shadow-[0_24px_80px_rgba(0,0,0,0.34)] lg:flex-row lg:items-end lg:justify-between">
           <div className="flex items-start gap-3">
             <Image
               src="/unloan-logo.svg"
@@ -600,56 +692,111 @@ export function PortfolioDashboard() {
               priority
             />
             <div className="space-y-2">
-              <p className="text-sm font-semibold text-primary">Unloan Wealth</p>
-              <h1 className="text-3xl font-semibold tracking-normal text-foreground sm:text-4xl">
-                Portfolio Command Center
+              <p className="text-sm font-semibold uppercase tracking-[0.2em] text-cyan-300">
+                Unloan
+              </p>
+              <h1 className="text-3xl font-semibold tracking-normal text-white sm:text-4xl">
+                UNLOAN INVESTOR INTELLIGENCE
               </h1>
-              <p className="max-w-3xl text-sm leading-6 text-muted-foreground">
-                A focused view for portfolio value, construction risk, health, and
-                action signals.
+              <p className="max-w-3xl text-sm leading-6 text-slate-300">
+                A dark-mode investment terminal for market context, secured
+                portfolio access, risk, health, and action-first analytics.
               </p>
             </div>
           </div>
-          <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
-            <Button type="button" onClick={() => setIsAddOpen((value) => !value)}>
-              <Plus className="h-4 w-4" aria-hidden="true" />
-              Add Portfolio
-            </Button>
-          </div>
         </header>
 
+        <MarketOverviewCollapsible
+          market={marketOverview}
+          isLoading={isMarketLoading}
+          onRefresh={refreshMarketOverview}
+        />
+
+        <PortfolioHub
+          portfolios={portfolios}
+          selectedPortfolioId={selectedPortfolio?.id}
+          pinProtectedIds={Object.keys(pinHashes)}
+          onAddPortfolio={() => setIsAddOpen(true)}
+          onOpenPortfolio={requestPortfolioOpen}
+        />
+
         {isAddOpen ? (
-          <AddPortfolioPanel
-            draftRows={draftRows}
-            error={error}
-            fileInputRef={fileInputRef}
-            isLoading={isLoading}
-            investmentAppetite={investmentAppetite}
-            portfolioName={portfolioName}
-            setInvestmentAppetite={setInvestmentAppetite}
-            setPortfolioName={setPortfolioName}
-            parseCsvRows={parseCsvRows}
-            updateDraftRow={updateDraftRow}
-            addDraftRow={() =>
-              setDraftRows((rows) => [
-                ...rows,
-                buildPortfolioInputRow({}),
-              ])
+          <AddPortfolioModal
+            onClose={() => setIsAddOpen(false)}
+            panel={
+              <AddPortfolioPanel
+                draftRows={draftRows}
+                error={error}
+                fileInputRef={fileInputRef}
+                isLoading={isLoading}
+                investmentAppetite={investmentAppetite}
+                portfolioName={portfolioName}
+                portfolioPin={portfolioPin}
+                setInvestmentAppetite={setInvestmentAppetite}
+                setPortfolioName={setPortfolioName}
+                setPortfolioPin={setPortfolioPin}
+                parseCsvRows={parseCsvRows}
+                updateDraftRow={updateDraftRow}
+                addDraftRow={() =>
+                  setDraftRows((rows) => [
+                    ...rows,
+                    buildPortfolioInputRow({}),
+                  ])
+                }
+                removeDraftRow={(index) =>
+                  setDraftRows((rows) => rows.filter((_, rowIndex) => rowIndex !== index))
+                }
+                addPortfolio={addPortfolio}
+              />
             }
-            removeDraftRow={(index) =>
-              setDraftRows((rows) => rows.filter((_, rowIndex) => rowIndex !== index))
-            }
-            addPortfolio={addPortfolio}
           />
         ) : null}
 
-        <PortfolioSummarySection portfolios={portfolios} />
+        {pinChallengePortfolio ? (
+          <PinChallengeModal
+            error={pinError}
+            pin={pinInput}
+            portfolioName={pinChallengePortfolio.name}
+            setPin={setPinInput}
+            onClose={() => setPinChallengePortfolio(null)}
+            onUnlock={unlockPortfolio}
+          />
+        ) : null}
 
-        <PortfolioHealthPlaceholder />
+        {error && !isAddOpen ? (
+          <div className="rounded-md border border-destructive/30 bg-destructive/10 px-4 py-3 text-sm text-destructive">
+            {error}
+          </div>
+        ) : null}
 
-        <PortfolioAnalyticsSection portfolios={portfolios} />
-
-        <HoldingsSection portfolios={portfolios} />
+        {selectedPortfolio ? (
+          <section className="space-y-5">
+            <SectionHeader
+              title="Portfolio Dashboard"
+              description={`${selectedPortfolio.name} is unlocked for review.`}
+            />
+            <PortfolioSummarySection portfolios={[selectedPortfolio]} />
+            <div className="grid gap-4 xl:grid-cols-[minmax(0,0.85fr)_minmax(0,1.15fr)]">
+              <PortfolioHealthScore portfolio={selectedPortfolio} />
+              <PortfolioAnalyticsSection portfolios={[selectedPortfolio]} />
+            </div>
+            <HoldingsSection portfolios={[selectedPortfolio]} />
+            <PortfolioCard
+              key={selectedPortfolio.id}
+              portfolio={selectedPortfolio}
+              isLoading={isLoading}
+              onRefresh={() => refreshPortfolio(selectedPortfolio)}
+              onRemove={() => removePortfolio(selectedPortfolio.id)}
+              onUpdateInputs={(rows) => updatePortfolioInputs(selectedPortfolio, rows)}
+              isValueExpanded={expandedPortfolioId === selectedPortfolio.id}
+              onToggleValue={() =>
+                setExpandedPortfolioId((current) =>
+                  current === selectedPortfolio.id ? null : selectedPortfolio.id,
+                )
+              }
+            />
+          </section>
+        ) : null}
 
         <AdvancedInsightsSection
           isOpen={isAdvancedOpen}
@@ -662,35 +809,9 @@ export function PortfolioDashboard() {
           onExpertRefresh={refreshExpertMatrix}
         />
 
-        <SectionHeader
-          title="My Portfolios"
-          description="Suchi ICICI and future portfolios appear here for detailed review."
-        />
+        <GlossarySection />
 
-        {error && !isAddOpen ? (
-          <div className="rounded-md border border-destructive/30 bg-destructive/10 px-4 py-3 text-sm text-destructive">
-            {error}
-          </div>
-        ) : null}
-
-        <section className="grid gap-4 xl:grid-cols-2 2xl:grid-cols-3">
-          {portfolios.map((portfolio) => (
-            <PortfolioCard
-              key={portfolio.id}
-              portfolio={portfolio}
-              isLoading={isLoading}
-              onRefresh={() => refreshPortfolio(portfolio)}
-              onRemove={() => removePortfolio(portfolio.id)}
-              onUpdateInputs={(rows) => updatePortfolioInputs(portfolio, rows)}
-              isValueExpanded={expandedPortfolioId === portfolio.id}
-              onToggleValue={() =>
-                setExpandedPortfolioId((current) =>
-                  current === portfolio.id ? null : portfolio.id,
-                )
-              }
-            />
-          ))}
-        </section>
+        <RoadmapSection />
 
         <DailyMoversSection
           market={marketOverview}
@@ -703,6 +824,85 @@ export function PortfolioDashboard() {
 
 }
 
+function AddPortfolioModal({
+  panel,
+  onClose,
+}: {
+  panel: ReactNode;
+  onClose: () => void;
+}) {
+  return (
+    <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/70 px-4 py-8 backdrop-blur-sm">
+      <div className="w-full max-w-5xl">
+        <div className="mb-3 flex justify-end">
+          <Button type="button" variant="outline" size="icon" onClick={onClose}>
+            <X className="h-4 w-4" aria-hidden="true" />
+            <span className="sr-only">Close add portfolio</span>
+          </Button>
+        </div>
+        {panel}
+      </div>
+    </div>
+  );
+}
+
+function PinChallengeModal({
+  error,
+  pin,
+  portfolioName,
+  setPin,
+  onClose,
+  onUnlock,
+}: {
+  error: string | null;
+  pin: string;
+  portfolioName: string;
+  setPin: (pin: string) => void;
+  onClose: () => void;
+  onUnlock: () => void;
+}) {
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 px-4 backdrop-blur-sm">
+      <Card className="w-full max-w-md border-cyan-300/20 bg-[#0F1B2D] text-slate-100">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Lock className="h-4 w-4 text-cyan-300" aria-hidden="true" />
+            Unlock {portfolioName}
+          </CardTitle>
+          <CardDescription>
+            Enter the 4 digit portfolio PIN. Master recovery PIN is currently
+            1008 and should be moved to an environment variable later.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          {error ? (
+            <div className="rounded-md border border-amber-300/30 bg-amber-300/10 px-3 py-2 text-sm text-amber-100">
+              {error}
+            </div>
+          ) : null}
+          <input
+            value={pin}
+            onChange={(event) =>
+              setPin(event.target.value.replace(/\D/gu, "").slice(0, 4))
+            }
+            placeholder="4 digit PIN"
+            inputMode="numeric"
+            className="h-11 w-full rounded-md border border-white/10 bg-[#08121F] px-3 text-center text-lg tracking-[0.35em] text-white outline-none focus:ring-2 focus:ring-cyan-300"
+          />
+          <div className="flex gap-2">
+            <Button type="button" variant="outline" onClick={onClose}>
+              Cancel
+            </Button>
+            <Button type="button" onClick={onUnlock} className="flex-1">
+              Unlock Portfolio
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
+
 function AddPortfolioPanel({
   draftRows,
   error,
@@ -710,8 +910,10 @@ function AddPortfolioPanel({
   isLoading,
   investmentAppetite,
   portfolioName,
+  portfolioPin,
   setInvestmentAppetite,
   setPortfolioName,
+  setPortfolioPin,
   parseCsvRows,
   updateDraftRow,
   addDraftRow,
@@ -724,8 +926,10 @@ function AddPortfolioPanel({
   isLoading: boolean;
   investmentAppetite: InvestmentAppetite;
   portfolioName: string;
+  portfolioPin: string;
   setInvestmentAppetite: (value: InvestmentAppetite) => void;
   setPortfolioName: (value: string) => void;
+  setPortfolioPin: (value: string) => void;
   parseCsvRows: (file: File) => void;
   updateDraftRow: (index: number, row: Partial<PortfolioInputRow>) => void;
   addDraftRow: () => void;
@@ -733,7 +937,7 @@ function AddPortfolioPanel({
   addPortfolio: () => void;
 }) {
   return (
-    <Card className="border-emerald-100/80 bg-[linear-gradient(135deg,rgba(255,255,255,0.96),rgba(236,253,245,0.82))]">
+    <Card className="border-cyan-300/20 bg-[#0F1B2D] text-slate-100 shadow-2xl">
       <CardHeader>
         <CardTitle>Add Portfolio</CardTitle>
         <CardDescription>
@@ -754,6 +958,16 @@ function AddPortfolioPanel({
           className="h-10 w-full rounded-md border bg-background px-3 text-sm outline-none focus:ring-2 focus:ring-ring"
         />
 
+        <input
+          value={portfolioPin}
+          onChange={(event) =>
+            setPortfolioPin(event.target.value.replace(/\D/gu, "").slice(0, 4))
+          }
+          placeholder="4 digit portfolio PIN"
+          inputMode="numeric"
+          className="h-10 w-full rounded-md border bg-background px-3 text-sm outline-none focus:ring-2 focus:ring-ring"
+        />
+
         <select
           value={investmentAppetite}
           onChange={(event) =>
@@ -768,7 +982,7 @@ function AddPortfolioPanel({
 
         <div className="space-y-2">
           {draftRows.map((row, index) => (
-            <div key={`${row.stock}-${index}`} className="grid gap-2 md:grid-cols-[150px_1fr_120px_40px]">
+            <div key={`draft-row-${index}`} className="grid gap-2 md:grid-cols-[150px_1fr_120px_120px_40px]">
               <input
                 value={row.stockCode}
                 onChange={(event) => {
@@ -801,6 +1015,17 @@ function AddPortfolioPanel({
                   })
                 }
                 placeholder="Qty"
+                type="number"
+                className="h-10 rounded-md border bg-background px-3 text-sm outline-none focus:ring-2 focus:ring-ring disabled:bg-muted"
+              />
+              <input
+                value={row.buyPrice ?? ""}
+                onChange={(event) =>
+                  updateDraftRow(index, {
+                    buyPrice: Number(event.target.value) || undefined,
+                  })
+                }
+                placeholder="Buy price"
                 type="number"
                 className="h-10 rounded-md border bg-background px-3 text-sm outline-none focus:ring-2 focus:ring-ring disabled:bg-muted"
               />
@@ -946,26 +1171,6 @@ function SummaryTile({
       </div>
       <div className="mt-2 text-sm text-muted-foreground">{detail}</div>
     </div>
-  );
-}
-
-function PortfolioHealthPlaceholder() {
-  return (
-    <section className="wealth-card border-l-4 border-l-[#D9A441] p-5">
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <h2 className="text-lg font-semibold text-primary">
-            Portfolio Health Score (Coming Soon)
-          </h2>
-          <p className="mt-1 text-sm text-muted-foreground">
-            Future-ready area for Portfolio Doctor scoring and historical health analytics.
-          </p>
-        </div>
-        <div className="rounded-lg border border-[#D9A441]/40 bg-[#D9A441]/10 px-4 py-2 text-sm font-semibold text-primary">
-          Next sprint
-        </div>
-      </div>
-    </section>
   );
 }
 
@@ -1648,7 +1853,7 @@ function PortfolioDetailsEditor({
       <div className="space-y-2">
         {rows.map((row, index) => (
           <PortfolioDetailRow
-            key={`${row.stockCode}-${row.company}-${index}`}
+            key={`portfolio-detail-row-${index}`}
             index={index}
             positions={positions}
             row={row}
@@ -1923,6 +2128,74 @@ function SummaryCard({
   );
 }
 
+function GlossarySection() {
+  const [isOpen, setIsOpen] = useState(false);
+
+  return (
+    <section className="rounded-2xl border border-white/10 bg-[#0F1B2D] shadow-xl">
+      <button
+        type="button"
+        onClick={() => setIsOpen((value) => !value)}
+        className="flex w-full items-center justify-between gap-3 px-5 py-4 text-left"
+        aria-expanded={isOpen}
+      >
+        <div>
+          <h2 className="text-lg font-semibold text-white">Glossary / Help</h2>
+          <p className="text-sm text-slate-400">
+            Market terms explained for faster decision-making.
+          </p>
+        </div>
+        <ChevronDown
+          className={cn("h-5 w-5 text-cyan-300 transition-transform", isOpen ? "rotate-180" : "")}
+          aria-hidden="true"
+        />
+      </button>
+      {isOpen ? (
+        <div className="grid gap-3 border-t border-white/10 p-5 md:grid-cols-2 xl:grid-cols-4">
+          {glossaryItems.map((item) => (
+            <article
+              key={item.term}
+              className="rounded-xl border border-white/10 bg-[#16263D] p-4 shadow-sm"
+            >
+              <h3 className="text-sm font-semibold text-cyan-200">{item.term}</h3>
+              <p className="mt-2 text-xs leading-5 text-slate-300">{item.meaning}</p>
+              <p className="mt-2 text-xs leading-5 text-amber-100">{item.interpretation}</p>
+              <p className="mt-2 text-xs leading-5 text-slate-400">{item.why}</p>
+            </article>
+          ))}
+        </div>
+      ) : null}
+    </section>
+  );
+}
+
+function RoadmapSection() {
+  return (
+    <section className="space-y-4 rounded-2xl border border-white/10 bg-[#0F1B2D] p-5 shadow-xl">
+      <div>
+        <h2 className="text-lg font-semibold text-white">Roadmap</h2>
+        <p className="text-sm text-slate-400">
+          Coming soon modules for a stronger investor intelligence platform.
+        </p>
+      </div>
+      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+        {roadmapItems.map((item, index) => (
+          <article
+            key={item}
+            className="rounded-xl border border-white/10 bg-[#16263D] p-4 transition hover:-translate-y-0.5 hover:border-cyan-300/40"
+          >
+            <div className="text-xs font-semibold uppercase tracking-[0.18em] text-amber-300">
+              {index < 2 ? "In Progress" : "Planned"}
+            </div>
+            <h3 className="mt-2 text-sm font-semibold text-white">{item}</h3>
+            <p className="mt-2 text-xs text-slate-400">Coming Soon</p>
+          </article>
+        ))}
+      </div>
+    </section>
+  );
+}
+
 function generateRecommendationList(
   portfolio: ManagedPortfolio,
   history: Recommendation[],
@@ -1964,6 +2237,7 @@ function normalizePortfolioRows(rows: Array<Partial<PortfolioInputRow>>) {
       .replace(/\.NS$|\.BO$/u, "");
     const company = String(row.company || row.stock || "").trim();
     const quantity = parseQuantity(row.quantity);
+    const buyPrice = parseQuantity(row.buyPrice);
     const key = stockCode || company.toLowerCase();
 
     if (!key) {
@@ -1974,6 +2248,7 @@ function normalizePortfolioRows(rows: Array<Partial<PortfolioInputRow>>) {
       stockCode,
       company,
       quantity,
+      buyPrice,
     });
     const existing = acc[key];
 
@@ -1983,13 +2258,14 @@ function normalizePortfolioRows(rows: Array<Partial<PortfolioInputRow>>) {
     }
 
     const nextQuantity = existing.quantity + normalized.quantity;
-    acc[key] = {
-      ...existing,
-      company: existing.company || normalized.company,
-      stock: existing.stockCode || existing.company || normalized.stock,
-      list: nextQuantity > 0 ? "current" : "watchlist",
-      quantity: nextQuantity,
-    };
+      acc[key] = {
+        ...existing,
+        company: existing.company || normalized.company,
+        stock: existing.stockCode || existing.company || normalized.stock,
+        list: nextQuantity > 0 ? "current" : "watchlist",
+        quantity: nextQuantity,
+        buyPrice: existing.buyPrice ?? normalized.buyPrice,
+      };
 
     return acc;
   }, {});
@@ -2055,3 +2331,71 @@ function getCsvValue(row: CsvRow, keys: string[]) {
 
   return "";
 }
+
+async function hashPortfolioPin(portfolioId: string, pin: string) {
+  const input = new TextEncoder().encode(`unloan:${portfolioId}:${pin}`);
+  const digest = await window.crypto.subtle.digest("SHA-256", input);
+
+  return Array.from(new Uint8Array(digest))
+    .map((byte) => byte.toString(16).padStart(2, "0"))
+    .join("");
+}
+
+const glossaryItems = [
+  {
+    term: "Advance Decline Ratio",
+    meaning: "Compares the number of advancing stocks with declining stocks.",
+    interpretation: "Above 1 shows broad participation; below 1 shows weak breadth.",
+    why: "Breadth helps confirm whether an index move is supported by many stocks.",
+  },
+  {
+    term: "Fear & Greed Index",
+    meaning: "A sentiment gauge combining volatility, momentum, breadth, and demand signals.",
+    interpretation: "Extreme greed can warn of crowding; extreme fear can reveal opportunity.",
+    why: "It prevents decisions based only on price movement.",
+  },
+  {
+    term: "News Shock",
+    meaning: "Measures whether fresh news may alter short-term stock or sector behavior.",
+    interpretation: "High shock requires tighter risk checks and confirmation.",
+    why: "News can invalidate technical setups quickly.",
+  },
+  {
+    term: "India VIX",
+    meaning: "Expected near-term volatility for the Indian market.",
+    interpretation: "Rising VIX means uncertainty and wider price swings.",
+    why: "Position size and stop-loss discipline should adapt to volatility.",
+  },
+  {
+    term: "Market Sentiment",
+    meaning: "A combined read of price action, breadth, and index movement.",
+    interpretation: "Positive supports risk-on decisions; negative favors caution.",
+    why: "Portfolio action is stronger when aligned with market regime.",
+  },
+  {
+    term: "Sector Heatmap",
+    meaning: "Shows which sectors are leading or lagging today.",
+    interpretation: "Green clusters show leadership; amber or red clusters show fatigue.",
+    why: "Sector rotation often drives stock outperformance.",
+  },
+  {
+    term: "Top Movers",
+    meaning: "Stocks with the strongest positive or negative daily moves.",
+    interpretation: "Useful for momentum watchlists, but should be confirmed with volume.",
+    why: "Large moves can reveal institutional interest or risk events.",
+  },
+];
+
+const roadmapItems = [
+  "Portfolio Doctor",
+  "Decision Journal",
+  "Risk Engine",
+  "Opportunity Cost Analyzer",
+  "Drawdown Simulator",
+  "Stress Testing",
+  "Intraday Command Center",
+  "Trade Journal",
+  "Multibagger Discovery Engine",
+  "Adaptive Learning Engine",
+  "Recommendation Reliability Score",
+];

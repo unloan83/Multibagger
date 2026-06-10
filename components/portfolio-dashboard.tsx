@@ -18,6 +18,7 @@ import {
   Trash2,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { PortfolioHealth } from "@/components/portfolio-health";
 import {
   Card,
   CardContent,
@@ -1369,6 +1370,7 @@ function PortfolioColumn({
           />
         ) : null}
         <PortfolioMiniSummary metrics={metrics} />
+        <PortfolioHealth portfolio={portfolio} />
 
         <RecommendationBlock
           title="1. Short-term Buy/Sell Analysis"

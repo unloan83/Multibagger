@@ -4,18 +4,18 @@
 
 @layer base {
   :root {
-    --background: 196 42% 96%;
-    --foreground: 222 34% 12%;
+    --background: 214 42% 96%;
+    --foreground: 222 34% 13%;
     --card: 0 0% 100%;
     --card-foreground: 225 25% 12%;
-    --primary: 187 86% 28%;
+    --primary: 217 78% 38%;
     --primary-foreground: 0 0% 100%;
-    --secondary: 38 95% 89%;
-    --secondary-foreground: 34 44% 19%;
-    --muted: 190 28% 91%;
+    --secondary: 43 88% 88%;
+    --secondary-foreground: 31 42% 21%;
+    --muted: 214 32% 91%;
     --muted-foreground: 216 16% 39%;
-    --accent: 151 55% 88%;
-    --accent-foreground: 166 52% 16%;
+    --accent: 36 44% 84%;
+    --accent-foreground: 31 39% 20%;
     --destructive: 0 74% 46%;
     --destructive-foreground: 0 0% 100%;
     --border: 191 24% 82%;
@@ -31,9 +31,9 @@
   body {
     @apply bg-background text-foreground antialiased;
     background:
-      radial-gradient(circle at 12% 0%, rgba(20, 184, 166, 0.18), transparent 28rem),
-      radial-gradient(circle at 88% 4%, rgba(245, 158, 11, 0.16), transparent 24rem),
-      linear-gradient(180deg, #effafa 0%, #f5f1e8 48%, #eef7f3 100%);
+      radial-gradient(circle at 10% 0%, rgba(37, 99, 235, 0.16), transparent 30rem),
+      radial-gradient(circle at 84% 8%, rgba(250, 204, 21, 0.14), transparent 24rem),
+      linear-gradient(180deg, #eef5ff 0%, #f6efe4 52%, #f8fafc 100%);
     font-family:
       Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI",
       sans-serif;
@@ -47,12 +47,13 @@
 
   .market-panel {
     background:
-      linear-gradient(135deg, rgba(255, 255, 255, 0.94), rgba(236, 253, 245, 0.88)),
-      linear-gradient(90deg, rgba(15, 139, 141, 0.14), rgba(244, 162, 97, 0.12));
+      linear-gradient(135deg, rgba(255, 255, 255, 0.95), rgba(239, 246, 255, 0.9)),
+      linear-gradient(90deg, rgba(37, 99, 235, 0.13), rgba(180, 83, 9, 0.1), rgba(250, 204, 21, 0.1));
   }
 
   .portfolio-shell {
     background:
-      linear-gradient(180deg, rgba(255, 255, 255, 0.96), rgba(248, 250, 252, 0.92));
+      linear-gradient(180deg, rgba(255, 255, 255, 0.97), rgba(241, 245, 249, 0.94)),
+      linear-gradient(135deg, rgba(239, 246, 255, 0.42), rgba(254, 243, 199, 0.32));
   }
 }

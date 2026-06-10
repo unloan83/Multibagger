@@ -9,7 +9,6 @@ import {
   Tooltip,
 } from "recharts";
 import {
-  Download,
   ChevronDown,
   FileUp,
   Plus,
@@ -29,26 +28,14 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
-import {
   InvestmentAppetite,
   ManagedPortfolio,
   PortfolioInputRow,
   PortfolioPosition,
-  Recommendation,
-  RecommendationStatus,
   buildPortfolioInputRow,
   calculatePortfolioMetrics,
   formatCurrency,
   formatPercent,
-  generateRecommendations,
-  marketRecommendationPortfolio,
   parseQuantity,
   samplePortfolio,
 } from "@/lib/portfolio";
@@ -74,7 +61,6 @@ const sectorColors = [
 ];
 
 const portfoliosStorageKey = "multibagger-portfolios";
-const historyStorageKey = "multibagger-recommendation-history";
 
 type CsvRow = {
   list?: string;
@@ -156,10 +142,8 @@ type ExpertActionMatrix = {
 
 export function PortfolioDashboard() {
   const [portfolios, setPortfolios] = useState<ManagedPortfolio[]>([
-    marketRecommendationPortfolio,
     samplePortfolio,
   ]);
-  const [history, setHistory] = useState<Recommendation[]>([]);
   const [isAddOpen, setIsAddOpen] = useState(false);
   const [portfolioName, setPortfolioName] = useState("");
   const [investmentAppetite, setInvestmentAppetite] =
@@ -250,12 +234,6 @@ export function PortfolioDashboard() {
 
   useEffect(() => {
     async function hydratePortfolios() {
-      const savedHistory = window.localStorage.getItem(historyStorageKey);
-
-      if (savedHistory) {
-        setHistory(JSON.parse(savedHistory) as Recommendation[]);
-      }
-
       try {
         const response = await fetch("/api/portfolios");
         const payload = (await response.json()) as {
@@ -270,7 +248,7 @@ export function PortfolioDashboard() {
             payload.portfolios ?? [],
           );
           const refreshed = await repricePortfolioList(loadedPortfolios);
-          setPortfolios(ensureMarketPortfolio(refreshed));
+          setPortfolios(filterMarketPortfolios(refreshed));
           setHydrated(true);
           return;
         }
@@ -286,7 +264,7 @@ export function PortfolioDashboard() {
 
       if (savedPortfolios) {
         const parsedPortfolios = JSON.parse(savedPortfolios) as ManagedPortfolio[];
-        setPortfolios(ensureMarketPortfolio(normalizeManagedPortfolios(parsedPortfolios)));
+        setPortfolios(filterMarketPortfolios(normalizeManagedPortfolios(parsedPortfolios)));
       }
 
       setHydrated(true);
@@ -321,58 +299,6 @@ export function PortfolioDashboard() {
   }, [hydrated, repriceSavedPortfolios]);
 
   useEffect(() => {
-    if (!expertMatrix?.consecutivePicks) {
-      return;
-    }
-
-    const marketInputs = expertMatrix.consecutivePicks.map((pick) =>
-      buildPortfolioInputRow({
-        stockCode: pick.symbol,
-        company: pick.name,
-      }),
-    );
-
-    if (marketInputs.length === 0) {
-      setPortfolios((items) =>
-        items.map((portfolio) =>
-          portfolio.id === marketRecommendationPortfolio.id
-            ? {
-                ...portfolio,
-                inputs: [],
-                positions: [],
-                refreshedAt: new Date().toISOString(),
-              }
-            : portfolio,
-        ),
-      );
-      return;
-    }
-
-    fetchQuotePositions(marketInputs)
-      .then((positions) => {
-        setPortfolios((items) =>
-          items.map((portfolio) =>
-            portfolio.id === marketRecommendationPortfolio.id
-              ? {
-                  ...portfolio,
-                  inputs: normalizePortfolioRows(marketInputs),
-                  positions: positions.map((position) => ({
-                    ...position,
-                    list: "watchlist" as const,
-                    quantity: 0,
-                  })),
-                  refreshedAt: new Date().toISOString(),
-                }
-              : portfolio,
-          ),
-        );
-      })
-      .catch(() => {
-        setError("Market Recommendation could not refresh repeated expert picks.");
-      });
-  }, [expertMatrix, fetchQuotePositions]);
-
-  useEffect(() => {
     if (!hydrated) {
       return;
     }
@@ -380,9 +306,7 @@ export function PortfolioDashboard() {
     if (!isSheetsStorage) {
       window.localStorage.setItem(portfoliosStorageKey, JSON.stringify(portfolios));
     }
-
-    window.localStorage.setItem(historyStorageKey, JSON.stringify(history));
-  }, [hydrated, isSheetsStorage, portfolios, history]);
+  }, [hydrated, isSheetsStorage, portfolios]);
 
   useEffect(() => {
     if (!hydrated || hasRepricedSavedPortfolios) {
@@ -517,10 +441,6 @@ export function PortfolioDashboard() {
 
       await persistPortfolio(portfolio);
       setPortfolios((items) => [...items, portfolio]);
-      setHistory((items) => [
-        ...generateRecommendationList(portfolio, items),
-        ...items,
-      ]);
       setPortfolioName("");
       setInvestmentAppetite("moderate");
       setDraftRows([buildPortfolioInputRow({})]);
@@ -552,10 +472,6 @@ export function PortfolioDashboard() {
       setPortfolios((items) =>
         items.map((item) => (item.id === portfolio.id ? refreshed : item)),
       );
-      setHistory((items) => [
-        ...generateRecommendationList(refreshed, items),
-        ...items,
-      ]);
     } catch (fetchError) {
       setError(
         fetchError instanceof Error
@@ -588,10 +504,6 @@ export function PortfolioDashboard() {
       setPortfolios((items) =>
         items.map((item) => (item.id === portfolio.id ? updated : item)),
       );
-      setHistory((items) => [
-        ...generateRecommendationList(updated, items),
-        ...items,
-      ]);
     } catch (fetchError) {
       setError(
         fetchError instanceof Error
@@ -601,12 +513,6 @@ export function PortfolioDashboard() {
     } finally {
       setIsLoading(false);
     }
-  }
-
-  function updateHistoryStatus(id: string, status: RecommendationStatus) {
-    setHistory((items) =>
-      items.map((item) => (item.id === id ? { ...item, status } : item)),
-    );
   }
 
   async function persistPortfolio(portfolio: ManagedPortfolio) {
@@ -650,24 +556,25 @@ export function PortfolioDashboard() {
   return (
     <main className="min-h-screen">
       <section className="mx-auto flex w-full max-w-[1600px] flex-col gap-5 px-4 py-6 sm:px-6 lg:px-8">
-        <header className="market-panel flex flex-col gap-4 rounded-lg border border-white/70 px-5 py-5 shadow-[0_18px_54px_rgba(17,94,89,0.14)] lg:flex-row lg:items-end lg:justify-between">
-          <div className="space-y-2">
-            <p className="text-sm font-semibold text-primary">
-              unloan stock portfolio dashboard
-            </p>
-            <h1 className="text-3xl font-semibold tracking-normal text-foreground sm:text-4xl">
-              unloan stock portfolio dashboard
-            </h1>
-            <p className="max-w-3xl text-sm leading-6 text-muted-foreground">
-              Track market mood first, then review added portfolios in columns with
-              short-term and long-term buy/sell insights.
-            </p>
+        <header className="market-panel flex flex-col gap-4 rounded-lg border border-white/70 px-5 py-5 shadow-[0_18px_54px_rgba(37,99,235,0.12)] lg:flex-row lg:items-end lg:justify-between">
+          <div className="flex items-start gap-3">
+            <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-lg bg-[linear-gradient(135deg,#1d4ed8,#facc15)] text-base font-bold text-white shadow-sm">
+              UL
+            </div>
+            <div className="space-y-2">
+              <p className="text-sm font-semibold text-primary">
+                Unloan
+              </p>
+              <h1 className="text-3xl font-semibold tracking-normal text-foreground sm:text-4xl">
+                Stock Portfolio Dashboard
+              </h1>
+              <p className="max-w-3xl text-sm leading-6 text-muted-foreground">
+                Review portfolio value, construction risk, health score, and sector
+                exposure in a calmer workspace.
+              </p>
+            </div>
           </div>
           <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
-            <Button type="button" variant="outline" onClick={downloadHistoryCsv}>
-              <Download className="h-4 w-4" aria-hidden="true" />
-              Download History
-            </Button>
             <Button type="button" onClick={() => setIsAddOpen((value) => !value)}>
               <Plus className="h-4 w-4" aria-hidden="true" />
               Add Portfolio
@@ -700,12 +607,6 @@ export function PortfolioDashboard() {
           />
         ) : null}
 
-        <MarketOverviewSection
-          market={marketOverview}
-          isLoading={isMarketLoading}
-          onRefresh={refreshMarketOverview}
-        />
-
         <ExpertActionMatrixSection
           matrix={expertMatrix}
           isLoading={isExpertLoading}
@@ -718,16 +619,23 @@ export function PortfolioDashboard() {
           </div>
         ) : null}
 
-        <section className="grid gap-4 xl:grid-cols-2 2xl:grid-cols-3">
+        <section className="space-y-3">
+          <div className="flex flex-col gap-1 sm:flex-row sm:items-end sm:justify-between">
+            <div>
+              <h2 className="text-lg font-semibold text-foreground">Portfolio Workspace</h2>
+              <p className="text-sm text-muted-foreground">
+                Added portfolios appear here in columns for focused review.
+              </p>
+            </div>
+          </div>
+          <div className="grid gap-4 xl:grid-cols-2 2xl:grid-cols-3">
           {portfolios.map((portfolio) => (
             <PortfolioColumn
               key={portfolio.id}
-              history={history}
               portfolio={portfolio}
               isLoading={isLoading}
               onRefresh={() => refreshPortfolio(portfolio)}
               onRemove={() => removePortfolio(portfolio.id)}
-              onStatusChange={updateHistoryStatus}
               onUpdateInputs={(rows) => updatePortfolioInputs(portfolio, rows)}
               isValueExpanded={expandedPortfolioId === portfolio.id}
               onToggleValue={() =>
@@ -737,47 +645,17 @@ export function PortfolioDashboard() {
               }
             />
           ))}
+          </div>
         </section>
+
+        <MarketOverviewSection
+          market={marketOverview}
+          isLoading={isMarketLoading}
+          onRefresh={refreshMarketOverview}
+        />
       </section>
     </main>
   );
-
-  function downloadHistoryCsv() {
-    const rows = [
-      [
-        "date",
-        "portfolio",
-        "section",
-        "symbol",
-        "company",
-        "action",
-        "horizon",
-        "confidence",
-        "status",
-        "rationale",
-      ],
-      ...history.map((item) => [
-        item.createdAt,
-        item.portfolioName,
-        item.section,
-        item.symbol,
-        item.company,
-        item.action,
-        item.horizon,
-        String(item.confidence),
-        item.status,
-        item.rationale,
-      ]),
-    ];
-    const csv = rows.map((row) => row.map(csvEscape).join(",")).join("\n");
-    const blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement("a");
-    link.href = url;
-    link.download = "recommendation-history.csv";
-    link.click();
-    URL.revokeObjectURL(url);
-  }
 }
 
 function AddPortfolioPanel({
@@ -1280,30 +1158,22 @@ function ExpertSkeleton() {
 
 function PortfolioColumn({
   portfolio,
-  history,
   isLoading,
   onRefresh,
   onRemove,
-  onStatusChange,
   onUpdateInputs,
   isValueExpanded,
   onToggleValue,
 }: {
   portfolio: ManagedPortfolio;
-  history: Recommendation[];
   isLoading: boolean;
   onRefresh: () => void;
   onRemove: () => void;
-  onStatusChange: (id: string, status: RecommendationStatus) => void;
   onUpdateInputs: (rows: PortfolioInputRow[]) => void;
   isValueExpanded: boolean;
   onToggleValue: () => void;
 }) {
   const metrics = calculatePortfolioMetrics(portfolio.positions);
-  const recommendations = generateRecommendations(portfolio, history);
-  const portfolioHistory = history.filter(
-    (item) => item.portfolioId === portfolio.id,
-  );
   const quoteScore = getQuoteScore(portfolio.positions);
 
   return (
@@ -1354,11 +1224,6 @@ function PortfolioColumn({
           />
           <PortfolioHealthScore portfolio={portfolio} compact />
           <SummaryCard
-            title="Recommendation History"
-            value={`${portfolioHistory.length} records`}
-            detail="Portfolio-specific feedback loop"
-          />
-          <SummaryCard
             title="Live Quote Score"
             value={`${quoteScore}%`}
             detail="CMP, previous close, volume, headlines"
@@ -1376,28 +1241,7 @@ function PortfolioColumn({
         <PortfolioRiskEngine portfolio={portfolio} />
         <PortfolioHealthScore portfolio={portfolio} />
         <PortfolioCoach portfolio={portfolio} />
-
-        <RecommendationBlock
-          title="1. Short-term Buy/Sell Analysis"
-          items={recommendations.intraday}
-        />
-        <RecommendationBlock
-          title="2. Long-term Buy/Sell Plan"
-          items={recommendations.longTermPlan}
-        />
-        <RecommendationBlock
-          title="3. Potential Multibagger Stocks"
-          items={recommendations.multibaggerCandidates}
-        />
-        <RecommendationBlock
-          title="4. ETF Recommendations"
-          items={recommendations.etfs}
-        />
         <SectorAllocationBlock metrics={metrics} />
-        <HistoryBlock
-          history={portfolioHistory}
-          onStatusChange={onStatusChange}
-        />
       </CardContent>
     </Card>
   );
@@ -1580,69 +1424,6 @@ function PortfolioDetailRow({
   );
 }
 
-function RecommendationBlock({
-  title,
-  items,
-}: {
-  title: string;
-  items: Recommendation[];
-}) {
-  return (
-    <section className="space-y-2">
-      <h2 className="text-sm font-semibold">{title}</h2>
-      <div className="space-y-2">
-        {items.map((item) => (
-          <StockSignalBar
-            key={item.id}
-            symbol={item.symbol}
-            name={item.company}
-            primaryValue={item.action}
-            secondaryValue={`${item.confidence}%`}
-            tone={item.action === "Urgent Sell" ? "down" : item.confidence >= 72 ? "up" : "flat"}
-            details={
-              <div className="space-y-2 text-[11px]">
-                <div className="grid gap-1 sm:grid-cols-2">
-                  <span>Company: {item.company}</span>
-                  <span>Horizon: {item.horizon}</span>
-                  <span>Action: {item.action}</span>
-                  <span>Confidence: {item.confidence}%</span>
-                </div>
-                <p className="leading-5 text-zinc-300">
-                  {item.action === "Urgent Sell"
-                    ? "Urgent Sell means the model expects significant near-term downside risk and weak recovery probability. "
-                    : "Accumulate means the model sees future growth potential and supports staged buying. "}
-                  {item.rationale}
-                </p>
-                {item.metrics ? (
-                  <div className="grid gap-1 rounded border border-white/10 bg-white/5 p-2 text-[11px] text-zinc-200 sm:grid-cols-2">
-                    <span>EMA20: {formatCurrency(item.metrics.ema20)}</span>
-                    <span>EMA50: {formatCurrency(item.metrics.ema50)}</span>
-                    <span>VWAP gap: {formatPercent(item.metrics.vwapDistancePercent)}</span>
-                    <span>ATR risk: {formatPercent(item.metrics.atrPercent)}</span>
-                    <span>Volume shock: {item.metrics.volumeShock.toFixed(2)}x</span>
-                    <span>Risk score: {item.metrics.riskScore.toFixed(1)}</span>
-                  </div>
-                ) : null}
-                {item.caveats?.length ? (
-                  <div className="rounded border border-amber-300/30 bg-amber-300/10 px-2 py-1.5 leading-4 text-amber-200">
-                    {item.caveats[0]}
-                  </div>
-                ) : null}
-              </div>
-            }
-          />
-        ))}
-        {items.length === 0 ? (
-          <div className="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-xs leading-5 text-amber-950">
-            No qualifying signals in this section right now. The model is waiting for
-            clearer trend, VWAP, ATR, volume, and risk confirmation before showing a stock.
-          </div>
-        ) : null}
-      </div>
-    </section>
-  );
-}
-
 function StockSignalBar({
   symbol,
   name,
@@ -1770,64 +1551,6 @@ function SectorAllocationBlock({
   );
 }
 
-function HistoryBlock({
-  history,
-  onStatusChange,
-}: {
-  history: Recommendation[];
-  onStatusChange: (id: string, status: RecommendationStatus) => void;
-}) {
-  return (
-    <section className="space-y-2">
-      <h2 className="text-sm font-semibold">6. Recommendation Performance</h2>
-      <Table>
-        <TableHeader>
-          <TableRow>
-            <TableHead>Date</TableHead>
-            <TableHead>Section</TableHead>
-            <TableHead>Stock</TableHead>
-            <TableHead>Status</TableHead>
-          </TableRow>
-        </TableHeader>
-        <TableBody>
-          {history.slice(0, 8).map((item) => (
-            <TableRow key={item.id}>
-              <TableCell className="text-xs">
-                {new Date(item.createdAt).toLocaleDateString()}
-              </TableCell>
-              <TableCell className="text-xs">{item.section}</TableCell>
-              <TableCell className="font-medium">{item.symbol}</TableCell>
-              <TableCell>
-                <select
-                  value={item.status}
-                  onChange={(event) =>
-                    onStatusChange(
-                      item.id,
-                      event.target.value as RecommendationStatus,
-                    )
-                  }
-                  className="h-8 rounded-md border bg-background px-2 text-xs"
-                >
-                  <option value="NA">NA</option>
-                  <option value="Hit">Hit</option>
-                  <option value="Miss">Miss</option>
-                </select>
-              </TableCell>
-            </TableRow>
-          ))}
-          {history.length === 0 ? (
-            <TableRow>
-              <TableCell colSpan={4} className="text-sm text-muted-foreground">
-                Refresh recommendations to start tracking performance.
-              </TableCell>
-            </TableRow>
-          ) : null}
-        </TableBody>
-      </Table>
-    </section>
-  );
-}
-
 function SummaryCard({
   title,
   value,
@@ -1866,24 +1589,6 @@ function SummaryCard({
   return (
     <Card>{content}</Card>
   );
-}
-
-function generateRecommendationList(
-  portfolio: ManagedPortfolio,
-  history: Recommendation[],
-) {
-  const recommendations = generateRecommendations(portfolio, history);
-
-  return [
-    ...recommendations.intraday,
-    ...recommendations.longTermPlan,
-    ...recommendations.multibaggerCandidates,
-    ...recommendations.etfs,
-  ];
-}
-
-function csvEscape(value: string) {
-  return `"${value.replace(/"/g, '""')}"`;
 }
 
 function getQuoteScore(positions: PortfolioPosition[]) {
@@ -1950,22 +1655,19 @@ function normalizeManagedPortfolios(portfolios: ManagedPortfolio[]) {
   return portfolios.map((portfolio) => ({
     ...portfolio,
     appetite: portfolio.appetite ?? "moderate",
-    isMarketPortfolio:
-      portfolio.isMarketPortfolio ??
-      portfolio.id === marketRecommendationPortfolio.id,
+    isMarketPortfolio: portfolio.isMarketPortfolio ?? false,
     inputs: normalizePortfolioRows(portfolio.inputs ?? []),
     positions: portfolio.positions ?? [],
   }));
 }
 
-function ensureMarketPortfolio(portfolios: ManagedPortfolio[]) {
-  const hasMarketPortfolio = portfolios.some(
-    (portfolio) => portfolio.id === marketRecommendationPortfolio.id,
+function filterMarketPortfolios(portfolios: ManagedPortfolio[]) {
+  return portfolios.filter(
+    (portfolio) =>
+      !portfolio.isMarketPortfolio &&
+      portfolio.id !== "market-recommendations" &&
+      portfolio.name.toLowerCase() !== "market recommendation",
   );
-
-  return hasMarketPortfolio
-    ? portfolios
-    : [marketRecommendationPortfolio, ...portfolios];
 }
 
 function formatTimestamp(value: string) {

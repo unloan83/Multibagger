@@ -4,23 +4,23 @@
 
 @layer base {
   :root {
-    --background: 196 42% 96%;
-    --foreground: 222 34% 12%;
+    --background: 220 17% 97%;
+    --foreground: 211 52% 14%;
     --card: 0 0% 100%;
-    --card-foreground: 225 25% 12%;
-    --primary: 187 86% 28%;
+    --card-foreground: 211 52% 14%;
+    --primary: 209 52% 25%;
     --primary-foreground: 0 0% 100%;
-    --secondary: 38 95% 89%;
-    --secondary-foreground: 34 44% 19%;
-    --muted: 190 28% 91%;
-    --muted-foreground: 216 16% 39%;
-    --accent: 151 55% 88%;
-    --accent-foreground: 166 52% 16%;
+    --secondary: 202 38% 39%;
+    --secondary-foreground: 0 0% 100%;
+    --muted: 214 24% 92%;
+    --muted-foreground: 213 17% 36%;
+    --accent: 40 66% 55%;
+    --accent-foreground: 211 52% 14%;
     --destructive: 0 74% 46%;
     --destructive-foreground: 0 0% 100%;
-    --border: 191 24% 82%;
-    --input: 191 24% 82%;
-    --ring: 187 86% 28%;
+    --border: 215 22% 84%;
+    --input: 215 22% 84%;
+    --ring: 209 52% 25%;
     --radius: 0.5rem;
   }
 
@@ -31,9 +31,9 @@
   body {
     @apply bg-background text-foreground antialiased;
     background:
-      radial-gradient(circle at 12% 0%, rgba(20, 184, 166, 0.18), transparent 28rem),
-      radial-gradient(circle at 88% 4%, rgba(245, 158, 11, 0.16), transparent 24rem),
-      linear-gradient(180deg, #effafa 0%, #f5f1e8 48%, #eef7f3 100%);
+      radial-gradient(circle at 8% 0%, rgba(30, 58, 95, 0.1), transparent 30rem),
+      radial-gradient(circle at 90% 8%, rgba(217, 164, 65, 0.15), transparent 26rem),
+      linear-gradient(180deg, #f7f8fa 0%, #f3f6f9 48%, #f7f8fa 100%);
     font-family:
       Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI",
       sans-serif;
@@ -42,17 +42,27 @@
 
 @layer utilities {
   .dashboard-grid {
-    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
   }
 
   .market-panel {
     background:
-      linear-gradient(135deg, rgba(255, 255, 255, 0.94), rgba(236, 253, 245, 0.88)),
-      linear-gradient(90deg, rgba(15, 139, 141, 0.14), rgba(244, 162, 97, 0.12));
+      linear-gradient(135deg, rgba(255, 255, 255, 0.96), rgba(247, 248, 250, 0.92)),
+      linear-gradient(90deg, rgba(30, 58, 95, 0.1), rgba(217, 164, 65, 0.1));
   }
 
   .portfolio-shell {
     background:
-      linear-gradient(180deg, rgba(255, 255, 255, 0.96), rgba(248, 250, 252, 0.92));
+      linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(247, 248, 250, 0.94));
+    box-shadow: 0 18px 44px rgba(30, 58, 95, 0.09);
+  }
+
+  .wealth-card {
+    @apply rounded-lg border bg-card shadow-sm transition-colors;
+    box-shadow: 0 14px 34px rgba(30, 58, 95, 0.08);
+  }
+
+  .wealth-card:hover {
+    box-shadow: 0 18px 42px rgba(30, 58, 95, 0.12);
   }
 }

@@ -21,11 +21,13 @@ import {
 } from "lucide-react";
 import Image from "next/image";
 import { Button } from "@/components/ui/button";
+import { ChangeDetection } from "@/components/change-detection";
 import { MarketOverviewCollapsible } from "@/components/market-overview-collapsible";
 import { PortfolioCoach } from "@/components/portfolio-coach";
 import { PortfolioHealthScore } from "@/components/portfolio-health-score";
 import { PortfolioHub } from "@/components/portfolio-hub";
 import { PortfolioRiskEngine } from "@/components/portfolio-risk-engine";
+import { TodaysActionCenter } from "@/components/todays-action-center";
 import {
   Card,
   CardContent,
@@ -41,6 +43,12 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import {
+  buildDecisionIntelligence,
+  type MarketOverview as DecisionMarketOverview,
+  type MarketQuote as DecisionMarketQuote,
+  type MarketMoverGroup as DecisionMarketMoverGroup,
+} from "@/lib/decision-intelligence";
 import {
   InvestmentAppetite,
   ManagedPortfolio,
@@ -59,6 +67,7 @@ import { cn } from "@/lib/utils";
 import {
   useCallback,
   useEffect,
+  useMemo,
   useRef,
   useState,
   type ReactNode,
@@ -100,31 +109,9 @@ type CsvRow = {
   purchasePrice?: string;
 };
 
-type MarketQuote = {
-  symbol: string;
-  name: string;
-  segment?: string;
-  price: number;
-  change: number;
-  changePercent: number;
-  volume: number;
-};
-
-type MarketOverview = {
-  sentiment: "Positive" | "Negative" | "Neutral";
-  averageMove: number;
-  indices: MarketQuote[];
-  moverGroups?: MarketMoverGroup[];
-  gainers: MarketQuote[];
-  losers: MarketQuote[];
-  refreshedAt: string;
-};
-
-type MarketMoverGroup = {
-  segment: string;
-  gainers: MarketQuote[];
-  losers: MarketQuote[];
-};
+type MarketQuote = DecisionMarketQuote;
+type MarketOverview = DecisionMarketOverview;
+type MarketMoverGroup = DecisionMarketMoverGroup;
 
 type ExpertMatrixQuote = {
   symbol: string;
@@ -699,6 +686,15 @@ export function PortfolioDashboard() {
   const selectedPortfolio =
     portfolios.find((portfolio) => portfolio.id === selectedPortfolioId) ??
     portfolios[0];
+  const decisionIntelligence = useMemo(
+    () =>
+      buildDecisionIntelligence({
+        portfolio: selectedPortfolio,
+        market: marketOverview,
+        history,
+      }),
+    [history, marketOverview, selectedPortfolio],
+  );
 
   return (
     <main className="min-h-screen bg-background">
@@ -732,6 +728,10 @@ export function PortfolioDashboard() {
           isLoading={isMarketLoading}
           onRefresh={refreshMarketOverview}
         />
+
+        <TodaysActionCenter intelligence={decisionIntelligence} />
+
+        <ChangeDetection snapshot={decisionIntelligence?.snapshot} />
 
         <PortfolioHub
           portfolios={portfolios}
@@ -2074,9 +2074,6 @@ const roadmapItems = [
 ];
 
 const futurePlaceholderItems = [
-  "Today's Action Center",
-  "What Changed Since Yesterday",
   "Decision Journal",
-  "Recommendation Reliability",
   "Risk Alerts",
 ];

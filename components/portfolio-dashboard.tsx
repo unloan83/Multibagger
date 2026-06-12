@@ -136,7 +136,13 @@ type ExpertActionMatrix = {
   categories: ExpertMatrixCategory[];
 };
 
-export function PortfolioDashboard() {
+export function PortfolioDashboard({
+  adminMode = false,
+  initialPortfolioId,
+}: {
+  adminMode?: boolean;
+  initialPortfolioId?: string;
+}) {
   const [portfolios, setPortfolios] = useState<ManagedPortfolio[]>([
     samplePortfolio,
   ]);
@@ -156,7 +162,9 @@ export function PortfolioDashboard() {
   const [, setExpertMatrix] = useState<ExpertActionMatrix | null>(null);
   const [, setIsExpertLoading] = useState(false);
   const [isPortfolioDashboardOpen, setIsPortfolioDashboardOpen] = useState(true);
-  const [selectedPortfolioId, setSelectedPortfolioId] = useState(samplePortfolio.id);
+  const [selectedPortfolioId, setSelectedPortfolioId] = useState(
+    initialPortfolioId ?? samplePortfolio.id,
+  );
   const [pinHashes, setPinHashes] = useState<Record<string, string>>({});
   const [pinChallengePortfolio, setPinChallengePortfolio] =
     useState<ManagedPortfolio | null>(null);
@@ -640,6 +648,33 @@ export function PortfolioDashboard() {
     });
   }
 
+  async function updatePortfolioMetadata(portfolio: ManagedPortfolio) {
+    const nextName = window.prompt("Portfolio name", portfolio.name)?.trim();
+
+    if (!nextName || nextName === portfolio.name) {
+      return;
+    }
+
+    const updated = { ...portfolio, name: nextName };
+    await persistPortfolio(updated);
+    setPortfolios((items) =>
+      items.map((item) => (item.id === portfolio.id ? updated : item)),
+    );
+  }
+
+  async function resetPortfolioPin(portfolio: ManagedPortfolio) {
+    const nextPin = window.prompt(`Set new 4 digit PIN for ${portfolio.name}`)?.trim();
+
+    if (!nextPin || !/^\d{4}$/u.test(nextPin)) {
+      setError("Reset PIN needs a 4 digit value.");
+      return;
+    }
+
+    const pinHash = await hashPortfolioPin(portfolio.id, nextPin);
+    setPinHashes((items) => ({ ...items, [portfolio.id]: pinHash }));
+    setError(null);
+  }
+
   function requestPortfolioOpen(portfolio: ManagedPortfolio) {
     setPinChallengePortfolio(portfolio);
     setPinInput("");
@@ -708,6 +743,12 @@ export function PortfolioDashboard() {
           </div>
         </header>
 
+        {adminMode ? (
+          <div className="rounded-2xl border border-amber-300/30 bg-amber-300/10 px-5 py-4 text-sm font-semibold text-amber-100">
+            Admin Master Access Active. Admin can open portfolios using master passcode 1008.
+          </div>
+        ) : null}
+
         <MarketOverviewCollapsible
           market={marketOverview}
           isLoading={isMarketLoading}
@@ -719,8 +760,20 @@ export function PortfolioDashboard() {
           selectedPortfolioId={selectedPortfolio?.id}
           pinProtectedIds={Object.keys(pinHashes)}
           onAddPortfolio={() => setIsAddOpen(true)}
-          onOpenPortfolio={requestPortfolioOpen}
+          onOpenPortfolio={(portfolio) =>
+            adminMode ? setSelectedPortfolioId(portfolio.id) : requestPortfolioOpen(portfolio)
+          }
         />
+
+        {adminMode ? (
+          <AdminControlPanel
+            portfolios={portfolios}
+            onOpen={(portfolio) => setSelectedPortfolioId(portfolio.id)}
+            onEdit={updatePortfolioMetadata}
+            onDelete={(portfolio) => removePortfolio(portfolio.id)}
+            onResetPin={resetPortfolioPin}
+          />
+        ) : null}
 
         {isAddOpen ? (
           <AddPortfolioModal
@@ -911,6 +964,90 @@ function PinChallengeModal({
         </CardContent>
       </Card>
     </div>
+  );
+}
+
+function AdminControlPanel({
+  portfolios,
+  onOpen,
+  onEdit,
+  onDelete,
+  onResetPin,
+}: {
+  portfolios: ManagedPortfolio[];
+  onOpen: (portfolio: ManagedPortfolio) => void;
+  onEdit: (portfolio: ManagedPortfolio) => void;
+  onDelete: (portfolio: ManagedPortfolio) => void;
+  onResetPin: (portfolio: ManagedPortfolio) => void;
+}) {
+  return (
+    <section className="space-y-4 rounded-2xl border border-violet-300/20 bg-[#0F1B2D] p-5 shadow-xl">
+      <SectionTitle
+        title="Admin Control Panel"
+        subtitle="View, open, edit, delete, and reset portfolio access."
+        badge="LIVE"
+        accent="purple"
+      />
+      <div className="overflow-x-auto rounded-xl border border-white/10">
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead>Portfolio Name</TableHead>
+              <TableHead>Portfolio ID</TableHead>
+              <TableHead>Holdings</TableHead>
+              <TableHead>Last Updated</TableHead>
+              <TableHead>Status</TableHead>
+              <TableHead>Actions</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {portfolios.map((portfolio) => {
+              const metrics = calculatePortfolioMetrics(portfolio.positions);
+
+              return (
+                <TableRow key={portfolio.id}>
+                  <TableCell className="font-semibold">{portfolio.name}</TableCell>
+                  <TableCell className="max-w-56 truncate text-xs text-slate-400">
+                    {portfolio.id}
+                  </TableCell>
+                  <TableCell>{metrics.holdings.length}</TableCell>
+                  <TableCell>
+                    {portfolio.refreshedAt
+                      ? new Date(portfolio.refreshedAt).toLocaleString("en-IN", {
+                          dateStyle: "medium",
+                          timeStyle: "short",
+                        })
+                      : "Pending"}
+                  </TableCell>
+                  <TableCell>
+                    <span className="rounded-full border border-emerald-300/30 bg-emerald-300/10 px-2 py-0.5 text-xs font-semibold text-emerald-200">
+                      Active
+                    </span>
+                  </TableCell>
+                  <TableCell>
+                    <div className="flex flex-wrap gap-2">
+                      <Button type="button" variant="outline" size="sm" onClick={() => onOpen(portfolio)}>
+                        Open
+                      </Button>
+                      <Button type="button" variant="outline" size="sm" onClick={() => onEdit(portfolio)}>
+                        Edit
+                      </Button>
+                      <Button type="button" variant="outline" size="sm" onClick={() => onResetPin(portfolio)}>
+                        Reset PIN
+                      </Button>
+                      <Button type="button" variant="outline" size="sm" onClick={() => onDelete(portfolio)}>
+                        Delete
+                      </Button>
+                    </div>
+                  </TableCell>
+                </TableRow>
+              );
+            })}
+          </TableBody>
+        </Table>
+      </div>
+      <SectionFooter text="Admin operations use the existing authenticated session and portfolio persistence." />
+    </section>
   );
 }
 

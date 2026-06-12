@@ -1,5 +1,5 @@
-import { PortfolioDashboard } from "@/components/portfolio-dashboard";
+import { PublicMarketPortal } from "@/components/public-market-portal";
 
 export default function Home() {
-  return <PortfolioDashboard />;
+  return <PublicMarketPortal />;
 }

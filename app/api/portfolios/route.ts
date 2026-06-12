@@ -11,10 +11,6 @@ import type { ManagedPortfolio } from "@/lib/portfolio";
 export const runtime = "nodejs";
 
 export async function GET() {
-  if (!(await isRequestAuthenticated())) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
-
   if (!isGoogleSheetsConfigured()) {
     return NextResponse.json({ configured: false, portfolios: [] });
   }

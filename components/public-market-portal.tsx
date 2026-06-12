@@ -55,7 +55,7 @@ const glossaryItems = [
   ["News Shock", "A calculated signal that highlights unusual market movement pressure."],
   ["Market Breadth", "Advancers versus decliners; shows whether the market move is broad."],
   ["Top Focus Sectors", "Sectors inferred from leading movers and index context."],
-  ["Stocks Analyzed", "Aggregated expert/market signals without exposing portfolio ownership."],
+  ["Market Opportunities", "Aggregated expert/market signals without exposing portfolio ownership."],
 ];
 
 export function PublicMarketPortal() {
@@ -242,7 +242,7 @@ export function PublicMarketPortal() {
           />
         ) : null}
 
-        <StocksAnalyzedSection matrix={expertMatrix} market={market} />
+        <MarketOpportunitiesSection matrix={expertMatrix} market={market} />
 
         <RoadmapSection />
 
@@ -393,7 +393,7 @@ function HeaderLink({ href, children }: { href: string; children: React.ReactNod
   );
 }
 
-function StocksAnalyzedSection({
+function MarketOpportunitiesSection({
   matrix,
   market,
 }: {
@@ -431,25 +431,53 @@ function StocksAnalyzedSection({
       .sort((a, b) => b.confidence - a.confidence)
       .slice(0, 8);
   }, [matrix]);
+  const opportunityScore = picks.length
+    ? Math.round(
+        picks.reduce((sum, item) => sum + item.confidence * item.count, 0) /
+          Math.max(1, picks.reduce((sum, item) => sum + item.count, 0)),
+      )
+    : Math.max(0, Math.min(100, Math.round(50 + (market?.averageMove ?? 0) * 6)));
+  const classification = getOpportunityClass(opportunityScore, market?.sentiment);
   const totalRecommendations = picks.reduce((sum, item) => sum + item.count, 0);
   const buyCount = picks.filter((item) => item.action === "BUY").length;
   const reduceCount = picks.filter((item) => item.action === "REDUCE").length;
+  const holdCount = 0;
+  const doNothingCount = picks.length ? 0 : 1;
+  const summary = getMarketOpportunitySummary(picks, classification, market);
 
   return (
     <section className="space-y-4 rounded-2xl border border-cyan-300/20 bg-[#0F1B2D] p-5 shadow-xl">
       <SectionTitle
         icon={<TrendingUp className="h-5 w-5" aria-hidden="true" />}
-        title="Stocks Analyzed"
-        subtitle="Aggregated market intelligence without exposing portfolio ownership."
+        title="Market Opportunities"
+        subtitle="Opportunity quality, top signals, and recommendation mix from market intelligence."
         badge="CALCULATED"
       />
-      <div className="grid gap-3 md:grid-cols-3 xl:grid-cols-6">
-        <Metric label="Total Stocks" value={String(picks.length || (market?.gainers.length ?? 0) + (market?.losers.length ?? 0))} />
-        <Metric label="Recommendations" value={String(totalRecommendations)} />
-        <Metric label="Buy" value={String(buyCount)} tone="up" />
-        <Metric label="Hold" value="0" />
-        <Metric label="Reduce" value={String(reduceCount)} tone="down" />
-        <Metric label="Do Nothing" value={picks.length ? "0" : "1"} />
+      <div className="grid gap-3 lg:grid-cols-[0.8fr_1.2fr]">
+        <article className="rounded-xl border border-amber-300/25 bg-[#16263D] p-4">
+          <div className="text-xs uppercase tracking-[0.14em] text-slate-500">
+            Opportunity Score
+          </div>
+          <div className="mt-3 flex items-end gap-3">
+            <span className={cn("text-4xl font-semibold", opportunityTone(opportunityScore))}>
+              {opportunityScore}
+            </span>
+            <span className="pb-1 text-sm font-semibold text-slate-400">/100</span>
+          </div>
+          <div className={cn("mt-2 text-sm font-semibold", opportunityTone(opportunityScore))}>
+            {classification}
+          </div>
+          <p className="mt-3 text-sm leading-6 text-slate-400">{summary}</p>
+        </article>
+
+        <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+          <Metric label="BUY" value={String(buyCount)} tone="up" />
+          <Metric label="HOLD" value={String(holdCount)} />
+          <Metric label="REDUCE" value={String(reduceCount)} tone="down" />
+          <Metric label="DO NOTHING" value={String(doNothingCount)} />
+          <Metric label="Total Signals" value={String(totalRecommendations)} />
+          <Metric label="Stocks Covered" value={String(picks.length || (market?.gainers.length ?? 0) + (market?.losers.length ?? 0))} />
+        </div>
       </div>
       <div className="overflow-x-auto rounded-xl border border-white/10">
         <table className="w-full text-left text-sm">
@@ -458,7 +486,7 @@ function StocksAnalyzedSection({
               <th className="px-3 py-3">Symbol</th>
               <th className="px-3 py-3">Recommendation</th>
               <th className="px-3 py-3">Confidence</th>
-              <th className="px-3 py-3">Portfolio Count</th>
+              <th className="px-3 py-3">Times Recommended</th>
               <th className="px-3 py-3">Last Updated</th>
             </tr>
           </thead>
@@ -484,6 +512,50 @@ function StocksAnalyzedSection({
       </div>
     </section>
   );
+}
+
+function getOpportunityClass(
+  score: number,
+  sentiment?: MarketOverview["sentiment"],
+) {
+  if (score >= 80 && sentiment !== "Negative") return "Excellent";
+  if (score >= 60) return "Selective";
+  if (score >= 40) return "Defensive";
+  return "No Edge";
+}
+
+function getMarketOpportunitySummary(
+  picks: Array<{ action: string; confidence: number; count: number; symbol: string }>,
+  classification: string,
+  market: MarketOverview | null,
+) {
+  const leading = picks.filter((pick) => pick.action === "BUY").slice(0, 3);
+  const marketTone =
+    market?.sentiment === "Positive"
+      ? "positive market breadth"
+      : market?.sentiment === "Negative"
+        ? "defensive market breadth"
+        : "mixed market breadth";
+
+  if (classification === "Excellent" && leading.length) {
+    return `Excellent opportunities are concentrated in ${leading.map((pick) => pick.symbol).join(", ")} with ${marketTone}.`;
+  }
+
+  if (classification === "Selective" && leading.length) {
+    return `Selective opportunities exist in ${leading.map((pick) => pick.symbol).join(", ")} while risk controls remain important.`;
+  }
+
+  if (classification === "Defensive") {
+    return "Defensive conditions suggest prioritising quality, liquidity, and position sizing.";
+  }
+
+  return "No clear edge is visible until stronger, repeatable market signals emerge.";
+}
+
+function opportunityTone(score: number) {
+  if (score >= 70) return "text-emerald-300";
+  if (score < 40) return "text-rose-300";
+  return "text-amber-300";
 }
 
 function RoadmapSection() {

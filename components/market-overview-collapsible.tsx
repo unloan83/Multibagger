@@ -57,6 +57,13 @@ export function MarketOverviewCollapsible({
   const previousVixProxy = Math.max(10, Math.min(28, vixProxy - (market?.averageMove ?? 0) * 0.35));
   const vixChange = vixProxy - previousVixProxy;
   const fearGreed = Math.max(0, Math.min(100, Math.round(50 + (market?.averageMove ?? 0) * 4)));
+  const marketRegime = getMarketRegime({
+    averageMove: market?.averageMove ?? 0,
+    breadthRatio: ratio,
+    fearGreed,
+    sentiment: market?.sentiment,
+    vixProxy,
+  });
   const newsShock =
     Math.abs(market?.averageMove ?? 0) > 1.4
       ? "Elevated"
@@ -103,8 +110,9 @@ export function MarketOverviewCollapsible({
 
       {isOpen ? (
         <div className="space-y-4 border-t border-white/10 p-5">
-          <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-5">
+          <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-6">
             <MarketMetric title="Market Sentiment" value={market?.sentiment ?? "Pending"} tone={sentimentTone(market?.sentiment)} badge="CALCULATED" />
+            <MarketMetric title="Market Regime" value={marketRegime.label} detail={`${marketRegime.bias} | Confidence ${marketRegime.confidence}%`} tone={marketRegime.tone} badge="CALCULATED" />
             <MarketMetric title="Advance Decline Ratio" value={ratio} detail="Advancers vs decliners" badge="LIVE" />
             <MarketMetric title="Fear & Greed Index" value={`${fearGreed}/100`} detail={`${getFearGreedClass(fearGreed)}: ${getFearGreedInterpretation(fearGreed)}`} tone={fearGreed > 60 ? "up" : fearGreed < 40 ? "down" : "flat"} badge="CALCULATED" />
             <MarketMetric title="News Shock" value={newsShock} detail="Derived from market movement" tone={newsShock === "Elevated" ? "down" : newsShock === "Moderate" ? "flat" : "up"} badge="CALCULATED" />
@@ -130,7 +138,7 @@ export function MarketOverviewCollapsible({
             <section className="rounded-xl border border-white/10 bg-[#16263D] p-4">
               <h3 className="text-sm font-semibold text-white">Top 3 Focus Sectors</h3>
               <div className="mt-3 flex flex-wrap gap-2">
-                {(topSectors.length ? topSectors : ["Banking", "IT", "Capital Goods"]).map((sector) => (
+                {topSectors.map((sector) => (
                   <span
                     key={sector}
                     className="rounded-full border border-amber-300/25 bg-amber-300/10 px-3 py-1 text-xs font-semibold text-amber-100"
@@ -138,6 +146,11 @@ export function MarketOverviewCollapsible({
                     {sector}
                   </span>
                 ))}
+                {topSectors.length === 0 ? (
+                  <span className="rounded-full border border-white/15 bg-white/[0.03] px-3 py-1 text-xs font-semibold text-slate-400">
+                    Waiting for relative strength data
+                  </span>
+                ) : null}
               </div>
               <div className="mt-4 grid gap-2 sm:grid-cols-2">
                 <PlaceholderCard label="Upcoming IPOs placeholder" />
@@ -335,6 +348,74 @@ function getTopFocusSectors(market: MarketOverview | null) {
     .map(([sector]) => sector)
     .filter((sector) => sector !== "Market")
     .slice(0, 3);
+}
+
+function getMarketRegime({
+  averageMove,
+  breadthRatio,
+  fearGreed,
+  sentiment,
+  vixProxy,
+}: {
+  averageMove: number;
+  breadthRatio: string;
+  fearGreed: number;
+  sentiment?: MarketOverview["sentiment"];
+  vixProxy: number;
+}) {
+  const [advancers, decliners] = breadthRatio
+    .split(":")
+    .map((value) => Number(value));
+  const breadthScore =
+    Number.isFinite(advancers) && Number.isFinite(decliners)
+      ? advancers / Math.max(decliners, 1)
+      : 1;
+  const isPositive = sentiment === "Positive" || averageMove > 0.35 || breadthScore > 1.15;
+  const isNegative = sentiment === "Negative" || averageMove < -0.35 || breadthScore < 0.85;
+  const isVolatile = vixProxy >= 20;
+
+  if (isPositive && !isVolatile && fearGreed >= 55) {
+    return {
+      bias: "Bullish",
+      confidence: Math.min(92, Math.round(64 + Math.abs(averageMove) * 5 + Math.max(0, breadthScore - 1) * 8)),
+      label: "Risk-On",
+      tone: "up" as const,
+    };
+  }
+
+  if (isNegative && isVolatile) {
+    return {
+      bias: "Defensive",
+      confidence: Math.min(90, Math.round(66 + Math.abs(averageMove) * 6 + Math.max(0, 1 - breadthScore) * 10)),
+      label: "Risk-Off",
+      tone: "down" as const,
+    };
+  }
+
+  if (isNegative) {
+    return {
+      bias: "Bearish",
+      confidence: Math.min(86, Math.round(60 + Math.abs(averageMove) * 5)),
+      label: "Correction",
+      tone: "down" as const,
+    };
+  }
+
+  if (Math.abs(averageMove) < 0.35 && breadthScore > 0.9 && breadthScore < 1.1) {
+    return {
+      bias: "Neutral",
+      confidence: 72,
+      label: "Consolidation",
+      tone: "flat" as const,
+    };
+  }
+
+  return {
+    bias: isPositive ? "Bullish" : "Neutral",
+    confidence: 68,
+    label: "Transition",
+    tone: "flat" as const,
+  };
 }
 
 function inferSector(quote: MarketQuote) {

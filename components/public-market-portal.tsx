@@ -1,6 +1,6 @@
 "use client";
 
-import { BookOpen, Lock, Map, Shield, TrendingUp, X } from "lucide-react";
+import { BookOpen, Lock, LockKeyhole, Map, Shield, TrendingUp, X } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -69,6 +69,11 @@ export function PublicMarketPortal() {
   const [pinInput, setPinInput] = useState("");
   const [pinError, setPinError] = useState<string | null>(null);
   const [isMarketLoading, setIsMarketLoading] = useState(false);
+  const [isAdminLoginOpen, setIsAdminLoginOpen] = useState(false);
+  const [adminUsername, setAdminUsername] = useState("");
+  const [adminPassword, setAdminPassword] = useState("");
+  const [adminError, setAdminError] = useState("");
+  const [isAdminLoading, setIsAdminLoading] = useState(false);
 
   async function refreshMarket() {
     setIsMarketLoading(true);
@@ -142,6 +147,28 @@ export function PublicMarketPortal() {
     router.push(`/portfolio/${encodeURIComponent(pinChallengePortfolio.id)}`);
   }
 
+  async function loginAdmin() {
+    setIsAdminLoading(true);
+    setAdminError("");
+
+    const response = await fetch("/api/auth/login", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        username: adminUsername,
+        password: adminPassword,
+      }),
+    });
+
+    if (!response.ok) {
+      setAdminError("Invalid username or password.");
+      setIsAdminLoading(false);
+      return;
+    }
+
+    router.push("/admin");
+  }
+
   return (
     <main className="min-h-screen bg-background">
       <section className="mx-auto flex w-full max-w-[1680px] flex-col gap-7 px-4 py-6 sm:px-6 lg:px-8">
@@ -160,14 +187,12 @@ export function PublicMarketPortal() {
           </div>
           <nav className="flex flex-wrap items-center gap-2">
             <HeaderLink href="/">Home</HeaderLink>
+            <Button type="button" variant="outline" onClick={() => setIsAdminLoginOpen(true)}>
+              <Shield className="h-4 w-4" aria-hidden="true" />
+              Admin
+            </Button>
             <HeaderLink href="#roadmap">Roadmap</HeaderLink>
             <HeaderLink href="#glossary">Glossary</HeaderLink>
-            <Button asChild variant="outline">
-              <Link href="/login?next=/admin">
-                <Shield className="h-4 w-4" aria-hidden="true" />
-                Admin
-              </Link>
-            </Button>
           </nav>
         </header>
 
@@ -200,6 +225,23 @@ export function PublicMarketPortal() {
           />
         ) : null}
 
+        {isAdminLoginOpen ? (
+          <AdminLoginModal
+            error={adminError}
+            isLoading={isAdminLoading}
+            password={adminPassword}
+            setPassword={setAdminPassword}
+            setUsername={setAdminUsername}
+            username={adminUsername}
+            onCancel={() => {
+              setIsAdminLoginOpen(false);
+              setAdminError("");
+              setAdminPassword("");
+            }}
+            onLogin={loginAdmin}
+          />
+        ) : null}
+
         <StocksAnalyzedSection matrix={expertMatrix} market={market} />
 
         <RoadmapSection />
@@ -207,6 +249,83 @@ export function PublicMarketPortal() {
         <GlossarySection />
       </section>
     </main>
+  );
+}
+
+function AdminLoginModal({
+  error,
+  isLoading,
+  password,
+  setPassword,
+  setUsername,
+  username,
+  onCancel,
+  onLogin,
+}: {
+  error: string;
+  isLoading: boolean;
+  password: string;
+  setPassword: (password: string) => void;
+  setUsername: (username: string) => void;
+  username: string;
+  onCancel: () => void;
+  onLogin: () => void;
+}) {
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 px-4 backdrop-blur-sm">
+      <section className="w-full max-w-md rounded-2xl border border-cyan-300/20 bg-[#0F1B2D] p-5 text-slate-100 shadow-2xl">
+        <div className="flex items-start justify-between gap-3">
+          <div>
+            <h2 className="flex items-center gap-2 text-lg font-semibold text-white">
+              <LockKeyhole className="h-4 w-4 text-cyan-300" aria-hidden="true" />
+              Admin Login
+            </h2>
+            <p className="mt-1 text-sm text-slate-400">
+              Enter admin credentials to continue.
+            </p>
+          </div>
+          <Button type="button" variant="outline" size="icon" onClick={onCancel}>
+            <X className="h-4 w-4" aria-hidden="true" />
+            <span className="sr-only">Cancel</span>
+          </Button>
+        </div>
+        <div className="mt-4 space-y-3">
+          <input
+            value={username}
+            onChange={(event) => setUsername(event.target.value)}
+            placeholder="Username"
+            autoComplete="username"
+            className="h-11 w-full rounded-md border border-white/10 bg-[#08121F] px-3 text-sm text-white outline-none focus:ring-2 focus:ring-cyan-300"
+          />
+          <input
+            value={password}
+            onChange={(event) => setPassword(event.target.value)}
+            placeholder="Password"
+            type="password"
+            autoComplete="current-password"
+            className="h-11 w-full rounded-md border border-white/10 bg-[#08121F] px-3 text-sm text-white outline-none focus:ring-2 focus:ring-cyan-300"
+            onKeyDown={(event) => {
+              if (event.key === "Enter") {
+                onLogin();
+              }
+            }}
+          />
+          {error ? (
+            <div className="rounded-md border border-rose-300/30 bg-rose-300/10 px-3 py-2 text-sm text-rose-100">
+              {error}
+            </div>
+          ) : null}
+          <div className="grid gap-2 sm:grid-cols-2">
+            <Button type="button" onClick={onLogin} disabled={isLoading}>
+              {isLoading ? "Logging in" : "Login"}
+            </Button>
+            <Button type="button" variant="outline" onClick={onCancel}>
+              Cancel
+            </Button>
+          </div>
+        </div>
+      </section>
+    </div>
   );
 }
 

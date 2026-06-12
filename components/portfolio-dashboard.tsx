@@ -8,11 +8,13 @@ import {
   Lock,
   Plus,
   RefreshCw,
+  Shield,
   Sparkles,
   Trash2,
   X,
 } from "lucide-react";
 import Image from "next/image";
+import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { ChangeDetection } from "@/components/change-detection";
 import { MarketOverviewCollapsible } from "@/components/market-overview-collapsible";
@@ -764,6 +766,15 @@ export function PortfolioDashboard({
               </p>
             </div>
           </div>
+          <nav className="flex flex-wrap items-center gap-2">
+            <HeaderLink href="/">Home</HeaderLink>
+            <HeaderLink href="/admin">
+              <Shield className="h-4 w-4" aria-hidden="true" />
+              Admin
+            </HeaderLink>
+            <HeaderLink href="/#roadmap">Roadmap</HeaderLink>
+            <HeaderLink href="/#glossary">Glossary</HeaderLink>
+          </nav>
         </header>
 
         {adminMode ? (
@@ -909,6 +920,23 @@ export function PortfolioDashboard({
     </main>
   );
 
+}
+
+function HeaderLink({
+  href,
+  children,
+}: {
+  href: string;
+  children: ReactNode;
+}) {
+  return (
+    <Link
+      href={href}
+      className="inline-flex items-center gap-2 rounded-lg border border-white/10 bg-white/[0.03] px-3 py-2 text-sm font-semibold text-slate-200 transition hover:border-cyan-300/40 hover:text-cyan-200"
+    >
+      {children}
+    </Link>
+  );
 }
 
 function AddPortfolioModal({

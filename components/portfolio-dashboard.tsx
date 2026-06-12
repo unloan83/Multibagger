@@ -377,10 +377,14 @@ export function PortfolioDashboard({
       return;
     }
 
+    if (!hydrated && initialPortfolioId) {
+      return;
+    }
+
     if (!portfolios.some((portfolio) => portfolio.id === selectedPortfolioId)) {
       setSelectedPortfolioId(portfolios[0].id);
     }
-  }, [portfolios, selectedPortfolioId]);
+  }, [hydrated, initialPortfolioId, portfolios, selectedPortfolioId]);
 
   useEffect(() => {
     if (!hydrated || hasRepricedSavedPortfolios) {

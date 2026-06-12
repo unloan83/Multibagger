@@ -163,7 +163,7 @@ export function PublicMarketPortal() {
             <HeaderLink href="#roadmap">Roadmap</HeaderLink>
             <HeaderLink href="#glossary">Glossary</HeaderLink>
             <Button asChild variant="outline">
-              <Link href="/admin">
+              <Link href="/login?next=/admin">
                 <Shield className="h-4 w-4" aria-hidden="true" />
                 Admin
               </Link>

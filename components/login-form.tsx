@@ -2,10 +2,12 @@
 
 import { useState } from "react";
 import { LockKeyhole } from "lucide-react";
+import { useSearchParams } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
 export function LoginForm() {
+  const searchParams = useSearchParams();
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
@@ -27,7 +29,7 @@ export function LoginForm() {
       return;
     }
 
-    window.location.href = "/";
+    window.location.href = searchParams.get("next") || "/admin";
   }
 
   return (

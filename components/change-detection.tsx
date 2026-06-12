@@ -50,9 +50,14 @@ export function ChangeDetection({
         <p className="text-xs font-semibold uppercase tracking-[0.2em] text-cyan-300">
           Change Detection
         </p>
-        <h2 className="mt-1 text-lg font-semibold text-white">
-          What Changed Since Yesterday
-        </h2>
+        <div className="mt-1 flex flex-wrap items-center gap-2">
+          <h2 className="text-lg font-semibold text-white">
+            What Changed Since Yesterday
+          </h2>
+          <span className="rounded-full border border-amber-300/30 bg-amber-300/10 px-2 py-0.5 text-[10px] font-semibold tracking-[0.12em] text-amber-200">
+            CALCULATED
+          </span>
+        </div>
         <p className="mt-2 text-sm text-amber-100">{summary}</p>
       </div>
       <div className="grid gap-2 md:grid-cols-2 xl:grid-cols-3">

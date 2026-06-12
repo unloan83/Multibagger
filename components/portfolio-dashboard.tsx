@@ -2,13 +2,6 @@
 
 import Papa from "papaparse";
 import {
-  Cell,
-  Pie,
-  PieChart,
-  ResponsiveContainer,
-  Tooltip,
-} from "recharts";
-import {
   ChevronDown,
   ChevronRight,
   FileUp,
@@ -24,9 +17,7 @@ import { Button } from "@/components/ui/button";
 import { ChangeDetection } from "@/components/change-detection";
 import { MarketOverviewCollapsible } from "@/components/market-overview-collapsible";
 import { PortfolioCoach } from "@/components/portfolio-coach";
-import { PortfolioHealthScore } from "@/components/portfolio-health-score";
 import { PortfolioHub } from "@/components/portfolio-hub";
-import { PortfolioRiskEngine } from "@/components/portfolio-risk-engine";
 import { TodaysActionCenter } from "@/components/todays-action-center";
 import {
   Card,
@@ -46,9 +37,9 @@ import {
 import {
   buildDecisionIntelligence,
   type MarketOverview as DecisionMarketOverview,
-  type MarketQuote as DecisionMarketQuote,
-  type MarketMoverGroup as DecisionMarketMoverGroup,
 } from "@/lib/decision-intelligence";
+import { analyzePortfolioHealthScore } from "@/lib/portfolio-health";
+import { analyzePortfolioRisk } from "@/lib/risk-engine";
 import {
   InvestmentAppetite,
   ManagedPortfolio,
@@ -74,22 +65,19 @@ import {
   type RefObject,
 } from "react";
 
-const sectorColors = [
-  "#0f8b8d",
-  "#f4a261",
-  "#4f7cac",
-  "#d1495b",
-  "#2a9d8f",
-  "#6d597a",
-  "#8ab17d",
-  "#e76f51",
-];
-
 const portfoliosStorageKey = "multibagger-portfolios";
 const historyStorageKey = "multibagger-recommendation-history";
 const pinStorageKey = "unloan-portfolio-pin-hashes";
 const portfolioDashboardCollapseKey = "unloan-portfolio-dashboard-open";
 const masterRecoveryPin = "1008";
+const sectorBarColors = [
+  "bg-emerald-300",
+  "bg-sky-300",
+  "bg-amber-300",
+  "bg-cyan-300",
+  "bg-violet-300",
+  "bg-teal-300",
+];
 
 type CsvRow = {
   list?: string;
@@ -109,9 +97,7 @@ type CsvRow = {
   purchasePrice?: string;
 };
 
-type MarketQuote = DecisionMarketQuote;
 type MarketOverview = DecisionMarketOverview;
-type MarketMoverGroup = DecisionMarketMoverGroup;
 
 type ExpertMatrixQuote = {
   symbol: string;
@@ -169,7 +155,6 @@ export function PortfolioDashboard() {
   const [isMarketLoading, setIsMarketLoading] = useState(false);
   const [, setExpertMatrix] = useState<ExpertActionMatrix | null>(null);
   const [, setIsExpertLoading] = useState(false);
-  const [isAdvancedOpen, setIsAdvancedOpen] = useState(false);
   const [isPortfolioDashboardOpen, setIsPortfolioDashboardOpen] = useState(true);
   const [selectedPortfolioId, setSelectedPortfolioId] = useState(samplePortfolio.id);
   const [pinHashes, setPinHashes] = useState<Record<string, string>>({});
@@ -729,10 +714,6 @@ export function PortfolioDashboard() {
           onRefresh={refreshMarketOverview}
         />
 
-        <TodaysActionCenter intelligence={decisionIntelligence} />
-
-        <ChangeDetection snapshot={decisionIntelligence?.snapshot} />
-
         <PortfolioHub
           portfolios={portfolios}
           selectedPortfolioId={selectedPortfolio?.id}
@@ -822,10 +803,6 @@ export function PortfolioDashboard() {
             {isPortfolioDashboardOpen ? (
               <div className="space-y-5 border-t border-white/10 p-5">
                 <PortfolioSummarySection portfolios={[selectedPortfolio]} />
-                <div className="grid gap-4 xl:grid-cols-[minmax(0,0.85fr)_minmax(0,1.15fr)]">
-                  <PortfolioHealthScore portfolio={selectedPortfolio} />
-                  <CurrentHoldingsSection portfolio={selectedPortfolio} />
-                </div>
                 <PortfolioCard
                   key={selectedPortfolio.id}
                   portfolio={selectedPortfolio}
@@ -840,25 +817,18 @@ export function PortfolioDashboard() {
                     )
                   }
                 />
+                <PortfolioDiagnostics portfolio={selectedPortfolio} />
+                <TodaysActionCenter intelligence={decisionIntelligence} />
+                <ChangeDetection snapshot={decisionIntelligence?.snapshot} />
+                <PortfolioHoldingsAndSectors portfolio={selectedPortfolio} />
               </div>
             ) : null}
           </section>
         ) : null}
 
-        <AdvancedInsightsSection
-          isOpen={isAdvancedOpen}
-          onToggle={() => setIsAdvancedOpen((value) => !value)}
-        />
-
-        <GlossarySection />
-
         <RoadmapSection />
 
-        <DailyMoversSection
-          market={marketOverview}
-          isLoading={isMarketLoading}
-          onRefresh={refreshMarketOverview}
-        />
+        <GlossarySection />
       </section>
     </main>
   );
@@ -1120,23 +1090,6 @@ function AddPortfolioPanel({
   );
 }
 
-function SectionHeader({
-  title,
-  description,
-}: {
-  title: string;
-  description: string;
-}) {
-  return (
-    <div className="flex flex-col gap-1 sm:flex-row sm:items-end sm:justify-between">
-      <div>
-        <h2 className="text-xl font-semibold text-primary">{title}</h2>
-        <p className="text-sm text-muted-foreground">{description}</p>
-      </div>
-    </div>
-  );
-}
-
 function PortfolioSummarySection({
   portfolios,
 }: {
@@ -1215,230 +1168,240 @@ function SummaryTile({
   );
 }
 
-function CurrentHoldingsSection({
+function PortfolioDiagnostics({
   portfolio,
 }: {
   portfolio: ManagedPortfolio;
 }) {
-  const holdings = calculatePortfolioMetrics(portfolio.positions).holdings
+  const health = analyzePortfolioHealthScore(portfolio);
+  const risk = analyzePortfolioRisk(portfolio);
+  const component = (label: string) =>
+    health.components.find((item) => item.label === label)?.score ?? 0;
+
+  return (
+    <section className="space-y-4 rounded-2xl border border-amber-300/20 bg-[#0F1B2D] p-5 shadow-xl">
+      <SectionTitle
+        title="Portfolio Diagnostics"
+        subtitle="Unified health and risk intelligence for the selected portfolio."
+        badge="CALCULATED"
+        accent="gold"
+      />
+      <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+        <DiagnosticMetric label="Portfolio Score" value={`${health.healthScore}/100`} detail={health.grade} tone={health.healthScore >= 75 ? "up" : health.healthScore >= 60 ? "flat" : "down"} />
+        <DiagnosticMetric label="Risk Status" value={risk.riskStatus} detail={`${risk.riskScore}/100 risk score`} tone={risk.riskStatus === "GREEN" ? "up" : risk.riskStatus === "RED" ? "down" : "flat"} />
+        <DiagnosticMetric label="Diversification" value={`${component("Diversification")}/100`} detail="Position spread" tone="flat" />
+        <DiagnosticMetric label="Sector Balance" value={`${component("Sector Balance")}/100`} detail="Concentration control" tone="flat" />
+        <DiagnosticMetric label="Momentum" value={`${component("Momentum")}/100`} detail="Relative strength proxy" tone="up" />
+        <DiagnosticMetric label="Cash Management" value={`${component("Cash Management")}/100`} detail="Liquidity buffer" tone="flat" />
+        <DiagnosticMetric label="Largest Risk" value={risk.risks[0] ?? "None"} detail="Primary construction issue" tone={risk.riskStatus === "RED" ? "down" : "flat"} compact />
+        <DiagnosticMetric label="Largest Strength" value={health.strengths[0] ?? "Data ready"} detail={health.opportunities[0] ?? "Maintain discipline"} tone="up" compact />
+      </div>
+      <div className="rounded-xl border border-white/10 bg-[#16263D] px-4 py-3 text-sm text-slate-300">
+        <span className="font-semibold text-amber-200">Improvement Opportunity:</span>{" "}
+        {health.opportunities[0] ?? risk.recommendations[0] ?? "Maintain current allocation discipline."}
+      </div>
+    </section>
+  );
+}
+
+function PortfolioHoldingsAndSectors({
+  portfolio,
+}: {
+  portfolio: ManagedPortfolio;
+}) {
+  const metrics = calculatePortfolioMetrics(portfolio.positions);
+
+  return (
+    <section className="grid gap-4 xl:grid-cols-2">
+      <CurrentHoldingsCard portfolio={portfolio} metrics={metrics} />
+      <SectorAllocationCard metrics={metrics} />
+    </section>
+  );
+}
+
+function CurrentHoldingsCard({
+  portfolio,
+  metrics,
+}: {
+  portfolio: ManagedPortfolio;
+  metrics: ReturnType<typeof calculatePortfolioMetrics>;
+}) {
+  const holdings = metrics.holdings
     .sort((a, b) => b.marketValue - a.marketValue)
     .slice(0, 5);
 
   return (
-    <section className="h-full space-y-3">
-      <div className="flex items-center justify-between gap-3">
-        <div>
-          <h3 className="text-lg font-semibold text-white">Current Holdings</h3>
-          <p className="text-sm text-slate-400">Top 5 positions by current value.</p>
-        </div>
+    <section className="space-y-3 rounded-2xl border border-sky-300/20 bg-[#0F1B2D] p-5 shadow-xl">
+      <div className="flex items-start justify-between gap-3">
+        <SectionTitle
+          title="Current Holdings"
+          subtitle="Top 5 positions by current value."
+          badge="LIVE"
+          accent="blue"
+        />
         <Button type="button" variant="outline" size="sm">
-          View All Holdings
+          View All
         </Button>
       </div>
-      <Card className="h-[calc(100%-3.5rem)] overflow-hidden border-white/10 bg-[#16263D] shadow-sm">
-        <CardContent className="p-0">
-          <div className="overflow-x-auto">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Symbol</TableHead>
-                  <TableHead>Quantity</TableHead>
-                  <TableHead>Average Price</TableHead>
-                  <TableHead>CMP</TableHead>
-                  <TableHead>P/L %</TableHead>
+      <div className="overflow-x-auto rounded-xl border border-white/10">
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead>Symbol</TableHead>
+              <TableHead>Qty</TableHead>
+              <TableHead>Avg</TableHead>
+              <TableHead>CMP</TableHead>
+              <TableHead>P/L</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {holdings.map((holding) => {
+              const profitLoss = getProfitLossPercent(portfolio, holding.symbol, holding.currentPrice);
+
+              return (
+                <TableRow key={`${portfolio.id}-${holding.symbol}`}>
+                  <TableCell className="font-medium">{holding.symbol}</TableCell>
+                  <TableCell>{holding.quantity}</TableCell>
+                  <TableCell>{formatCurrency(getAveragePrice(portfolio, holding.symbol))}</TableCell>
+                  <TableCell>{formatCurrency(holding.currentPrice)}</TableCell>
+                  <TableCell className={cn("font-semibold", profitLoss >= 0 ? "text-emerald-300" : "text-rose-300")}>
+                    {formatPercent(profitLoss)}
+                  </TableCell>
                 </TableRow>
-              </TableHeader>
-              <TableBody>
-                {holdings.map((holding) => (
-                  <TableRow key={`${portfolio.id}-${holding.symbol}`}>
-                    <TableCell className="font-medium">{holding.symbol}</TableCell>
-                    <TableCell>{holding.quantity}</TableCell>
-                    <TableCell>{formatCurrency(getAveragePrice(portfolio, holding.symbol))}</TableCell>
-                    <TableCell>{formatCurrency(holding.currentPrice)}</TableCell>
-                    <TableCell
-                      className={cn(
-                        "font-semibold",
-                        getProfitLossPercent(portfolio, holding.symbol, holding.currentPrice) >= 0
-                          ? "text-emerald-300"
-                          : "text-rose-300",
-                      )}
-                    >
-                      {formatPercent(
-                        getProfitLossPercent(portfolio, holding.symbol, holding.currentPrice),
-                      )}
-                    </TableCell>
-                  </TableRow>
-                ))}
-                {holdings.length === 0 ? (
-                  <TableRow>
-                    <TableCell colSpan={5} className="text-sm text-muted-foreground">
-                      Add a portfolio to see holdings.
-                    </TableCell>
-                  </TableRow>
-                ) : null}
-              </TableBody>
-            </Table>
-          </div>
-        </CardContent>
-      </Card>
-    </section>
-  );
-}
-
-function AdvancedInsightsSection({
-  isOpen,
-  onToggle,
-}: {
-  isOpen: boolean;
-  onToggle: () => void;
-}) {
-  return (
-    <section className="overflow-hidden rounded-2xl border border-white/10 bg-[#0F1B2D] shadow-xl">
-      <button
-        type="button"
-        onClick={onToggle}
-        className="flex w-full items-center justify-between gap-3 px-5 py-4 text-left"
-        aria-expanded={isOpen}
-      >
-        <div>
-          <h2 className="text-lg font-semibold text-white">Advanced Insights</h2>
-          <p className="text-sm text-slate-400">
-            Reserved for deeper portfolio intelligence.
-          </p>
-        </div>
-        <ChevronDown
-          className={cn("h-5 w-5 text-cyan-300 transition-transform", isOpen ? "rotate-180" : "")}
-          aria-hidden="true"
-        />
-      </button>
-      {isOpen ? (
-        <div className="border-t border-white/10 p-5">
-          <p className="rounded-xl border border-dashed border-white/15 bg-white/[0.03] px-4 py-5 text-sm text-slate-400">
-            Additional portfolio intelligence modules coming soon.
-          </p>
-        </div>
-      ) : null}
-    </section>
-  );
-}
-
-function DailyMoversSection({
-  market,
-  isLoading,
-  onRefresh,
-}: {
-  market: MarketOverview | null;
-  isLoading: boolean;
-  onRefresh: () => void;
-}) {
-  return (
-    <section className="space-y-3">
-      <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
-        <SectionHeader
-          title="Daily Movers"
-          description="Secondary market context from large, mid, and small-cap groups."
-        />
-        <Button
-          type="button"
-          variant="outline"
-          size="sm"
-          onClick={onRefresh}
-          disabled={isLoading}
-        >
-          <RefreshCw className="h-4 w-4" aria-hidden="true" />
-          {isLoading ? "Refreshing" : "Refresh"}
-        </Button>
+              );
+            })}
+            {holdings.length === 0 ? (
+              <TableRow>
+                <TableCell colSpan={5} className="text-sm text-muted-foreground">
+                  Add a portfolio to see holdings.
+                </TableCell>
+              </TableRow>
+            ) : null}
+          </TableBody>
+        </Table>
       </div>
-      <div className="grid gap-2 md:grid-cols-2 xl:grid-cols-3">
-        {(market?.moverGroups ?? []).map((group) => (
-          <MoverSegmentCard key={group.segment} group={group} />
+      <SectionFooter text="Prices update through the existing quote refresh cycle." />
+    </section>
+  );
+}
+
+function SectorAllocationCard({
+  metrics,
+}: {
+  metrics: ReturnType<typeof calculatePortfolioMetrics>;
+}) {
+  const sectors = [...metrics.sectorAllocations].sort((a, b) => b.percentage - a.percentage);
+
+  return (
+    <section className="space-y-3 rounded-2xl border border-emerald-300/20 bg-[#0F1B2D] p-5 shadow-xl">
+      <SectionTitle
+        title="Sector Allocation"
+        subtitle="Sector weight sorted by largest exposure."
+        badge="CALCULATED"
+        accent="green"
+      />
+      <div className="space-y-3">
+        {sectors.map((sector, index) => (
+          <div key={sector.sector} className="space-y-1.5">
+            <div className="flex items-center justify-between gap-3 text-sm">
+              <span className="truncate font-medium text-slate-100">{sector.sector}</span>
+              <span className="font-semibold text-emerald-200">{sector.percentage.toFixed(1)}%</span>
+            </div>
+            <div className="h-2.5 overflow-hidden rounded-full bg-white/10">
+              <div
+                className={cn("h-full rounded-full", sectorBarColors[index % sectorBarColors.length])}
+                style={{ width: `${Math.min(100, Math.max(0, sector.percentage))}%` }}
+              />
+            </div>
+            <div className="text-xs text-slate-500">Weight: {formatCurrency(sector.value)}</div>
+          </div>
         ))}
-        {!market ? (
-          <>
-            <MoverSegmentSkeleton />
-            <MoverSegmentSkeleton />
-            <MoverSegmentSkeleton />
-          </>
+        {sectors.length === 0 ? (
+          <div className="rounded-xl border border-white/10 bg-[#16263D] p-3 text-sm text-slate-400">
+            Add holdings to calculate sector allocation.
+          </div>
         ) : null}
       </div>
+      <SectionFooter text="Allocation is calculated from current holding value." />
     </section>
   );
 }
 
-function MoverSegmentCard({ group }: { group: MarketMoverGroup }) {
-  return (
-    <section className="rounded-md border border-white/70 bg-white/80 p-2 shadow-sm">
-      <div className="mb-2 flex items-center justify-between">
-        <h2 className="text-xs font-semibold uppercase tracking-normal text-muted-foreground">
-          {group.segment}
-        </h2>
-        <span className="rounded bg-teal-50 px-1.5 py-0.5 text-[10px] font-semibold text-teal-800">
-          8 stocks
-        </span>
-      </div>
-      <div className="grid gap-2 sm:grid-cols-2">
-        <MoverMiniList title="Gainers" quotes={group.gainers} tone="up" />
-        <MoverMiniList title="Losers" quotes={group.losers} tone="down" />
-      </div>
-    </section>
-  );
-}
-
-function MoverMiniList({
+function SectionTitle({
   title,
-  quotes,
-  tone,
+  subtitle,
+  badge,
+  accent,
 }: {
   title: string;
-  quotes: MarketQuote[];
-  tone: "up" | "down";
+  subtitle: string;
+  badge: "LIVE" | "CALCULATED";
+  accent: "blue" | "gold" | "cyan" | "green" | "purple";
 }) {
   return (
-    <div className="space-y-1">
-      <div
-        className={cn(
-          "text-[11px] font-semibold",
-          tone === "up" ? "text-emerald-700" : "text-destructive",
-        )}
-      >
-        {title}
+    <div className="min-w-0">
+      <div className="flex flex-wrap items-center gap-2">
+        <h2 className="text-xl font-semibold text-white">{title}</h2>
+        <SourceBadge label={badge} accent={accent} />
       </div>
-      {quotes.map((quote) => (
-        <StockSignalBar
-          key={`${title}-${quote.symbol}`}
-          symbol={quote.symbol}
-          name={quote.name}
-          primaryValue={formatPercent(quote.changePercent)}
-          secondaryValue={quote.price.toLocaleString("en-IN")}
-          tone={quote.change > 0 ? "up" : quote.change < 0 ? "down" : "flat"}
-          details={
-            <div className="grid gap-1 text-[11px] sm:grid-cols-2">
-              <span>Price: {quote.price.toLocaleString("en-IN")}</span>
-              <span>Move: {formatPercent(quote.changePercent)}</span>
-              <span>Change: {quote.change.toFixed(2)}</span>
-              <span>Volume: {quote.volume.toLocaleString("en-IN")}</span>
-            </div>
-          }
-        />
-      ))}
-      {quotes.length === 0 ? (
-        <div className="rounded bg-muted/30 px-2 py-2 text-[11px] text-muted-foreground">
-          No names yet.
-        </div>
-      ) : null}
+      <p className="mt-1 text-sm text-slate-400">{subtitle}</p>
     </div>
   );
 }
 
-function MoverSegmentSkeleton() {
+function SourceBadge({
+  label,
+  accent,
+}: {
+  label: "LIVE" | "CALCULATED";
+  accent: "blue" | "gold" | "cyan" | "green" | "purple";
+}) {
+  const classes = {
+    blue: "border-sky-300/30 bg-sky-300/10 text-sky-200",
+    gold: "border-amber-300/30 bg-amber-300/10 text-amber-200",
+    cyan: "border-cyan-300/30 bg-cyan-300/10 text-cyan-200",
+    green: "border-emerald-300/30 bg-emerald-300/10 text-emerald-200",
+    purple: "border-violet-300/30 bg-violet-300/10 text-violet-200",
+  }[accent];
+
   return (
-    <section className="rounded-md border border-white/70 bg-white/80 p-2 shadow-sm">
-      <div className="h-4 w-20 rounded bg-muted" />
-      <div className="mt-2 grid gap-2 sm:grid-cols-2">
-        <div className="h-28 rounded bg-muted" />
-        <div className="h-28 rounded bg-muted" />
+    <span className={cn("rounded-full border px-2 py-0.5 text-[10px] font-semibold tracking-[0.14em]", classes)}>
+      {label}
+    </span>
+  );
+}
+
+function SectionFooter({ text }: { text: string }) {
+  return <p className="border-t border-white/10 pt-3 text-xs text-slate-500">{text}</p>;
+}
+
+function DiagnosticMetric({
+  label,
+  value,
+  detail,
+  tone,
+  compact = false,
+}: {
+  label: string;
+  value: string;
+  detail: string;
+  tone: "up" | "down" | "flat";
+  compact?: boolean;
+}) {
+  return (
+    <article className="min-h-28 rounded-xl border border-white/10 bg-[#16263D] p-4">
+      <div className="text-xs uppercase tracking-[0.14em] text-slate-500">{label}</div>
+      <div
+        className={cn(
+          "mt-2 font-semibold",
+          compact ? "line-clamp-2 text-base" : "text-2xl",
+          tone === "up" ? "text-emerald-300" : tone === "down" ? "text-rose-300" : "text-amber-300",
+        )}
+      >
+        {value}
       </div>
-    </section>
+      <div className="mt-1 text-xs leading-5 text-slate-400">{detail}</div>
+    </article>
   );
 }
 
@@ -1513,9 +1476,7 @@ function PortfolioCard({
             onSave={onUpdateInputs}
           />
         ) : null}
-        <PortfolioRiskEngine portfolio={portfolio} />
         <PortfolioCoach portfolio={portfolio} />
-        <SectorAllocationBlock metrics={metrics} />
       </CardContent>
     </Card>
   );
@@ -1665,133 +1626,6 @@ function PortfolioDetailRow({
   );
 }
 
-function StockSignalBar({
-  symbol,
-  name,
-  primaryValue,
-  secondaryValue,
-  tone,
-  details,
-}: {
-  symbol: string;
-  name: string;
-  primaryValue: string;
-  secondaryValue?: string;
-  tone: "up" | "down" | "flat";
-  details: ReactNode;
-}) {
-  const [isOpen, setIsOpen] = useState(false);
-
-  return (
-    <div className={cn("overflow-hidden rounded-md border shadow-sm", stockBarClasses[tone].shell)}>
-      <button
-        type="button"
-        onClick={() => setIsOpen((value) => !value)}
-        className={cn(
-          "grid min-h-10 w-full grid-cols-[1fr_auto_auto] items-center gap-2 px-2.5 py-2 text-left text-xs transition-colors",
-          stockBarClasses[tone].button,
-        )}
-        aria-expanded={isOpen}
-      >
-        <div className="min-w-0">
-          <div className="flex min-w-0 items-center gap-2">
-            <span className={cn("h-2 w-2 shrink-0 rounded-full", stockBarClasses[tone].dot)} />
-            <span className="truncate text-sm font-semibold leading-none">{symbol}</span>
-          </div>
-          <div className="mt-1 truncate text-[10px] leading-none text-zinc-300">{name}</div>
-        </div>
-        <div className="shrink-0 rounded border border-white/10 bg-white/5 px-1.5 py-0.5 text-[11px] font-semibold">
-          {primaryValue}
-        </div>
-        <div className="flex shrink-0 items-center gap-1">
-          {secondaryValue ? (
-            <span className="hidden rounded border border-white/10 bg-white/5 px-1.5 py-0.5 text-[10px] font-semibold sm:inline">
-              {secondaryValue}
-            </span>
-          ) : null}
-          <ChevronDown
-            className={cn("h-3.5 w-3.5 transition-transform", isOpen ? "rotate-180" : "")}
-            aria-hidden="true"
-          />
-        </div>
-      </button>
-      {isOpen ? (
-        <div className={cn("border-t px-2.5 py-2", stockBarClasses[tone].details)}>
-          {details}
-        </div>
-      ) : null}
-    </div>
-  );
-}
-
-const stockBarClasses = {
-  up: {
-    shell: "border-emerald-400/60 bg-zinc-950",
-    button: "bg-zinc-950 text-emerald-300 hover:bg-zinc-900",
-    dot: "bg-emerald-400 shadow-[0_0_10px_rgba(52,211,153,0.95)]",
-    details: "border-emerald-400/30 bg-zinc-950 text-zinc-100",
-  },
-  down: {
-    shell: "border-red-400/60 bg-zinc-950",
-    button: "bg-zinc-950 text-red-300 hover:bg-zinc-900",
-    dot: "bg-red-400 shadow-[0_0_10px_rgba(248,113,113,0.95)]",
-    details: "border-red-400/30 bg-zinc-950 text-zinc-100",
-  },
-  flat: {
-    shell: "border-amber-300/60 bg-zinc-950",
-    button: "bg-zinc-950 text-amber-300 hover:bg-zinc-900",
-    dot: "bg-amber-300 shadow-[0_0_10px_rgba(252,211,77,0.95)]",
-    details: "border-amber-300/30 bg-zinc-950 text-zinc-100",
-  },
-} as const;
-
-function SectorAllocationBlock({
-  metrics,
-}: {
-  metrics: ReturnType<typeof calculatePortfolioMetrics>;
-}) {
-  return (
-    <section className="space-y-2">
-      <h2 className="text-sm font-semibold">5. Sector Allocation</h2>
-      <div className="grid gap-3 md:grid-cols-[130px_1fr]">
-        <div className="h-32">
-          <ResponsiveContainer width="100%" height="100%">
-            <PieChart>
-              <Pie
-                data={metrics.sectorAllocations}
-                dataKey="value"
-                nameKey="sector"
-                innerRadius={30}
-                outerRadius={58}
-                paddingAngle={2}
-              >
-                {metrics.sectorAllocations.map((entry, index) => (
-                  <Cell
-                    key={entry.sector}
-                    fill={sectorColors[index % sectorColors.length]}
-                  />
-                ))}
-              </Pie>
-              <Tooltip formatter={(value) => formatCurrency(Number(value))} />
-            </PieChart>
-          </ResponsiveContainer>
-        </div>
-        <div className="space-y-1">
-          {metrics.sectorAllocations.map((sector) => (
-            <div
-              key={sector.sector}
-              className="flex justify-between gap-3 text-xs"
-            >
-              <span className="truncate text-muted-foreground">{sector.sector}</span>
-              <span className="font-semibold">{sector.percentage.toFixed(1)}%</span>
-            </div>
-          ))}
-        </div>
-      </div>
-    </section>
-  );
-}
-
 function GlossarySection() {
   const [isOpen, setIsOpen] = useState(false);
 
@@ -1804,7 +1638,10 @@ function GlossarySection() {
         aria-expanded={isOpen}
       >
         <div>
-          <h2 className="text-lg font-semibold text-white">Glossary / Help</h2>
+          <div className="flex flex-wrap items-center gap-2">
+            <h2 className="text-lg font-semibold text-white">Glossary / Help</h2>
+            <SourceBadge label="CALCULATED" accent="purple" />
+          </div>
           <p className="text-sm text-slate-400">
             Market terms explained for faster decision-making.
           </p>
@@ -1837,7 +1674,10 @@ function RoadmapSection() {
   return (
     <section className="space-y-4 rounded-2xl border border-white/10 bg-[#0F1B2D] p-5 shadow-xl">
       <div>
-        <h2 className="text-lg font-semibold text-white">Roadmap</h2>
+        <div className="flex flex-wrap items-center gap-2">
+          <h2 className="text-lg font-semibold text-white">Roadmap</h2>
+          <SourceBadge label="CALCULATED" accent="purple" />
+        </div>
         <p className="text-sm text-slate-400">
           Coming soon modules for a stronger investor intelligence platform.
         </p>

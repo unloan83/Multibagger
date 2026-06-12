@@ -51,9 +51,11 @@ export function MarketOverviewCollapsible({
 }) {
   const [isOpen, setIsOpen] = useState(true);
   const chartData = useMemo(() => buildMarketChartData(market), [market]);
-  const topSectors = market?.moverGroups?.slice(0, 3).map((group) => group.segment) ?? [];
+  const topSectors = useMemo(() => getTopFocusSectors(market), [market]);
   const ratio = getAdvanceDeclineRatio(market);
   const vixProxy = Math.max(10, Math.min(28, 16 + Math.abs(market?.averageMove ?? 0) * 1.7));
+  const previousVixProxy = Math.max(10, Math.min(28, vixProxy - (market?.averageMove ?? 0) * 0.35));
+  const vixChange = vixProxy - previousVixProxy;
   const fearGreed = Math.max(0, Math.min(100, Math.round(50 + (market?.averageMove ?? 0) * 4)));
   const newsShock =
     Math.abs(market?.averageMove ?? 0) > 1.4
@@ -70,7 +72,10 @@ export function MarketOverviewCollapsible({
             <TrendingUp className="h-5 w-5" aria-hidden="true" />
           </span>
           <span>
-            <span className="block text-lg font-semibold text-white">Market Overview</span>
+            <span className="flex flex-wrap items-center gap-2">
+              <span className="block text-lg font-semibold text-white">Market Overview</span>
+              <SourceBadge label="LIVE" tone="blue" />
+            </span>
             <span className="text-sm text-slate-400">
               Live context, breadth, volatility, and sector pressure.
             </span>
@@ -99,11 +104,11 @@ export function MarketOverviewCollapsible({
       {isOpen ? (
         <div className="space-y-4 border-t border-white/10 p-5">
           <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-5">
-            <MarketMetric title="Market Sentiment" value={market?.sentiment ?? "Pending"} tone={sentimentTone(market?.sentiment)} />
-            <MarketMetric title="Advance Decline Ratio" value={ratio} detail="Advancers vs decliners" />
-            <MarketMetric title="Fear & Greed Index" value={`${fearGreed}/100`} detail="Proxy until feed is connected" tone={fearGreed > 60 ? "up" : fearGreed < 40 ? "down" : "flat"} />
-            <MarketMetric title="News Shock" value={newsShock} detail="Derived from market movement" tone={newsShock === "Elevated" ? "down" : newsShock === "Moderate" ? "flat" : "up"} />
-            <MarketMetric title="India VIX" value={vixProxy.toFixed(1)} detail="Volatility proxy" tone={vixProxy > 20 ? "down" : "flat"} />
+            <MarketMetric title="Market Sentiment" value={market?.sentiment ?? "Pending"} tone={sentimentTone(market?.sentiment)} badge="CALCULATED" />
+            <MarketMetric title="Advance Decline Ratio" value={ratio} detail="Advancers vs decliners" badge="LIVE" />
+            <MarketMetric title="Fear & Greed Index" value={`${fearGreed}/100`} detail={`${getFearGreedClass(fearGreed)}: ${getFearGreedInterpretation(fearGreed)}`} tone={fearGreed > 60 ? "up" : fearGreed < 40 ? "down" : "flat"} badge="CALCULATED" />
+            <MarketMetric title="News Shock" value={newsShock} detail="Derived from market movement" tone={newsShock === "Elevated" ? "down" : newsShock === "Moderate" ? "flat" : "up"} badge="CALCULATED" />
+            <MarketMetric title="India VIX" value={vixProxy.toFixed(1)} detail={`Prev ${previousVixProxy.toFixed(1)} | ${vixChange >= 0 ? "+" : ""}${vixChange.toFixed(1)} | ${getVixStatus(vixProxy)}`} tone={vixProxy > 20 ? "down" : "flat"} badge="CALCULATED" />
           </div>
 
           <div className="grid gap-4 xl:grid-cols-[1.1fr_0.9fr]">
@@ -136,7 +141,7 @@ export function MarketOverviewCollapsible({
               </div>
               <div className="mt-4 grid gap-2 sm:grid-cols-2">
                 <PlaceholderCard label="Upcoming IPOs placeholder" />
-                <PlaceholderCard label="Sector Heatmap placeholder" />
+                <PlaceholderCard label={`Last Updated: ${market?.refreshedAt ? formatTimestamp(market.refreshedAt) : "Pending"}`} />
               </div>
             </section>
           </div>
@@ -195,18 +200,38 @@ function MarketMetric({
   value,
   detail,
   tone = "flat",
+  badge,
 }: {
   title: string;
   value: string;
   detail?: string;
   tone?: "up" | "down" | "flat";
+  badge?: "LIVE" | "CALCULATED";
 }) {
   return (
     <article className="rounded-xl border border-white/10 bg-[#16263D] p-4 shadow-sm">
-      <div className="text-xs uppercase tracking-[0.14em] text-slate-400">{title}</div>
+      <div className="flex items-center justify-between gap-2">
+        <div className="text-xs uppercase tracking-[0.14em] text-slate-400">{title}</div>
+        {badge ? <SourceBadge label={badge} tone={badge === "LIVE" ? "blue" : "gold"} /> : null}
+      </div>
       <div className={cn("mt-2 text-xl font-semibold", toneClasses[tone])}>{value}</div>
       {detail ? <div className="mt-1 text-xs text-slate-500">{detail}</div> : null}
     </article>
+  );
+}
+
+function SourceBadge({ label, tone }: { label: "LIVE" | "CALCULATED"; tone: "blue" | "gold" }) {
+  return (
+    <span
+      className={cn(
+        "rounded-full border px-2 py-0.5 text-[10px] font-semibold tracking-[0.12em]",
+        tone === "blue"
+          ? "border-sky-300/30 bg-sky-300/10 text-sky-200"
+          : "border-amber-300/30 bg-amber-300/10 text-amber-200",
+      )}
+    >
+      {label}
+    </span>
   );
 }
 
@@ -290,6 +315,61 @@ function getAdvanceDeclineRatio(market: MarketOverview | null) {
   }
 
   return `${gainers}:${Math.max(losers, 1)}`;
+}
+
+function getTopFocusSectors(market: MarketOverview | null) {
+  const quotes = [
+    ...(market?.gainers ?? []),
+    ...(market?.losers ?? []),
+    ...(market?.indices ?? []),
+    ...(market?.moverGroups ?? []).flatMap((group) => [...group.gainers, ...group.losers]),
+  ];
+  const counts = quotes.reduce<Record<string, number>>((acc, quote) => {
+    const sector = inferSector(quote);
+    acc[sector] = (acc[sector] ?? 0) + Math.abs(quote.changePercent || 0) + 1;
+    return acc;
+  }, {});
+
+  return Object.entries(counts)
+    .sort((a, b) => b[1] - a[1])
+    .map(([sector]) => sector)
+    .filter((sector) => sector !== "Market")
+    .slice(0, 3);
+}
+
+function inferSector(quote: MarketQuote) {
+  const text = `${quote.symbol} ${quote.name} ${quote.segment ?? ""}`.toLowerCase();
+
+  if (/bank|finance|nbfc|nifty bank/.test(text)) return "Banking";
+  if (/pharma|health|hospital|lab/.test(text)) return "Pharma";
+  if (/it|tech|software|tcs|infosys|wipro|hcl/.test(text)) return "IT";
+  if (/power|energy|renew|green|solar|wind|ireda|ntpc|powergrid/.test(text)) return "Power";
+  if (/defence|defense|hal|bel|bhel|mazagon|cochin/.test(text)) return "Defense";
+  if (/capital|infra|larsen|abb|siemens|bhel/.test(text)) return "Capital Goods";
+  if (/rail|irfc|rvnl|irctc|texrail/.test(text)) return "Railways";
+  if (/ems|electronic|kaynes|dixon/.test(text)) return "EMS";
+  if (/auto|motor|maruti|tata motors|m&m|eicher/.test(text)) return "Auto";
+  if (/fmcg|consumer|hindustan|itc|nestle/.test(text)) return "FMCG";
+
+  return "Market";
+}
+
+function getVixStatus(vix: number) {
+  if (vix < 14) return "Calm";
+  if (vix < 20) return "Normal";
+  return "High Fear";
+}
+
+function getFearGreedClass(value: number) {
+  if (value >= 70) return "Greed";
+  if (value <= 30) return "Fear";
+  return "Neutral";
+}
+
+function getFearGreedInterpretation(value: number) {
+  if (value >= 70) return "risk appetite elevated";
+  if (value <= 30) return "capital protection preferred";
+  return "selective participation";
 }
 
 function sentimentTone(sentiment?: MarketOverview["sentiment"]) {

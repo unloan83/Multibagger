@@ -1364,6 +1364,7 @@ function PortfolioDiagnostics({
   const risk = analyzePortfolioRisk(portfolio);
   const component = (label: string) =>
     health.components.find((item) => item.label === label)?.score ?? 0;
+  const score = (value: number) => `${Math.round(value)}/100`;
 
   return (
     <section className="space-y-4 rounded-2xl border border-amber-300/20 bg-[#0F1B2D] p-5 shadow-xl">
@@ -1374,12 +1375,12 @@ function PortfolioDiagnostics({
         accent="gold"
       />
       <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
-        <DiagnosticMetric label="Portfolio Score" value={`${health.healthScore}/100`} detail={health.grade} tone={health.healthScore >= 75 ? "up" : health.healthScore >= 60 ? "flat" : "down"} />
-        <DiagnosticMetric label="Risk Status" value={risk.riskStatus} detail={`${risk.riskScore}/100 risk score`} tone={risk.riskStatus === "GREEN" ? "up" : risk.riskStatus === "RED" ? "down" : "flat"} />
-        <DiagnosticMetric label="Diversification" value={`${component("Diversification")}/100`} detail="Position spread" tone="flat" />
-        <DiagnosticMetric label="Sector Balance" value={`${component("Sector Balance")}/100`} detail="Concentration control" tone="flat" />
-        <DiagnosticMetric label="Momentum" value={`${component("Momentum")}/100`} detail="Relative strength proxy" tone="up" />
-        <DiagnosticMetric label="Cash Management" value={`${component("Cash Management")}/100`} detail="Liquidity buffer" tone="flat" />
+        <DiagnosticMetric label="Portfolio Score" value={score(health.healthScore)} detail={health.grade} tone={health.healthScore >= 75 ? "up" : health.healthScore >= 60 ? "flat" : "down"} />
+        <DiagnosticMetric label="Risk Status" value={risk.riskStatus} detail={`${score(risk.riskScore)} risk score`} tone={risk.riskStatus === "GREEN" ? "up" : risk.riskStatus === "RED" ? "down" : "flat"} />
+        <DiagnosticMetric label="Diversification" value={score(component("Diversification"))} detail="Position spread" tone="flat" />
+        <DiagnosticMetric label="Sector Balance" value={score(component("Sector Balance"))} detail="Concentration control" tone="flat" />
+        <DiagnosticMetric label="Momentum" value={score(component("Momentum"))} detail="Relative strength proxy" tone="up" />
+        <DiagnosticMetric label="Cash Management" value={score(component("Cash Management"))} detail="Liquidity buffer" tone="flat" />
         <DiagnosticMetric label="Largest Risk" value={risk.risks[0] ?? "None"} detail="Primary construction issue" tone={risk.riskStatus === "RED" ? "down" : "flat"} compact />
         <DiagnosticMetric label="Largest Strength" value={health.strengths[0] ?? "Data ready"} detail={health.opportunities[0] ?? "Maintain discipline"} tone="up" compact />
       </div>

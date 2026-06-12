@@ -41,7 +41,45 @@ export function TodaysActionCenter({
         </p>
       </div>
 
-      <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-5">
+      <article
+        className={cn(
+          "rounded-2xl border bg-[#16263D] p-5 shadow-lg",
+          toneClasses[actionTone(intelligence.recommendedAction.action)].border,
+        )}
+      >
+        <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+          <div>
+            <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.2em] text-cyan-300">
+              <BarChart3 className="h-4 w-4" aria-hidden="true" />
+              Today&apos;s Recommended Action
+            </div>
+            <div
+              className={cn(
+                "mt-3 text-3xl font-semibold sm:text-4xl",
+                toneClasses[actionTone(intelligence.recommendedAction.action)].text,
+              )}
+            >
+              {intelligence.recommendedAction.action}
+            </div>
+            <p className="mt-3 max-w-4xl text-sm leading-6 text-slate-300">
+              {intelligence.recommendedAction.reason}
+            </p>
+          </div>
+          <div className="rounded-xl border border-white/10 bg-[#08121F] px-4 py-3 text-sm">
+            <div className="text-xs uppercase tracking-[0.16em] text-slate-500">
+              Confidence
+            </div>
+            <div className="mt-1 text-2xl font-semibold text-white">
+              {intelligence.confidence.finalConfidence}%
+            </div>
+            <div className="mt-1 text-xs font-semibold text-amber-200">
+              {intelligence.confidence.label}
+            </div>
+          </div>
+        </div>
+      </article>
+
+      <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
         <ActionCard
           icon={<TrendingUp className="h-5 w-5" aria-hidden="true" />}
           title="Market Bias"
@@ -73,14 +111,6 @@ export function TodaysActionCenter({
           detail={intelligence.biggestRisk.severity}
           reason={intelligence.biggestRisk.reason}
           tone={severityTone(intelligence.biggestRisk.severity)}
-        />
-        <ActionCard
-          icon={<BarChart3 className="h-5 w-5" aria-hidden="true" />}
-          title="Recommended Action"
-          value={intelligence.recommendedAction.action}
-          detail={`${intelligence.confidence.label} confidence ${intelligence.confidence.finalConfidence}%`}
-          reason={intelligence.recommendedAction.reason}
-          tone={actionTone(intelligence.recommendedAction.action)}
         />
       </div>
 

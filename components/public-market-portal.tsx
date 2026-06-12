@@ -403,20 +403,34 @@ function MarketOpportunitiesSection({
   const picks = useMemo(() => {
     const rows =
       matrix?.categories.flatMap((category) => [
-        ...category.longTermUpsides,
-        ...category.intradayBreakouts,
+        ...category.longTermUpsides.map((item) => ({
+          ...item,
+          horizon: getInvestmentHorizon(category.title, "longTerm", item.score),
+          marketCapType: getMarketCapType(category.title),
+        })),
+        ...category.intradayBreakouts.map((item) => ({
+          ...item,
+          horizon: getInvestmentHorizon(category.title, "intraday", item.score),
+          marketCapType: getMarketCapType(category.title),
+        })),
       ]) ?? [];
-    const grouped = rows.reduce<Record<string, { symbol: string; score: number; count: number; action: string }>>(
+    const grouped = rows.reduce<Record<string, { symbol: string; score: number; count: number; action: string; marketCapType: string; horizon: string }>>(
       (acc, item) => {
         const existing = acc[item.symbol] ?? {
           symbol: item.symbol,
           score: 0,
           count: 0,
           action: "BUY",
+          marketCapType: item.marketCapType,
+          horizon: item.horizon,
         };
         existing.score += item.score;
         existing.count += 1;
         existing.action = item.action === "Accumulate" ? "BUY" : "REDUCE";
+        if (horizonRank[item.horizon] > horizonRank[existing.horizon]) {
+          existing.horizon = item.horizon;
+        }
+        existing.marketCapType = existing.marketCapType || item.marketCapType;
         acc[item.symbol] = existing;
         return acc;
       },
@@ -450,8 +464,9 @@ function MarketOpportunitiesSection({
       <SectionTitle
         icon={<TrendingUp className="h-5 w-5" aria-hidden="true" />}
         title="Market Opportunities"
-        subtitle="Opportunity quality, top signals, and recommendation mix from market intelligence."
+        subtitle="AI-ranked opportunities across the market. Not tied to any individual portfolio."
         badge="CALCULATED"
+        secondaryBadge="MARKET WIDE"
       />
       <div className="grid gap-3 lg:grid-cols-[0.8fr_1.2fr]">
         <article className="rounded-xl border border-amber-300/25 bg-[#16263D] p-4">
@@ -486,6 +501,8 @@ function MarketOpportunitiesSection({
               <th className="px-3 py-3">Symbol</th>
               <th className="px-3 py-3">Recommendation</th>
               <th className="px-3 py-3">Confidence</th>
+              <th className="px-3 py-3">Market Cap Type</th>
+              <th className="px-3 py-3">Investment Horizon</th>
               <th className="px-3 py-3">Times Recommended</th>
               <th className="px-3 py-3">Last Updated</th>
             </tr>
@@ -496,13 +513,15 @@ function MarketOpportunitiesSection({
                 <td className="px-3 py-3 font-semibold text-white">{pick.symbol}</td>
                 <td className={cn("px-3 py-3 font-semibold", pick.action === "BUY" ? "text-emerald-300" : "text-rose-300")}>{pick.action}</td>
                 <td className="px-3 py-3 text-slate-300">{pick.confidence}%</td>
+                <td className="px-3 py-3 text-slate-300">{pick.marketCapType}</td>
+                <td className="px-3 py-3 text-slate-300">{pick.horizon}</td>
                 <td className="px-3 py-3 text-slate-300">{pick.count} Signals</td>
                 <td className="px-3 py-3 text-slate-400">{matrix?.asOf ? "Today" : "Pending"}</td>
               </tr>
             ))}
             {picks.length === 0 ? (
               <tr>
-                <td colSpan={5} className="px-3 py-4 text-slate-400">
+                <td colSpan={7} className="px-3 py-4 text-slate-400">
                   Market recommendations are loading.
                 </td>
               </tr>
@@ -558,6 +577,38 @@ function opportunityTone(score: number) {
   return "text-amber-300";
 }
 
+function getMarketCapType(categoryTitle: string) {
+  const title = categoryTitle.toLowerCase();
+
+  if (title.includes("small")) return "Small Cap";
+  if (title.includes("mid")) return "Mid Cap";
+
+  return "Large Cap";
+}
+
+function getInvestmentHorizon(
+  categoryTitle: string,
+  source: "intraday" | "longTerm",
+  score: number,
+) {
+  const title = categoryTitle.toLowerCase();
+
+  if (source === "intraday") return "Intraday";
+  if (title.includes("small") && score >= 78) return "Multibagger Candidate";
+  if (title.includes("mid")) return "Swing Trade";
+  if (score >= 76) return "Long Term";
+
+  return "Short Term";
+}
+
+const horizonRank: Record<string, number> = {
+  Intraday: 1,
+  "Short Term": 2,
+  "Swing Trade": 3,
+  "Long Term": 4,
+  "Multibagger Candidate": 5,
+};
+
 function RoadmapSection() {
   return (
     <section id="roadmap" className="space-y-4 rounded-2xl border border-violet-300/20 bg-[#0F1B2D] p-5 shadow-xl">
@@ -595,11 +646,13 @@ function SectionTitle({
   title,
   subtitle,
   badge,
+  secondaryBadge,
 }: {
   icon: React.ReactNode;
   title: string;
   subtitle: string;
   badge: "LIVE" | "CALCULATED";
+  secondaryBadge?: string;
 }) {
   return (
     <div className="flex items-start gap-3">
@@ -610,6 +663,11 @@ function SectionTitle({
           <span className="rounded-full border border-cyan-300/30 bg-cyan-300/10 px-2 py-0.5 text-[10px] font-semibold tracking-[0.12em] text-cyan-200">
             {badge}
           </span>
+          {secondaryBadge ? (
+            <span className="rounded-full border border-amber-300/30 bg-amber-300/10 px-2 py-0.5 text-[10px] font-semibold tracking-[0.12em] text-amber-200">
+              {secondaryBadge}
+            </span>
+          ) : null}
         </div>
         <p className="mt-1 text-sm text-slate-400">{subtitle}</p>
       </div>

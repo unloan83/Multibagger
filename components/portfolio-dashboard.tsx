@@ -20,7 +20,10 @@ import { ChangeDetection } from "@/components/change-detection";
 import { MarketOverviewCollapsible } from "@/components/market-overview-collapsible";
 import { PortfolioCoach } from "@/components/portfolio-coach";
 import { PortfolioHub } from "@/components/portfolio-hub";
-import { TodaysActionCenter } from "@/components/todays-action-center";
+import {
+  RecommendationReliability,
+  TodaysActionCenter,
+} from "@/components/todays-action-center";
 import {
   Card,
   CardContent,
@@ -174,7 +177,6 @@ export function PortfolioDashboard({
     useState<ManagedPortfolio | null>(null);
   const [pinInput, setPinInput] = useState("");
   const [pinError, setPinError] = useState<string | null>(null);
-  const [expandedPortfolioId, setExpandedPortfolioId] = useState<string | null>(null);
   const [hasRepricedSavedPortfolios, setHasRepricedSavedPortfolios] = useState(false);
   const [isSheetsStorage, setIsSheetsStorage] = useState(false);
   const [hydrated, setHydrated] = useState(false);
@@ -734,12 +736,12 @@ export function PortfolioDashboard({
   );
 
   useEffect(() => {
-    if (adminMode || routeUnlocked || !initialPortfolioId || !selectedPortfolio) {
+    if (!hydrated || adminMode || routeUnlocked || !initialPortfolioId || !selectedPortfolio) {
       return;
     }
 
     setPinChallengePortfolio(selectedPortfolio);
-  }, [adminMode, initialPortfolioId, routeUnlocked, selectedPortfolio]);
+  }, [adminMode, hydrated, initialPortfolioId, routeUnlocked, selectedPortfolio]);
 
   return (
     <main className="min-h-screen bg-background">
@@ -889,25 +891,12 @@ export function PortfolioDashboard({
             </div>
             {isPortfolioDashboardOpen ? (
               <div className="space-y-5 border-t border-white/10 p-5">
-                <PortfolioSummarySection portfolios={[selectedPortfolio]} />
-                <PortfolioCard
-                  key={selectedPortfolio.id}
-                  portfolio={selectedPortfolio}
-                  isLoading={isLoading}
-                  onRefresh={() => refreshPortfolio(selectedPortfolio)}
-                  onRemove={() => removePortfolio(selectedPortfolio.id)}
-                  onUpdateInputs={(rows) => updatePortfolioInputs(selectedPortfolio, rows)}
-                  isValueExpanded={expandedPortfolioId === selectedPortfolio.id}
-                  onToggleValue={() =>
-                    setExpandedPortfolioId((current) =>
-                      current === selectedPortfolio.id ? null : selectedPortfolio.id,
-                    )
-                  }
-                />
-                <PortfolioDiagnostics portfolio={selectedPortfolio} />
                 <TodaysActionCenter intelligence={decisionIntelligence} />
+                <PortfolioDiagnostics portfolio={selectedPortfolio} />
+                <PortfolioCoach portfolio={selectedPortfolio} />
                 <ChangeDetection snapshot={decisionIntelligence?.snapshot} />
                 <PortfolioHoldingsAndSectors portfolio={selectedPortfolio} />
+                <RecommendationReliability intelligence={decisionIntelligence} />
               </div>
             ) : null}
           </section>

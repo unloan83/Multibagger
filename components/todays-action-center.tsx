@@ -114,7 +114,7 @@ export function TodaysActionCenter({
         />
       </div>
 
-      <div className="grid gap-4 xl:grid-cols-[1.2fr_0.8fr]">
+      <div className="grid gap-4">
         <section className="rounded-xl border border-white/10 bg-[#16263D] p-4">
           <h3 className="text-sm font-semibold text-white">
             Why This Recommendation
@@ -135,19 +135,34 @@ export function TodaysActionCenter({
             ))}
           </ul>
         </section>
+      </div>
+    </section>
+  );
+}
 
-        <section className="rounded-xl border border-white/10 bg-[#16263D] p-4">
-          <h3 className="text-sm font-semibold text-white">Recommendation Reliability</h3>
-          <div className="mt-3 grid gap-2">
-            <ReliabilityRow title="Last 30 Days" data={intelligence.reliability.last30Days} />
-            <ReliabilityRow title="Last 90 Days" data={intelligence.reliability.last90Days} />
-            <ReliabilityRow title="All Time" data={intelligence.reliability.allTime} />
-          </div>
-          <div className="mt-3 rounded-lg border border-cyan-300/20 bg-cyan-300/10 px-3 py-2 text-xs text-cyan-100">
-            Confidence = signal strength {intelligence.confidence.signalStrength}% x
-            historical accuracy modifier {intelligence.confidence.historicalAccuracy}%.
-          </div>
-        </section>
+export function RecommendationReliability({
+  intelligence,
+}: {
+  intelligence: DecisionIntelligence | null;
+}) {
+  if (!intelligence) {
+    return null;
+  }
+
+  return (
+    <section className="rounded-2xl border border-cyan-300/20 bg-[#0F1B2D] p-5 shadow-xl">
+      <div className="flex flex-wrap items-center gap-2">
+        <h2 className="text-lg font-semibold text-white">Recommendation Reliability</h2>
+        <SourceBadge label="CALCULATED" />
+      </div>
+      <div className="mt-3 grid gap-2">
+        <ReliabilityRow title="Last 30 Days" data={intelligence.reliability.last30Days} />
+        <ReliabilityRow title="Last 90 Days" data={intelligence.reliability.last90Days} />
+        <ReliabilityRow title="All Time" data={intelligence.reliability.allTime} />
+      </div>
+      <div className="mt-3 rounded-lg border border-cyan-300/20 bg-cyan-300/10 px-3 py-2 text-xs text-cyan-100">
+        Confidence = signal strength {intelligence.confidence.signalStrength}% x
+        historical accuracy modifier {intelligence.confidence.historicalAccuracy}%.
       </div>
     </section>
   );

@@ -13,7 +13,10 @@ export function TodaysActionCenter({
   if (!intelligence) {
     return (
       <section className="rounded-2xl border border-white/10 bg-[#0F1B2D] p-5 shadow-xl">
-        <h2 className="text-lg font-semibold text-white">Today&apos;s Action Center</h2>
+        <div className="flex flex-wrap items-center gap-2">
+          <h2 className="text-lg font-semibold text-white">Today&apos;s Action Center</h2>
+          <SourceBadge label="CALCULATED" />
+        </div>
         <p className="mt-2 text-sm text-slate-400">
           Unlock a portfolio to generate today&apos;s action intelligence.
         </p>
@@ -28,7 +31,10 @@ export function TodaysActionCenter({
           <p className="text-xs font-semibold uppercase tracking-[0.2em] text-cyan-300">
             Decision Intelligence Layer
           </p>
-          <h2 className="mt-1 text-xl font-semibold text-white">Today&apos;s Action Center</h2>
+          <div className="mt-1 flex flex-wrap items-center gap-2">
+            <h2 className="text-xl font-semibold text-white">Today&apos;s Action Center</h2>
+            <SourceBadge label="CALCULATED" />
+          </div>
         </div>
         <p className="max-w-3xl text-sm font-medium text-amber-100">
           {intelligence.summary}
@@ -146,6 +152,14 @@ function ActionCard({
       <div className="mt-2 text-sm font-semibold text-slate-200">{detail}</div>
       <p className="mt-3 line-clamp-4 text-xs leading-5 text-slate-400">{reason}</p>
     </article>
+  );
+}
+
+function SourceBadge({ label }: { label: "LIVE" | "CALCULATED" }) {
+  return (
+    <span className="rounded-full border border-cyan-300/30 bg-cyan-300/10 px-2 py-0.5 text-[10px] font-semibold tracking-[0.12em] text-cyan-200">
+      {label}
+    </span>
   );
 }
 

@@ -1,12 +1,18 @@
 "use client";
 
-import { BookOpen, Map, Shield, TrendingUp } from "lucide-react";
+import { BookOpen, Lock, Map, Shield, TrendingUp, X } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 import { MarketOverviewCollapsible } from "@/components/market-overview-collapsible";
+import { PortfolioHub } from "@/components/portfolio-hub";
 import { Button } from "@/components/ui/button";
 import type { MarketOverview } from "@/lib/decision-intelligence";
+import {
+  type ManagedPortfolio,
+  samplePortfolio,
+} from "@/lib/portfolio";
 import { cn } from "@/lib/utils";
 
 type ExpertMatrixQuote = {
@@ -24,6 +30,10 @@ type ExpertActionMatrix = {
     intradayBreakouts: ExpertMatrixQuote[];
   }>;
 };
+
+const portfoliosStorageKey = "multibagger-portfolios";
+const pinStorageKey = "unloan-portfolio-pin-hashes";
+const unlockedPortfolioStorageKey = "unloan-unlocked-portfolio";
 
 const roadmapItems = [
   "Portfolio Doctor",
@@ -49,8 +59,15 @@ const glossaryItems = [
 ];
 
 export function PublicMarketPortal() {
+  const router = useRouter();
   const [market, setMarket] = useState<MarketOverview | null>(null);
   const [expertMatrix, setExpertMatrix] = useState<ExpertActionMatrix | null>(null);
+  const [portfolios, setPortfolios] = useState<ManagedPortfolio[]>([samplePortfolio]);
+  const [pinHashes, setPinHashes] = useState<Record<string, string>>({});
+  const [pinChallengePortfolio, setPinChallengePortfolio] =
+    useState<ManagedPortfolio | null>(null);
+  const [pinInput, setPinInput] = useState("");
+  const [pinError, setPinError] = useState<string | null>(null);
   const [isMarketLoading, setIsMarketLoading] = useState(false);
 
   async function refreshMarket() {
@@ -67,11 +84,63 @@ export function PublicMarketPortal() {
 
   useEffect(() => {
     refreshMarket();
+    hydratePortfolios();
     fetch("/api/expert-action-matrix")
       .then((response) => (response.ok ? response.json() : null))
       .then((payload) => setExpertMatrix(payload as ExpertActionMatrix | null))
       .catch(() => setExpertMatrix(null));
   }, []);
+
+  async function hydratePortfolios() {
+    const savedPins = window.localStorage.getItem(pinStorageKey);
+
+    if (savedPins) {
+      setPinHashes(JSON.parse(savedPins) as Record<string, string>);
+    }
+
+    try {
+      const response = await fetch("/api/portfolios");
+      const payload = (await response.json()) as {
+        configured?: boolean;
+        portfolios?: ManagedPortfolio[];
+      };
+
+      if (response.ok && payload.configured && payload.portfolios?.length) {
+        setPortfolios(filterHomepagePortfolios(payload.portfolios));
+        return;
+      }
+    } catch {
+      // Fall back to browser cache below.
+    }
+
+    const savedPortfolios = window.localStorage.getItem(portfoliosStorageKey);
+
+    if (savedPortfolios) {
+      setPortfolios(filterHomepagePortfolios(JSON.parse(savedPortfolios) as ManagedPortfolio[]));
+    }
+  }
+
+  async function unlockPortfolio() {
+    if (!pinChallengePortfolio) {
+      return;
+    }
+
+    const savedHash = pinHashes[pinChallengePortfolio.id];
+    const enteredPortfolioPin =
+      savedHash &&
+      (await hashPortfolioPin(pinChallengePortfolio.id, pinInput)) === savedHash;
+
+    if (!enteredPortfolioPin) {
+      setPinError("Access denied. Enter the portfolio PIN.");
+      return;
+    }
+
+    window.sessionStorage.setItem(
+      unlockedPortfolioStorageKey,
+      pinChallengePortfolio.id,
+    );
+    router.push(`/portfolio/${encodeURIComponent(pinChallengePortfolio.id)}`);
+  }
 
   return (
     <main className="min-h-screen bg-background">
@@ -108,6 +177,29 @@ export function PublicMarketPortal() {
           onRefresh={refreshMarket}
         />
 
+        <PortfolioHub
+          portfolios={portfolios}
+          selectedPortfolioId={undefined}
+          pinProtectedIds={Object.keys(pinHashes)}
+          onAddPortfolio={() => router.push("/admin")}
+          onOpenPortfolio={(portfolio) => {
+            setPinChallengePortfolio(portfolio);
+            setPinInput("");
+            setPinError(null);
+          }}
+        />
+
+        {pinChallengePortfolio ? (
+          <PortfolioPinModal
+            error={pinError}
+            pin={pinInput}
+            portfolioName={pinChallengePortfolio.name}
+            setPin={setPinInput}
+            onClose={() => setPinChallengePortfolio(null)}
+            onUnlock={unlockPortfolio}
+          />
+        ) : null}
+
         <StocksAnalyzedSection matrix={expertMatrix} market={market} />
 
         <RoadmapSection />
@@ -115,6 +207,59 @@ export function PublicMarketPortal() {
         <GlossarySection />
       </section>
     </main>
+  );
+}
+
+function PortfolioPinModal({
+  error,
+  pin,
+  portfolioName,
+  setPin,
+  onClose,
+  onUnlock,
+}: {
+  error: string | null;
+  pin: string;
+  portfolioName: string;
+  setPin: (pin: string) => void;
+  onClose: () => void;
+  onUnlock: () => void;
+}) {
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 px-4 backdrop-blur-sm">
+      <section className="w-full max-w-md rounded-2xl border border-cyan-300/20 bg-[#0F1B2D] p-5 text-slate-100 shadow-2xl">
+        <div className="flex items-start justify-between gap-3">
+          <div>
+            <h2 className="flex items-center gap-2 text-lg font-semibold text-white">
+              <Lock className="h-4 w-4 text-cyan-300" aria-hidden="true" />
+              Unlock {portfolioName}
+            </h2>
+            <p className="mt-1 text-sm text-slate-400">Enter the portfolio PIN.</p>
+          </div>
+          <Button type="button" variant="outline" size="icon" onClick={onClose}>
+            <X className="h-4 w-4" aria-hidden="true" />
+            <span className="sr-only">Close</span>
+          </Button>
+        </div>
+        {error ? (
+          <div className="mt-4 rounded-md border border-rose-300/30 bg-rose-300/10 px-3 py-2 text-sm text-rose-100">
+            {error}
+          </div>
+        ) : null}
+        <input
+          value={pin}
+          onChange={(event) =>
+            setPin(event.target.value.replace(/\D/gu, "").slice(0, 4))
+          }
+          placeholder="4 digit PIN"
+          inputMode="numeric"
+          className="mt-4 h-11 w-full rounded-md border border-white/10 bg-[#08121F] px-3 text-center text-lg tracking-[0.35em] text-white outline-none focus:ring-2 focus:ring-cyan-300"
+        />
+        <Button type="button" onClick={onUnlock} className="mt-4 w-full">
+          Open Portfolio
+        </Button>
+      </section>
+    </div>
   );
 }
 
@@ -288,4 +433,38 @@ function Metric({ label, value, tone = "flat" }: { label: string; value: string;
       <div className={cn("mt-2 text-xl font-semibold", tone === "up" ? "text-emerald-300" : tone === "down" ? "text-rose-300" : "text-amber-300")}>{value}</div>
     </article>
   );
+}
+
+function filterHomepagePortfolios(portfolios: ManagedPortfolio[]) {
+  return portfolios
+    .filter(
+      (portfolio) =>
+        !portfolio.isMarketPortfolio &&
+        portfolio.id !== "market-recommendations" &&
+        portfolio.name.toLowerCase() !== "market recommendation",
+    )
+    .map((portfolio) => ({
+      ...portfolio,
+      inputs: portfolio.inputs ?? [],
+      positions: portfolio.positions ?? [],
+    }))
+    .sort((a, b) => {
+      const aIsSuchi = a.name.toLowerCase().includes("suchi icici");
+      const bIsSuchi = b.name.toLowerCase().includes("suchi icici");
+
+      if (aIsSuchi !== bIsSuchi) {
+        return aIsSuchi ? -1 : 1;
+      }
+
+      return a.name.localeCompare(b.name);
+    });
+}
+
+async function hashPortfolioPin(portfolioId: string, pin: string) {
+  const input = new TextEncoder().encode(`unloan:${portfolioId}:${pin}`);
+  const digest = await window.crypto.subtle.digest("SHA-256", input);
+
+  return Array.from(new Uint8Array(digest))
+    .map((byte) => byte.toString(16).padStart(2, "0"))
+    .join("");
 }

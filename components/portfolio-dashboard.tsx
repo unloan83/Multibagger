@@ -69,6 +69,7 @@ const portfoliosStorageKey = "multibagger-portfolios";
 const historyStorageKey = "multibagger-recommendation-history";
 const pinStorageKey = "unloan-portfolio-pin-hashes";
 const portfolioDashboardCollapseKey = "unloan-portfolio-dashboard-open";
+const unlockedPortfolioStorageKey = "unloan-unlocked-portfolio";
 const masterRecoveryPin = "1008";
 const sectorBarColors = [
   "bg-emerald-300",
@@ -162,6 +163,7 @@ export function PortfolioDashboard({
   const [, setExpertMatrix] = useState<ExpertActionMatrix | null>(null);
   const [, setIsExpertLoading] = useState(false);
   const [isPortfolioDashboardOpen, setIsPortfolioDashboardOpen] = useState(true);
+  const [routeUnlocked, setRouteUnlocked] = useState(!initialPortfolioId || adminMode);
   const [selectedPortfolioId, setSelectedPortfolioId] = useState(
     initialPortfolioId ?? samplePortfolio.id,
   );
@@ -267,6 +269,13 @@ export function PortfolioDashboard({
         setIsPortfolioDashboardOpen(savedDashboardOpen !== "false");
       }
 
+      if (
+        initialPortfolioId &&
+        window.sessionStorage.getItem(unlockedPortfolioStorageKey) === initialPortfolioId
+      ) {
+        setRouteUnlocked(true);
+      }
+
       try {
         const response = await fetch("/api/portfolios");
         const payload = (await response.json()) as {
@@ -304,7 +313,7 @@ export function PortfolioDashboard({
     }
 
     hydratePortfolios();
-  }, [fetchQuotePositions, repricePortfolioList]);
+  }, [fetchQuotePositions, initialPortfolioId, repricePortfolioList]);
 
   useEffect(() => {
     refreshMarketOverview();
@@ -687,7 +696,7 @@ export function PortfolioDashboard({
     }
 
     const savedHash = pinHashes[pinChallengePortfolio.id];
-    const enteredMasterPin = pinInput === masterRecoveryPin;
+    const enteredMasterPin = adminMode && pinInput === masterRecoveryPin;
     const enteredPortfolioPin =
       savedHash &&
       (await hashPortfolioPin(pinChallengePortfolio.id, pinInput)) === savedHash;
@@ -698,6 +707,8 @@ export function PortfolioDashboard({
     }
 
     setSelectedPortfolioId(pinChallengePortfolio.id);
+    window.sessionStorage.setItem(unlockedPortfolioStorageKey, pinChallengePortfolio.id);
+    setRouteUnlocked(true);
     setPinChallengePortfolio(null);
     setPinInput("");
     setPinError(null);
@@ -715,6 +726,14 @@ export function PortfolioDashboard({
       }),
     [history, marketOverview, selectedPortfolio],
   );
+
+  useEffect(() => {
+    if (adminMode || routeUnlocked || !initialPortfolioId || !selectedPortfolio) {
+      return;
+    }
+
+    setPinChallengePortfolio(selectedPortfolio);
+  }, [adminMode, initialPortfolioId, routeUnlocked, selectedPortfolio]);
 
   return (
     <main className="min-h-screen bg-background">
@@ -745,7 +764,7 @@ export function PortfolioDashboard({
 
         {adminMode ? (
           <div className="rounded-2xl border border-amber-300/30 bg-amber-300/10 px-5 py-4 text-sm font-semibold text-amber-100">
-            Admin Master Access Active. Admin can open portfolios using master passcode 1008.
+            Admin Master Access Active. Admin can open portfolios after authentication.
           </div>
         ) : null}
 
@@ -824,7 +843,7 @@ export function PortfolioDashboard({
           </div>
         ) : null}
 
-        {selectedPortfolio ? (
+        {selectedPortfolio && (adminMode || routeUnlocked || !initialPortfolioId) ? (
           <section className="overflow-hidden rounded-2xl border border-white/10 bg-[#0F1B2D] shadow-xl">
             <div className="flex flex-col gap-3 px-5 py-4 lg:flex-row lg:items-center lg:justify-between">
               <div>
@@ -934,8 +953,7 @@ function PinChallengeModal({
             Unlock {portfolioName}
           </CardTitle>
           <CardDescription>
-            Enter the 4 digit portfolio PIN. Master recovery PIN is currently
-            1008 and should be moved to an environment variable later.
+            Enter the 4 digit portfolio PIN.
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">

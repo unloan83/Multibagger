@@ -3,6 +3,7 @@
 import { BrainCircuit, CircleDot, TrendingDown, TrendingUp } from "lucide-react";
 import {
   calculatePortfolioMetrics,
+  formatCurrency,
   generateRecommendations,
   type ManagedPortfolio,
   type PortfolioMetrics,
@@ -17,9 +18,17 @@ type CoachItem = {
   symbol: string;
   company: string;
   action: CoachAction;
+  buyHigh: number;
+  buyLow: number;
+  cmp: number;
   reason: string;
   priority: CoachPriority;
+  riskLevel: "Low" | "Medium" | "High";
   score: number;
+  stopLoss: number;
+  suggestedAllocation: string;
+  target: number;
+  timeHorizon: "Intraday" | "Short Term" | "Swing Trade" | "Long Term" | "Multibagger Candidate";
 };
 
 export function PortfolioCoach({ portfolio }: { portfolio: ManagedPortfolio }) {
@@ -85,9 +94,18 @@ function CoachSignal({ item }: { item: CoachItem }) {
             <span className="truncate text-[11px] text-zinc-400">{item.company}</span>
           </div>
         </div>
-        <div className="shrink-0 rounded border border-white/10 bg-white/5 px-1.5 py-0.5 text-[11px] text-zinc-300">
+          <div className="shrink-0 rounded border border-white/10 bg-white/5 px-1.5 py-0.5 text-[11px] text-zinc-300">
           {item.score}/100
         </div>
+      </div>
+      <div className="mt-2 grid gap-1 text-[11px] text-zinc-300 sm:grid-cols-2">
+        <span>CMP: {formatCurrency(item.cmp)}</span>
+        <span>Buy: {formatCurrency(item.buyLow)}-{formatCurrency(item.buyHigh)}</span>
+        <span>Stop: {formatCurrency(item.stopLoss)}</span>
+        <span>Target: {formatCurrency(item.target)}</span>
+        <span>Allocation: {item.suggestedAllocation}</span>
+        <span>Horizon: {item.timeHorizon}</span>
+        <span>Risk: {item.riskLevel}</span>
       </div>
       <p className="mt-2 text-[11px] leading-5 text-zinc-300">
         <span className="font-semibold text-zinc-100">Reason: </span>
@@ -151,8 +169,10 @@ function buildCoachItems(
         symbol: position.symbol,
         company: position.company,
         action: "BUY" as const,
+        ...buildExecutionGuide(position.currentPrice, score, "Swing Trade"),
         priority: score >= 75 ? "HIGH" as const : "MEDIUM" as const,
         score,
+        suggestedAllocation: "Add gradually up to 5%.",
         reason: `Watchlist stock has supportive recommendation score of ${score}/100; consider staged buying after price and liquidity validation.`,
       }];
     });
@@ -178,8 +198,10 @@ function coachItemForHolding({
       symbol: holding.symbol,
       company: holding.company,
       action: "EXIT",
+      ...buildExecutionGuide(holding.currentPrice, bestScore, "Short Term"),
       priority: "HIGH",
       score: Math.max(20, bestScore),
+      suggestedAllocation: "Exit or reduce to zero.",
       reason: `Existing recommendation score is weak and recent return is ${holding.dayChangePercent.toFixed(2)}%; exit or set strict stop-loss if recovery signal is absent.`,
     };
   }
@@ -189,8 +211,11 @@ function coachItemForHolding({
       symbol: holding.symbol,
       company: holding.company,
       action: "REDUCE",
+      ...buildExecutionGuide(holding.currentPrice, bestScore || 55, "Short Term"),
       priority: "HIGH",
       score: bestScore || 55,
+      suggestedAllocation:
+        holding.portfolioWeight > 30 ? "Reduce by 5-10%." : "Trim sector exposure by 5%.",
       reason:
         holding.portfolioWeight > 30
           ? `Portfolio concentration exceeds 30% at ${holding.portfolioWeight.toFixed(1)}%.`
@@ -203,8 +228,10 @@ function coachItemForHolding({
       symbol: holding.symbol,
       company: holding.company,
       action: "REDUCE",
+      ...buildExecutionGuide(holding.currentPrice, bestScore || 58, "Short Term"),
       priority: "MEDIUM",
       score: bestScore || 58,
+      suggestedAllocation: "Reduce by 3-5% if weakness persists.",
       reason: `Position weight is ${holding.portfolioWeight.toFixed(1)}% with limited recent support; trim gradually and monitor next refresh.`,
     };
   }
@@ -214,8 +241,10 @@ function coachItemForHolding({
       symbol: holding.symbol,
       company: holding.company,
       action: "BUY",
+      ...buildExecutionGuide(holding.currentPrice, bestScore, "Swing Trade"),
       priority: bestScore >= 78 ? "HIGH" : "MEDIUM",
       score: bestScore,
+      suggestedAllocation: "Accumulate in 2-3 tranches.",
       reason: `Positive recent return and recommendation score of ${bestScore}/100 support adding in staggered quantities.`,
     };
   }
@@ -224,9 +253,35 @@ function coachItemForHolding({
     symbol: holding.symbol,
     company: holding.company,
     action: "HOLD",
+    ...buildExecutionGuide(holding.currentPrice, bestScore || 60, "Long Term"),
     priority: holding.dayChangePercent < -1 ? "MEDIUM" : "LOW",
     score: bestScore || 60,
+    suggestedAllocation: "Maintain current weight.",
     reason: `Allocation is ${holding.portfolioWeight.toFixed(1)}%, sector exposure is ${sectorExposure.toFixed(1)}%, and no urgent action threshold is triggered.`,
+  };
+}
+
+function buildExecutionGuide(
+  cmp: number,
+  score: number,
+  timeHorizon: CoachItem["timeHorizon"],
+) {
+  const riskLevel: CoachItem["riskLevel"] =
+    score >= 75 ? "Low" : score >= 58 ? "Medium" : "High";
+  const buyLow = cmp * 0.96;
+  const buyHigh = cmp * 1.01;
+  const stopLoss =
+    riskLevel === "Low" ? cmp * 0.93 : riskLevel === "Medium" ? cmp * 0.9 : cmp * 0.86;
+  const target = cmp * (riskLevel === "Low" ? 1.14 : riskLevel === "Medium" ? 1.18 : 1.24);
+
+  return {
+    buyHigh,
+    buyLow,
+    cmp,
+    riskLevel,
+    stopLoss,
+    target,
+    timeHorizon,
   };
 }
 

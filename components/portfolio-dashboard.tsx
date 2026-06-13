@@ -165,7 +165,7 @@ export function PortfolioDashboard({
   const [isLoading, setIsLoading] = useState(false);
   const [marketOverview, setMarketOverview] = useState<MarketOverview | null>(null);
   const [isMarketLoading, setIsMarketLoading] = useState(false);
-  const [, setExpertMatrix] = useState<ExpertActionMatrix | null>(null);
+  const [expertMatrix, setExpertMatrix] = useState<ExpertActionMatrix | null>(null);
   const [, setIsExpertLoading] = useState(false);
   const [isPortfolioDashboardOpen, setIsPortfolioDashboardOpen] = useState(true);
   const [routeUnlocked, setRouteUnlocked] = useState(!initialPortfolioId || adminMode);
@@ -786,6 +786,7 @@ export function PortfolioDashboard({
         ) : null}
 
         <MarketOverviewCollapsible
+          defaultOpen={false}
           market={marketOverview}
           isLoading={isMarketLoading}
           onRefresh={refreshMarketOverview}
@@ -893,7 +894,10 @@ export function PortfolioDashboard({
               <div className="space-y-5 border-t border-white/10 p-5">
                 <TodaysActionCenter intelligence={decisionIntelligence} />
                 <PortfolioDiagnostics portfolio={selectedPortfolio} />
-                <PortfolioCoach portfolio={selectedPortfolio} />
+                <section className="grid gap-4 xl:grid-cols-2">
+                  <PortfolioCoach portfolio={selectedPortfolio} />
+                  <PortfolioMarketOpportunities matrix={expertMatrix} />
+                </section>
                 <ChangeDetection snapshot={decisionIntelligence?.snapshot} />
                 <PortfolioHoldingsAndSectors portfolio={selectedPortfolio} />
                 <RecommendationReliability intelligence={decisionIntelligence} />
@@ -1392,6 +1396,68 @@ function PortfolioHoldingsAndSectors({
     <section className="grid gap-4 xl:grid-cols-2">
       <CurrentHoldingsCard portfolio={portfolio} metrics={metrics} />
       <SectorAllocationCard metrics={metrics} />
+    </section>
+  );
+}
+
+function PortfolioMarketOpportunities({
+  matrix,
+}: {
+  matrix: ExpertActionMatrix | null;
+}) {
+  const opportunities = useMemo(() => buildMarketOpportunityRows(matrix), [matrix]);
+
+  return (
+    <section className="space-y-3 rounded-md border border-amber-300/30 bg-zinc-950 p-3 text-zinc-100 shadow-sm">
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <div className="text-sm font-semibold text-amber-200">
+            Market Opportunities
+          </div>
+          <p className="mt-1 text-xs leading-5 text-zinc-400">
+            Market-wide opportunities to compare against current portfolio holdings.
+          </p>
+        </div>
+        <span className="rounded border border-amber-300/30 bg-amber-300/10 px-2 py-1 text-[11px] font-semibold text-amber-100">
+          MARKET WIDE
+        </span>
+      </div>
+
+      <div className="space-y-2">
+        {opportunities.map((item) => (
+          <article
+            key={`${item.symbol}-${item.horizon}`}
+            className="rounded-md border border-white/10 bg-black/70 p-2"
+          >
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <div className="min-w-0">
+                <div className="text-sm font-semibold text-white">{item.symbol}</div>
+                <div className="text-[11px] text-zinc-400">
+                  {item.marketCap} | {item.horizon} | {item.risk} Risk
+                </div>
+              </div>
+              <div className="text-right">
+                <div className="text-xs font-semibold text-emerald-300">
+                  {item.recommendation}
+                </div>
+                <div className="text-[11px] text-zinc-400">{item.confidence}%</div>
+              </div>
+            </div>
+            <div className="mt-2 grid gap-1 text-[11px] text-zinc-300 sm:grid-cols-2">
+              <span>CMP: {formatCurrency(item.cmp)}</span>
+              <span>Buy: {formatCurrency(item.buyLow)}-{formatCurrency(item.buyHigh)}</span>
+              <span>Stop: {formatCurrency(item.stopLoss)}</span>
+              <span>Target: {formatCurrency(item.target)}</span>
+            </div>
+            <p className="mt-2 text-[11px] leading-5 text-zinc-400">{item.reason}</p>
+          </article>
+        ))}
+        {opportunities.length === 0 ? (
+          <div className="rounded border border-amber-300/30 bg-amber-300/10 px-3 py-2 text-xs leading-5 text-amber-100">
+            Market opportunities are loading.
+          </div>
+        ) : null}
+      </div>
     </section>
   );
 }
@@ -2020,6 +2086,85 @@ function getCsvValue(row: CsvRow, keys: string[]) {
   }
 
   return "";
+}
+
+function buildMarketOpportunityRows(matrix: ExpertActionMatrix | null) {
+  const rows =
+    matrix?.categories.flatMap((category) => [
+      ...category.longTermUpsides.map((quote) =>
+        buildMarketOpportunityRow(category.title, quote, "longTerm" as const),
+      ),
+      ...category.intradayBreakouts.map((quote) =>
+        buildMarketOpportunityRow(category.title, quote, "intraday" as const),
+      ),
+    ]) ?? [];
+
+  return rows.sort((a, b) => b.confidence - a.confidence).slice(0, 5);
+}
+
+function buildMarketOpportunityRow(
+  categoryTitle: string,
+  quote: ExpertMatrixQuote,
+  source: "intraday" | "longTerm",
+) {
+  const cmp = quote.price;
+  const target = quote.target > 0 ? quote.target : cmp * 1.12;
+  const risk = getExecutionRisk(quote.score, quote.volumeShock);
+  const horizon = getExecutionHorizon(categoryTitle, source, quote.score);
+  const buyLow = source === "intraday" ? cmp * 0.992 : cmp * 0.96;
+  const buyHigh = source === "intraday" ? cmp * 1.006 : cmp * 1.01;
+  const stopLoss =
+    risk === "Low"
+      ? cmp * 0.93
+      : risk === "Medium"
+        ? cmp * 0.9
+        : cmp * 0.86;
+
+  return {
+    buyHigh,
+    buyLow,
+    cmp,
+    confidence: Math.round(quote.score),
+    horizon,
+    marketCap: getMarketCapType(categoryTitle),
+    recommendation: quote.action === "Accumulate" ? "BUY" : "REDUCE",
+    reason: quote.remark || `${quote.symbol} is ranked by market-wide expert signals.`,
+    risk,
+    stopLoss,
+    symbol: quote.symbol,
+    target,
+  };
+}
+
+function getMarketCapType(categoryTitle: string) {
+  const title = categoryTitle.toLowerCase();
+
+  if (title.includes("small")) return "Small Cap";
+  if (title.includes("mid")) return "Mid Cap";
+
+  return "Large Cap";
+}
+
+function getExecutionHorizon(
+  categoryTitle: string,
+  source: "intraday" | "longTerm",
+  score: number,
+) {
+  const title = categoryTitle.toLowerCase();
+
+  if (source === "intraday") return "Intraday";
+  if (title.includes("small") && score >= 78) return "Multibagger Candidate";
+  if (title.includes("mid")) return "Swing Trade";
+  if (score >= 76) return "Long Term";
+
+  return "Short Term";
+}
+
+function getExecutionRisk(score: number, volumeShock = 0) {
+  if (score >= 78 && volumeShock < 1.2) return "Low";
+  if (score >= 62) return "Medium";
+
+  return "High";
 }
 
 async function hashPortfolioPin(portfolioId: string, pin: string) {

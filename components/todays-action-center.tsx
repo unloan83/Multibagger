@@ -23,6 +23,7 @@ export function TodaysActionCenter({
       </section>
     );
   }
+  const execution = getActionExecution(intelligence.recommendedAction.action);
 
   return (
     <section className="space-y-4 rounded-2xl border border-white/10 bg-[#0F1B2D] p-5 shadow-xl">
@@ -74,6 +75,10 @@ export function TodaysActionCenter({
             </div>
             <div className="mt-1 text-xs font-semibold text-amber-200">
               {intelligence.confidence.label}
+            </div>
+            <div className="mt-3 grid gap-2 border-t border-white/10 pt-3 text-xs text-slate-300">
+              <span>Holding Period: {execution.horizon}</span>
+              <span>Risk Level: {execution.risk}</span>
             </div>
           </div>
         </div>
@@ -268,6 +273,18 @@ function actionTone(value: string) {
   if (value === "BUY") return "up";
   if (value === "PROTECT CAPITAL" || value === "REDUCE RISK") return "down";
   return "flat";
+}
+
+function getActionExecution(value: string) {
+  if (value === "BUY") {
+    return { horizon: "Swing Trade", risk: "Medium" };
+  }
+
+  if (value === "PROTECT CAPITAL" || value === "REDUCE RISK") {
+    return { horizon: "Short Term", risk: "High" };
+  }
+
+  return { horizon: "Long Term", risk: "Low" };
 }
 
 function formatNullablePercent(value: number | null) {

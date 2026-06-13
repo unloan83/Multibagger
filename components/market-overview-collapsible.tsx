@@ -41,15 +41,17 @@ type MarketOverview = {
 };
 
 export function MarketOverviewCollapsible({
+  defaultOpen = true,
   market,
   isLoading,
   onRefresh,
 }: {
+  defaultOpen?: boolean;
   market: MarketOverview | null;
   isLoading: boolean;
   onRefresh: () => void;
 }) {
-  const [isOpen, setIsOpen] = useState(true);
+  const [isOpen, setIsOpen] = useState(defaultOpen);
   const chartData = useMemo(() => buildMarketChartData(market), [market]);
   const topSectors = useMemo(() => getTopFocusSectors(market), [market]);
   const ratio = getAdvanceDeclineRatio(market);

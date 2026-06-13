@@ -724,14 +724,19 @@ export function PortfolioDashboard({
 
   const selectedPortfolio =
     portfolios.find((portfolio) => portfolio.id === selectedPortfolioId) ??
-    portfolios[0];
+    (!initialPortfolioId ? portfolios[0] : undefined);
   const decisionIntelligence = useMemo(
-    () =>
-      buildDecisionIntelligence({
-        portfolio: selectedPortfolio,
-        market: marketOverview,
-        history,
-      }),
+    () => {
+      if (!selectedPortfolio) {
+        return null;
+      }
+
+      return buildDecisionIntelligence({
+          portfolio: selectedPortfolio,
+          market: marketOverview,
+          history,
+        });
+    },
     [history, marketOverview, selectedPortfolio],
   );
 
@@ -792,15 +797,17 @@ export function PortfolioDashboard({
           onRefresh={refreshMarketOverview}
         />
 
-        <PortfolioHub
-          portfolios={portfolios}
-          selectedPortfolioId={selectedPortfolio?.id}
-          pinProtectedIds={Object.keys(pinHashes)}
-          onAddPortfolio={() => setIsAddOpen(true)}
-          onOpenPortfolio={(portfolio) =>
-            adminMode ? setSelectedPortfolioId(portfolio.id) : requestPortfolioOpen(portfolio)
-          }
-        />
+        {adminMode || !initialPortfolioId ? (
+          <PortfolioHub
+            portfolios={portfolios}
+            selectedPortfolioId={selectedPortfolio?.id}
+            pinProtectedIds={Object.keys(pinHashes)}
+            onAddPortfolio={() => setIsAddOpen(true)}
+            onOpenPortfolio={(portfolio) =>
+              adminMode ? setSelectedPortfolioId(portfolio.id) : requestPortfolioOpen(portfolio)
+            }
+          />
+        ) : null}
 
         {adminMode ? (
           <AdminControlPanel
@@ -868,30 +875,45 @@ export function PortfolioDashboard({
           <section className="overflow-hidden rounded-2xl border border-white/10 bg-[#0F1B2D] shadow-xl">
             <div className="flex flex-col gap-3 px-5 py-4 lg:flex-row lg:items-center lg:justify-between">
               <div>
-                <h2 className="text-lg font-semibold text-white">Portfolio Dashboard</h2>
+                <h2 className="text-lg font-semibold text-white">
+                  {selectedPortfolio.name} Dashboard
+                </h2>
                 <p className="text-sm text-slate-400">
-                  {selectedPortfolio.name} is unlocked for review.
+                  Last Updated:{" "}
+                  {selectedPortfolio.refreshedAt
+                    ? new Date(selectedPortfolio.refreshedAt).toLocaleString("en-IN", {
+                        dateStyle: "medium",
+                        timeStyle: "short",
+                      })
+                    : "Pending"}
                 </p>
               </div>
-              <button
-                type="button"
-                onClick={() => setIsPortfolioDashboardOpen((value) => !value)}
-                className="flex h-12 w-12 items-center justify-center self-end rounded-xl border border-cyan-300/30 bg-cyan-300/10 text-cyan-200 shadow-sm transition hover:border-cyan-200/60 hover:bg-cyan-300/15 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-300 lg:self-auto"
-                aria-expanded={isPortfolioDashboardOpen}
-                aria-label={
-                  isPortfolioDashboardOpen
-                    ? "Collapse Portfolio Dashboard"
-                    : "Expand Portfolio Dashboard"
-                }
-              >
-                <ChevronRight
-                  className={cn(
-                    "h-8 w-8 transition-transform",
-                    isPortfolioDashboardOpen ? "rotate-90" : "",
-                  )}
-                  aria-hidden="true"
-                />
-              </button>
+              <div className="flex items-center gap-2 self-end lg:self-auto">
+                {initialPortfolioId && !adminMode ? (
+                  <Button asChild variant="outline">
+                    <Link href="/">Back To Portfolios</Link>
+                  </Button>
+                ) : null}
+                <button
+                  type="button"
+                  onClick={() => setIsPortfolioDashboardOpen((value) => !value)}
+                  className="flex h-12 w-12 items-center justify-center rounded-xl border border-cyan-300/30 bg-cyan-300/10 text-cyan-200 shadow-sm transition hover:border-cyan-200/60 hover:bg-cyan-300/15 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-300"
+                  aria-expanded={isPortfolioDashboardOpen}
+                  aria-label={
+                    isPortfolioDashboardOpen
+                      ? "Collapse Portfolio Dashboard"
+                      : "Expand Portfolio Dashboard"
+                  }
+                >
+                  <ChevronRight
+                    className={cn(
+                      "h-8 w-8 transition-transform",
+                      isPortfolioDashboardOpen ? "rotate-90" : "",
+                    )}
+                    aria-hidden="true"
+                  />
+                </button>
+              </div>
             </div>
             {isPortfolioDashboardOpen ? (
               <div className="space-y-5 border-t border-white/10 p-5">
@@ -995,6 +1017,11 @@ function PinChallengeModal({
             onChange={(event) =>
               setPin(event.target.value.replace(/\D/gu, "").slice(0, 4))
             }
+            onKeyDown={(event) => {
+              if (event.key === "Enter") {
+                onUnlock();
+              }
+            }}
             placeholder="4 digit PIN"
             inputMode="numeric"
             className="h-11 w-full rounded-md border border-white/10 bg-[#08121F] px-3 text-center text-lg tracking-[0.35em] text-white outline-none focus:ring-2 focus:ring-cyan-300"

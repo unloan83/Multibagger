@@ -370,6 +370,11 @@ function PortfolioPinModal({
           onChange={(event) =>
             setPin(event.target.value.replace(/\D/gu, "").slice(0, 4))
           }
+          onKeyDown={(event) => {
+            if (event.key === "Enter") {
+              onUnlock();
+            }
+          }}
           placeholder="4 digit PIN"
           inputMode="numeric"
           className="mt-4 h-11 w-full rounded-md border border-white/10 bg-[#08121F] px-3 text-center text-lg tracking-[0.35em] text-white outline-none focus:ring-2 focus:ring-cyan-300"

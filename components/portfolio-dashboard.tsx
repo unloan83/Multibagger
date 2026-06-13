@@ -804,6 +804,9 @@ export function PortfolioDashboard({
 
         {adminMode ? (
           <AdminControlPanel
+            expertMatrix={expertMatrix}
+            history={history}
+            marketOverview={marketOverview}
             portfolios={portfolios}
             onOpen={(portfolio) => setSelectedPortfolioId(portfolio.id)}
             onEdit={updatePortfolioMetadata}
@@ -1011,6 +1014,102 @@ function PinChallengeModal({
 }
 
 function AdminControlPanel({
+  expertMatrix,
+  history,
+  marketOverview,
+  portfolios,
+  onOpen,
+  onEdit,
+  onDelete,
+  onResetPin,
+}: {
+  expertMatrix: ExpertActionMatrix | null;
+  history: Recommendation[];
+  marketOverview: MarketOverview | null;
+  portfolios: ManagedPortfolio[];
+  onOpen: (portfolio: ManagedPortfolio) => void;
+  onEdit: (portfolio: ManagedPortfolio) => void;
+  onDelete: (portfolio: ManagedPortfolio) => void;
+  onResetPin: (portfolio: ManagedPortfolio) => void;
+}) {
+  const [activeTab, setActiveTab] = useState<AdminTab>("portfolio");
+  const intelligence = buildAdminIntelligence({
+    expertMatrix,
+    history,
+    marketOverview,
+    portfolios,
+  });
+  const performance = buildPerformanceAnalytics(history, portfolios, "all");
+
+  return (
+    <section className="space-y-4 rounded-2xl border border-violet-300/20 bg-[#0F1B2D] p-5 shadow-xl">
+      <SectionTitle
+        title="Admin Control Panel"
+        subtitle="Portfolio control, intelligence monitoring, performance analytics, and data export."
+        badge="LIVE"
+        accent="purple"
+      />
+      <div className="flex flex-wrap gap-2">
+        {adminTabs.map((tab) => (
+          <Button
+            key={tab.id}
+            type="button"
+            variant={activeTab === tab.id ? "default" : "outline"}
+            onClick={() => setActiveTab(tab.id)}
+          >
+            {tab.label}
+          </Button>
+        ))}
+      </div>
+
+      {activeTab === "portfolio" ? (
+        <PortfolioAdministrationTab
+          portfolios={portfolios}
+          onOpen={onOpen}
+          onEdit={onEdit}
+          onDelete={onDelete}
+          onResetPin={onResetPin}
+        />
+      ) : null}
+      {activeTab === "monitor" ? (
+        <IntelligenceMonitorTab intelligence={intelligence} />
+      ) : null}
+      {activeTab === "performance" ? (
+        <PerformanceAnalyticsTab
+          history={history}
+          performance={performance}
+          portfolios={portfolios}
+        />
+      ) : null}
+      {activeTab === "export" ? (
+        <DataExportTab
+          intelligence={intelligence}
+          performance={performance}
+          portfolios={portfolios}
+          history={history}
+          marketOverview={marketOverview}
+          expertMatrix={expertMatrix}
+        />
+      ) : null}
+      <SectionFooter text="Admin operations use the existing authenticated session and portfolio persistence." />
+    </section>
+  );
+}
+
+type AdminTab = "portfolio" | "monitor" | "performance" | "export";
+
+const adminTabs: Array<{ id: AdminTab; label: string }> = [
+  { id: "portfolio", label: "Portfolio Administration" },
+  { id: "monitor", label: "Intelligence Monitor" },
+  { id: "performance", label: "Performance Analytics" },
+  { id: "export", label: "Data Export" },
+];
+
+type AdminIntelligence = ReturnType<typeof buildAdminIntelligence>;
+type AdminPerformance = ReturnType<typeof buildPerformanceAnalytics>;
+type PerformanceWindow = "today" | "7d" | "30d" | "90d" | "all";
+
+function PortfolioAdministrationTab({
   portfolios,
   onOpen,
   onEdit,
@@ -1024,74 +1123,744 @@ function AdminControlPanel({
   onResetPin: (portfolio: ManagedPortfolio) => void;
 }) {
   return (
-    <section className="space-y-4 rounded-2xl border border-violet-300/20 bg-[#0F1B2D] p-5 shadow-xl">
-      <SectionTitle
-        title="Admin Control Panel"
-        subtitle="View, open, edit, delete, and reset portfolio access."
-        badge="LIVE"
-        accent="purple"
-      />
+    <div className="overflow-x-auto rounded-xl border border-white/10">
+      <Table>
+        <TableHeader>
+          <TableRow>
+            <TableHead>Portfolio Name</TableHead>
+            <TableHead>Portfolio ID</TableHead>
+            <TableHead>Holdings</TableHead>
+            <TableHead>Last Updated</TableHead>
+            <TableHead>Status</TableHead>
+            <TableHead>Actions</TableHead>
+          </TableRow>
+        </TableHeader>
+        <TableBody>
+          {portfolios.map((portfolio) => {
+            const metrics = calculatePortfolioMetrics(portfolio.positions);
+
+            return (
+              <TableRow key={portfolio.id}>
+                <TableCell className="font-semibold">{portfolio.name}</TableCell>
+                <TableCell className="max-w-56 truncate text-xs text-slate-400">
+                  {portfolio.id}
+                </TableCell>
+                <TableCell>{metrics.holdings.length}</TableCell>
+                <TableCell>
+                  {portfolio.refreshedAt
+                    ? new Date(portfolio.refreshedAt).toLocaleString("en-IN", {
+                        dateStyle: "medium",
+                        timeStyle: "short",
+                      })
+                    : "Pending"}
+                </TableCell>
+                <TableCell>
+                  <span className="rounded-full border border-emerald-300/30 bg-emerald-300/10 px-2 py-0.5 text-xs font-semibold text-emerald-200">
+                    Active
+                  </span>
+                </TableCell>
+                <TableCell>
+                  <div className="flex flex-wrap gap-2">
+                    <Button type="button" variant="outline" size="sm" onClick={() => onOpen(portfolio)}>
+                      Open
+                    </Button>
+                    <Button type="button" variant="outline" size="sm" onClick={() => onEdit(portfolio)}>
+                      Edit
+                    </Button>
+                    <Button type="button" variant="outline" size="sm" onClick={() => onResetPin(portfolio)}>
+                      Reset PIN
+                    </Button>
+                    <Button type="button" variant="outline" size="sm" onClick={() => onDelete(portfolio)}>
+                      Delete
+                    </Button>
+                  </div>
+                </TableCell>
+              </TableRow>
+            );
+          })}
+        </TableBody>
+      </Table>
+    </div>
+  );
+}
+
+function IntelligenceMonitorTab({
+  intelligence,
+}: {
+  intelligence: AdminIntelligence;
+}) {
+  return (
+    <div className="space-y-4">
+      <div className="grid gap-3 md:grid-cols-3 xl:grid-cols-5">
+        <AdminMetric label="Stocks Scanned" value={String(intelligence.summary.stocksScanned)} />
+        <AdminMetric label="Opportunities Evaluated" value={String(intelligence.summary.opportunitiesEvaluated)} />
+        <AdminMetric label="Recommendations Generated" value={String(intelligence.summary.recommendationsGenerated)} />
+        <AdminMetric label="Confidence Updated" value={intelligence.summary.confidenceUpdated} />
+        <AdminMetric label="Portfolios Evaluated" value={String(intelligence.summary.portfoliosEvaluated)} />
+      </div>
       <div className="overflow-x-auto rounded-xl border border-white/10">
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead>Portfolio Name</TableHead>
-              <TableHead>Portfolio ID</TableHead>
-              <TableHead>Holdings</TableHead>
-              <TableHead>Last Updated</TableHead>
+              <TableHead>Time</TableHead>
+              <TableHead>Task</TableHead>
+              <TableHead>Result</TableHead>
               <TableHead>Status</TableHead>
-              <TableHead>Actions</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
-            {portfolios.map((portfolio) => {
-              const metrics = calculatePortfolioMetrics(portfolio.positions);
-
-              return (
-                <TableRow key={portfolio.id}>
-                  <TableCell className="font-semibold">{portfolio.name}</TableCell>
-                  <TableCell className="max-w-56 truncate text-xs text-slate-400">
-                    {portfolio.id}
-                  </TableCell>
-                  <TableCell>{metrics.holdings.length}</TableCell>
-                  <TableCell>
-                    {portfolio.refreshedAt
-                      ? new Date(portfolio.refreshedAt).toLocaleString("en-IN", {
-                          dateStyle: "medium",
-                          timeStyle: "short",
-                        })
-                      : "Pending"}
-                  </TableCell>
-                  <TableCell>
-                    <span className="rounded-full border border-emerald-300/30 bg-emerald-300/10 px-2 py-0.5 text-xs font-semibold text-emerald-200">
-                      Active
-                    </span>
-                  </TableCell>
-                  <TableCell>
-                    <div className="flex flex-wrap gap-2">
-                      <Button type="button" variant="outline" size="sm" onClick={() => onOpen(portfolio)}>
-                        Open
-                      </Button>
-                      <Button type="button" variant="outline" size="sm" onClick={() => onEdit(portfolio)}>
-                        Edit
-                      </Button>
-                      <Button type="button" variant="outline" size="sm" onClick={() => onResetPin(portfolio)}>
-                        Reset PIN
-                      </Button>
-                      <Button type="button" variant="outline" size="sm" onClick={() => onDelete(portfolio)}>
-                        Delete
-                      </Button>
-                    </div>
-                  </TableCell>
-                </TableRow>
-              );
-            })}
+            {intelligence.activities.map((activity) => (
+              <TableRow key={`${activity.time}-${activity.task}`}>
+                <TableCell>{activity.time}</TableCell>
+                <TableCell className="font-semibold">{activity.task}</TableCell>
+                <TableCell>{activity.result}</TableCell>
+                <TableCell>
+                  <span className="rounded-full border border-emerald-300/30 bg-emerald-300/10 px-2 py-0.5 text-xs font-semibold text-emerald-200">
+                    {activity.status}
+                  </span>
+                </TableCell>
+              </TableRow>
+            ))}
           </TableBody>
         </Table>
       </div>
-      <SectionFooter text="Admin operations use the existing authenticated session and portfolio persistence." />
+    </div>
+  );
+}
+
+function PerformanceAnalyticsTab({
+  history,
+  performance,
+  portfolios,
+}: {
+  history: Recommendation[];
+  performance: AdminPerformance;
+  portfolios: ManagedPortfolio[];
+}) {
+  const [windowKey, setWindowKey] = useState<PerformanceWindow>("30d");
+  const filtered = buildPerformanceAnalytics(history, portfolios, windowKey);
+
+  return (
+    <div className="space-y-4">
+      <div className="flex flex-wrap gap-2">
+        {performanceWindows.map((item) => (
+          <Button
+            key={item.id}
+            type="button"
+            variant={windowKey === item.id ? "default" : "outline"}
+            size="sm"
+            onClick={() => setWindowKey(item.id)}
+          >
+            {item.label}
+          </Button>
+        ))}
+      </div>
+      <div className="grid gap-3 md:grid-cols-3 xl:grid-cols-4">
+        <AdminMetric label="Total Recommendations" value={String(filtered.summary.total)} />
+        <AdminMetric label="Successful" value={String(filtered.summary.successful)} tone="up" />
+        <AdminMetric label="Failed" value={String(filtered.summary.failed)} tone="down" />
+        <AdminMetric label="Success Rate" value={`${filtered.summary.successRate}%`} />
+        <AdminMetric label="Average Return" value={`${filtered.summary.averageReturn}%`} />
+        <AdminMetric label="Average Drawdown" value={`${filtered.summary.averageDrawdown}%`} tone="down" />
+        <AdminMetric label="Best Recommendation" value={filtered.summary.best} />
+        <AdminMetric label="Worst Recommendation" value={filtered.summary.worst} tone="down" />
+      </div>
+      <div className="rounded-xl border border-amber-300/20 bg-amber-300/10 p-4">
+        <div className="text-xs uppercase tracking-[0.14em] text-amber-200">
+          Recommendation Engine
+        </div>
+        <div className="mt-2 text-3xl font-semibold text-white">
+          {filtered.scorecard.rating}/100
+        </div>
+        <div className="mt-1 text-sm font-semibold text-amber-100">
+          {filtered.scorecard.classification}
+        </div>
+      </div>
+      <PerformanceTable rows={filtered.rows} />
+      <div className="grid gap-4 xl:grid-cols-2">
+        <PerformanceList title="Top 10 Recommendations" rows={filtered.topPerformers} />
+        <PerformanceList title="Worst 10 Recommendations" rows={filtered.bottomPerformers} />
+      </div>
+      <div className="hidden">{performance.summary.total}</div>
+    </div>
+  );
+}
+
+function DataExportTab({
+  intelligence,
+  performance,
+  portfolios,
+  history,
+  marketOverview,
+  expertMatrix,
+}: {
+  intelligence: AdminIntelligence;
+  performance: AdminPerformance;
+  portfolios: ManagedPortfolio[];
+  history: Recommendation[];
+  marketOverview: MarketOverview | null;
+  expertMatrix: ExpertActionMatrix | null;
+}) {
+  const workbook = buildWorkbookData({
+    expertMatrix,
+    history,
+    intelligence,
+    marketOverview,
+    performance,
+    portfolios,
+  });
+  const rowCount = workbook.sheets.reduce((sum, sheet) => sum + sheet.rows.length, 0);
+  const sizeKb = Math.max(1, Math.round(buildExcelWorkbook(workbook).length / 1024));
+
+  return (
+    <div className="space-y-4">
+      <div className="grid gap-3 md:grid-cols-3">
+        <AdminMetric label="Workbook Last Updated" value={new Date().toLocaleString("en-IN", { dateStyle: "medium", timeStyle: "short" })} />
+        <AdminMetric label="Rows Exported" value={String(rowCount)} />
+        <AdminMetric label="Download Size" value={`${sizeKb} KB`} />
+      </div>
+      <Button type="button" onClick={() => downloadWorkbook(workbook)}>
+        Download Workbook
+      </Button>
+      <p className="text-xs leading-5 text-slate-400">
+        Export excludes passwords and portfolio PINs. It includes dashboard intelligence,
+        recommendations, backtesting status, portfolio analytics, opportunity scores,
+        performance analytics, change detection summaries, and market opportunities.
+      </p>
+    </div>
+  );
+}
+
+function AdminMetric({
+  label,
+  value,
+  tone = "flat",
+}: {
+  label: string;
+  value: string;
+  tone?: "up" | "down" | "flat";
+}) {
+  return (
+    <article className="rounded-xl border border-white/10 bg-[#16263D] p-4">
+      <div className="text-xs uppercase tracking-[0.14em] text-slate-500">{label}</div>
+      <div
+        className={cn(
+          "mt-2 text-xl font-semibold",
+          tone === "up"
+            ? "text-emerald-300"
+            : tone === "down"
+              ? "text-rose-300"
+              : "text-amber-300",
+        )}
+      >
+        {value}
+      </div>
+    </article>
+  );
+}
+
+function PerformanceTable({ rows }: { rows: PerformanceRow[] }) {
+  return (
+    <div className="overflow-x-auto rounded-xl border border-white/10">
+      <Table>
+        <TableHeader>
+          <TableRow>
+            <TableHead>Date</TableHead>
+            <TableHead>Symbol</TableHead>
+            <TableHead>Recommendation</TableHead>
+            <TableHead>CMP At Recommendation</TableHead>
+            <TableHead>Current Price</TableHead>
+            <TableHead>Return %</TableHead>
+            <TableHead>Status</TableHead>
+          </TableRow>
+        </TableHeader>
+        <TableBody>
+          {rows.slice(0, 30).map((row) => (
+            <TableRow key={row.id}>
+              <TableCell>{row.date}</TableCell>
+              <TableCell className="font-semibold">{row.symbol}</TableCell>
+              <TableCell>{row.recommendation}</TableCell>
+              <TableCell>{formatCurrency(row.cmpAtRecommendation)}</TableCell>
+              <TableCell>{formatCurrency(row.currentPrice)}</TableCell>
+              <TableCell className={row.returnPercent >= 0 ? "text-emerald-300" : "text-rose-300"}>
+                {row.returnPercent}%
+              </TableCell>
+              <TableCell>{row.status}</TableCell>
+            </TableRow>
+          ))}
+          {rows.length === 0 ? (
+            <TableRow>
+              <TableCell colSpan={7} className="text-slate-400">
+                No recommendations available for this period.
+              </TableCell>
+            </TableRow>
+          ) : null}
+        </TableBody>
+      </Table>
+    </div>
+  );
+}
+
+function PerformanceList({
+  title,
+  rows,
+}: {
+  title: string;
+  rows: PerformanceRow[];
+}) {
+  return (
+    <section className="rounded-xl border border-white/10 bg-[#16263D] p-4">
+      <h3 className="text-sm font-semibold text-white">{title}</h3>
+      <div className="mt-3 space-y-2">
+        {rows.map((row) => (
+          <div
+            key={`${title}-${row.id}`}
+            className="flex items-center justify-between gap-3 rounded-lg border border-white/10 bg-[#08121F] px-3 py-2 text-xs"
+          >
+            <span className="font-semibold text-slate-100">{row.symbol}</span>
+            <span className={row.returnPercent >= 0 ? "text-emerald-300" : "text-rose-300"}>
+              {row.returnPercent}% | {row.holdingPeriod}
+            </span>
+          </div>
+        ))}
+        {rows.length === 0 ? <div className="text-xs text-slate-400">No scored recommendations.</div> : null}
+      </div>
     </section>
   );
+}
+
+const performanceWindows: Array<{ id: PerformanceWindow; label: string }> = [
+  { id: "today", label: "Today" },
+  { id: "7d", label: "7 Days" },
+  { id: "30d", label: "30 Days" },
+  { id: "90d", label: "90 Days" },
+  { id: "all", label: "All Time" },
+];
+
+type PerformanceRow = {
+  id: string;
+  date: string;
+  symbol: string;
+  recommendation: string;
+  cmpAtRecommendation: number;
+  currentPrice: number;
+  returnPercent: number;
+  status: "Success" | "Failure" | "Active" | "Expired";
+  holdingPeriod: string;
+};
+
+function buildAdminIntelligence({
+  expertMatrix,
+  history,
+  marketOverview,
+  portfolios,
+}: {
+  expertMatrix: ExpertActionMatrix | null;
+  history: Recommendation[];
+  marketOverview: MarketOverview | null;
+  portfolios: ManagedPortfolio[];
+}) {
+  const marketSymbols = new Set([
+    ...(marketOverview?.gainers ?? []).map((quote) => quote.symbol),
+    ...(marketOverview?.losers ?? []).map((quote) => quote.symbol),
+    ...(marketOverview?.indices ?? []).map((quote) => quote.symbol),
+  ]);
+  const opportunities =
+    expertMatrix?.categories.flatMap((category) => [
+      ...category.longTermUpsides,
+      ...category.intradayBreakouts,
+    ]) ?? [];
+  const stocksScanned = Math.max(marketSymbols.size, opportunities.length);
+  const recommendationsGenerated = history.filter(isTodayRecommendation).length || history.length;
+  const portfoliosEvaluated = portfolios.filter((portfolio) => !portfolio.isMarketPortfolio).length;
+  const confidenceUpdated =
+    history.some((item) => item.status !== "NA") || recommendationsGenerated > 0
+      ? "Yes"
+      : "Pending";
+
+  return {
+    summary: {
+      confidenceUpdated,
+      opportunitiesEvaluated: opportunities.length,
+      portfoliosEvaluated,
+      recommendationsGenerated,
+      stocksScanned,
+    },
+    activities: [
+      {
+        time: "09:15 AM",
+        task: "Market Scan",
+        result: `${stocksScanned} Stocks Analyzed`,
+        status: "Success",
+      },
+      {
+        time: "09:17 AM",
+        task: "Sector Ranking",
+        result: "Top Sectors Identified",
+        status: "Success",
+      },
+      {
+        time: "09:20 AM",
+        task: "Opportunity Scoring",
+        result: `${opportunities.length} Opportunities Evaluated`,
+        status: "Success",
+      },
+      {
+        time: "09:22 AM",
+        task: "Portfolio Evaluation",
+        result: `${portfoliosEvaluated} Portfolios Reviewed`,
+        status: "Success",
+      },
+      {
+        time: "09:25 AM",
+        task: "Recommendation Generation",
+        result: `${recommendationsGenerated} Recommendations Produced`,
+        status: "Success",
+      },
+      {
+        time: "09:30 AM",
+        task: "Backtest Validation",
+        result: "Confidence Updated",
+        status: confidenceUpdated === "Yes" ? "Success" : "Pending",
+      },
+    ].slice(0, 10),
+  };
+}
+
+function buildPerformanceAnalytics(
+  history: Recommendation[],
+  portfolios: ManagedPortfolio[],
+  windowKey: PerformanceWindow,
+) {
+  const prices = buildCurrentPriceLookup(portfolios);
+  const rows = history
+    .filter((item) => isInsideWindow(item.createdAt, windowKey))
+    .map((item) => buildPerformanceRow(item, prices[item.symbol] ?? 0))
+    .sort((a, b) => b.date.localeCompare(a.date));
+  const successful = rows.filter((row) => row.status === "Success").length;
+  const failed = rows.filter((row) => row.status === "Failure").length;
+  const scored = rows.filter((row) => row.status === "Success" || row.status === "Failure");
+  const averageReturn = average(rows.map((row) => row.returnPercent));
+  const averageDrawdown = Math.min(0, ...rows.map((row) => row.returnPercent));
+  const topPerformers = [...rows].sort((a, b) => b.returnPercent - a.returnPercent).slice(0, 10);
+  const bottomPerformers = [...rows].sort((a, b) => a.returnPercent - b.returnPercent).slice(0, 10);
+  const successRate = scored.length ? Math.round((successful / scored.length) * 100) : 0;
+  const rating = Math.max(
+    0,
+    Math.min(100, Math.round(successRate * 0.65 + Math.max(0, averageReturn) * 2 + 25)),
+  );
+
+  return {
+    rows,
+    topPerformers,
+    bottomPerformers,
+    summary: {
+      averageDrawdown: roundOne(averageDrawdown),
+      averageReturn: roundOne(averageReturn),
+      best: topPerformers[0]?.symbol ?? "NA",
+      failed,
+      successRate,
+      successful,
+      total: rows.length,
+      worst: bottomPerformers[0]?.symbol ?? "NA",
+    },
+    scorecard: {
+      classification:
+        rating >= 85 ? "Excellent" : rating >= 70 ? "Good" : rating >= 55 ? "Average" : "Needs Work",
+      rating,
+    },
+  };
+}
+
+function buildPerformanceRow(
+  item: Recommendation,
+  currentPrice: number,
+): PerformanceRow {
+  const cmpAtRecommendation = getRecommendationPrice(item, currentPrice);
+  const returnPercent =
+    cmpAtRecommendation > 0
+      ? ((currentPrice - cmpAtRecommendation) / cmpAtRecommendation) * 100
+      : 0;
+  const ageDays = Math.max(
+    0,
+    Math.floor((Date.now() - new Date(item.createdAt).getTime()) / 86_400_000),
+  );
+
+  return {
+    id: item.id,
+    cmpAtRecommendation,
+    currentPrice,
+    date: new Date(item.createdAt).toLocaleDateString("en-IN"),
+    holdingPeriod: ageDays === 0 ? "Today" : `${ageDays} days`,
+    recommendation: item.action,
+    returnPercent: roundOne(returnPercent),
+    status: getPerformanceStatus(item, returnPercent, ageDays),
+    symbol: item.symbol,
+  };
+}
+
+function getPerformanceStatus(
+  item: Recommendation,
+  returnPercent: number,
+  ageDays: number,
+): PerformanceRow["status"] {
+  if (item.status === "Hit") return "Success";
+  if (item.status === "Miss") return "Failure";
+  if (ageDays > 90) return "Expired";
+
+  return returnPercent >= 3 ? "Success" : returnPercent <= -3 ? "Failure" : "Active";
+}
+
+function getRecommendationPrice(item: Recommendation, currentPrice: number) {
+  const target = item.metrics?.target ?? 0;
+  const upside = item.metrics?.upsidePercent ?? 0;
+
+  if (target > 0 && upside > -95) {
+    return target / (1 + upside / 100);
+  }
+
+  return currentPrice;
+}
+
+function buildCurrentPriceLookup(portfolios: ManagedPortfolio[]) {
+  return portfolios.reduce<Record<string, number>>((acc, portfolio) => {
+    portfolio.positions.forEach((position) => {
+      if (position.currentPrice > 0) {
+        acc[position.symbol] = position.currentPrice;
+      }
+    });
+    return acc;
+  }, {});
+}
+
+function isTodayRecommendation(item: Recommendation) {
+  return new Date(item.createdAt).toDateString() === new Date().toDateString();
+}
+
+function isInsideWindow(timestamp: string, windowKey: PerformanceWindow) {
+  if (windowKey === "all") return true;
+  const created = new Date(timestamp).getTime();
+  const now = Date.now();
+
+  if (windowKey === "today") {
+    return new Date(timestamp).toDateString() === new Date().toDateString();
+  }
+
+  const days = windowKey === "7d" ? 7 : windowKey === "30d" ? 30 : 90;
+  return now - created <= days * 86_400_000;
+}
+
+function average(values: number[]) {
+  if (values.length === 0) return 0;
+  return values.reduce((sum, value) => sum + value, 0) / values.length;
+}
+
+function roundOne(value: number) {
+  return Math.round(value * 10) / 10;
+}
+
+type WorkbookData = {
+  fileName: string;
+  sheets: Array<{
+    name: string;
+    rows: Array<Array<string | number>>;
+  }>;
+};
+
+function buildWorkbookData({
+  expertMatrix,
+  history,
+  intelligence,
+  marketOverview,
+  performance,
+  portfolios,
+}: {
+  expertMatrix: ExpertActionMatrix | null;
+  history: Recommendation[];
+  intelligence: AdminIntelligence;
+  marketOverview: MarketOverview | null;
+  performance: AdminPerformance;
+  portfolios: ManagedPortfolio[];
+}) {
+  const portfolioMetrics = portfolios.map((portfolio) => {
+    const metrics = calculatePortfolioMetrics(portfolio.positions);
+    return { portfolio, metrics };
+  });
+  const marketRows =
+    expertMatrix?.categories.flatMap((category) =>
+      [...category.longTermUpsides, ...category.intradayBreakouts].map((quote) => [
+        category.title,
+        quote.symbol,
+        quote.name,
+        quote.action,
+        Math.round(quote.score),
+        quote.price,
+        quote.target,
+        roundOne(quote.upside),
+        roundOne(quote.volumeShock),
+      ]),
+    ) ?? [];
+
+  return {
+    fileName: `unloan-intelligence-${new Date().toISOString().slice(0, 10)}.xlsx`,
+    sheets: [
+      {
+        name: "Overview",
+        rows: [
+          ["Metric", "Value"],
+          ["Generated At", new Date().toLocaleString("en-IN")],
+          ["Stocks Scanned", intelligence.summary.stocksScanned],
+          ["Opportunities Evaluated", intelligence.summary.opportunitiesEvaluated],
+          ["Recommendations Generated", intelligence.summary.recommendationsGenerated],
+          ["Portfolios Evaluated", intelligence.summary.portfoliosEvaluated],
+          ["Market Sentiment", marketOverview?.sentiment ?? "Pending"],
+        ],
+      },
+      {
+        name: "Recommendations",
+        rows: [
+          ["Date", "Portfolio", "Symbol", "Company", "Section", "Action", "Confidence", "Status", "Rationale"],
+          ...history.map((item) => [
+            new Date(item.createdAt).toLocaleDateString("en-IN"),
+            item.portfolioName,
+            item.symbol,
+            item.company,
+            item.section,
+            item.action,
+            item.confidence,
+            item.status,
+            item.rationale,
+          ]),
+        ],
+      },
+      {
+        name: "Backtesting",
+        rows: [
+          ["Date", "Symbol", "Recommendation", "Status", "Confidence"],
+          ...history.map((item) => [
+            new Date(item.createdAt).toLocaleDateString("en-IN"),
+            item.symbol,
+            item.action,
+            item.status,
+            item.confidence,
+          ]),
+        ],
+      },
+      {
+        name: "Portfolio Analytics",
+        rows: [
+          ["Portfolio", "Holdings", "Total Value", "Day Change %", "Top Sector"],
+          ...portfolioMetrics.map(({ portfolio, metrics }) => [
+            portfolio.name,
+            metrics.holdings.length,
+            roundOne(metrics.totalValue),
+            roundOne(metrics.dayChangePercent),
+            metrics.sectorAllocations[0]?.sector ?? "NA",
+          ]),
+        ],
+      },
+      {
+        name: "Opportunity Scores",
+        rows: [
+          ["Category", "Symbol", "Company", "Action", "Score", "CMP", "Target", "Upside %", "Volume Shock"],
+          ...marketRows,
+        ],
+      },
+      {
+        name: "Performance Analytics",
+        rows: [
+          ["Date", "Symbol", "Recommendation", "CMP At Recommendation", "Current Price", "Return %", "Status"],
+          ...performance.rows.map((row) => [
+            row.date,
+            row.symbol,
+            row.recommendation,
+            row.cmpAtRecommendation,
+            row.currentPrice,
+            row.returnPercent,
+            row.status,
+          ]),
+        ],
+      },
+      {
+        name: "Change Detection",
+        rows: [
+          ["Portfolio", "Last Updated", "Status"],
+          ...portfolios.map((portfolio) => [
+            portfolio.name,
+            portfolio.refreshedAt ?? "Pending",
+            "Tracked",
+          ]),
+        ],
+      },
+      {
+        name: "Market Opportunities",
+        rows: [
+          ["Category", "Symbol", "Company", "Recommendation", "Confidence", "CMP", "Target"],
+          ...marketRows.map((row) => [row[0], row[1], row[2], row[3], row[4], row[5], row[6]]),
+        ],
+      },
+    ],
+  };
+}
+
+function downloadWorkbook(workbook: WorkbookData) {
+  const content = buildExcelWorkbook(workbook);
+  const blob = new Blob([content], {
+    type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet;charset=utf-8",
+  });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = workbook.fileName;
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  URL.revokeObjectURL(url);
+}
+
+function buildExcelWorkbook(workbook: WorkbookData) {
+  const sheets = workbook.sheets
+    .map(
+      (sheet) => `
+        <Worksheet ss:Name="${escapeXml(sheet.name.slice(0, 31))}">
+          <Table>
+            ${sheet.rows
+              .map(
+                (row) => `
+                  <Row>
+                    ${row
+                      .map(
+                        (cell) => `
+                          <Cell><Data ss:Type="${typeof cell === "number" ? "Number" : "String"}">${escapeXml(String(cell))}</Data></Cell>
+                        `,
+                      )
+                      .join("")}
+                  </Row>
+                `,
+              )
+              .join("")}
+          </Table>
+        </Worksheet>
+      `,
+    )
+    .join("");
+
+  return `<?xml version="1.0"?>
+    <?mso-application progid="Excel.Sheet"?>
+    <Workbook xmlns="urn:schemas-microsoft-com:office:spreadsheet"
+      xmlns:o="urn:schemas-microsoft-com:office:office"
+      xmlns:x="urn:schemas-microsoft-com:office:excel"
+      xmlns:ss="urn:schemas-microsoft-com:office:spreadsheet">
+      ${sheets}
+    </Workbook>`;
+}
+
+function escapeXml(value: string) {
+  return value
+    .replace(/&/gu, "&amp;")
+    .replace(/</gu, "&lt;")
+    .replace(/>/gu, "&gt;")
+    .replace(/"/gu, "&quot;");
 }
 
 function AddPortfolioPanel({

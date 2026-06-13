@@ -723,7 +723,7 @@ export const samplePositions: PortfolioPosition[] = [
 
 export const samplePortfolio: ManagedPortfolio = {
   id: "core-sample",
-  name: "Core Portfolio",
+  name: "Sample Portfolio",
   appetite: "moderate",
   inputs: sampleInputs,
   positions: samplePositions,

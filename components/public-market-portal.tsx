@@ -144,19 +144,25 @@ export function PublicMarketPortal() {
 
     const normalizedPin = normalizePinInput(pinInput);
     const savedHash = pinHashes[pinChallengePortfolio.id];
-    const portfolioPinResult = await validatePortfolioPin({
-      enteredPin: pinInput,
-      portfolioId: pinChallengePortfolio.id,
-      portfolioName: pinChallengePortfolio.name,
-      storedHash: savedHash,
-    });
+    const serverResult = await validatePortfolioPinWithServer(
+      pinChallengePortfolio.id,
+      pinInput,
+    );
+    const portfolioPinResult =
+      serverResult ??
+      (await validatePortfolioPin({
+        enteredPin: pinInput,
+        portfolioId: pinChallengePortfolio.id,
+        portfolioName: pinChallengePortfolio.name,
+        storedHash: savedHash,
+      }));
     const enteredMasterPin = normalizedPin === masterRecoveryPin;
-    const enteredPortfolioPin = portfolioPinResult.pinMatch || (!savedHash && enteredMasterPin);
+    const enteredPortfolioPin = portfolioPinResult.pinMatch;
 
     console.log("[PIN DEBUG] Public Mobile Fallback", {
       portfolioId: pinChallengePortfolio.id,
       portfolioName: pinChallengePortfolio.name,
-      hasStoredHash: Boolean(savedHash),
+      hasStoredHash: "hasStoredHash" in portfolioPinResult ? portfolioPinResult.hasStoredHash : Boolean(savedHash),
       normalizedPin,
       masterPinMatch: enteredMasterPin,
       portfolioPinMatch: portfolioPinResult.pinMatch,
@@ -173,6 +179,34 @@ export function PublicMarketPortal() {
       pinChallengePortfolio.id,
     );
     router.push(`/portfolio/${encodeURIComponent(pinChallengePortfolio.id)}`);
+  }
+
+  async function validatePortfolioPinWithServer(portfolioId: string, pin: string) {
+    try {
+      const response = await fetch("/api/portfolio-pins/validate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ portfolioId, pin }),
+      });
+      const payload = (await response.json()) as {
+        ok?: boolean;
+        pinMatch?: boolean;
+        hasStoredHash?: boolean;
+        usedMasterPin?: boolean;
+      };
+
+      if (response.ok) {
+        return {
+          hasStoredHash: Boolean(payload.hasStoredHash),
+          pinMatch: Boolean(payload.ok && payload.pinMatch),
+          usedMasterPin: Boolean(payload.usedMasterPin),
+        };
+      }
+    } catch {
+      // Fall back to local hash validation below.
+    }
+
+    return null;
   }
 
   async function loginAdmin() {

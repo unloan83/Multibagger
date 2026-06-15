@@ -13,6 +13,7 @@ const privateKey = process.env.GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY?.replace(/\\n/
 
 const portfoliosSheet = "Portfolios";
 const holdingsSheet = "Holdings";
+const portfolioPinsSheet = "Portfolio PINs";
 const validationSheet = "Validation";
 const marketMoversSheet = "Market Movers";
 
@@ -148,6 +149,55 @@ export async function savePortfolioToSheets(portfolio: ManagedPortfolio) {
   await writePortfolios(nextPortfolios);
 }
 
+export async function readPortfolioPinHashesFromSheets() {
+  if (!isGoogleSheetsConfigured()) {
+    return {};
+  }
+
+  const sheets = await getSheetsClient();
+  await ensureSheets();
+  const response = await sheets.spreadsheets.values.get({
+    spreadsheetId,
+    range: `${portfolioPinsSheet}!A2:C`,
+  });
+  const rows = response.data.values ?? [];
+
+  return rows.reduce<Record<string, { hash: string; updatedAt: string }>>((acc, row) => {
+    const portfolioId = String(row[0] ?? "").trim();
+    const hash = String(row[1] ?? "").trim();
+    const updatedAt = String(row[2] ?? "").trim();
+
+    if (portfolioId && hash) {
+      acc[portfolioId] = { hash, updatedAt };
+    }
+
+    return acc;
+  }, {});
+}
+
+export async function savePortfolioPinHashToSheets({
+  portfolioId,
+  pinHash,
+}: {
+  portfolioId: string;
+  pinHash: string;
+}) {
+  if (!isGoogleSheetsConfigured()) {
+    throw new Error("Google Sheets is not configured.");
+  }
+
+  const existing = await readPortfolioPinHashesFromSheets();
+  const next = {
+    ...existing,
+    [portfolioId]: {
+      hash: pinHash,
+      updatedAt: new Date().toISOString(),
+    },
+  };
+
+  await writePortfolioPinHashes(next);
+}
+
 export async function appendValidationRows(rows: ValidationRow[]) {
   if (!isGoogleSheetsConfigured()) {
     throw new Error("Google Sheets is not configured.");
@@ -242,6 +292,42 @@ export async function deletePortfolioFromSheets(id: string) {
 
   const portfolios = await readPortfoliosFromSheets();
   await writePortfolios(portfolios.filter((portfolio) => portfolio.id !== id));
+  const pinHashes = await readPortfolioPinHashesFromSheets();
+  const nextPinHashes = { ...pinHashes };
+  delete nextPinHashes[id];
+  await writePortfolioPinHashes(nextPinHashes);
+}
+
+async function writePortfolioPinHashes(
+  pinHashes: Record<string, { hash: string; updatedAt: string }>,
+) {
+  const sheets = await getSheetsClient();
+  await ensureSheets();
+  const values = Object.entries(pinHashes).map(([portfolioId, item]) => [
+    portfolioId,
+    item.hash,
+    item.updatedAt,
+  ]);
+
+  await sheets.spreadsheets.values.batchClear({
+    spreadsheetId,
+    requestBody: {
+      ranges: [rangeFor(portfolioPinsSheet, "A2:C")],
+    },
+  });
+
+  if (values.length === 0) {
+    return;
+  }
+
+  await sheets.spreadsheets.values.update({
+    spreadsheetId,
+    range: rangeFor(portfolioPinsSheet, "A2:C"),
+    valueInputOption: "USER_ENTERED",
+    requestBody: {
+      values,
+    },
+  });
 }
 
 async function writePortfolios(portfolios: ManagedPortfolio[]) {
@@ -345,6 +431,7 @@ async function ensureSheets(additionalTitles: string[] = []) {
   const requests = [
     portfoliosSheet,
     holdingsSheet,
+    portfolioPinsSheet,
     validationSheet,
     marketMoversSheet,
     ...additionalTitles,
@@ -376,6 +463,10 @@ async function ensureSheets(additionalTitles: string[] = []) {
         {
           range: rangeFor(holdingsSheet, "A1:F1"),
           values: [["portfolio_id", "stock_code", "company", "quantity", "list", "updated_at"]],
+        },
+        {
+          range: rangeFor(portfolioPinsSheet, "A1:C1"),
+          values: [["portfolio_id", "pin_hash", "updated_at"]],
         },
         {
           range: rangeFor(validationSheet, "A1:S1"),

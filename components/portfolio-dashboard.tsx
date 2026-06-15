@@ -181,6 +181,7 @@ export function PortfolioDashboard({
     initialPortfolioId ?? samplePortfolio.id,
   );
   const [pinHashes, setPinHashes] = useState<Record<string, string>>({});
+  const [pinUpdatedAt, setPinUpdatedAt] = useState<Record<string, string>>({});
   const [pinChallengePortfolio, setPinChallengePortfolio] =
     useState<ManagedPortfolio | null>(null);
   const [pinInput, setPinInput] = useState("");
@@ -298,6 +299,7 @@ export function PortfolioDashboard({
 
         if (response.ok && payload.configured) {
           setIsSheetsStorage(true);
+          await hydrateCentralPinHashes();
           const loadedPortfolios = normalizeManagedPortfolios(
             payload.portfolios ?? [],
           );
@@ -544,6 +546,7 @@ export function PortfolioDashboard({
       const pinHash = await hashPortfolioPin(portfolio.id, normalizedPortfolioPin);
       setPortfolios((items) => [...items, portfolio]);
       setPinHashes((items) => ({ ...items, [portfolio.id]: pinHash }));
+      await saveCentralPinHash(portfolio.id, pinHash);
       setSelectedPortfolioId(portfolio.id);
       setHistory((items) => [
         ...generateRecommendationList(portfolio, items),
@@ -701,7 +704,68 @@ export function PortfolioDashboard({
 
     const pinHash = await hashPortfolioPin(portfolio.id, nextPin);
     setPinHashes((items) => ({ ...items, [portfolio.id]: pinHash }));
+    await saveCentralPinHash(portfolio.id, pinHash);
     setError(null);
+  }
+
+  async function hydrateCentralPinHashes() {
+    try {
+      const response = await fetch("/api/portfolio-pins");
+      const payload = (await response.json()) as {
+        configured?: boolean;
+        pinHashes?: Record<string, { hash: string; updatedAt?: string }>;
+      };
+
+      if (response.ok && payload.configured && payload.pinHashes) {
+        const centralPinHashes = payload.pinHashes;
+
+        setPinHashes((items) => ({
+          ...items,
+          ...Object.fromEntries(
+            Object.entries(centralPinHashes).map(([portfolioId, item]) => [
+              portfolioId,
+              item.hash,
+            ]),
+          ),
+        }));
+        setPinUpdatedAt((items) => ({
+          ...items,
+          ...Object.fromEntries(
+            Object.entries(centralPinHashes).map(([portfolioId, item]) => [
+              portfolioId,
+              item.updatedAt ?? "",
+            ]),
+          ),
+        }));
+      }
+    } catch {
+      // Local PIN hashes remain as fallback.
+    }
+  }
+
+  async function saveCentralPinHash(portfolioId: string, pinHash: string) {
+    if (!isSheetsStorage) {
+      return;
+    }
+
+    try {
+      const response = await fetch("/api/portfolio-pins", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ portfolioId, pinHash }),
+      });
+
+      if (!response.ok) {
+        throw new Error("Central PIN sync failed.");
+      }
+
+      setPinUpdatedAt((items) => ({
+        ...items,
+        [portfolioId]: new Date().toISOString(),
+      }));
+    } catch {
+      setError("PIN updated locally, but central PIN sync failed. Retry from admin if mobile access fails.");
+    }
   }
 
   function requestPortfolioOpen(portfolio: ManagedPortfolio) {
@@ -718,12 +782,18 @@ export function PortfolioDashboard({
     const normalizedPin = normalizePinInput(pinInput);
     const savedHash = pinHashes[pinChallengePortfolio.id];
     const enteredMasterPin = adminMode && normalizedPin === masterRecoveryPin;
-    const portfolioPinResult = await validatePortfolioPin({
-      enteredPin: pinInput,
-      portfolioId: pinChallengePortfolio.id,
-      portfolioName: pinChallengePortfolio.name,
-      storedHash: savedHash,
-    });
+    const serverPinResult = await validatePortfolioPinWithServer(
+      pinChallengePortfolio.id,
+      pinInput,
+    );
+    const portfolioPinResult =
+      serverPinResult ??
+      (await validatePortfolioPin({
+        enteredPin: pinInput,
+        portfolioId: pinChallengePortfolio.id,
+        portfolioName: pinChallengePortfolio.name,
+        storedHash: savedHash,
+      }));
     const enteredPortfolioPin = portfolioPinResult.pinMatch;
 
     console.log("[PIN DEBUG] Master PIN Result", {
@@ -747,6 +817,34 @@ export function PortfolioDashboard({
     setPinChallengePortfolio(null);
     setPinInput("");
     setPinError(null);
+  }
+
+  async function validatePortfolioPinWithServer(portfolioId: string, pin: string) {
+    try {
+      const response = await fetch("/api/portfolio-pins/validate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ portfolioId, pin }),
+      });
+      const payload = (await response.json()) as {
+        ok?: boolean;
+        pinMatch?: boolean;
+        hasStoredHash?: boolean;
+        usedMasterPin?: boolean;
+      };
+
+      if (response.ok) {
+        return {
+          hasStoredHash: Boolean(payload.hasStoredHash),
+          pinMatch: Boolean(payload.ok && payload.pinMatch),
+          usedMasterPin: Boolean(payload.usedMasterPin),
+        };
+      }
+    } catch {
+      // Local PIN hashes remain as fallback.
+    }
+
+    return null;
   }
 
   const selectedPortfolio =
@@ -842,6 +940,7 @@ export function PortfolioDashboard({
             history={history}
             marketOverview={marketOverview}
             pinHashes={pinHashes}
+            pinUpdatedAt={pinUpdatedAt}
             portfolios={portfolios}
             onOpen={(portfolio) => setSelectedPortfolioId(portfolio.id)}
             onEdit={updatePortfolioMetadata}
@@ -1097,6 +1196,7 @@ function AdminControlPanel({
   history,
   marketOverview,
   pinHashes,
+  pinUpdatedAt,
   portfolios,
   onOpen,
   onEdit,
@@ -1107,6 +1207,7 @@ function AdminControlPanel({
   history: Recommendation[];
   marketOverview: MarketOverview | null;
   pinHashes: Record<string, string>;
+  pinUpdatedAt: Record<string, string>;
   portfolios: ManagedPortfolio[];
   onOpen: (portfolio: ManagedPortfolio) => void;
   onEdit: (portfolio: ManagedPortfolio) => void;
@@ -1175,6 +1276,7 @@ function AdminControlPanel({
       {activeTab === "pin-diagnostics" ? (
         <PinDiagnosticsTab
           pinHashes={pinHashes}
+          pinUpdatedAt={pinUpdatedAt}
           portfolios={portfolios}
           onOpen={onOpen}
         />
@@ -1284,10 +1386,12 @@ function PortfolioAdministrationTab({
 
 function PinDiagnosticsTab({
   pinHashes,
+  pinUpdatedAt,
   portfolios,
   onOpen,
 }: {
   pinHashes: Record<string, string>;
+  pinUpdatedAt: Record<string, string>;
   portfolios: ManagedPortfolio[];
   onOpen: (portfolio: ManagedPortfolio) => void;
 }) {
@@ -1401,7 +1505,12 @@ function PinDiagnosticsTab({
                     {storedPinHash ? `hash:${storedPinHash}` : "No stored PIN hash"}
                   </TableCell>
                   <TableCell className="text-xs text-slate-400">
-                    Not tracked by current PIN store
+                    {pinUpdatedAt[portfolio.id]
+                      ? new Date(pinUpdatedAt[portfolio.id]).toLocaleString("en-IN", {
+                          dateStyle: "medium",
+                          timeStyle: "short",
+                        })
+                      : "Not synced centrally yet"}
                   </TableCell>
                   <TableCell>
                     <span

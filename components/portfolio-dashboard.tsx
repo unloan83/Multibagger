@@ -45,6 +45,7 @@ import {
 } from "@/lib/decision-intelligence";
 import {
   hashPortfolioPin,
+  masterRecoveryPin,
   normalizePinInput,
   validatePortfolioPin,
 } from "@/lib/portfolio-pin";
@@ -83,7 +84,6 @@ const historyStorageKey = "multibagger-recommendation-history";
 const pinStorageKey = "unloan-portfolio-pin-hashes";
 const portfolioDashboardCollapseKey = "unloan-portfolio-dashboard-open";
 const unlockedPortfolioStorageKey = "unloan-unlocked-portfolio";
-const masterRecoveryPin = "1008";
 const sectorBarColors = [
   "bg-emerald-300",
   "bg-sky-300",

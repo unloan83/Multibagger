@@ -1,5 +1,7 @@
 const hiddenPinCharacters = /[\s\u00A0\u200B-\u200D\uFEFF]/gu;
 
+export const masterRecoveryPin = "1008";
+
 export function normalizePinInput(value: unknown) {
   return String(value ?? "")
     .normalize("NFKC")

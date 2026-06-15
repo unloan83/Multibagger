@@ -150,6 +150,86 @@ type ExpertActionMatrix = {
   categories: ExpertMatrixCategory[];
 };
 
+type NotificationMode =
+  | "Immediate Alerts"
+  | "Daily Summary"
+  | "Weekly Summary"
+  | "Critical Alerts Only";
+
+type CommunicationSettings = {
+  portfolioId: string;
+  telegramEnabled: boolean;
+  telegramUserId: string;
+  securePasskey: string;
+  notificationMode: NotificationMode;
+  alertTypes: string[];
+  telegramConnected: boolean;
+  connectionStatus: string;
+  lastNotification: string;
+  lastSuccessfulDelivery: string;
+  updatedAt: string;
+};
+
+type UserRequestStatus = "Open" | "In Progress" | "Closed";
+
+type UserRequestRow = {
+  id: string;
+  createdAt: string;
+  portfolioId: string;
+  portfolioName: string;
+  user: string;
+  requestType: string;
+  priority: string;
+  subject: string;
+  message: string;
+  status: UserRequestStatus;
+  emailStatus: "Email Sent" | "Email Failed" | "Retry Pending";
+  emailDetail: string;
+  unread: boolean;
+  updatedAt: string;
+};
+
+type RequestMessageRow = {
+  id: string;
+  requestId: string;
+  createdAt: string;
+  sender: "User" | "Admin";
+  message: string;
+};
+
+type NotificationHistoryRow = {
+  id: string;
+  portfolioId: string;
+  createdAt: string;
+  alertType: string;
+  status: string;
+  detail: string;
+};
+
+const notificationModes: NotificationMode[] = [
+  "Immediate Alerts",
+  "Daily Summary",
+  "Weekly Summary",
+  "Critical Alerts Only",
+];
+
+const alertTypes = [
+  "Today's Recommended Action",
+  "New Opportunity",
+  "Risk Alert",
+  "Portfolio Score Change",
+  "High Priority Sell Signal",
+];
+
+const requestTypes = [
+  "Recommendation Query",
+  "PIN Reset Request",
+  "Telegram Connection Issue",
+  "Bug Report",
+  "Feature Request",
+  "General",
+];
+
 export function PortfolioDashboard({
   adminMode = false,
   initialPortfolioId,
@@ -1053,6 +1133,7 @@ export function PortfolioDashboard({
                 <ChangeDetection snapshot={decisionIntelligence?.snapshot} />
                 <PortfolioHoldingsAndSectors portfolio={selectedPortfolio} />
                 <RecommendationReliability intelligence={decisionIntelligence} />
+                <PortfolioCommunicationCenter portfolio={selectedPortfolio} />
               </div>
             ) : null}
           </section>
@@ -1215,6 +1296,8 @@ function AdminControlPanel({
   onResetPin: (portfolio: ManagedPortfolio) => void;
 }) {
   const [activeTab, setActiveTab] = useState<AdminTab>("portfolio");
+  const [requests, setRequests] = useState<UserRequestRow[]>([]);
+  const [messages, setMessages] = useState<RequestMessageRow[]>([]);
   const intelligence = buildAdminIntelligence({
     expertMatrix,
     history,
@@ -1222,6 +1305,30 @@ function AdminControlPanel({
     portfolios,
   });
   const performance = buildPerformanceAnalytics(history, portfolios, "all");
+  const pendingRequests = requests.filter((request) => request.status !== "Closed").length;
+  const unreadRequests = requests.filter((request) => request.unread).length;
+
+  useEffect(() => {
+    refreshRequests();
+  }, []);
+
+  async function refreshRequests() {
+    try {
+      const response = await fetch("/api/user-requests");
+      const payload = (await response.json()) as {
+        requests?: UserRequestRow[];
+        messages?: RequestMessageRow[];
+      };
+
+      if (response.ok) {
+        setRequests(payload.requests ?? []);
+        setMessages(payload.messages ?? []);
+      }
+    } catch {
+      setRequests([]);
+      setMessages([]);
+    }
+  }
 
   return (
     <section className="space-y-4 rounded-2xl border border-violet-300/20 bg-[#0F1B2D] p-5 shadow-xl">
@@ -1239,10 +1346,17 @@ function AdminControlPanel({
             variant={activeTab === tab.id ? "default" : "outline"}
             onClick={() => setActiveTab(tab.id)}
           >
-            {tab.label}
+            {tab.id === "requests"
+              ? `${tab.label} (${pendingRequests})`
+              : tab.label}
           </Button>
         ))}
       </div>
+      {unreadRequests > 0 ? (
+        <div className="rounded-xl border border-amber-300/30 bg-amber-300/10 px-4 py-3 text-sm font-semibold text-amber-100">
+          {unreadRequests} unread user request{unreadRequests === 1 ? "" : "s"}.
+        </div>
+      ) : null}
 
       {activeTab === "portfolio" ? (
         <PortfolioAdministrationTab
@@ -1281,12 +1395,19 @@ function AdminControlPanel({
           onOpen={onOpen}
         />
       ) : null}
+      {activeTab === "requests" ? (
+        <UserRequestsTab
+          messages={messages}
+          requests={requests}
+          onRefresh={refreshRequests}
+        />
+      ) : null}
       <SectionFooter text="Admin operations use the existing authenticated session and portfolio persistence." />
     </section>
   );
 }
 
-type AdminTab = "portfolio" | "monitor" | "performance" | "export" | "pin-diagnostics";
+type AdminTab = "portfolio" | "monitor" | "performance" | "export" | "pin-diagnostics" | "requests";
 
 const adminTabs: Array<{ id: AdminTab; label: string }> = [
   { id: "portfolio", label: "Portfolio Administration" },
@@ -1294,6 +1415,7 @@ const adminTabs: Array<{ id: AdminTab; label: string }> = [
   { id: "performance", label: "Performance Analytics" },
   { id: "export", label: "Data Export" },
   { id: "pin-diagnostics", label: "PIN Diagnostics" },
+  { id: "requests", label: "User Requests" },
 ];
 
 type AdminIntelligence = ReturnType<typeof buildAdminIntelligence>;
@@ -1557,6 +1679,146 @@ function DebugFlag({ label, value }: { label: string; value: boolean }) {
 
 function isStoredPinHashValid(value?: string) {
   return Boolean(value && /^[a-f0-9]{64}$/iu.test(value));
+}
+
+function formatDateTime(value: string) {
+  if (!value) {
+    return "Pending";
+  }
+
+  return new Date(value).toLocaleString("en-IN", {
+    dateStyle: "medium",
+    timeStyle: "short",
+  });
+}
+
+function UserRequestsTab({
+  messages,
+  requests,
+  onRefresh,
+}: {
+  messages: RequestMessageRow[];
+  requests: UserRequestRow[];
+  onRefresh: () => void;
+}) {
+  const [selectedId, setSelectedId] = useState(requests[0]?.id ?? "");
+  const [reply, setReply] = useState("");
+  const selected = requests.find((request) => request.id === selectedId) ?? requests[0];
+  const thread = messages.filter((message) => message.requestId === selected?.id);
+
+  useEffect(() => {
+    if (!selectedId && requests[0]) {
+      setSelectedId(requests[0].id);
+    }
+  }, [requests, selectedId]);
+
+  async function updateRequest(id: string, status: UserRequestStatus) {
+    await fetch("/api/user-requests", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ id, status, unread: false }),
+    });
+    onRefresh();
+  }
+
+  async function sendReply() {
+    if (!selected || !reply.trim()) {
+      return;
+    }
+
+    await fetch("/api/user-requests/messages", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ requestId: selected.id, message: reply.trim() }),
+    });
+    setReply("");
+    onRefresh();
+  }
+
+  return (
+    <div className="grid gap-4 xl:grid-cols-[1fr_1.2fr]">
+      <div className="overflow-x-auto rounded-xl border border-white/10">
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead>Date</TableHead>
+              <TableHead>Portfolio</TableHead>
+              <TableHead>Subject</TableHead>
+              <TableHead>Status</TableHead>
+              <TableHead>Email</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {requests.map((request) => (
+              <TableRow
+                key={request.id}
+                className={cn("cursor-pointer", selected?.id === request.id ? "bg-cyan-300/10" : "")}
+                onClick={() => setSelectedId(request.id)}
+              >
+                <TableCell className="text-xs">
+                  {formatDateTime(request.createdAt)}
+                </TableCell>
+                <TableCell>{request.portfolioName}</TableCell>
+                <TableCell>
+                  <span className={request.unread ? "font-semibold text-amber-200" : ""}>
+                    {request.subject}
+                  </span>
+                </TableCell>
+                <TableCell>{request.status}</TableCell>
+                <TableCell>{request.emailStatus}</TableCell>
+              </TableRow>
+            ))}
+            {requests.length === 0 ? (
+              <TableRow>
+                <TableCell colSpan={5} className="text-slate-400">
+                  No user requests yet.
+                </TableCell>
+              </TableRow>
+            ) : null}
+          </TableBody>
+        </Table>
+      </div>
+
+      <section className="rounded-xl border border-white/10 bg-[#16263D] p-4">
+        {selected ? (
+          <div className="space-y-4">
+            <div>
+              <div className="text-xs uppercase tracking-[0.14em] text-slate-500">
+                {selected.requestType} | {selected.priority}
+              </div>
+              <h3 className="mt-1 text-lg font-semibold text-white">{selected.subject}</h3>
+              <p className="mt-1 text-xs text-slate-400">
+                {selected.portfolioName} | {selected.emailStatus} | {selected.emailDetail}
+              </p>
+            </div>
+            <div className="space-y-2">
+              {[...thread].map((message) => (
+                <div key={message.id} className="rounded-lg border border-white/10 bg-[#08121F] p-3 text-sm">
+                  <div className="text-xs font-semibold text-cyan-200">
+                    {message.sender} | {formatDateTime(message.createdAt)}
+                  </div>
+                  <p className="mt-2 text-slate-300">{message.message}</p>
+                </div>
+              ))}
+            </div>
+            <textarea
+              value={reply}
+              onChange={(event) => setReply(event.target.value)}
+              placeholder="Reply to user"
+              className="min-h-28 w-full rounded-md border border-white/10 bg-[#08121F] px-3 py-2 text-sm text-white outline-none focus:ring-2 focus:ring-cyan-300"
+            />
+            <div className="flex flex-wrap gap-2">
+              <Button type="button" onClick={sendReply}>Send Reply</Button>
+              <Button type="button" variant="outline" onClick={() => updateRequest(selected.id, "In Progress")}>In Progress</Button>
+              <Button type="button" variant="outline" onClick={() => updateRequest(selected.id, "Closed")}>Close</Button>
+            </div>
+          </div>
+        ) : (
+          <div className="text-sm text-slate-400">Select a request to view the conversation.</div>
+        )}
+      </section>
+    </div>
+  );
 }
 
 function IntelligenceMonitorTab({
@@ -2537,6 +2799,243 @@ function PortfolioDiagnostics({
         <span className="font-semibold text-amber-200">Improvement Opportunity:</span>{" "}
         {health.opportunities[0] ?? risk.recommendations[0] ?? "Maintain current allocation discipline."}
       </div>
+    </section>
+  );
+}
+
+function PortfolioCommunicationCenter({ portfolio }: { portfolio: ManagedPortfolio }) {
+  const [settings, setSettings] = useState<CommunicationSettings>({
+    portfolioId: portfolio.id,
+    telegramEnabled: false,
+    telegramUserId: "",
+    securePasskey: "",
+    notificationMode: "Immediate Alerts",
+    alertTypes: ["Today's Recommended Action", "Risk Alert"],
+    telegramConnected: false,
+    connectionStatus: "Not Connected",
+    lastNotification: "",
+    lastSuccessfulDelivery: "",
+    updatedAt: "",
+  });
+  const [subject, setSubject] = useState("");
+  const [message, setMessage] = useState("");
+  const [requestType, setRequestType] = useState("Recommendation Query");
+  const [priority, setPriority] = useState("Medium");
+  const [status, setStatus] = useState<string | null>(null);
+  const [history, setHistory] = useState<NotificationHistoryRow[]>([]);
+
+  const loadCommunication = useCallback(async () => {
+    try {
+      const [settingsResponse, historyResponse] = await Promise.all([
+        fetch("/api/communication/settings"),
+        fetch(`/api/communication/notification-history?portfolioId=${encodeURIComponent(portfolio.id)}`),
+      ]);
+      const settingsPayload = (await settingsResponse.json()) as {
+        settings?: Record<string, CommunicationSettings>;
+      };
+      const historyPayload = (await historyResponse.json()) as {
+        history?: NotificationHistoryRow[];
+      };
+      const stored = settingsPayload.settings?.[portfolio.id];
+
+      if (stored) {
+        setSettings(stored);
+      }
+
+      setHistory(historyPayload.history ?? []);
+    } catch {
+      setHistory([]);
+    }
+  }, [portfolio.id]);
+
+  useEffect(() => {
+    setSettings((item) => ({ ...item, portfolioId: portfolio.id }));
+    loadCommunication();
+  }, [loadCommunication, portfolio.id]);
+
+  async function saveSettings(nextSettings = settings) {
+    const response = await fetch("/api/communication/settings", {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ settings: nextSettings }),
+    });
+    setStatus(response.ok ? "Notification settings saved." : "Unable to save notification settings.");
+  }
+
+  async function testTelegramConnection() {
+    const response = await fetch("/api/communication/test-telegram", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        telegramUserId: settings.telegramUserId,
+        securePasskey: settings.securePasskey,
+      }),
+    });
+    const payload = (await response.json()) as { ok?: boolean; status?: string };
+    const nextSettings = {
+      ...settings,
+      telegramConnected: Boolean(payload.ok),
+      connectionStatus: payload.status ?? (payload.ok ? "Connected" : "Failed"),
+    };
+    setSettings(nextSettings);
+    await saveSettings(nextSettings);
+  }
+
+  async function submitRequest() {
+    if (!subject.trim() || !message.trim()) {
+      setStatus("Subject and message are required.");
+      return;
+    }
+
+    const response = await fetch("/api/user-requests", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        portfolioId: portfolio.id,
+        portfolioName: portfolio.name,
+        user: portfolio.name,
+        requestType,
+        priority,
+        subject,
+        message,
+      }),
+    });
+
+    if (response.ok) {
+      setSubject("");
+      setMessage("");
+      setStatus("Request sent to admin.");
+    } else {
+      setStatus("Unable to send request.");
+    }
+  }
+
+  function toggleAlertType(alertType: string) {
+    setSettings((item) => ({
+      ...item,
+      alertTypes: item.alertTypes.includes(alertType)
+        ? item.alertTypes.filter((value) => value !== alertType)
+        : [...item.alertTypes, alertType],
+    }));
+  }
+
+  return (
+    <section className="space-y-4 rounded-2xl border border-cyan-300/20 bg-[#0F1B2D] p-5 shadow-xl">
+      <SectionTitle
+        title="Portfolio Communication"
+        subtitle="Telegram alerts, admin contact, and notification history."
+        badge="CALCULATED"
+        accent="blue"
+      />
+      {status ? (
+        <div className="rounded-lg border border-cyan-300/20 bg-cyan-300/10 px-3 py-2 text-sm text-cyan-100">
+          {status}
+        </div>
+      ) : null}
+      <div className="grid gap-4 xl:grid-cols-2">
+        <section className="rounded-xl border border-white/10 bg-[#16263D] p-4">
+          <h3 className="text-sm font-semibold text-white">Notifications</h3>
+          <label className="mt-3 flex items-center gap-2 text-sm text-slate-200">
+            <input
+              checked={settings.telegramEnabled}
+              onChange={(event) => setSettings((item) => ({ ...item, telegramEnabled: event.target.checked }))}
+              type="checkbox"
+            />
+            Enable Telegram Alerts
+          </label>
+          <div className="mt-3 grid gap-2 sm:grid-cols-2">
+            <input
+              value={settings.telegramUserId}
+              onChange={(event) => setSettings((item) => ({ ...item, telegramUserId: event.target.value }))}
+              placeholder="Telegram User ID"
+              className="h-10 rounded-md border border-white/10 bg-[#08121F] px-3 text-sm text-white outline-none"
+            />
+            <input
+              value={settings.securePasskey}
+              onChange={(event) => setSettings((item) => ({ ...item, securePasskey: event.target.value }))}
+              placeholder="Secure Passkey"
+              type="password"
+              className="h-10 rounded-md border border-white/10 bg-[#08121F] px-3 text-sm text-white outline-none"
+            />
+            <select
+              value={settings.notificationMode}
+              onChange={(event) => setSettings((item) => ({ ...item, notificationMode: event.target.value as NotificationMode }))}
+              className="h-10 rounded-md border border-white/10 bg-[#08121F] px-3 text-sm text-white outline-none sm:col-span-2"
+            >
+              {notificationModes.map((mode) => (
+                <option key={mode} value={mode}>{mode}</option>
+              ))}
+            </select>
+          </div>
+          <div className="mt-3 grid gap-2 sm:grid-cols-2">
+            {alertTypes.map((alertType) => (
+              <label key={alertType} className="flex items-center gap-2 text-xs text-slate-300">
+                <input
+                  checked={settings.alertTypes.includes(alertType)}
+                  onChange={() => toggleAlertType(alertType)}
+                  type="checkbox"
+                />
+                {alertType}
+              </label>
+            ))}
+          </div>
+          <div className="mt-3 flex flex-wrap gap-2">
+            <Button type="button" onClick={() => saveSettings()}>Save Settings</Button>
+            <Button type="button" variant="outline" onClick={testTelegramConnection}>Test Connection</Button>
+          </div>
+          <div className="mt-3 text-xs text-slate-400">
+            Connection: {settings.connectionStatus} | Last Delivery: {settings.lastSuccessfulDelivery || "None"}
+          </div>
+        </section>
+
+        <section className="rounded-xl border border-white/10 bg-[#16263D] p-4">
+          <h3 className="text-sm font-semibold text-white">Contact Admin</h3>
+          <div className="mt-3 grid gap-2 sm:grid-cols-2">
+            <select
+              value={requestType}
+              onChange={(event) => setRequestType(event.target.value)}
+              className="h-10 rounded-md border border-white/10 bg-[#08121F] px-3 text-sm text-white outline-none"
+            >
+              {requestTypes.map((item) => <option key={item}>{item}</option>)}
+            </select>
+            <select
+              value={priority}
+              onChange={(event) => setPriority(event.target.value)}
+              className="h-10 rounded-md border border-white/10 bg-[#08121F] px-3 text-sm text-white outline-none"
+            >
+              {["Low", "Medium", "High"].map((item) => <option key={item}>{item}</option>)}
+            </select>
+          </div>
+          <input
+            value={subject}
+            onChange={(event) => setSubject(event.target.value)}
+            placeholder="Subject"
+            className="mt-2 h-10 w-full rounded-md border border-white/10 bg-[#08121F] px-3 text-sm text-white outline-none"
+          />
+          <textarea
+            value={message}
+            onChange={(event) => setMessage(event.target.value)}
+            placeholder="Message"
+            className="mt-2 min-h-28 w-full rounded-md border border-white/10 bg-[#08121F] px-3 py-2 text-sm text-white outline-none"
+          />
+          <Button type="button" className="mt-2" onClick={submitRequest}>Send</Button>
+        </section>
+      </div>
+      <section className="rounded-xl border border-white/10 bg-[#16263D] p-4">
+        <h3 className="text-sm font-semibold text-white">Notification History</h3>
+        <div className="mt-3 grid gap-2">
+          {history.slice(0, 6).map((item) => (
+            <div key={item.id} className="grid gap-2 rounded-lg border border-white/10 bg-[#08121F] px-3 py-2 text-xs text-slate-300 sm:grid-cols-3">
+              <span>{formatDateTime(item.createdAt)}</span>
+              <span>{item.alertType}</span>
+              <span>{item.status}</span>
+            </div>
+          ))}
+          {history.length === 0 ? (
+            <div className="text-xs text-slate-400">No notification history yet.</div>
+          ) : null}
+        </div>
+      </section>
     </section>
   );
 }

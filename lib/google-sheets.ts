@@ -14,6 +14,10 @@ const privateKey = process.env.GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY?.replace(/\\n/
 const portfoliosSheet = "Portfolios";
 const holdingsSheet = "Holdings";
 const portfolioPinsSheet = "Portfolio PINs";
+const communicationSettingsSheet = "Communication Settings";
+const userRequestsSheet = "User Requests";
+const requestMessagesSheet = "Request Messages";
+const notificationHistorySheet = "Notification History";
 const validationSheet = "Validation";
 const marketMoversSheet = "Market Movers";
 
@@ -46,6 +50,63 @@ export type MarketMoverRow = {
   segment: string;
   category: "gainer" | "loser";
   quote: MarketQuote;
+};
+
+export type NotificationMode =
+  | "Immediate Alerts"
+  | "Daily Summary"
+  | "Weekly Summary"
+  | "Critical Alerts Only";
+
+export type CommunicationSettings = {
+  portfolioId: string;
+  telegramEnabled: boolean;
+  telegramUserId: string;
+  securePasskey: string;
+  notificationMode: NotificationMode;
+  alertTypes: string[];
+  telegramConnected: boolean;
+  connectionStatus: string;
+  lastNotification: string;
+  lastSuccessfulDelivery: string;
+  updatedAt: string;
+};
+
+export type UserRequestStatus = "Open" | "In Progress" | "Closed";
+export type EmailDeliveryStatus = "Email Sent" | "Email Failed" | "Retry Pending";
+
+export type UserRequestRow = {
+  id: string;
+  createdAt: string;
+  portfolioId: string;
+  portfolioName: string;
+  user: string;
+  requestType: string;
+  priority: string;
+  subject: string;
+  message: string;
+  status: UserRequestStatus;
+  emailStatus: EmailDeliveryStatus;
+  emailDetail: string;
+  unread: boolean;
+  updatedAt: string;
+};
+
+export type RequestMessageRow = {
+  id: string;
+  requestId: string;
+  createdAt: string;
+  sender: "User" | "Admin";
+  message: string;
+};
+
+export type NotificationHistoryRow = {
+  id: string;
+  portfolioId: string;
+  createdAt: string;
+  alertType: string;
+  status: string;
+  detail: string;
 };
 
 export function isGoogleSheetsConfigured() {
@@ -198,6 +259,196 @@ export async function savePortfolioPinHashToSheets({
   await writePortfolioPinHashes(next);
 }
 
+export async function readCommunicationSettingsFromSheets() {
+  if (!isGoogleSheetsConfigured()) {
+    return {};
+  }
+
+  const sheets = await getSheetsClient();
+  await ensureSheets();
+  const response = await sheets.spreadsheets.values.get({
+    spreadsheetId,
+    range: `${communicationSettingsSheet}!A2:K`,
+  });
+
+  return (response.data.values ?? []).reduce<Record<string, CommunicationSettings>>((acc, row) => {
+    const portfolioId = String(row[0] ?? "").trim();
+
+    if (!portfolioId) {
+      return acc;
+    }
+
+    acc[portfolioId] = {
+      portfolioId,
+      telegramEnabled: String(row[1] ?? "") === "TRUE",
+      telegramUserId: String(row[2] ?? ""),
+      securePasskey: String(row[3] ?? ""),
+      notificationMode: (String(row[4] ?? "Immediate Alerts") || "Immediate Alerts") as NotificationMode,
+      alertTypes: String(row[5] ?? "").split("|").filter(Boolean),
+      telegramConnected: String(row[6] ?? "") === "TRUE",
+      connectionStatus: String(row[7] ?? "Not Connected"),
+      lastNotification: String(row[8] ?? ""),
+      lastSuccessfulDelivery: String(row[9] ?? ""),
+      updatedAt: String(row[10] ?? ""),
+    };
+
+    return acc;
+  }, {});
+}
+
+export async function saveCommunicationSettingsToSheets(settings: CommunicationSettings) {
+  if (!isGoogleSheetsConfigured()) {
+    throw new Error("Google Sheets is not configured.");
+  }
+
+  const existing = await readCommunicationSettingsFromSheets();
+  await writeCommunicationSettings({
+    ...existing,
+    [settings.portfolioId]: {
+      ...settings,
+      updatedAt: new Date().toISOString(),
+    },
+  });
+}
+
+export async function readUserRequestsFromSheets() {
+  if (!isGoogleSheetsConfigured()) {
+    return [];
+  }
+
+  const sheets = await getSheetsClient();
+  await ensureSheets();
+  const response = await sheets.spreadsheets.values.get({
+    spreadsheetId,
+    range: `${userRequestsSheet}!A2:N`,
+  });
+
+  return (response.data.values ?? []).map((row): UserRequestRow => ({
+    id: String(row[0] ?? ""),
+    createdAt: String(row[1] ?? ""),
+    portfolioId: String(row[2] ?? ""),
+    portfolioName: String(row[3] ?? ""),
+    user: String(row[4] ?? ""),
+    requestType: String(row[5] ?? "General"),
+    priority: String(row[6] ?? "Medium"),
+    subject: String(row[7] ?? ""),
+    message: String(row[8] ?? ""),
+    status: (String(row[9] ?? "Open") || "Open") as UserRequestStatus,
+    emailStatus: (String(row[10] ?? "Retry Pending") || "Retry Pending") as EmailDeliveryStatus,
+    emailDetail: String(row[11] ?? ""),
+    unread: String(row[12] ?? "TRUE") !== "FALSE",
+    updatedAt: String(row[13] ?? ""),
+  }));
+}
+
+export async function saveUserRequestsToSheets(requests: UserRequestRow[]) {
+  const sheets = await getSheetsClient();
+  await ensureSheets();
+  const values = requests.map((request) => [
+    request.id,
+    request.createdAt,
+    request.portfolioId,
+    request.portfolioName,
+    request.user,
+    request.requestType,
+    request.priority,
+    request.subject,
+    request.message,
+    request.status,
+    request.emailStatus,
+    request.emailDetail,
+    request.unread ? "TRUE" : "FALSE",
+    request.updatedAt,
+  ]);
+
+  await sheets.spreadsheets.values.batchClear({
+    spreadsheetId,
+    requestBody: { ranges: [rangeFor(userRequestsSheet, "A2:N")] },
+  });
+
+  if (values.length > 0) {
+    await sheets.spreadsheets.values.update({
+      spreadsheetId,
+      range: rangeFor(userRequestsSheet, "A2:N"),
+      valueInputOption: "USER_ENTERED",
+      requestBody: { values },
+    });
+  }
+}
+
+export async function appendRequestMessageToSheets(message: RequestMessageRow) {
+  const sheets = await getSheetsClient();
+  await ensureSheets();
+  await sheets.spreadsheets.values.append({
+    spreadsheetId,
+    range: rangeFor(requestMessagesSheet, "A:E"),
+    valueInputOption: "USER_ENTERED",
+    insertDataOption: "INSERT_ROWS",
+    requestBody: {
+      values: [[message.id, message.requestId, message.createdAt, message.sender, message.message]],
+    },
+  });
+}
+
+export async function readRequestMessagesFromSheets() {
+  if (!isGoogleSheetsConfigured()) {
+    return [];
+  }
+
+  const sheets = await getSheetsClient();
+  await ensureSheets();
+  const response = await sheets.spreadsheets.values.get({
+    spreadsheetId,
+    range: `${requestMessagesSheet}!A2:E`,
+  });
+
+  return (response.data.values ?? []).map((row): RequestMessageRow => ({
+    id: String(row[0] ?? ""),
+    requestId: String(row[1] ?? ""),
+    createdAt: String(row[2] ?? ""),
+    sender: (String(row[3] ?? "User") || "User") as "User" | "Admin",
+    message: String(row[4] ?? ""),
+  }));
+}
+
+export async function appendNotificationHistoryToSheets(row: NotificationHistoryRow) {
+  const sheets = await getSheetsClient();
+  await ensureSheets();
+  await sheets.spreadsheets.values.append({
+    spreadsheetId,
+    range: rangeFor(notificationHistorySheet, "A:F"),
+    valueInputOption: "USER_ENTERED",
+    insertDataOption: "INSERT_ROWS",
+    requestBody: {
+      values: [[row.id, row.portfolioId, row.createdAt, row.alertType, row.status, row.detail]],
+    },
+  });
+}
+
+export async function readNotificationHistoryFromSheets(portfolioId?: string) {
+  if (!isGoogleSheetsConfigured()) {
+    return [];
+  }
+
+  const sheets = await getSheetsClient();
+  await ensureSheets();
+  const response = await sheets.spreadsheets.values.get({
+    spreadsheetId,
+    range: `${notificationHistorySheet}!A2:F`,
+  });
+
+  return (response.data.values ?? [])
+    .map((row): NotificationHistoryRow => ({
+      id: String(row[0] ?? ""),
+      portfolioId: String(row[1] ?? ""),
+      createdAt: String(row[2] ?? ""),
+      alertType: String(row[3] ?? ""),
+      status: String(row[4] ?? ""),
+      detail: String(row[5] ?? ""),
+    }))
+    .filter((row) => !portfolioId || row.portfolioId === portfolioId);
+}
+
 export async function appendValidationRows(rows: ValidationRow[]) {
   if (!isGoogleSheetsConfigured()) {
     throw new Error("Google Sheets is not configured.");
@@ -330,6 +581,38 @@ async function writePortfolioPinHashes(
   });
 }
 
+async function writeCommunicationSettings(settings: Record<string, CommunicationSettings>) {
+  const sheets = await getSheetsClient();
+  await ensureSheets();
+  const values = Object.values(settings).map((item) => [
+    item.portfolioId,
+    item.telegramEnabled ? "TRUE" : "FALSE",
+    item.telegramUserId,
+    item.securePasskey,
+    item.notificationMode,
+    item.alertTypes.join("|"),
+    item.telegramConnected ? "TRUE" : "FALSE",
+    item.connectionStatus,
+    item.lastNotification,
+    item.lastSuccessfulDelivery,
+    item.updatedAt,
+  ]);
+
+  await sheets.spreadsheets.values.batchClear({
+    spreadsheetId,
+    requestBody: { ranges: [rangeFor(communicationSettingsSheet, "A2:K")] },
+  });
+
+  if (values.length > 0) {
+    await sheets.spreadsheets.values.update({
+      spreadsheetId,
+      range: rangeFor(communicationSettingsSheet, "A2:K"),
+      valueInputOption: "USER_ENTERED",
+      requestBody: { values },
+    });
+  }
+}
+
 async function writePortfolios(portfolios: ManagedPortfolio[]) {
   const sheets = await getSheetsClient();
   const portfolioSheetNames = portfolios
@@ -432,6 +715,10 @@ async function ensureSheets(additionalTitles: string[] = []) {
     portfoliosSheet,
     holdingsSheet,
     portfolioPinsSheet,
+    communicationSettingsSheet,
+    userRequestsSheet,
+    requestMessagesSheet,
+    notificationHistorySheet,
     validationSheet,
     marketMoversSheet,
     ...additionalTitles,
@@ -467,6 +754,22 @@ async function ensureSheets(additionalTitles: string[] = []) {
         {
           range: rangeFor(portfolioPinsSheet, "A1:C1"),
           values: [["portfolio_id", "pin_hash", "updated_at"]],
+        },
+        {
+          range: rangeFor(communicationSettingsSheet, "A1:K1"),
+          values: [["portfolio_id", "telegram_enabled", "telegram_user_id", "secure_passkey", "notification_mode", "alert_types", "telegram_connected", "connection_status", "last_notification", "last_successful_delivery", "updated_at"]],
+        },
+        {
+          range: rangeFor(userRequestsSheet, "A1:N1"),
+          values: [["id", "created_at", "portfolio_id", "portfolio_name", "user", "request_type", "priority", "subject", "message", "status", "email_status", "email_detail", "unread", "updated_at"]],
+        },
+        {
+          range: rangeFor(requestMessagesSheet, "A1:E1"),
+          values: [["id", "request_id", "created_at", "sender", "message"]],
+        },
+        {
+          range: rangeFor(notificationHistorySheet, "A1:F1"),
+          values: [["id", "portfolio_id", "created_at", "alert_type", "status", "detail"]],
         },
         {
           range: rangeFor(validationSheet, "A1:S1"),

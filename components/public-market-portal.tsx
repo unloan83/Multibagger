@@ -4,11 +4,22 @@ import { BookOpen, Lock, LockKeyhole, Map, Shield, TrendingUp, X } from "lucide-
 import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useEffect, useMemo, useState } from "react";
+import {
+  useEffect,
+  useMemo,
+  useState,
+  type ClipboardEvent,
+  type FormEvent,
+  type KeyboardEvent,
+} from "react";
 import { MarketOverviewCollapsible } from "@/components/market-overview-collapsible";
 import { PortfolioHub } from "@/components/portfolio-hub";
 import { Button } from "@/components/ui/button";
 import type { MarketOverview } from "@/lib/decision-intelligence";
+import {
+  normalizePinInput,
+  validatePortfolioPin,
+} from "@/lib/portfolio-pin";
 import {
   type ManagedPortfolio,
   samplePortfolio,
@@ -131,9 +142,13 @@ export function PublicMarketPortal() {
     }
 
     const savedHash = pinHashes[pinChallengePortfolio.id];
-    const enteredPortfolioPin =
-      savedHash &&
-      (await hashPortfolioPin(pinChallengePortfolio.id, pinInput)) === savedHash;
+    const portfolioPinResult = await validatePortfolioPin({
+      enteredPin: pinInput,
+      portfolioId: pinChallengePortfolio.id,
+      portfolioName: pinChallengePortfolio.name,
+      storedHash: savedHash,
+    });
+    const enteredPortfolioPin = portfolioPinResult.pinMatch;
 
     if (!enteredPortfolioPin) {
       setPinError("Access denied. Enter the portfolio PIN.");
@@ -344,6 +359,23 @@ function PortfolioPinModal({
   onClose: () => void;
   onUnlock: () => void;
 }) {
+  function submitUnlock(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    onUnlock();
+  }
+
+  function handlePinKey(event: KeyboardEvent<HTMLInputElement>) {
+    if (["Enter", "Go", "Done", "Submit", "Return"].includes(event.key)) {
+      event.preventDefault();
+      onUnlock();
+    }
+  }
+
+  function handlePinPaste(event: ClipboardEvent<HTMLInputElement>) {
+    event.preventDefault();
+    setPin(normalizePinInput(event.clipboardData.getData("text")));
+  }
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 px-4 backdrop-blur-sm">
       <section className="w-full max-w-md rounded-2xl border border-cyan-300/20 bg-[#0F1B2D] p-5 text-slate-100 shadow-2xl">
@@ -365,23 +397,28 @@ function PortfolioPinModal({
             {error}
           </div>
         ) : null}
-        <input
-          value={pin}
-          onChange={(event) =>
-            setPin(event.target.value.replace(/\D/gu, "").slice(0, 4))
-          }
-          onKeyDown={(event) => {
-            if (event.key === "Enter") {
-              onUnlock();
-            }
-          }}
-          placeholder="4 digit PIN"
-          inputMode="numeric"
-          className="mt-4 h-11 w-full rounded-md border border-white/10 bg-[#08121F] px-3 text-center text-lg tracking-[0.35em] text-white outline-none focus:ring-2 focus:ring-cyan-300"
-        />
-        <Button type="button" onClick={onUnlock} className="mt-4 w-full">
-          Open Portfolio
-        </Button>
+        <form onSubmit={submitUnlock}>
+          <input
+            value={pin}
+            onChange={(event) => setPin(normalizePinInput(event.target.value))}
+            onKeyDown={handlePinKey}
+            onPaste={handlePinPaste}
+            placeholder="4 digit PIN"
+            type="text"
+            inputMode="numeric"
+            pattern="[0-9]*"
+            maxLength={4}
+            autoComplete="off"
+            autoCorrect="off"
+            autoCapitalize="off"
+            spellCheck={false}
+            name="portfolio-pin-mobile"
+            className="mt-4 h-11 w-full rounded-md border border-white/10 bg-[#08121F] px-3 text-center text-lg tracking-[0.35em] text-white outline-none focus:ring-2 focus:ring-cyan-300"
+          />
+          <Button type="submit" className="mt-4 w-full">
+            Open Portfolio
+          </Button>
+        </form>
       </section>
     </div>
   );
@@ -714,11 +751,3 @@ function filterHomepagePortfolios(portfolios: ManagedPortfolio[]) {
     });
 }
 
-async function hashPortfolioPin(portfolioId: string, pin: string) {
-  const input = new TextEncoder().encode(`unloan:${portfolioId}:${pin}`);
-  const digest = await window.crypto.subtle.digest("SHA-256", input);
-
-  return Array.from(new Uint8Array(digest))
-    .map((byte) => byte.toString(16).padStart(2, "0"))
-    .join("");
-}

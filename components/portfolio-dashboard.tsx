@@ -43,6 +43,11 @@ import {
   buildDecisionIntelligence,
   type MarketOverview as DecisionMarketOverview,
 } from "@/lib/decision-intelligence";
+import {
+  hashPortfolioPin,
+  normalizePinInput,
+  validatePortfolioPin,
+} from "@/lib/portfolio-pin";
 import { analyzePortfolioHealthScore } from "@/lib/portfolio-health";
 import { analyzePortfolioRisk } from "@/lib/risk-engine";
 import {
@@ -66,6 +71,9 @@ import {
   useMemo,
   useRef,
   useState,
+  type ClipboardEvent,
+  type FormEvent,
+  type KeyboardEvent,
   type ReactNode,
   type RefObject,
 } from "react";
@@ -506,7 +514,9 @@ export function PortfolioDashboard({
       return;
     }
 
-    if (!/^\d{4}$/u.test(portfolioPin)) {
+    const normalizedPortfolioPin = normalizePinInput(portfolioPin);
+
+    if (!/^\d{4}$/u.test(normalizedPortfolioPin)) {
       setError("Set a 4 digit portfolio PIN.");
       return;
     }
@@ -531,7 +541,7 @@ export function PortfolioDashboard({
       };
 
       await persistPortfolio(portfolio);
-      const pinHash = await hashPortfolioPin(portfolio.id, portfolioPin);
+      const pinHash = await hashPortfolioPin(portfolio.id, normalizedPortfolioPin);
       setPortfolios((items) => [...items, portfolio]);
       setPinHashes((items) => ({ ...items, [portfolio.id]: pinHash }));
       setSelectedPortfolioId(portfolio.id);
@@ -680,7 +690,9 @@ export function PortfolioDashboard({
   }
 
   async function resetPortfolioPin(portfolio: ManagedPortfolio) {
-    const nextPin = window.prompt(`Set new 4 digit PIN for ${portfolio.name}`)?.trim();
+    const nextPin = normalizePinInput(
+      window.prompt(`Set new 4 digit PIN for ${portfolio.name}`),
+    );
 
     if (!nextPin || !/^\d{4}$/u.test(nextPin)) {
       setError("Reset PIN needs a 4 digit value.");
@@ -703,11 +715,26 @@ export function PortfolioDashboard({
       return;
     }
 
+    const normalizedPin = normalizePinInput(pinInput);
     const savedHash = pinHashes[pinChallengePortfolio.id];
-    const enteredMasterPin = adminMode && pinInput === masterRecoveryPin;
-    const enteredPortfolioPin =
-      savedHash &&
-      (await hashPortfolioPin(pinChallengePortfolio.id, pinInput)) === savedHash;
+    const enteredMasterPin = adminMode && normalizedPin === masterRecoveryPin;
+    const portfolioPinResult = await validatePortfolioPin({
+      enteredPin: pinInput,
+      portfolioId: pinChallengePortfolio.id,
+      portfolioName: pinChallengePortfolio.name,
+      storedHash: savedHash,
+    });
+    const enteredPortfolioPin = portfolioPinResult.pinMatch;
+
+    console.log("[PIN DEBUG] Master PIN Result", {
+      enteredPin: pinInput,
+      normalizedPin,
+      enteredPinType: typeof normalizedPin,
+      storedPin: masterRecoveryPin,
+      storedPinType: typeof masterRecoveryPin,
+      comparisonResult: enteredMasterPin,
+      authenticationResult: enteredMasterPin || enteredPortfolioPin,
+    });
 
     if (!enteredMasterPin && !enteredPortfolioPin) {
       setPinError("Invalid PIN. Use the portfolio PIN or master recovery PIN.");
@@ -995,6 +1022,23 @@ function PinChallengeModal({
   onClose: () => void;
   onUnlock: () => void;
 }) {
+  function submitUnlock(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    onUnlock();
+  }
+
+  function handlePinKey(event: KeyboardEvent<HTMLInputElement>) {
+    if (["Enter", "Go", "Done", "Submit", "Return"].includes(event.key)) {
+      event.preventDefault();
+      onUnlock();
+    }
+  }
+
+  function handlePinPaste(event: ClipboardEvent<HTMLInputElement>) {
+    event.preventDefault();
+    setPin(normalizePinInput(event.clipboardData.getData("text")));
+  }
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 px-4 backdrop-blur-sm">
       <Card className="w-full max-w-md border-cyan-300/20 bg-[#0F1B2D] text-slate-100">
@@ -1007,7 +1051,8 @@ function PinChallengeModal({
             Enter the 4 digit portfolio PIN.
           </CardDescription>
         </CardHeader>
-        <CardContent className="space-y-4">
+        <CardContent>
+          <form className="space-y-4" onSubmit={submitUnlock}>
           {error ? (
             <div className="rounded-md border border-amber-300/30 bg-amber-300/10 px-3 py-2 text-sm text-amber-100">
               {error}
@@ -1016,25 +1061,31 @@ function PinChallengeModal({
           <input
             value={pin}
             onChange={(event) =>
-              setPin(event.target.value.replace(/\D/gu, "").slice(0, 4))
+              setPin(normalizePinInput(event.target.value))
             }
-            onKeyDown={(event) => {
-              if (event.key === "Enter") {
-                onUnlock();
-              }
-            }}
+            onKeyDown={handlePinKey}
+            onPaste={handlePinPaste}
             placeholder="4 digit PIN"
+            type="text"
             inputMode="numeric"
+            pattern="[0-9]*"
+            maxLength={4}
+            autoComplete="off"
+            autoCorrect="off"
+            autoCapitalize="off"
+            spellCheck={false}
+            name="portfolio-pin-mobile"
             className="h-11 w-full rounded-md border border-white/10 bg-[#08121F] px-3 text-center text-lg tracking-[0.35em] text-white outline-none focus:ring-2 focus:ring-cyan-300"
           />
           <div className="flex gap-2">
             <Button type="button" variant="outline" onClick={onClose}>
               Cancel
             </Button>
-            <Button type="button" onClick={onUnlock} className="flex-1">
+            <Button type="submit" className="flex-1">
               Unlock Portfolio
             </Button>
           </div>
+          </form>
         </CardContent>
       </Card>
     </div>
@@ -2136,10 +2187,22 @@ function AddPortfolioPanel({
         <input
           value={portfolioPin}
           onChange={(event) =>
-            setPortfolioPin(event.target.value.replace(/\D/gu, "").slice(0, 4))
+            setPortfolioPin(normalizePinInput(event.target.value))
           }
+          onPaste={(event) => {
+            event.preventDefault();
+            setPortfolioPin(normalizePinInput(event.clipboardData.getData("text")));
+          }}
           placeholder="4 digit portfolio PIN"
+          type="text"
           inputMode="numeric"
+          pattern="[0-9]*"
+          maxLength={4}
+          autoComplete="off"
+          autoCorrect="off"
+          autoCapitalize="off"
+          spellCheck={false}
+          name="new-portfolio-pin"
           className="h-10 w-full rounded-md border bg-background px-3 text-sm outline-none focus:ring-2 focus:ring-ring"
         />
 
@@ -3149,15 +3212,6 @@ function getExecutionRisk(score: number, volumeShock = 0) {
   if (score >= 62) return "Medium";
 
   return "High";
-}
-
-async function hashPortfolioPin(portfolioId: string, pin: string) {
-  const input = new TextEncoder().encode(`unloan:${portfolioId}:${pin}`);
-  const digest = await window.crypto.subtle.digest("SHA-256", input);
-
-  return Array.from(new Uint8Array(digest))
-    .map((byte) => byte.toString(16).padStart(2, "0"))
-    .join("");
 }
 
 const glossaryItems = [

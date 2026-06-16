@@ -1276,30 +1276,32 @@ function SimplifiedPortfolioView({
         </div>
       </section>
 
-      <DecisionRecommendationTable
-        title="Today's Buy Recommendations"
-        subtitle="Top large-cap, mid-cap, small-cap, and ETF opportunities from market intelligence."
-        rows={sections.buy}
-        emptyText="Buy recommendations are loading from the expert matrix."
-      />
-      <DecisionRecommendationTable
-        title="Today's Sell Recommendations"
-        subtitle="Top sell signals from the existing portfolio recommendation engine."
-        rows={sections.sell}
-        emptyText="No urgent sell opportunity is currently triggered."
-      />
-      <DecisionRecommendationTable
-        title="6-12 Month Recommendations"
-        subtitle="Longer-horizon opportunities derived from the current portfolio and watchlist."
-        rows={sections.longTerm}
-        emptyText="No long-term recommendation clears the current filters."
-      />
-      <DecisionRecommendationTable
-        title="Intraday Opportunities"
-        subtitle="Short-cycle opportunities from the existing intraday recommendation model."
-        rows={sections.intraday}
-        emptyText="Intraday opportunities are loading or below confidence threshold."
-      />
+      <section className="grid gap-4 xl:grid-cols-2">
+        <DecisionRecommendationTable
+          title="Top Buy Recommendations"
+          subtitle="Best buy/accumulate ideas only from stocks already inside this portfolio."
+          rows={sections.buy}
+          emptyText="No portfolio holding currently clears the buy threshold."
+        />
+        <DecisionRecommendationTable
+          title="Top Sell Recommendations"
+          subtitle="Sell discipline for stocks already inside this portfolio."
+          rows={sections.sell}
+          emptyText="No urgent sell opportunity is currently triggered within this portfolio."
+        />
+        <DecisionRecommendationTable
+          title="Market-Wide Long Term"
+          subtitle="6-12 month opportunities from across the stock market, not limited to this portfolio."
+          rows={sections.longTerm}
+          emptyText="Market-wide long-term recommendations are loading."
+        />
+        <DecisionRecommendationTable
+          title="Market-Wide Intraday"
+          subtitle="Intraday opportunities from across the stock market, not limited to this portfolio."
+          rows={sections.intraday}
+          emptyText="Market-wide intraday opportunities are loading."
+        />
+      </section>
 
       <section className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
         {panelButtons.map((button) => (
@@ -4295,21 +4297,10 @@ function buildSimplifiedPortfolioSections(
   matrix: ExpertActionMatrix | null,
 ) {
   const recommendations = generateRecommendations(portfolio, history);
-  const buy = buildTodayBuyRows(matrix, recommendations);
-  const sell = recommendations.longTermPlan
-    .filter((item) => item.action === "Urgent Sell")
-    .map((item) => buildDecisionRowFromRecommendation(item, portfolio, "Sell Signal"))
-    .slice(0, 6);
-  const longTerm = [
-    ...recommendations.multibaggerCandidates,
-    ...recommendations.longTermPlan.filter((item) => item.action === "Accumulate"),
-  ]
-    .map((item) => buildDecisionRowFromRecommendation(item, portfolio, "6-12 Month"))
-    .slice(0, 8);
-  const intraday = recommendations.intraday
-    .filter((item) => item.action === "Accumulate")
-    .map((item) => buildDecisionRowFromRecommendation(item, portfolio, "Intraday"))
-    .slice(0, 8);
+  const buy = buildPortfolioBuyRows(portfolio, recommendations);
+  const sell = buildPortfolioSellRows(portfolio, recommendations);
+  const longTerm = buildMarketLongTermRows(matrix, recommendations);
+  const intraday = buildMarketIntradayRows(matrix, recommendations);
 
   return {
     all: [...buy, ...sell, ...longTerm, ...intraday],
@@ -4320,7 +4311,50 @@ function buildSimplifiedPortfolioSections(
   };
 }
 
-function buildTodayBuyRows(
+function buildPortfolioBuyRows(
+  portfolio: ManagedPortfolio,
+  recommendations: ReturnType<typeof generateRecommendations>,
+) {
+  const ownedSymbols = new Set(
+    portfolio.positions
+      .filter((position) => position.list === "current" && position.quantity > 0)
+      .map((position) => position.symbol),
+  );
+
+  return [
+    ...recommendations.longTermPlan,
+    ...recommendations.intraday,
+    ...recommendations.multibaggerCandidates,
+  ]
+    .filter(
+      (item) =>
+        item.action === "Accumulate" &&
+        ownedSymbols.has(item.symbol),
+    )
+    .sort((a, b) => b.confidence - a.confidence)
+    .map((item) => buildDecisionRowFromRecommendation(item, portfolio, "Portfolio Holding"))
+    .slice(0, 6);
+}
+
+function buildPortfolioSellRows(
+  portfolio: ManagedPortfolio,
+  recommendations: ReturnType<typeof generateRecommendations>,
+) {
+  const ownedSymbols = new Set(
+    portfolio.positions
+      .filter((position) => position.list === "current" && position.quantity > 0)
+      .map((position) => position.symbol),
+  );
+
+  return recommendations.longTermPlan
+    .filter((item) => item.action === "Urgent Sell")
+    .filter((item) => ownedSymbols.has(item.symbol))
+    .sort((a, b) => b.confidence - a.confidence)
+    .map((item) => buildDecisionRowFromRecommendation(item, portfolio, "Sell Signal"))
+    .slice(0, 6);
+}
+
+function buildMarketLongTermRows(
   matrix: ExpertActionMatrix | null,
   recommendations: ReturnType<typeof generateRecommendations>,
 ) {
@@ -4340,10 +4374,10 @@ function buildTodayBuyRows(
     return title.includes("etf") || title.includes("bees") || title.includes("index");
   });
 
-  rows.push(...buildQuoteRowsForCategory(largeCap, "Large Cap", 3));
-  rows.push(...buildQuoteRowsForCategory(midCap, "Mid Cap", 3));
-  rows.push(...buildQuoteRowsForCategory(smallCap, "Small Cap", 3));
-  rows.push(...buildQuoteRowsForCategory(etfCategory, "ETF", 1));
+  rows.push(...buildQuoteRowsForCategory(largeCap, "Large Cap | Market Wide", 3, "longTerm"));
+  rows.push(...buildQuoteRowsForCategory(midCap, "Mid Cap | Market Wide", 3, "longTerm"));
+  rows.push(...buildQuoteRowsForCategory(smallCap, "Small Cap | Market Wide", 3, "longTerm"));
+  rows.push(...buildQuoteRowsForCategory(etfCategory, "ETF | Market Wide", 1, "longTerm"));
 
   if (rows.length > 0) {
     return rows;
@@ -4353,7 +4387,32 @@ function buildTodayBuyRows(
     ...recommendations.longTermPlan.filter((item) => item.action === "Accumulate"),
     ...recommendations.etfs,
   ]
-    .map((item) => buildDecisionRowFromRecommendation(item, undefined, "Buy"))
+    .map((item) => buildDecisionRowFromRecommendation(item, undefined, "Market Wide"))
+    .slice(0, 10);
+}
+
+function buildMarketIntradayRows(
+  matrix: ExpertActionMatrix | null,
+  recommendations: ReturnType<typeof generateRecommendations>,
+) {
+  const rows =
+    matrix?.categories.flatMap((category) =>
+      buildQuoteRowsForCategory(
+        category,
+        `${getMarketCapType(category.title)} | Market Wide`,
+        3,
+        "intraday",
+      ),
+    ) ?? [];
+
+  if (rows.length > 0) {
+    return rows.sort((a, b) => b.confidence - a.confidence).slice(0, 10);
+  }
+
+  return recommendations.intraday
+    .filter((item) => item.action === "Accumulate")
+    .sort((a, b) => b.confidence - a.confidence)
+    .map((item) => buildDecisionRowFromRecommendation(item, undefined, "Market Intraday"))
     .slice(0, 10);
 }
 
@@ -4361,9 +4420,17 @@ function buildQuoteRowsForCategory(
   category: ExpertMatrixCategory | undefined,
   type: string,
   limit: number,
+  source: "longTerm" | "intraday" = "longTerm",
 ) {
+  if (!category) {
+    return [];
+  }
+
+  const quotes =
+    source === "intraday" ? category.intradayBreakouts : category.longTermUpsides;
+
   return (
-    category?.longTermUpsides
+    quotes
       .filter((quote) => quote.action === "Accumulate")
       .sort((a, b) => b.score - a.score)
       .slice(0, limit)

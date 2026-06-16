@@ -69,20 +69,20 @@ export function PwaExperienceControls() {
 
   return (
     <section className="app-install-bar sticky top-0 z-[80] border-b border-sky-300/20 px-3 py-2 text-slate-100 shadow-lg backdrop-blur-md">
-      <div className="mx-auto flex max-w-[1680px] flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+      <div className="mx-auto flex max-w-[1680px] flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         {showInstallPrompt ? (
           <div className="flex min-w-0 flex-1 items-start gap-2">
             <Smartphone className="mt-0.5 h-4 w-4 shrink-0 text-amber-200" aria-hidden="true" />
             <div className="min-w-0">
-              <p className="text-xs font-semibold text-white sm:text-sm">
-                Add UNLOAN to your home screen for the best mobile view.
+              <p className="text-sm font-semibold text-white">
+                Install UNLOAN app for the best mobile view.
               </p>
               <p className="text-[11px] leading-5 text-slate-300 sm:text-xs">
                 {installPrompt
-                  ? "Install the PWA app and open it like a normal mobile app."
+                  ? "Tap Install App to add the dashboard to your home screen."
                   : isIos
                     ? "On iPhone/iPad: tap Share, then Add to Home Screen."
-                    : "If the install button is unavailable, use your browser menu and choose Add to Home screen."}
+                    : "Open browser menu and choose Install app or Add to Home screen."}
               </p>
             </div>
           </div>
@@ -92,7 +92,7 @@ export function PwaExperienceControls() {
           </p>
         )}
 
-        <div className="flex flex-wrap items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2 sm:justify-end">
           {showInstallPrompt && installPrompt ? (
             <Button type="button" size="sm" onClick={installApp}>
               <Download className="mr-1.5 h-4 w-4" aria-hidden="true" />

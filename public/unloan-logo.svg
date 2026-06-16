@@ -1,7 +1,10 @@
-<svg width="128" height="128" viewBox="0 0 128 128" fill="none" xmlns="http://www.w3.org/2000/svg">
-  <rect width="128" height="128" rx="28" fill="#08121F"/>
-  <rect x="8" y="8" width="112" height="112" rx="22" fill="#0F1B2D" stroke="#3B82F6" stroke-width="4"/>
-  <path d="M34 34V72C34 86.9117 46.0883 99 61 99C75.9117 99 88 86.9117 88 72V34" stroke="#E2E8F0" stroke-width="12" stroke-linecap="round"/>
-  <path d="M58 76L78 56L92 70L102 60" stroke="#FBBF24" stroke-width="8" stroke-linecap="round" stroke-linejoin="round"/>
-  <path d="M95 58H104V67" stroke="#FBBF24" stroke-width="8" stroke-linecap="round" stroke-linejoin="round"/>
+<svg width="360" height="120" viewBox="0 0 360 120" fill="none" xmlns="http://www.w3.org/2000/svg" role="img" aria-labelledby="title desc">
+  <title id="title">UNLOAN</title>
+  <desc id="desc">UNLOAN logo with U-shaped upward arrow and dual blue wordmark.</desc>
+  <path d="M28 28V64C28 82.2254 42.7746 97 61 97H66C84.2254 97 99 82.2254 99 64V28" stroke="#1E88E5" stroke-width="13" stroke-linecap="round"/>
+  <path d="M61 76L86 51L101 66L121 46" stroke="#1E88E5" stroke-width="10" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M105 43H123V61" stroke="#0D47A1" stroke-width="10" stroke-linecap="round" stroke-linejoin="round"/>
+  <text x="145" y="73" font-family="Inter, Arial, sans-serif" font-size="44" font-weight="800" letter-spacing="1">
+    <tspan fill="#1E88E5">UN</tspan><tspan fill="#0D47A1">LOAN</tspan>
+  </text>
 </svg>

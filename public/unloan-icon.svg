@@ -1,0 +1,8 @@
+<svg width="512" height="512" viewBox="0 0 512 512" fill="none" xmlns="http://www.w3.org/2000/svg" role="img" aria-labelledby="title desc">
+  <title id="title">UNLOAN app icon</title>
+  <desc id="desc">U-shaped upward arrow symbol.</desc>
+  <rect width="512" height="512" rx="112" fill="#FFFFFF"/>
+  <path d="M122 106V268C122 347.529 186.471 412 266 412H288C367.529 412 432 347.529 432 268V106" stroke="#1E88E5" stroke-width="54" stroke-linecap="round"/>
+  <path d="M256 312L342 226L394 278L456 216" stroke="#1E88E5" stroke-width="42" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M405 207H462V264" stroke="#0D47A1" stroke-width="42" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>

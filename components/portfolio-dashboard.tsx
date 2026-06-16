@@ -960,21 +960,21 @@ export function PortfolioDashboard({
           <div className="flex items-start gap-3">
             <Image
               src="/unloan-logo.svg"
-              alt="Unloan"
-              width={48}
+              alt="UNLOAN"
+              width={144}
               height={48}
-              className="rounded-lg shadow-sm"
+              className="rounded-lg bg-white/95 p-1 shadow-sm"
               priority
             />
             <div className="space-y-2">
-              <p className="text-sm font-semibold uppercase tracking-[0.2em] text-cyan-300">
-                Unloan
+              <p className="text-sm font-semibold uppercase tracking-[0.2em] text-[#1E88E5]">
+                UNLOAN
               </p>
               <h1 className="text-3xl font-semibold tracking-normal text-white sm:text-4xl">
-                UNLOAN INVESTOR COMMAND CENTER
+                {adminMode ? "UNLOAN Administration" : "UNLOAN"}
               </h1>
               <p className="max-w-3xl text-sm leading-6 text-slate-300">
-                Market Intelligence. Portfolio Insights. Smarter Decisions.
+                Build Wealth. Reduce Debt. Create Freedom.
               </p>
             </div>
           </div>
@@ -1081,19 +1081,28 @@ export function PortfolioDashboard({
         {selectedPortfolio && (adminMode || routeUnlocked || !initialPortfolioId) ? (
           <section className="overflow-hidden rounded-2xl border border-white/10 bg-[#0F1B2D] shadow-xl">
             <div className="flex flex-col gap-3 px-5 py-4 lg:flex-row lg:items-center lg:justify-between">
-              <div>
-                <h2 className="text-lg font-semibold text-white">
-                  {selectedPortfolio.name} Dashboard
-                </h2>
-                <p className="text-sm text-slate-400">
-                  Last Updated:{" "}
-                  {selectedPortfolio.refreshedAt
-                    ? new Date(selectedPortfolio.refreshedAt).toLocaleString("en-IN", {
-                        dateStyle: "medium",
-                        timeStyle: "short",
-                      })
-                    : "Pending"}
-                </p>
+              <div className="flex items-center gap-3">
+                <Image
+                  src="/unloan-logo.svg"
+                  alt="UNLOAN"
+                  width={112}
+                  height={38}
+                  className="rounded-md bg-white/95 p-1 shadow-sm"
+                />
+                <div>
+                  <h2 className="text-lg font-semibold text-white">
+                    {selectedPortfolio.name} Dashboard
+                  </h2>
+                  <p className="text-sm text-slate-400">
+                    Last Updated:{" "}
+                    {selectedPortfolio.refreshedAt
+                      ? new Date(selectedPortfolio.refreshedAt).toLocaleString("en-IN", {
+                          dateStyle: "medium",
+                          timeStyle: "short",
+                        })
+                      : "Pending"}
+                  </p>
+                </div>
               </div>
               <div className="flex items-center gap-2 self-end lg:self-auto">
                 {initialPortfolioId && !adminMode ? (
@@ -3239,7 +3248,14 @@ function PortfolioMarketOpportunities({
         {opportunities.map((item) => (
           <article
             key={`${item.symbol}-${item.horizon}`}
-            className="rounded-md border border-white/10 bg-black/70 p-2"
+            className={cn(
+              "rounded-md border bg-black/70 p-2",
+              item.confidence >= 85
+                ? "border-[#D4AF37]/60"
+                : item.horizon === "Long Term"
+                  ? "border-[#0D47A1]/60"
+                  : "border-white/10",
+            )}
           >
             <div className="flex flex-wrap items-center justify-between gap-2">
               <div className="min-w-0">
@@ -3249,10 +3265,21 @@ function PortfolioMarketOpportunities({
                 </div>
               </div>
               <div className="text-right">
-                <div className="text-xs font-semibold text-emerald-300">
+                <div
+                  className={cn(
+                    "text-xs font-semibold",
+                    item.confidence >= 85
+                      ? "text-[#D4AF37]"
+                      : item.horizon === "Long Term"
+                        ? "text-[#0D47A1]"
+                        : "text-[#1E88E5]",
+                  )}
+                >
                   {item.recommendation}
                 </div>
-                <div className="text-[11px] text-zinc-400">{item.confidence}%</div>
+                <div className="text-[11px] text-zinc-400">
+                  {item.confidence}%{item.confidence >= 85 ? " A+" : ""}
+                </div>
               </div>
             </div>
             <div className="mt-2 grid gap-1 text-[11px] text-zinc-300 sm:grid-cols-2">

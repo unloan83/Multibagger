@@ -236,14 +236,14 @@ export function PublicMarketPortal() {
       <section className="mx-auto flex w-full max-w-[1680px] flex-col gap-7 px-4 py-6 sm:px-6 lg:px-8">
         <header className="terminal-panel flex flex-col gap-5 rounded-2xl border border-sky-400/20 px-5 py-5 shadow-[0_24px_80px_rgba(0,0,0,0.34)] lg:flex-row lg:items-center lg:justify-between">
           <div className="flex items-start gap-3">
-            <Image src="/unloan-logo.svg" alt="Unloan" width={48} height={48} className="rounded-lg shadow-sm" priority />
+            <Image src="/unloan-logo.svg" alt="UNLOAN" width={144} height={48} className="rounded-lg bg-white/95 p-1 shadow-sm" priority />
             <div className="space-y-2">
-              <p className="text-sm font-semibold uppercase tracking-[0.2em] text-cyan-300">Unloan</p>
+              <p className="text-sm font-semibold uppercase tracking-[0.2em] text-[#1E88E5]">UNLOAN</p>
               <h1 className="text-3xl font-semibold tracking-normal text-white sm:text-4xl">
-                UNLOAN MARKET INTELLIGENCE PORTAL
+                UNLOAN
               </h1>
               <p className="max-w-3xl text-sm leading-6 text-slate-300">
-                Market Intelligence. Portfolio Insights. Smarter Decisions.
+                Build Wealth. Reduce Debt. Create Freedom.
               </p>
             </div>
           </div>
@@ -600,10 +600,13 @@ function MarketOpportunitiesSection({
             {picks.map((pick) => (
               <tr key={pick.symbol} className="border-t border-white/10">
                 <td className="px-3 py-3 font-semibold text-white">{pick.symbol}</td>
-                <td className={cn("px-3 py-3 font-semibold", pick.action === "BUY" ? "text-emerald-300" : "text-rose-300")}>{pick.action}</td>
-                <td className="px-3 py-3 text-slate-300">{pick.confidence}%</td>
+                <td className={cn("px-3 py-3 font-semibold", marketOpportunityTone(pick))}>{pick.action}</td>
+                <td className={cn("px-3 py-3", pick.confidence >= 85 ? "font-semibold text-[#D4AF37]" : "text-slate-300")}>
+                  {pick.confidence}%
+                  {pick.confidence >= 85 ? " A+" : ""}
+                </td>
                 <td className="px-3 py-3 text-slate-300">{pick.marketCapType}</td>
-                <td className="px-3 py-3 text-slate-300">{pick.horizon}</td>
+                <td className={cn("px-3 py-3", pick.horizon === "Long Term" ? "font-semibold text-[#0D47A1]" : "text-slate-300")}>{pick.horizon}</td>
                 <td className="px-3 py-3 text-slate-300">{pick.count} Signals</td>
                 <td className="px-3 py-3 text-slate-400">{matrix?.asOf ? "Today" : "Pending"}</td>
               </tr>
@@ -664,6 +667,13 @@ function opportunityTone(score: number) {
   if (score >= 70) return "text-emerald-300";
   if (score < 40) return "text-rose-300";
   return "text-amber-300";
+}
+
+function marketOpportunityTone(pick: { action: string; confidence: number; horizon: string }) {
+  if (pick.confidence >= 85) return "text-[#D4AF37]";
+  if (pick.horizon === "Long Term") return "text-[#0D47A1]";
+  if (pick.action === "BUY") return "text-[#1E88E5]";
+  return "text-slate-300";
 }
 
 function getMarketCapType(categoryTitle: string) {

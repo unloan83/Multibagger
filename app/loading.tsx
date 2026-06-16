@@ -8,7 +8,7 @@ export default function Loading() {
           src="/unloan-logo.svg"
           alt="UNLOAN"
           width={220}
-          height={74}
+          height={144}
           priority
           className="mx-auto"
         />

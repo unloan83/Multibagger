@@ -11,10 +11,10 @@ export default function manifest(): MetadataRoute.Manifest {
     theme_color: "#1E88E5",
     icons: [
       {
-        src: "/unloan-icon.svg",
-        sizes: "any",
-        type: "image/svg+xml",
-        purpose: "maskable",
+        src: "/unloan-logo.png",
+        sizes: "1536x1024",
+        type: "image/png",
+        purpose: "any",
       },
     ],
   };

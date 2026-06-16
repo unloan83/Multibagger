@@ -5,10 +5,16 @@ const Table = React.forwardRef<
   HTMLTableElement,
   React.HTMLAttributes<HTMLTableElement>
 >(({ className, ...props }, ref) => (
-  <div className="table-scroll w-full">
+  <div
+    className="table-scroll w-full"
+    role="region"
+    aria-label="Scrollable data table"
+    tabIndex={0}
+  >
+    <div className="table-scroll-hint md:hidden">← Swipe to view more →</div>
     <table
       ref={ref}
-      className={cn("min-w-max w-full caption-bottom text-sm", className)}
+      className={cn("w-max min-w-[760px] max-w-none caption-bottom text-sm", className)}
       {...props}
     />
   </div>

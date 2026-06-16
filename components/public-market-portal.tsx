@@ -236,7 +236,7 @@ export function PublicMarketPortal() {
       <section className="mx-auto flex w-full max-w-[1680px] flex-col gap-7 px-4 py-6 sm:px-6 lg:px-8">
         <header className="terminal-panel flex flex-col gap-5 rounded-2xl border border-sky-400/20 px-5 py-5 shadow-[0_24px_80px_rgba(0,0,0,0.34)] lg:flex-row lg:items-center lg:justify-between">
           <div className="flex items-start gap-3">
-            <Image src="/unloan-logo.svg" alt="UNLOAN" width={118} height={78} className="rounded-lg bg-white/95 p-1 shadow-sm" priority />
+            <Image src="/unloan-logo.png" alt="UNLOAN" width={118} height={78} className="object-contain" priority />
             <div className="space-y-2">
               <p className="text-sm font-semibold uppercase tracking-[0.2em] text-[#1E88E5]">UNLOAN</p>
               <h1 className="text-3xl font-semibold tracking-normal text-white sm:text-4xl">
@@ -583,8 +583,9 @@ function MarketOpportunitiesSection({
           <Metric label="Stocks Covered" value={String(picks.length || (market?.gainers.length ?? 0) + (market?.losers.length ?? 0))} />
         </div>
       </div>
-      <div className="overflow-x-auto rounded-xl border border-white/10">
-        <table className="w-full text-left text-sm">
+      <div className="table-scroll rounded-xl border border-white/10" role="region" aria-label="Scrollable market opportunities table" tabIndex={0}>
+        <div className="table-scroll-hint md:hidden">← Swipe to view more →</div>
+        <table className="w-max min-w-[860px] max-w-none text-left text-sm">
           <thead className="bg-white/[0.03] text-xs uppercase tracking-[0.14em] text-slate-500">
             <tr>
               <th className="px-3 py-3">Symbol</th>

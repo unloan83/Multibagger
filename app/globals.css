@@ -82,10 +82,36 @@
     overscroll-behavior-x: contain;
     -webkit-overflow-scrolling: touch;
     touch-action: pan-x pan-y;
+    scrollbar-color: rgba(212, 175, 55, 0.5) rgba(255, 255, 255, 0.08);
+    scrollbar-width: thin;
   }
 
   .table-scroll table {
-    min-width: max-content;
+    width: max-content;
+    min-width: 760px;
+    max-width: none;
+    table-layout: auto;
+  }
+
+  .table-scroll th,
+  .table-scroll td {
+    white-space: nowrap;
+  }
+
+  .table-scroll-hint {
+    position: sticky;
+    left: 0;
+    z-index: 1;
+    width: max-content;
+    margin: 0.5rem;
+    border-radius: 9999px;
+    border: 1px solid rgba(212, 175, 55, 0.25);
+    background: rgba(8, 18, 31, 0.92);
+    padding: 0.25rem 0.65rem;
+    color: rgba(226, 232, 240, 0.86);
+    font-size: 0.7rem;
+    font-weight: 600;
+    pointer-events: none;
   }
 
   .app-install-bar {

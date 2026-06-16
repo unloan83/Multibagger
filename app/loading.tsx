@@ -5,7 +5,7 @@ export default function Loading() {
     <main className="flex min-h-screen items-center justify-center bg-white px-6">
       <section className="text-center">
         <Image
-          src="/unloan-logo.svg"
+          src="/unloan-logo.png"
           alt="UNLOAN"
           width={220}
           height={144}

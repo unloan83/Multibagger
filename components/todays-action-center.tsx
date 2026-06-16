@@ -156,8 +156,9 @@ export function TodaysActionCenter({
       <div className="grid gap-4 xl:grid-cols-[1.3fr_0.7fr]">
         <section className="rounded-xl border border-white/10 bg-[#16263D] p-4">
           <h3 className="text-sm font-semibold text-white">Top Opportunities</h3>
-          <div className="mt-3 overflow-x-auto rounded-lg border border-white/10">
-            <table className="w-full min-w-[620px] text-left text-xs">
+          <div className="table-scroll mt-3 rounded-lg border border-white/10" role="region" aria-label="Scrollable top opportunities table" tabIndex={0}>
+            <div className="table-scroll-hint md:hidden">← Swipe to view more →</div>
+            <table className="w-max min-w-[760px] max-w-none text-left text-xs">
               <thead className="bg-[#08121F] text-slate-400">
                 <tr>
                   <th className="px-3 py-2">Rank</th>

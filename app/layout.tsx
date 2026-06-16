@@ -12,9 +12,9 @@ export const metadata: Metadata = {
   title: "UNLOAN",
   description: "Build Wealth. Reduce Debt. Create Freedom.",
   icons: {
-    apple: "/unloan-icon.svg",
-    icon: "/unloan-icon.svg",
-    shortcut: "/unloan-icon.svg",
+    apple: "/unloan-logo.png",
+    icon: "/unloan-logo.png",
+    shortcut: "/unloan-logo.png",
   },
   manifest: "/manifest.webmanifest",
 };

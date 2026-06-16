@@ -1,10 +1,27 @@
-<svg width="360" height="120" viewBox="0 0 360 120" fill="none" xmlns="http://www.w3.org/2000/svg" role="img" aria-labelledby="title desc">
+<svg width="640" height="420" viewBox="0 0 640 420" fill="none" xmlns="http://www.w3.org/2000/svg" role="img" aria-labelledby="title desc">
   <title id="title">UNLOAN</title>
-  <desc id="desc">UNLOAN logo with U-shaped upward arrow and dual blue wordmark.</desc>
-  <path d="M28 28V64C28 82.2254 42.7746 97 61 97H66C84.2254 97 99 82.2254 99 64V28" stroke="#1E88E5" stroke-width="13" stroke-linecap="round"/>
-  <path d="M61 76L86 51L101 66L121 46" stroke="#1E88E5" stroke-width="10" stroke-linecap="round" stroke-linejoin="round"/>
-  <path d="M105 43H123V61" stroke="#0D47A1" stroke-width="10" stroke-linecap="round" stroke-linejoin="round"/>
-  <text x="145" y="73" font-family="Inter, Arial, sans-serif" font-size="44" font-weight="800" letter-spacing="1">
+  <desc id="desc">UNLOAN logo with a U-shaped upward arrow and dual blue wordmark.</desc>
+  <defs>
+    <linearGradient id="uGradient" x1="152" y1="74" x2="488" y2="286" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#1E88E5"/>
+      <stop offset="0.52" stop-color="#0D7FE3"/>
+      <stop offset="1" stop-color="#0D47A1"/>
+    </linearGradient>
+    <pattern id="currencyPattern" width="34" height="34" patternUnits="userSpaceOnUse">
+      <text x="4" y="23" fill="#FFFFFF" fill-opacity="0.18" font-family="Arial, sans-serif" font-size="22" font-weight="700">₹</text>
+    </pattern>
+    <mask id="uMask">
+      <rect width="640" height="420" fill="black"/>
+      <path d="M214 80V192C214 252.751 263.249 302 324 302C384.751 302 434 252.751 434 192V80" stroke="white" stroke-width="58" stroke-linecap="butt"/>
+      <path d="M352 270L406 116L490 52L512 169L460 137L419 262C405.534 303.108 367.005 331 323.75 331C269.35 331 225.25 286.9 225.25 232.5V193" stroke="white" stroke-width="58" stroke-linecap="round" stroke-linejoin="round"/>
+    </mask>
+  </defs>
+  <rect width="640" height="420" fill="white"/>
+  <g mask="url(#uMask)">
+    <rect width="640" height="340" fill="url(#uGradient)"/>
+    <rect width="640" height="340" fill="url(#currencyPattern)"/>
+  </g>
+  <text x="96" y="386" font-family="Inter, Arial, sans-serif" font-size="72" font-weight="900" letter-spacing="6">
     <tspan fill="#1E88E5">UN</tspan><tspan fill="#0D47A1">LOAN</tspan>
   </text>
 </svg>

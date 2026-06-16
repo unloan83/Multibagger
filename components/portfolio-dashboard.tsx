@@ -961,8 +961,8 @@ export function PortfolioDashboard({
             <Image
               src="/unloan-logo.svg"
               alt="UNLOAN"
-              width={144}
-              height={48}
+              width={118}
+              height={78}
               className="rounded-lg bg-white/95 p-1 shadow-sm"
               priority
             />
@@ -1085,8 +1085,8 @@ export function PortfolioDashboard({
                 <Image
                   src="/unloan-logo.svg"
                   alt="UNLOAN"
-                  width={112}
-                  height={38}
+                  width={98}
+                  height={64}
                   className="rounded-md bg-white/95 p-1 shadow-sm"
                 />
                 <div>
@@ -3349,6 +3349,9 @@ function CurrentHoldingsCard({
           </Button>
         </div>
       </div>
+      <p className="text-xs text-slate-400">
+        Swipe sideways to view all columns. Use the zoom controls at the top for a wider table view.
+      </p>
       <div className="overflow-x-auto rounded-xl border border-white/10">
         <Table>
           <TableHeader>

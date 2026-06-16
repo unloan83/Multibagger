@@ -1,5 +1,6 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import type { ReactNode } from "react";
+import { PwaExperienceControls } from "@/components/pwa-experience-controls";
 import "./globals.css";
 
 export const metadata: Metadata = {
@@ -18,6 +19,14 @@ export const metadata: Metadata = {
   manifest: "/manifest.webmanifest",
 };
 
+export const viewport: Viewport = {
+  initialScale: 1,
+  maximumScale: 5,
+  minimumScale: 0.5,
+  userScalable: true,
+  width: "device-width",
+};
+
 export default function RootLayout({
   children,
 }: Readonly<{
@@ -25,7 +34,10 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en">
-      <body>{children}</body>
+      <body>
+        <PwaExperienceControls />
+        {children}
+      </body>
     </html>
   );
 }

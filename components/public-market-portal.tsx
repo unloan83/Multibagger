@@ -1,28 +1,36 @@
 "use client";
 
-import { BookOpen, Lock, LockKeyhole, Map, Shield, TrendingUp, X } from "lucide-react";
+import Papa from "papaparse";
+import { BookOpen, FileUp, Lock, LockKeyhole, Map, Plus, Shield, Sparkles, Trash2, TrendingUp, X } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
   useEffect,
   useMemo,
+  useRef,
   useState,
   type ClipboardEvent,
   type FormEvent,
   type KeyboardEvent,
+  type RefObject,
 } from "react";
 import { MarketOverviewCollapsible } from "@/components/market-overview-collapsible";
 import { PortfolioHub } from "@/components/portfolio-hub";
 import { Button } from "@/components/ui/button";
 import type { MarketOverview } from "@/lib/decision-intelligence";
 import {
+  hashPortfolioPin,
   masterRecoveryPin,
   normalizePinInput,
   validatePortfolioPin,
 } from "@/lib/portfolio-pin";
 import {
+  buildPortfolioInputRow,
+  type InvestmentAppetite,
   type ManagedPortfolio,
+  type PortfolioInputRow,
+  type PortfolioPosition,
   samplePortfolio,
 } from "@/lib/portfolio";
 import { cn } from "@/lib/utils";
@@ -43,9 +51,23 @@ type ExpertActionMatrix = {
   }>;
 };
 
+type PublicPortfolioCsvRow = {
+  "stock code"?: string;
+  stockCode?: string;
+  symbol?: string;
+  ticker?: string;
+  code?: string;
+  stock?: string;
+  company?: string;
+  name?: string;
+  quantity?: string;
+  qty?: string;
+};
+
 const portfoliosStorageKey = "multibagger-portfolios";
 const pinStorageKey = "unloan-portfolio-pin-hashes";
 const unlockedPortfolioStorageKey = "unloan-unlocked-portfolio";
+const publicPortfolioContactStorageKey = "unloan-public-portfolio-contact";
 
 const roadmapItems = [
   "Portfolio Doctor",
@@ -86,6 +108,20 @@ export function PublicMarketPortal() {
   const [adminPassword, setAdminPassword] = useState("");
   const [adminError, setAdminError] = useState("");
   const [isAdminLoading, setIsAdminLoading] = useState(false);
+  const [isAddPortfolioOpen, setIsAddPortfolioOpen] = useState(false);
+  const [isCreatingPortfolio, setIsCreatingPortfolio] = useState(false);
+  const [addPortfolioError, setAddPortfolioError] = useState<string | null>(null);
+  const [portfolioName, setPortfolioName] = useState("");
+  const [portfolioPin, setPortfolioPin] = useState("");
+  const [investmentAppetite, setInvestmentAppetite] =
+    useState<InvestmentAppetite>("moderate");
+  const [draftRows, setDraftRows] = useState<PortfolioInputRow[]>([
+    buildPortfolioInputRow({}),
+  ]);
+  const [telegramUserId, setTelegramUserId] = useState("");
+  const [telegramPasskey, setTelegramPasskey] = useState("");
+  const [emailAddress, setEmailAddress] = useState("");
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   async function refreshMarket() {
     setIsMarketLoading(true);
@@ -209,6 +245,155 @@ export function PublicMarketPortal() {
     return null;
   }
 
+  function updateDraftRow(index: number, nextRow: Partial<PortfolioInputRow>) {
+    setDraftRows((rows) =>
+      rows.map((row, rowIndex) =>
+        rowIndex === index ? { ...row, ...nextRow } : row,
+      ),
+    );
+  }
+
+  function addDraftRow() {
+    setDraftRows((rows) => [...rows, buildPortfolioInputRow({})]);
+  }
+
+  function removeDraftRow(index: number) {
+    setDraftRows((rows) =>
+      rows.length === 1 ? rows : rows.filter((_, rowIndex) => rowIndex !== index),
+    );
+  }
+
+  function parseCsvRows(file: File) {
+    Papa.parse<PublicPortfolioCsvRow>(file, {
+      header: true,
+      skipEmptyLines: true,
+      complete: (result) => {
+        const rows = result.data
+          .map((row) =>
+            buildPortfolioInputRow({
+              stockCode: getCsvValue(row, ["stock code", "stockCode", "symbol", "ticker", "code", "stock"]),
+              company: getCsvValue(row, ["company", "name"]),
+              quantity: Number(getCsvValue(row, ["quantity", "qty"])),
+            }),
+          )
+          .filter((row) => row.stockCode || row.company);
+
+        if (rows.length > 0) {
+          setDraftRows(rows);
+          setAddPortfolioError(null);
+        } else {
+          setAddPortfolioError("CSV should include stock code, company, and quantity columns.");
+        }
+      },
+      error: () => setAddPortfolioError("Unable to read CSV file."),
+    });
+  }
+
+  async function fetchQuotePositions(rows: PortfolioInputRow[]) {
+    const response = await fetch("/api/quotes", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ rows }),
+    });
+    const payload = (await response.json()) as {
+      positions?: PortfolioPosition[];
+      error?: string;
+    };
+
+    if (!response.ok || !payload.positions) {
+      throw new Error(payload.error ?? "Unable to fetch quote details.");
+    }
+
+    return payload.positions;
+  }
+
+  async function createPortfolio() {
+    const cleanName = portfolioName.trim();
+    const cleanPin = normalizePinInput(portfolioPin);
+    const cleanRows = normalizePublicPortfolioRows(draftRows);
+
+    setAddPortfolioError(null);
+
+    if (!cleanName) {
+      setAddPortfolioError("Add a portfolio name.");
+      return;
+    }
+
+    if (!/^\d{4}$/u.test(cleanPin)) {
+      setAddPortfolioError("Set a 4 digit portfolio PIN.");
+      return;
+    }
+
+    if (cleanRows.length === 0) {
+      setAddPortfolioError("Add at least one stock or upload a valid CSV.");
+      return;
+    }
+
+    setIsCreatingPortfolio(true);
+
+    try {
+      const id = `portfolio-${Date.now()}-${cleanName
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/gu, "-")
+        .replace(/^-|-$/gu, "")
+        .slice(0, 32) || "new"}`;
+      const positions = await fetchQuotePositions(cleanRows);
+      const portfolio: ManagedPortfolio = {
+        id,
+        name: cleanName,
+        appetite: investmentAppetite,
+        inputs: cleanRows,
+        positions,
+        refreshedAt: new Date().toISOString(),
+      };
+      const pinHash = await hashPortfolioPin(id, cleanPin);
+      const nextPortfolios = filterHomepagePortfolios([
+        ...portfolios.filter((item) => item.id !== id),
+        portfolio,
+      ]);
+      const nextPins = { ...pinHashes, [id]: pinHash };
+
+      setPortfolios(nextPortfolios);
+      setPinHashes(nextPins);
+      window.localStorage.setItem(portfoliosStorageKey, JSON.stringify(nextPortfolios));
+      window.localStorage.setItem(pinStorageKey, JSON.stringify(nextPins));
+      window.localStorage.setItem(
+        `${publicPortfolioContactStorageKey}-${id}`,
+        JSON.stringify({
+          emailAddress: emailAddress.trim(),
+          telegramPasskey: telegramPasskey.trim(),
+          telegramUserId: telegramUserId.trim(),
+        }),
+      );
+
+      await Promise.allSettled([
+        fetch("/api/portfolios", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ portfolio }),
+        }),
+        fetch("/api/portfolio-pins", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ portfolioId: id, pinHash }),
+        }),
+      ]);
+
+      setPortfolioName("");
+      setPortfolioPin("");
+      setInvestmentAppetite("moderate");
+      setDraftRows([buildPortfolioInputRow({})]);
+      setTelegramUserId("");
+      setTelegramPasskey("");
+      setEmailAddress("");
+      setIsAddPortfolioOpen(false);
+    } catch (error) {
+      setAddPortfolioError(error instanceof Error ? error.message : "Unable to create portfolio.");
+    } finally {
+      setIsCreatingPortfolio(false);
+    }
+  }
+
   async function loginAdmin() {
     setIsAdminLoading(true);
     setAdminError("");
@@ -268,13 +453,43 @@ export function PublicMarketPortal() {
           portfolios={portfolios}
           selectedPortfolioId={undefined}
           pinProtectedIds={Object.keys(pinHashes)}
-          onAddPortfolio={() => router.push("/admin")}
+          onAddPortfolio={() => setIsAddPortfolioOpen(true)}
           onOpenPortfolio={(portfolio) => {
             setPinChallengePortfolio(portfolio);
             setPinInput("");
             setPinError(null);
           }}
         />
+
+        {isAddPortfolioOpen ? (
+          <PublicAddPortfolioModal
+            draftRows={draftRows}
+            emailAddress={emailAddress}
+            error={addPortfolioError}
+            fileInputRef={fileInputRef}
+            investmentAppetite={investmentAppetite}
+            isLoading={isCreatingPortfolio}
+            portfolioName={portfolioName}
+            portfolioPin={portfolioPin}
+            telegramPasskey={telegramPasskey}
+            telegramUserId={telegramUserId}
+            addDraftRow={addDraftRow}
+            createPortfolio={createPortfolio}
+            parseCsvRows={parseCsvRows}
+            removeDraftRow={removeDraftRow}
+            setEmailAddress={setEmailAddress}
+            setInvestmentAppetite={setInvestmentAppetite}
+            setPortfolioName={setPortfolioName}
+            setPortfolioPin={setPortfolioPin}
+            setTelegramPasskey={setTelegramPasskey}
+            setTelegramUserId={setTelegramUserId}
+            updateDraftRow={updateDraftRow}
+            onClose={() => {
+              setIsAddPortfolioOpen(false);
+              setAddPortfolioError(null);
+            }}
+          />
+        ) : null}
 
         {pinChallengePortfolio ? (
           <PortfolioPinModal
@@ -479,6 +694,216 @@ function HeaderLink({ href, children }: { href: string; children: React.ReactNod
     >
       {children}
     </Link>
+  );
+}
+
+function PublicAddPortfolioModal({
+  draftRows,
+  emailAddress,
+  error,
+  fileInputRef,
+  investmentAppetite,
+  isLoading,
+  portfolioName,
+  portfolioPin,
+  telegramPasskey,
+  telegramUserId,
+  addDraftRow,
+  createPortfolio,
+  parseCsvRows,
+  removeDraftRow,
+  setEmailAddress,
+  setInvestmentAppetite,
+  setPortfolioName,
+  setPortfolioPin,
+  setTelegramPasskey,
+  setTelegramUserId,
+  updateDraftRow,
+  onClose,
+}: {
+  draftRows: PortfolioInputRow[];
+  emailAddress: string;
+  error: string | null;
+  fileInputRef: RefObject<HTMLInputElement | null>;
+  investmentAppetite: InvestmentAppetite;
+  isLoading: boolean;
+  portfolioName: string;
+  portfolioPin: string;
+  telegramPasskey: string;
+  telegramUserId: string;
+  addDraftRow: () => void;
+  createPortfolio: () => void;
+  parseCsvRows: (file: File) => void;
+  removeDraftRow: (index: number) => void;
+  setEmailAddress: (value: string) => void;
+  setInvestmentAppetite: (value: InvestmentAppetite) => void;
+  setPortfolioName: (value: string) => void;
+  setPortfolioPin: (value: string) => void;
+  setTelegramPasskey: (value: string) => void;
+  setTelegramUserId: (value: string) => void;
+  updateDraftRow: (index: number, row: Partial<PortfolioInputRow>) => void;
+  onClose: () => void;
+}) {
+  return (
+    <div className="fixed inset-0 z-50 overflow-y-auto bg-black/70 px-4 py-6 backdrop-blur-sm">
+      <section className="mx-auto w-full max-w-5xl rounded-2xl border border-cyan-300/20 bg-[#0F1B2D] p-5 text-slate-100 shadow-2xl">
+        <div className="flex items-start justify-between gap-3">
+          <div>
+            <h2 className="text-lg font-semibold text-white">Add Portfolio</h2>
+            <p className="mt-1 text-sm text-slate-400">
+              Create a PIN-protected portfolio. No username or password required.
+            </p>
+          </div>
+          <Button type="button" variant="outline" size="icon" onClick={onClose}>
+            <X className="h-4 w-4" aria-hidden="true" />
+            <span className="sr-only">Close add portfolio</span>
+          </Button>
+        </div>
+
+        {error ? (
+          <div className="mt-4 rounded-md border border-rose-300/30 bg-rose-300/10 px-3 py-2 text-sm text-rose-100">
+            {error}
+          </div>
+        ) : null}
+
+        <div className="mt-5 grid gap-3 md:grid-cols-3">
+          <input
+            value={portfolioName}
+            onChange={(event) => setPortfolioName(event.target.value)}
+            placeholder="Portfolio Name"
+            className="h-11 rounded-md border border-white/10 bg-[#08121F] px-3 text-sm text-white outline-none focus:ring-2 focus:ring-cyan-300"
+          />
+          <input
+            value={portfolioPin}
+            onChange={(event) => setPortfolioPin(normalizePinInput(event.target.value))}
+            onPaste={(event) => {
+              event.preventDefault();
+              setPortfolioPin(normalizePinInput(event.clipboardData.getData("text")));
+            }}
+            placeholder="Portfolio PIN"
+            type="text"
+            inputMode="numeric"
+            pattern="[0-9]*"
+            maxLength={4}
+            autoComplete="off"
+            className="h-11 rounded-md border border-white/10 bg-[#08121F] px-3 text-sm text-white outline-none focus:ring-2 focus:ring-cyan-300"
+          />
+          <select
+            value={investmentAppetite}
+            onChange={(event) => setInvestmentAppetite(event.target.value as InvestmentAppetite)}
+            className="h-11 rounded-md border border-white/10 bg-[#08121F] px-3 text-sm text-white outline-none focus:ring-2 focus:ring-cyan-300"
+          >
+            <option value="safe">Safe Risk Appetite</option>
+            <option value="moderate">Moderate Risk Appetite</option>
+            <option value="aggressive">Aggressive Risk Appetite</option>
+          </select>
+        </div>
+
+        <div className="mt-5 space-y-2">
+          <div className="text-sm font-semibold text-white">Stock List</div>
+          {draftRows.map((row, index) => (
+            <div key={`public-draft-${index}`} className="grid gap-2 md:grid-cols-[160px_1fr_120px_44px]">
+              <input
+                value={row.stockCode}
+                onChange={(event) => {
+                  const stockCode = event.target.value.toUpperCase();
+                  updateDraftRow(index, {
+                    stock: stockCode || row.company,
+                    stockCode,
+                  });
+                }}
+                placeholder="Stock Code"
+                className="h-10 rounded-md border border-white/10 bg-[#08121F] px-3 text-sm text-white outline-none focus:ring-2 focus:ring-cyan-300"
+              />
+              <input
+                value={row.company}
+                onChange={(event) =>
+                  updateDraftRow(index, {
+                    company: event.target.value,
+                    stock: row.stockCode || event.target.value,
+                  })
+                }
+                placeholder="Company"
+                className="h-10 rounded-md border border-white/10 bg-[#08121F] px-3 text-sm text-white outline-none focus:ring-2 focus:ring-cyan-300"
+              />
+              <input
+                value={row.quantity || ""}
+                onChange={(event) =>
+                  updateDraftRow(index, {
+                    list: Number(event.target.value) > 0 ? "current" : "watchlist",
+                    quantity: Number(event.target.value),
+                  })
+                }
+                placeholder="Quantity"
+                type="number"
+                className="h-10 rounded-md border border-white/10 bg-[#08121F] px-3 text-sm text-white outline-none focus:ring-2 focus:ring-cyan-300"
+              />
+              <Button
+                type="button"
+                variant="outline"
+                size="icon"
+                onClick={() => removeDraftRow(index)}
+                disabled={draftRows.length === 1}
+                aria-label="Remove stock row"
+              >
+                <Trash2 className="h-4 w-4" aria-hidden="true" />
+              </Button>
+            </div>
+          ))}
+        </div>
+
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept=".csv,text/csv"
+          className="hidden"
+          onChange={(event) => {
+            const file = event.target.files?.[0];
+
+            if (file) {
+              parseCsvRows(file);
+            }
+          }}
+        />
+
+        <div className="mt-5 grid gap-3 md:grid-cols-3">
+          <input
+            value={telegramUserId}
+            onChange={(event) => setTelegramUserId(event.target.value)}
+            placeholder="Telegram User ID (Optional)"
+            className="h-11 rounded-md border border-white/10 bg-[#08121F] px-3 text-sm text-white outline-none focus:ring-2 focus:ring-cyan-300"
+          />
+          <input
+            value={telegramPasskey}
+            onChange={(event) => setTelegramPasskey(event.target.value)}
+            placeholder="Telegram Passkey (Optional)"
+            className="h-11 rounded-md border border-white/10 bg-[#08121F] px-3 text-sm text-white outline-none focus:ring-2 focus:ring-cyan-300"
+          />
+          <input
+            value={emailAddress}
+            onChange={(event) => setEmailAddress(event.target.value)}
+            placeholder="Email Address (Optional)"
+            type="email"
+            className="h-11 rounded-md border border-white/10 bg-[#08121F] px-3 text-sm text-white outline-none focus:ring-2 focus:ring-cyan-300"
+          />
+        </div>
+
+        <div className="mt-5 flex flex-col gap-2 sm:flex-row">
+          <Button type="button" variant="outline" onClick={addDraftRow}>
+            <Plus className="h-4 w-4" aria-hidden="true" />
+            Add Stock
+          </Button>
+          <Button type="button" variant="outline" onClick={() => fileInputRef.current?.click()}>
+            <FileUp className="h-4 w-4" aria-hidden="true" />
+            Upload CSV
+          </Button>
+          <Button type="button" onClick={createPortfolio} disabled={isLoading}>
+            <Sparkles className="h-4 w-4" aria-hidden="true" />
+            {isLoading ? "Creating Portfolio" : "Create Portfolio"}
+          </Button>
+        </div>
+      </section>
+    </div>
   );
 }
 
@@ -807,4 +1232,64 @@ function filterHomepagePortfolios(portfolios: ManagedPortfolio[]) {
 
       return a.name.localeCompare(b.name);
     });
+}
+
+function normalizePublicPortfolioRows(rows: PortfolioInputRow[]) {
+  const merged = rows.reduce<Record<string, PortfolioInputRow>>((acc, row) => {
+    const stockCode = String(row.stockCode || "")
+      .trim()
+      .toUpperCase()
+      .replace(/\.NS$|\.BO$/u, "");
+    const company = String(row.company || row.stock || "").trim();
+    const quantity = Number(row.quantity) || 0;
+    const key = stockCode || company.toLowerCase();
+
+    if (!key || quantity <= 0) {
+      return acc;
+    }
+
+    const normalized = buildPortfolioInputRow({
+      company,
+      quantity,
+      stockCode,
+    });
+    const existing = acc[key];
+
+    if (!existing) {
+      acc[key] = normalized;
+      return acc;
+    }
+
+    acc[key] = {
+      ...existing,
+      company: existing.company || normalized.company,
+      quantity: existing.quantity + normalized.quantity,
+      stock: existing.stockCode || existing.company || normalized.stock,
+    };
+
+    return acc;
+  }, {});
+
+  return Object.values(merged);
+}
+
+function getCsvValue(row: PublicPortfolioCsvRow, keys: string[]) {
+  const looseRow = row as Record<string, string | undefined>;
+  const normalizedLookup = Object.entries(looseRow).reduce<Record<string, string>>(
+    (acc, [key, value]) => {
+      acc[key.trim().toLowerCase()] = value ?? "";
+      return acc;
+    },
+    {},
+  );
+
+  for (const key of keys) {
+    const value = normalizedLookup[key.trim().toLowerCase()];
+
+    if (value) {
+      return value;
+    }
+  }
+
+  return "";
 }

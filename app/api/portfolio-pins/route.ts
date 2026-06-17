@@ -52,3 +52,30 @@ export async function PUT(request: Request) {
 
   return NextResponse.json({ ok: true });
 }
+
+export async function POST(request: Request) {
+  if (!isGoogleSheetsConfigured()) {
+    return NextResponse.json(
+      { error: "Google Sheets is not configured." },
+      { status: 503 },
+    );
+  }
+
+  const body = (await request.json()) as {
+    portfolioId?: string;
+    pinHash?: string;
+  };
+  const portfolioId = String(body.portfolioId ?? "").trim();
+  const pinHash = String(body.pinHash ?? "").trim();
+
+  if (!portfolioId || !/^[a-f0-9]{64}$/iu.test(pinHash)) {
+    return NextResponse.json(
+      { error: "Portfolio ID and valid PIN hash are required." },
+      { status: 400 },
+    );
+  }
+
+  await savePortfolioPinHashToSheets({ portfolioId, pinHash });
+
+  return NextResponse.json({ ok: true });
+}

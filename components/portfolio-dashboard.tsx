@@ -1151,7 +1151,7 @@ export function PortfolioDashboard({
           </section>
         ) : null}
 
-        <RoadmapSection />
+        {!initialPortfolioId ? <RoadmapSection /> : null}
 
         <GlossarySection />
       </section>
@@ -1380,7 +1380,7 @@ function DecisionRecommendationTable({
   emptyText: string;
 }) {
   return (
-    <section className="space-y-3 rounded-2xl border border-white/10 bg-[#101D30] p-4 shadow-xl sm:p-5">
+    <section className="min-w-0 space-y-3 rounded-2xl border border-white/10 bg-[#101D30] p-4 shadow-xl sm:p-5">
       <SectionTitle title={title} subtitle={subtitle} badge="CALCULATED" accent="blue" />
       <Table>
         <TableHeader>

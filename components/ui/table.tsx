@@ -11,7 +11,7 @@ const Table = React.forwardRef<
     aria-label="Scrollable data table"
     tabIndex={0}
   >
-    <div className="table-scroll-hint md:hidden">← Swipe to view more →</div>
+    <div className="table-scroll-hint md:hidden">Swipe left/right to view more</div>
     <table
       ref={ref}
       className={cn("w-max min-w-[760px] max-w-none caption-bottom text-sm", className)}
@@ -56,8 +56,7 @@ const TableHead = React.forwardRef<
   <th
     ref={ref}
     className={cn(
-      "h-11 px-4 text-left align-middle text-xs font-semibold uppercase tracking-normal text-muted-foreground",
-      "whitespace-nowrap",
+      "h-11 whitespace-nowrap px-4 text-left align-middle text-xs font-semibold uppercase tracking-normal text-muted-foreground",
       className,
     )}
     {...props}

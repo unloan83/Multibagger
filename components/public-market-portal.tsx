@@ -559,19 +559,19 @@ function MarketOpportunitiesSection({
       />
       <div className="grid gap-3 lg:grid-cols-[0.8fr_1.2fr]">
         <article className="rounded-xl border border-amber-300/25 bg-[#16263D] p-4">
-          <div className="text-xs uppercase tracking-[0.14em] text-slate-500">
+          <div className="text-sm uppercase tracking-[0.1em] text-slate-400">
             Opportunity Score
           </div>
           <div className="mt-3 flex items-end gap-3">
             <span className={cn("text-4xl font-semibold", opportunityTone(opportunityScore))}>
               {opportunityScore}
             </span>
-            <span className="pb-1 text-sm font-semibold text-slate-400">/100</span>
+            <span className="pb-1 font-semibold text-slate-400">/100</span>
           </div>
           <div className={cn("mt-2 text-sm font-semibold", opportunityTone(opportunityScore))}>
             {classification}
           </div>
-          <p className="mt-3 text-sm leading-6 text-slate-400">{summary}</p>
+          <p className="mt-3 leading-6 text-slate-300">{summary}</p>
         </article>
 
         <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
@@ -579,22 +579,22 @@ function MarketOpportunitiesSection({
           <Metric label="HOLD" value={String(holdCount)} />
           <Metric label="REDUCE" value={String(reduceCount)} tone="down" />
           <Metric label="DO NOTHING" value={String(doNothingCount)} />
-          <Metric label="Total Signals" value={String(totalRecommendations)} />
-          <Metric label="Stocks Covered" value={String(picks.length || (market?.gainers.length ?? 0) + (market?.losers.length ?? 0))} />
+          <Metric label="Total Signals" value={String(totalRecommendations)} className="hidden sm:block" />
+          <Metric label="Stocks Covered" value={String(picks.length || (market?.gainers.length ?? 0) + (market?.losers.length ?? 0))} className="hidden sm:block" />
         </div>
       </div>
       <div className="table-scroll rounded-xl border border-white/10" role="region" aria-label="Scrollable market opportunities table" tabIndex={0}>
-        <div className="table-scroll-hint md:hidden">← Swipe to view more →</div>
+        <div className="table-scroll-hint md:hidden">Swipe left/right to view more</div>
         <table className="w-max min-w-[860px] max-w-none text-left text-sm">
-          <thead className="bg-white/[0.03] text-xs uppercase tracking-[0.14em] text-slate-500">
+          <thead className="bg-white/[0.03] text-xs uppercase tracking-[0.1em] text-slate-400">
             <tr>
               <th className="px-3 py-3">Symbol</th>
               <th className="px-3 py-3">Recommendation</th>
               <th className="px-3 py-3">Confidence</th>
-              <th className="px-3 py-3">Market Cap Type</th>
-              <th className="px-3 py-3">Investment Horizon</th>
-              <th className="px-3 py-3">Times Recommended</th>
-              <th className="px-3 py-3">Last Updated</th>
+              <th className="px-3 py-3">Market Cap</th>
+              <th className="px-3 py-3">Horizon</th>
+              <th className="px-3 py-3">Signals</th>
+              <th className="px-3 py-3">Updated</th>
             </tr>
           </thead>
           <tbody>
@@ -602,13 +602,13 @@ function MarketOpportunitiesSection({
               <tr key={pick.symbol} className="border-t border-white/10">
                 <td className="px-3 py-3 font-semibold text-white">{pick.symbol}</td>
                 <td className={cn("px-3 py-3 font-semibold", marketOpportunityTone(pick))}>{pick.action}</td>
-                <td className={cn("px-3 py-3", pick.confidence >= 85 ? "font-semibold text-[#D4AF37]" : "text-slate-300")}>
+                <td className={cn("px-3 py-3", pick.confidence >= 85 ? "font-semibold text-amber-300" : "text-slate-300")}>
                   {pick.confidence}%
                   {pick.confidence >= 85 ? " A+" : ""}
                 </td>
                 <td className="px-3 py-3 text-slate-300">{pick.marketCapType}</td>
-                <td className={cn("px-3 py-3", pick.horizon === "Long Term" ? "font-semibold text-[#0D47A1]" : "text-slate-300")}>{pick.horizon}</td>
-                <td className="px-3 py-3 text-slate-300">{pick.count} Signals</td>
+                <td className={cn("px-3 py-3", pick.horizon === "Long Term" ? "font-semibold text-sky-300" : "text-slate-300")}>{pick.horizon}</td>
+                <td className="px-3 py-3 text-slate-300">{pick.count}</td>
                 <td className="px-3 py-3 text-slate-400">{matrix?.asOf ? "Today" : "Pending"}</td>
               </tr>
             ))}
@@ -671,9 +671,9 @@ function opportunityTone(score: number) {
 }
 
 function marketOpportunityTone(pick: { action: string; confidence: number; horizon: string }) {
-  if (pick.confidence >= 85) return "text-[#D4AF37]";
-  if (pick.horizon === "Long Term") return "text-[#0D47A1]";
-  if (pick.action === "BUY") return "text-[#1E88E5]";
+  if (pick.confidence >= 85) return "text-amber-300";
+  if (pick.horizon === "Long Term") return "text-sky-300";
+  if (pick.action === "BUY") return "text-blue-400";
   return "text-slate-300";
 }
 
@@ -775,10 +775,10 @@ function SectionTitle({
   );
 }
 
-function Metric({ label, value, tone = "flat" }: { label: string; value: string; tone?: "up" | "down" | "flat" }) {
+function Metric({ label, value, tone = "flat", className }: { label: string; value: string; tone?: "up" | "down" | "flat", className?: string }) {
   return (
-    <article className="rounded-xl border border-white/10 bg-[#16263D] p-3">
-      <div className="text-xs uppercase tracking-[0.14em] text-slate-500">{label}</div>
+    <article className={cn("rounded-xl border border-white/10 bg-[#16263D] p-3", className)}>
+      <div className="text-xs uppercase tracking-[0.1em] text-slate-400">{label}</div>
       <div className={cn("mt-2 text-xl font-semibold", tone === "up" ? "text-emerald-300" : tone === "down" ? "text-rose-300" : "text-amber-300")}>{value}</div>
     </article>
   );
@@ -808,4 +808,3 @@ function filterHomepagePortfolios(portfolios: ManagedPortfolio[]) {
       return a.name.localeCompare(b.name);
     });
 }
-

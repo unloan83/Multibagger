@@ -37,13 +37,13 @@
     font-family:
       Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI",
       sans-serif;
-    font-size: calc(17px * var(--app-zoom, 1));
-    line-height: 1.55;
-    overflow-x: auto;
+  font-size: calc(16px * var(--app-zoom, 1));
+  line-height: 1.6;
+  overflow-x: hidden;
   }
 
   html {
-    overflow-x: auto;
+  overflow-x: hidden;
     -webkit-text-size-adjust: 100%;
   }
 }
@@ -76,6 +76,10 @@
   }
 
   .table-scroll {
+    position: relative;
+    display: block;
+    width: 100%;
+    min-width: 0;
     max-width: 100%;
     overflow-x: auto;
     overflow-y: hidden;
@@ -87,8 +91,8 @@
   }
 
   .table-scroll table {
-    width: max-content;
-    min-width: 760px;
+    width: max-content !important;
+    min-width: max(760px, 100%);
     max-width: none;
     table-layout: auto;
   }

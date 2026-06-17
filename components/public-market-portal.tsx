@@ -62,6 +62,11 @@ type PublicPortfolioCsvRow = {
   name?: string;
   quantity?: string;
   qty?: string;
+  "avg buy price"?: string;
+  "buy price"?: string;
+  avgBuyPrice?: string;
+  buyPrice?: string;
+  purchasePrice?: string;
 };
 
 const portfoliosStorageKey = "multibagger-portfolios";
@@ -274,6 +279,7 @@ export function PublicMarketPortal() {
               stockCode: getCsvValue(row, ["stock code", "stockCode", "symbol", "ticker", "code", "stock"]),
               company: getCsvValue(row, ["company", "name"]),
               quantity: Number(getCsvValue(row, ["quantity", "qty"])),
+              buyPrice: Number(getCsvValue(row, ["avg buy price", "buy price", "avgBuyPrice", "buyPrice", "purchasePrice"])),
             }),
           )
           .filter((row) => row.stockCode || row.company);
@@ -802,7 +808,7 @@ function PublicAddPortfolioModal({
         <div className="mt-5 space-y-2">
           <div className="text-sm font-semibold text-white">Stock List</div>
           {draftRows.map((row, index) => (
-            <div key={`public-draft-${index}`} className="grid gap-2 md:grid-cols-[160px_1fr_120px_44px]">
+            <div key={`public-draft-${index}`} className="grid gap-2 md:grid-cols-[160px_1fr_120px_140px_44px]">
               <input
                 value={row.stockCode}
                 onChange={(event) => {
@@ -836,6 +842,19 @@ function PublicAddPortfolioModal({
                 }
                 placeholder="Quantity"
                 type="number"
+                className="h-10 rounded-md border border-white/10 bg-[#08121F] px-3 text-sm text-white outline-none focus:ring-2 focus:ring-cyan-300"
+              />
+              <input
+                value={row.buyPrice ?? ""}
+                onChange={(event) =>
+                  updateDraftRow(index, {
+                    buyPrice: Number(event.target.value) || undefined,
+                  })
+                }
+                placeholder="Avg Buy Price"
+                type="number"
+                min="0"
+                step="0.01"
                 className="h-10 rounded-md border border-white/10 bg-[#08121F] px-3 text-sm text-white outline-none focus:ring-2 focus:ring-cyan-300"
               />
               <Button
@@ -1242,6 +1261,7 @@ function normalizePublicPortfolioRows(rows: PortfolioInputRow[]) {
       .replace(/\.NS$|\.BO$/u, "");
     const company = String(row.company || row.stock || "").trim();
     const quantity = Number(row.quantity) || 0;
+    const buyPrice = Number(row.buyPrice) || undefined;
     const key = stockCode || company.toLowerCase();
 
     if (!key || quantity <= 0) {
@@ -1251,6 +1271,7 @@ function normalizePublicPortfolioRows(rows: PortfolioInputRow[]) {
     const normalized = buildPortfolioInputRow({
       company,
       quantity,
+      buyPrice,
       stockCode,
     });
     const existing = acc[key];
@@ -1263,6 +1284,7 @@ function normalizePublicPortfolioRows(rows: PortfolioInputRow[]) {
     acc[key] = {
       ...existing,
       company: existing.company || normalized.company,
+      buyPrice: existing.buyPrice ?? normalized.buyPrice,
       quantity: existing.quantity + normalized.quantity,
       stock: existing.stockCode || existing.company || normalized.stock,
     };

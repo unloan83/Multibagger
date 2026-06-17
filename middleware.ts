@@ -11,8 +11,12 @@ export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
   const isLoginPage = pathname === "/login";
   const isAdminRoute = pathname === "/admin" || pathname.startsWith("/admin/");
+  const isPublicPortfolioCreate =
+    pathname === "/api/portfolios" && request.method === "POST";
   const isProtectedApi =
-    (pathname.startsWith("/api/portfolios") && request.method !== "GET") ||
+    (pathname.startsWith("/api/portfolios") &&
+      request.method !== "GET" &&
+      !isPublicPortfolioCreate) ||
     pathname.startsWith("/api/storage");
   const isPublicAsset =
     pathname.startsWith("/_next") ||

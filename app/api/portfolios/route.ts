@@ -5,7 +5,6 @@ import {
   savePortfolioToSheets,
   testGoogleSheetsConnection,
 } from "@/lib/google-sheets";
-import { isRequestAuthenticated } from "@/lib/auth";
 import type { ManagedPortfolio } from "@/lib/portfolio";
 
 export const runtime = "nodejs";
@@ -33,10 +32,6 @@ export async function GET() {
 }
 
 export async function POST(request: Request) {
-  if (!(await isRequestAuthenticated())) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
-
   if (!isGoogleSheetsConfigured()) {
     return NextResponse.json(
       { error: "Google Sheets is not configured." },

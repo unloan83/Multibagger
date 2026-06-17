@@ -12,17 +12,20 @@ export const metadata: Metadata = {
   title: "UNLOAN",
   description: "Build Wealth. Reduce Debt. Create Freedom.",
   icons: {
-    apple: "/unloan-icon.svg",
-    icon: "/unloan-icon.svg",
-    shortcut: "/unloan-icon.svg",
+    apple: "/icons/apple-touch-icon.png",
+    icon: [
+      { url: "/icons/unloan-icon-192.png", sizes: "192x192", type: "image/png" },
+      { url: "/icons/unloan-icon-512.png", sizes: "512x512", type: "image/png" },
+    ],
+    shortcut: "/icons/unloan-icon-192.png",
   },
   manifest: "/manifest.webmanifest",
 };
 
 export const viewport: Viewport = {
   initialScale: 1,
-  maximumScale: 5,
-  minimumScale: 0.5,
+  maximumScale: 3,
+  minimumScale: 1,
   userScalable: true,
   width: "device-width",
 };

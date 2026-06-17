@@ -1,28 +1,36 @@
 "use client";
 
-import { BookOpen, Lock, LockKeyhole, Map, Shield, TrendingUp, X } from "lucide-react";
+import Papa from "papaparse";
+import { BookOpen, FileUp, Lock, LockKeyhole, Map, Plus, Shield, Sparkles, Trash2, TrendingUp, X } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
   useEffect,
   useMemo,
+  useRef,
   useState,
   type ClipboardEvent,
   type FormEvent,
   type KeyboardEvent,
+  type RefObject,
 } from "react";
 import { MarketOverviewCollapsible } from "@/components/market-overview-collapsible";
 import { PortfolioHub } from "@/components/portfolio-hub";
 import { Button } from "@/components/ui/button";
 import type { MarketOverview } from "@/lib/decision-intelligence";
 import {
+  hashPortfolioPin,
   masterRecoveryPin,
   normalizePinInput,
   validatePortfolioPin,
 } from "@/lib/portfolio-pin";
 import {
+  buildPortfolioInputRow,
+  type InvestmentAppetite,
   type ManagedPortfolio,
+  type PortfolioInputRow,
+  type PortfolioPosition,
   samplePortfolio,
 } from "@/lib/portfolio";
 import { cn } from "@/lib/utils";
@@ -43,9 +51,28 @@ type ExpertActionMatrix = {
   }>;
 };
 
+type PublicPortfolioCsvRow = {
+  "stock code"?: string;
+  stockCode?: string;
+  symbol?: string;
+  ticker?: string;
+  code?: string;
+  stock?: string;
+  company?: string;
+  name?: string;
+  quantity?: string;
+  qty?: string;
+  "avg buy price"?: string;
+  "buy price"?: string;
+  avgBuyPrice?: string;
+  buyPrice?: string;
+  purchasePrice?: string;
+};
+
 const portfoliosStorageKey = "multibagger-portfolios";
 const pinStorageKey = "unloan-portfolio-pin-hashes";
 const unlockedPortfolioStorageKey = "unloan-unlocked-portfolio";
+const publicPortfolioContactStorageKey = "unloan-public-portfolio-contact";
 
 const roadmapItems = [
   "Portfolio Doctor",
@@ -86,6 +113,20 @@ export function PublicMarketPortal() {
   const [adminPassword, setAdminPassword] = useState("");
   const [adminError, setAdminError] = useState("");
   const [isAdminLoading, setIsAdminLoading] = useState(false);
+  const [isAddPortfolioOpen, setIsAddPortfolioOpen] = useState(false);
+  const [isCreatingPortfolio, setIsCreatingPortfolio] = useState(false);
+  const [addPortfolioError, setAddPortfolioError] = useState<string | null>(null);
+  const [portfolioName, setPortfolioName] = useState("");
+  const [portfolioPin, setPortfolioPin] = useState("");
+  const [investmentAppetite, setInvestmentAppetite] =
+    useState<InvestmentAppetite>("moderate");
+  const [draftRows, setDraftRows] = useState<PortfolioInputRow[]>([
+    buildPortfolioInputRow({}),
+  ]);
+  const [telegramUserId, setTelegramUserId] = useState("");
+  const [telegramPasskey, setTelegramPasskey] = useState("");
+  const [emailAddress, setEmailAddress] = useState("");
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   async function refreshMarket() {
     setIsMarketLoading(true);
@@ -209,6 +250,156 @@ export function PublicMarketPortal() {
     return null;
   }
 
+  function updateDraftRow(index: number, nextRow: Partial<PortfolioInputRow>) {
+    setDraftRows((rows) =>
+      rows.map((row, rowIndex) =>
+        rowIndex === index ? { ...row, ...nextRow } : row,
+      ),
+    );
+  }
+
+  function addDraftRow() {
+    setDraftRows((rows) => [...rows, buildPortfolioInputRow({})]);
+  }
+
+  function removeDraftRow(index: number) {
+    setDraftRows((rows) =>
+      rows.length === 1 ? rows : rows.filter((_, rowIndex) => rowIndex !== index),
+    );
+  }
+
+  function parseCsvRows(file: File) {
+    Papa.parse<PublicPortfolioCsvRow>(file, {
+      header: true,
+      skipEmptyLines: true,
+      complete: (result) => {
+        const rows = result.data
+          .map((row) =>
+            buildPortfolioInputRow({
+              stockCode: getCsvValue(row, ["stock code", "stockCode", "symbol", "ticker", "code", "stock"]),
+              company: getCsvValue(row, ["company", "name"]),
+              quantity: Number(getCsvValue(row, ["quantity", "qty"])),
+              buyPrice: Number(getCsvValue(row, ["avg buy price", "buy price", "avgBuyPrice", "buyPrice", "purchasePrice"])),
+            }),
+          )
+          .filter((row) => row.stockCode || row.company);
+
+        if (rows.length > 0) {
+          setDraftRows(rows);
+          setAddPortfolioError(null);
+        } else {
+          setAddPortfolioError("CSV should include stock code, company, and quantity columns.");
+        }
+      },
+      error: () => setAddPortfolioError("Unable to read CSV file."),
+    });
+  }
+
+  async function fetchQuotePositions(rows: PortfolioInputRow[]) {
+    const response = await fetch("/api/quotes", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ rows }),
+    });
+    const payload = (await response.json()) as {
+      positions?: PortfolioPosition[];
+      error?: string;
+    };
+
+    if (!response.ok || !payload.positions) {
+      throw new Error(payload.error ?? "Unable to fetch quote details.");
+    }
+
+    return payload.positions;
+  }
+
+  async function createPortfolio() {
+    const cleanName = portfolioName.trim();
+    const cleanPin = normalizePinInput(portfolioPin);
+    const cleanRows = normalizePublicPortfolioRows(draftRows);
+
+    setAddPortfolioError(null);
+
+    if (!cleanName) {
+      setAddPortfolioError("Add a portfolio name.");
+      return;
+    }
+
+    if (!/^\d{4}$/u.test(cleanPin)) {
+      setAddPortfolioError("Set a 4 digit portfolio PIN.");
+      return;
+    }
+
+    if (cleanRows.length === 0) {
+      setAddPortfolioError("Add at least one stock or upload a valid CSV.");
+      return;
+    }
+
+    setIsCreatingPortfolio(true);
+
+    try {
+      const id = `portfolio-${Date.now()}-${cleanName
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/gu, "-")
+        .replace(/^-|-$/gu, "")
+        .slice(0, 32) || "new"}`;
+      const positions = await fetchQuotePositions(cleanRows);
+      const portfolio: ManagedPortfolio = {
+        id,
+        name: cleanName,
+        appetite: investmentAppetite,
+        inputs: cleanRows,
+        positions,
+        refreshedAt: new Date().toISOString(),
+      };
+      const pinHash = await hashPortfolioPin(id, cleanPin);
+      const nextPortfolios = filterHomepagePortfolios([
+        ...portfolios.filter((item) => item.id !== id),
+        portfolio,
+      ]);
+      const nextPins = { ...pinHashes, [id]: pinHash };
+
+      setPortfolios(nextPortfolios);
+      setPinHashes(nextPins);
+      window.localStorage.setItem(portfoliosStorageKey, JSON.stringify(nextPortfolios));
+      window.localStorage.setItem(pinStorageKey, JSON.stringify(nextPins));
+      window.localStorage.setItem(
+        `${publicPortfolioContactStorageKey}-${id}`,
+        JSON.stringify({
+          emailAddress: emailAddress.trim(),
+          telegramPasskey: telegramPasskey.trim(),
+          telegramUserId: telegramUserId.trim(),
+        }),
+      );
+
+      await Promise.allSettled([
+        fetch("/api/portfolios", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ portfolio }),
+        }),
+        fetch("/api/portfolio-pins", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ portfolioId: id, pinHash }),
+        }),
+      ]);
+
+      setPortfolioName("");
+      setPortfolioPin("");
+      setInvestmentAppetite("moderate");
+      setDraftRows([buildPortfolioInputRow({})]);
+      setTelegramUserId("");
+      setTelegramPasskey("");
+      setEmailAddress("");
+      setIsAddPortfolioOpen(false);
+    } catch (error) {
+      setAddPortfolioError(error instanceof Error ? error.message : "Unable to create portfolio.");
+    } finally {
+      setIsCreatingPortfolio(false);
+    }
+  }
+
   async function loginAdmin() {
     setIsAdminLoading(true);
     setAdminError("");
@@ -236,7 +427,7 @@ export function PublicMarketPortal() {
       <section className="mx-auto flex w-full max-w-[1680px] flex-col gap-7 px-4 py-6 sm:px-6 lg:px-8">
         <header className="terminal-panel flex flex-col gap-5 rounded-2xl border border-sky-400/20 px-5 py-5 shadow-[0_24px_80px_rgba(0,0,0,0.34)] lg:flex-row lg:items-center lg:justify-between">
           <div className="flex items-start gap-3">
-            <Image src="/unloan-logo.svg" alt="UNLOAN" width={118} height={78} className="rounded-lg bg-white/95 p-1 shadow-sm" priority />
+            <Image src="/unloan-logo.png" alt="UNLOAN" width={118} height={78} className="object-contain" priority />
             <div className="space-y-2">
               <p className="text-sm font-semibold uppercase tracking-[0.2em] text-[#1E88E5]">UNLOAN</p>
               <h1 className="text-3xl font-semibold tracking-normal text-white sm:text-4xl">
@@ -268,13 +459,43 @@ export function PublicMarketPortal() {
           portfolios={portfolios}
           selectedPortfolioId={undefined}
           pinProtectedIds={Object.keys(pinHashes)}
-          onAddPortfolio={() => router.push("/admin")}
+          onAddPortfolio={() => setIsAddPortfolioOpen(true)}
           onOpenPortfolio={(portfolio) => {
             setPinChallengePortfolio(portfolio);
             setPinInput("");
             setPinError(null);
           }}
         />
+
+        {isAddPortfolioOpen ? (
+          <PublicAddPortfolioModal
+            draftRows={draftRows}
+            emailAddress={emailAddress}
+            error={addPortfolioError}
+            fileInputRef={fileInputRef}
+            investmentAppetite={investmentAppetite}
+            isLoading={isCreatingPortfolio}
+            portfolioName={portfolioName}
+            portfolioPin={portfolioPin}
+            telegramPasskey={telegramPasskey}
+            telegramUserId={telegramUserId}
+            addDraftRow={addDraftRow}
+            createPortfolio={createPortfolio}
+            parseCsvRows={parseCsvRows}
+            removeDraftRow={removeDraftRow}
+            setEmailAddress={setEmailAddress}
+            setInvestmentAppetite={setInvestmentAppetite}
+            setPortfolioName={setPortfolioName}
+            setPortfolioPin={setPortfolioPin}
+            setTelegramPasskey={setTelegramPasskey}
+            setTelegramUserId={setTelegramUserId}
+            updateDraftRow={updateDraftRow}
+            onClose={() => {
+              setIsAddPortfolioOpen(false);
+              setAddPortfolioError(null);
+            }}
+          />
+        ) : null}
 
         {pinChallengePortfolio ? (
           <PortfolioPinModal
@@ -482,6 +703,229 @@ function HeaderLink({ href, children }: { href: string; children: React.ReactNod
   );
 }
 
+function PublicAddPortfolioModal({
+  draftRows,
+  emailAddress,
+  error,
+  fileInputRef,
+  investmentAppetite,
+  isLoading,
+  portfolioName,
+  portfolioPin,
+  telegramPasskey,
+  telegramUserId,
+  addDraftRow,
+  createPortfolio,
+  parseCsvRows,
+  removeDraftRow,
+  setEmailAddress,
+  setInvestmentAppetite,
+  setPortfolioName,
+  setPortfolioPin,
+  setTelegramPasskey,
+  setTelegramUserId,
+  updateDraftRow,
+  onClose,
+}: {
+  draftRows: PortfolioInputRow[];
+  emailAddress: string;
+  error: string | null;
+  fileInputRef: RefObject<HTMLInputElement | null>;
+  investmentAppetite: InvestmentAppetite;
+  isLoading: boolean;
+  portfolioName: string;
+  portfolioPin: string;
+  telegramPasskey: string;
+  telegramUserId: string;
+  addDraftRow: () => void;
+  createPortfolio: () => void;
+  parseCsvRows: (file: File) => void;
+  removeDraftRow: (index: number) => void;
+  setEmailAddress: (value: string) => void;
+  setInvestmentAppetite: (value: InvestmentAppetite) => void;
+  setPortfolioName: (value: string) => void;
+  setPortfolioPin: (value: string) => void;
+  setTelegramPasskey: (value: string) => void;
+  setTelegramUserId: (value: string) => void;
+  updateDraftRow: (index: number, row: Partial<PortfolioInputRow>) => void;
+  onClose: () => void;
+}) {
+  return (
+    <div className="fixed inset-0 z-50 overflow-y-auto bg-black/70 px-4 py-6 backdrop-blur-sm">
+      <section className="mx-auto w-full max-w-5xl rounded-2xl border border-cyan-300/20 bg-[#0F1B2D] p-5 text-slate-100 shadow-2xl">
+        <div className="flex items-start justify-between gap-3">
+          <div>
+            <h2 className="text-lg font-semibold text-white">Add Portfolio</h2>
+            <p className="mt-1 text-sm text-slate-400">
+              Create a PIN-protected portfolio. No username or password required.
+            </p>
+          </div>
+          <Button type="button" variant="outline" size="icon" onClick={onClose}>
+            <X className="h-4 w-4" aria-hidden="true" />
+            <span className="sr-only">Close add portfolio</span>
+          </Button>
+        </div>
+
+        {error ? (
+          <div className="mt-4 rounded-md border border-rose-300/30 bg-rose-300/10 px-3 py-2 text-sm text-rose-100">
+            {error}
+          </div>
+        ) : null}
+
+        <div className="mt-5 grid gap-3 md:grid-cols-3">
+          <input
+            value={portfolioName}
+            onChange={(event) => setPortfolioName(event.target.value)}
+            placeholder="Portfolio Name"
+            className="h-11 rounded-md border border-white/10 bg-[#08121F] px-3 text-sm text-white outline-none focus:ring-2 focus:ring-cyan-300"
+          />
+          <input
+            value={portfolioPin}
+            onChange={(event) => setPortfolioPin(normalizePinInput(event.target.value))}
+            onPaste={(event) => {
+              event.preventDefault();
+              setPortfolioPin(normalizePinInput(event.clipboardData.getData("text")));
+            }}
+            placeholder="Portfolio PIN"
+            type="text"
+            inputMode="numeric"
+            pattern="[0-9]*"
+            maxLength={4}
+            autoComplete="off"
+            className="h-11 rounded-md border border-white/10 bg-[#08121F] px-3 text-sm text-white outline-none focus:ring-2 focus:ring-cyan-300"
+          />
+          <select
+            value={investmentAppetite}
+            onChange={(event) => setInvestmentAppetite(event.target.value as InvestmentAppetite)}
+            className="h-11 rounded-md border border-white/10 bg-[#08121F] px-3 text-sm text-white outline-none focus:ring-2 focus:ring-cyan-300"
+          >
+            <option value="safe">Safe Risk Appetite</option>
+            <option value="moderate">Moderate Risk Appetite</option>
+            <option value="aggressive">Aggressive Risk Appetite</option>
+          </select>
+        </div>
+
+        <div className="mt-5 space-y-2">
+          <div className="text-sm font-semibold text-white">Stock List</div>
+          {draftRows.map((row, index) => (
+            <div key={`public-draft-${index}`} className="grid gap-2 md:grid-cols-[160px_1fr_120px_140px_44px]">
+              <input
+                value={row.stockCode}
+                onChange={(event) => {
+                  const stockCode = event.target.value.toUpperCase();
+                  updateDraftRow(index, {
+                    stock: stockCode || row.company,
+                    stockCode,
+                  });
+                }}
+                placeholder="Stock Code"
+                className="h-10 rounded-md border border-white/10 bg-[#08121F] px-3 text-sm text-white outline-none focus:ring-2 focus:ring-cyan-300"
+              />
+              <input
+                value={row.company}
+                onChange={(event) =>
+                  updateDraftRow(index, {
+                    company: event.target.value,
+                    stock: row.stockCode || event.target.value,
+                  })
+                }
+                placeholder="Company"
+                className="h-10 rounded-md border border-white/10 bg-[#08121F] px-3 text-sm text-white outline-none focus:ring-2 focus:ring-cyan-300"
+              />
+              <input
+                value={row.quantity || ""}
+                onChange={(event) =>
+                  updateDraftRow(index, {
+                    list: Number(event.target.value) > 0 ? "current" : "watchlist",
+                    quantity: Number(event.target.value),
+                  })
+                }
+                placeholder="Quantity"
+                type="number"
+                className="h-10 rounded-md border border-white/10 bg-[#08121F] px-3 text-sm text-white outline-none focus:ring-2 focus:ring-cyan-300"
+              />
+              <input
+                value={row.buyPrice ?? ""}
+                onChange={(event) =>
+                  updateDraftRow(index, {
+                    buyPrice: Number(event.target.value) || undefined,
+                  })
+                }
+                placeholder="Avg Buy Price"
+                type="number"
+                min="0"
+                step="0.01"
+                className="h-10 rounded-md border border-white/10 bg-[#08121F] px-3 text-sm text-white outline-none focus:ring-2 focus:ring-cyan-300"
+              />
+              <Button
+                type="button"
+                variant="outline"
+                size="icon"
+                onClick={() => removeDraftRow(index)}
+                disabled={draftRows.length === 1}
+                aria-label="Remove stock row"
+              >
+                <Trash2 className="h-4 w-4" aria-hidden="true" />
+              </Button>
+            </div>
+          ))}
+        </div>
+
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept=".csv,text/csv"
+          className="hidden"
+          onChange={(event) => {
+            const file = event.target.files?.[0];
+
+            if (file) {
+              parseCsvRows(file);
+            }
+          }}
+        />
+
+        <div className="mt-5 grid gap-3 md:grid-cols-3">
+          <input
+            value={telegramUserId}
+            onChange={(event) => setTelegramUserId(event.target.value)}
+            placeholder="Telegram User ID (Optional)"
+            className="h-11 rounded-md border border-white/10 bg-[#08121F] px-3 text-sm text-white outline-none focus:ring-2 focus:ring-cyan-300"
+          />
+          <input
+            value={telegramPasskey}
+            onChange={(event) => setTelegramPasskey(event.target.value)}
+            placeholder="Telegram Passkey (Optional)"
+            className="h-11 rounded-md border border-white/10 bg-[#08121F] px-3 text-sm text-white outline-none focus:ring-2 focus:ring-cyan-300"
+          />
+          <input
+            value={emailAddress}
+            onChange={(event) => setEmailAddress(event.target.value)}
+            placeholder="Email Address (Optional)"
+            type="email"
+            className="h-11 rounded-md border border-white/10 bg-[#08121F] px-3 text-sm text-white outline-none focus:ring-2 focus:ring-cyan-300"
+          />
+        </div>
+
+        <div className="mt-5 flex flex-col gap-2 sm:flex-row">
+          <Button type="button" variant="outline" onClick={addDraftRow}>
+            <Plus className="h-4 w-4" aria-hidden="true" />
+            Add Stock
+          </Button>
+          <Button type="button" variant="outline" onClick={() => fileInputRef.current?.click()}>
+            <FileUp className="h-4 w-4" aria-hidden="true" />
+            Upload CSV
+          </Button>
+          <Button type="button" onClick={createPortfolio} disabled={isLoading}>
+            <Sparkles className="h-4 w-4" aria-hidden="true" />
+            {isLoading ? "Creating Portfolio" : "Create Portfolio"}
+          </Button>
+        </div>
+      </section>
+    </div>
+  );
+}
+
 function MarketOpportunitiesSection({
   matrix,
   market,
@@ -559,19 +1003,19 @@ function MarketOpportunitiesSection({
       />
       <div className="grid gap-3 lg:grid-cols-[0.8fr_1.2fr]">
         <article className="rounded-xl border border-amber-300/25 bg-[#16263D] p-4">
-          <div className="text-xs uppercase tracking-[0.14em] text-slate-500">
+          <div className="text-sm uppercase tracking-[0.1em] text-slate-400">
             Opportunity Score
           </div>
           <div className="mt-3 flex items-end gap-3">
             <span className={cn("text-4xl font-semibold", opportunityTone(opportunityScore))}>
               {opportunityScore}
             </span>
-            <span className="pb-1 text-sm font-semibold text-slate-400">/100</span>
+            <span className="pb-1 font-semibold text-slate-400">/100</span>
           </div>
           <div className={cn("mt-2 text-sm font-semibold", opportunityTone(opportunityScore))}>
             {classification}
           </div>
-          <p className="mt-3 text-sm leading-6 text-slate-400">{summary}</p>
+          <p className="mt-3 leading-6 text-slate-300">{summary}</p>
         </article>
 
         <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
@@ -579,21 +1023,22 @@ function MarketOpportunitiesSection({
           <Metric label="HOLD" value={String(holdCount)} />
           <Metric label="REDUCE" value={String(reduceCount)} tone="down" />
           <Metric label="DO NOTHING" value={String(doNothingCount)} />
-          <Metric label="Total Signals" value={String(totalRecommendations)} />
-          <Metric label="Stocks Covered" value={String(picks.length || (market?.gainers.length ?? 0) + (market?.losers.length ?? 0))} />
+          <Metric label="Total Signals" value={String(totalRecommendations)} className="hidden sm:block" />
+          <Metric label="Stocks Covered" value={String(picks.length || (market?.gainers.length ?? 0) + (market?.losers.length ?? 0))} className="hidden sm:block" />
         </div>
       </div>
-      <div className="overflow-x-auto rounded-xl border border-white/10">
-        <table className="w-full text-left text-sm">
-          <thead className="bg-white/[0.03] text-xs uppercase tracking-[0.14em] text-slate-500">
+      <div className="table-scroll rounded-xl border border-white/10" role="region" aria-label="Scrollable market opportunities table" tabIndex={0}>
+        <div className="table-scroll-hint md:hidden">Swipe left/right to view more</div>
+        <table className="w-max min-w-[860px] max-w-none text-left text-sm">
+          <thead className="bg-white/[0.03] text-xs uppercase tracking-[0.1em] text-slate-400">
             <tr>
               <th className="px-3 py-3">Symbol</th>
               <th className="px-3 py-3">Recommendation</th>
               <th className="px-3 py-3">Confidence</th>
-              <th className="px-3 py-3">Market Cap Type</th>
-              <th className="px-3 py-3">Investment Horizon</th>
-              <th className="px-3 py-3">Times Recommended</th>
-              <th className="px-3 py-3">Last Updated</th>
+              <th className="px-3 py-3">Market Cap</th>
+              <th className="px-3 py-3">Horizon</th>
+              <th className="px-3 py-3">Signals</th>
+              <th className="px-3 py-3">Updated</th>
             </tr>
           </thead>
           <tbody>
@@ -601,13 +1046,13 @@ function MarketOpportunitiesSection({
               <tr key={pick.symbol} className="border-t border-white/10">
                 <td className="px-3 py-3 font-semibold text-white">{pick.symbol}</td>
                 <td className={cn("px-3 py-3 font-semibold", marketOpportunityTone(pick))}>{pick.action}</td>
-                <td className={cn("px-3 py-3", pick.confidence >= 85 ? "font-semibold text-[#D4AF37]" : "text-slate-300")}>
+                <td className={cn("px-3 py-3", pick.confidence >= 85 ? "font-semibold text-amber-300" : "text-slate-300")}>
                   {pick.confidence}%
                   {pick.confidence >= 85 ? " A+" : ""}
                 </td>
                 <td className="px-3 py-3 text-slate-300">{pick.marketCapType}</td>
-                <td className={cn("px-3 py-3", pick.horizon === "Long Term" ? "font-semibold text-[#0D47A1]" : "text-slate-300")}>{pick.horizon}</td>
-                <td className="px-3 py-3 text-slate-300">{pick.count} Signals</td>
+                <td className={cn("px-3 py-3", pick.horizon === "Long Term" ? "font-semibold text-sky-300" : "text-slate-300")}>{pick.horizon}</td>
+                <td className="px-3 py-3 text-slate-300">{pick.count}</td>
                 <td className="px-3 py-3 text-slate-400">{matrix?.asOf ? "Today" : "Pending"}</td>
               </tr>
             ))}
@@ -670,9 +1115,9 @@ function opportunityTone(score: number) {
 }
 
 function marketOpportunityTone(pick: { action: string; confidence: number; horizon: string }) {
-  if (pick.confidence >= 85) return "text-[#D4AF37]";
-  if (pick.horizon === "Long Term") return "text-[#0D47A1]";
-  if (pick.action === "BUY") return "text-[#1E88E5]";
+  if (pick.confidence >= 85) return "text-amber-300";
+  if (pick.horizon === "Long Term") return "text-sky-300";
+  if (pick.action === "BUY") return "text-blue-400";
   return "text-slate-300";
 }
 
@@ -774,10 +1219,10 @@ function SectionTitle({
   );
 }
 
-function Metric({ label, value, tone = "flat" }: { label: string; value: string; tone?: "up" | "down" | "flat" }) {
+function Metric({ label, value, tone = "flat", className }: { label: string; value: string; tone?: "up" | "down" | "flat", className?: string }) {
   return (
-    <article className="rounded-xl border border-white/10 bg-[#16263D] p-3">
-      <div className="text-xs uppercase tracking-[0.14em] text-slate-500">{label}</div>
+    <article className={cn("rounded-xl border border-white/10 bg-[#16263D] p-3", className)}>
+      <div className="text-xs uppercase tracking-[0.1em] text-slate-400">{label}</div>
       <div className={cn("mt-2 text-xl font-semibold", tone === "up" ? "text-emerald-300" : tone === "down" ? "text-rose-300" : "text-amber-300")}>{value}</div>
     </article>
   );
@@ -808,3 +1253,65 @@ function filterHomepagePortfolios(portfolios: ManagedPortfolio[]) {
     });
 }
 
+function normalizePublicPortfolioRows(rows: PortfolioInputRow[]) {
+  const merged = rows.reduce<Record<string, PortfolioInputRow>>((acc, row) => {
+    const stockCode = String(row.stockCode || "")
+      .trim()
+      .toUpperCase()
+      .replace(/\.NS$|\.BO$/u, "");
+    const company = String(row.company || row.stock || "").trim();
+    const quantity = Number(row.quantity) || 0;
+    const buyPrice = Number(row.buyPrice) || undefined;
+    const key = stockCode || company.toLowerCase();
+
+    if (!key || quantity <= 0) {
+      return acc;
+    }
+
+    const normalized = buildPortfolioInputRow({
+      company,
+      quantity,
+      buyPrice,
+      stockCode,
+    });
+    const existing = acc[key];
+
+    if (!existing) {
+      acc[key] = normalized;
+      return acc;
+    }
+
+    acc[key] = {
+      ...existing,
+      company: existing.company || normalized.company,
+      buyPrice: existing.buyPrice ?? normalized.buyPrice,
+      quantity: existing.quantity + normalized.quantity,
+      stock: existing.stockCode || existing.company || normalized.stock,
+    };
+
+    return acc;
+  }, {});
+
+  return Object.values(merged);
+}
+
+function getCsvValue(row: PublicPortfolioCsvRow, keys: string[]) {
+  const looseRow = row as Record<string, string | undefined>;
+  const normalizedLookup = Object.entries(looseRow).reduce<Record<string, string>>(
+    (acc, [key, value]) => {
+      acc[key.trim().toLowerCase()] = value ?? "";
+      return acc;
+    },
+    {},
+  );
+
+  for (const key of keys) {
+    const value = normalizedLookup[key.trim().toLowerCase()];
+
+    if (value) {
+      return value;
+    }
+  }
+
+  return "";
+}

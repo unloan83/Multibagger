@@ -20,10 +20,7 @@ import { ChangeDetection } from "@/components/change-detection";
 import { MarketOverviewCollapsible } from "@/components/market-overview-collapsible";
 import { PortfolioCoach } from "@/components/portfolio-coach";
 import { PortfolioHub } from "@/components/portfolio-hub";
-import {
-  RecommendationReliability,
-  TodaysActionCenter,
-} from "@/components/todays-action-center";
+import { RecommendationReliability } from "@/components/todays-action-center";
 import {
   Card,
   CardContent,
@@ -959,11 +956,11 @@ export function PortfolioDashboard({
         <header className="terminal-panel flex flex-col gap-5 rounded-2xl border border-sky-400/20 px-5 py-5 shadow-[0_24px_80px_rgba(0,0,0,0.34)] lg:flex-row lg:items-end lg:justify-between">
           <div className="flex items-start gap-3">
             <Image
-              src="/unloan-logo.svg"
+              src="/unloan-logo.png"
               alt="UNLOAN"
               width={118}
               height={78}
-              className="rounded-lg bg-white/95 p-1 shadow-sm"
+              className="object-contain"
               priority
             />
             <div className="space-y-2">
@@ -1079,15 +1076,15 @@ export function PortfolioDashboard({
         ) : null}
 
         {selectedPortfolio && (adminMode || routeUnlocked || !initialPortfolioId) ? (
-          <section className="overflow-hidden rounded-2xl border border-white/10 bg-[#0F1B2D] shadow-xl">
+          <section className="rounded-2xl border border-white/10 bg-[#0F1B2D] shadow-xl">
             <div className="flex flex-col gap-3 px-5 py-4 lg:flex-row lg:items-center lg:justify-between">
               <div className="flex items-center gap-3">
                 <Image
-                  src="/unloan-logo.svg"
+                  src="/unloan-logo.png"
                   alt="UNLOAN"
                   width={98}
                   height={64}
-                  className="rounded-md bg-white/95 p-1 shadow-sm"
+                  className="object-contain"
                 />
                 <div>
                   <h2 className="text-lg font-semibold text-white">
@@ -1132,39 +1129,29 @@ export function PortfolioDashboard({
               </div>
             </div>
             {isPortfolioDashboardOpen ? (
-              <div className="space-y-5 border-t border-white/10 p-5">
-                <TodaysActionCenter intelligence={decisionIntelligence} />
-                <PortfolioDiagnostics portfolio={selectedPortfolio} />
-                <section className="grid gap-4 xl:grid-cols-2">
-                  <PortfolioCoach portfolio={selectedPortfolio} />
-                  <PortfolioMarketOpportunities matrix={expertMatrix} />
-                </section>
-                <ChangeDetection snapshot={decisionIntelligence?.snapshot} />
-                <PortfolioHoldingsAndSectors
-                  portfolio={selectedPortfolio}
-                  isLoading={isLoading}
-                  onUpdateInputs={(rows) => updatePortfolioInputs(selectedPortfolio, rows)}
-                />
-                <RecommendationReliability intelligence={decisionIntelligence} />
-                <PortfolioCommunicationCenter
-                  portfolio={selectedPortfolio}
-                  onPortfolioPinChanged={(pinHash, updatedAt) => {
-                    setPinHashes((items) => ({
-                      ...items,
-                      [selectedPortfolio.id]: pinHash,
-                    }));
-                    setPinUpdatedAt((items) => ({
-                      ...items,
-                      [selectedPortfolio.id]: updatedAt,
-                    }));
-                  }}
-                />
-              </div>
+              <SimplifiedPortfolioView
+                portfolio={selectedPortfolio}
+                history={history}
+                expertMatrix={expertMatrix}
+                decisionIntelligence={decisionIntelligence}
+                isLoading={isLoading}
+                onUpdateInputs={(rows) => updatePortfolioInputs(selectedPortfolio, rows)}
+                onPortfolioPinChanged={(pinHash, updatedAt) => {
+                  setPinHashes((items) => ({
+                    ...items,
+                    [selectedPortfolio.id]: pinHash,
+                  }));
+                  setPinUpdatedAt((items) => ({
+                    ...items,
+                    [selectedPortfolio.id]: updatedAt,
+                  }));
+                }}
+              />
             ) : null}
           </section>
         ) : null}
 
-        <RoadmapSection />
+        {!initialPortfolioId ? <RoadmapSection /> : null}
 
         <GlossarySection />
       </section>
@@ -1187,6 +1174,331 @@ function HeaderLink({
     >
       {children}
     </Link>
+  );
+}
+
+type PortfolioActionPanel =
+  | "analysis"
+  | "management"
+  | "diagnostics"
+  | "settings";
+
+type DecisionRecommendationRow = {
+  symbol: string;
+  type: string;
+  cmp: number;
+  target: number;
+  stopLoss: number;
+  confidence: number;
+  action: "BUY" | "SELL";
+  reason: string;
+  technicalFactors: string[];
+  fundamentalFactors: string[];
+  sectorStrength: string;
+  riskFactors: string[];
+};
+
+function SimplifiedPortfolioView({
+  portfolio,
+  history,
+  expertMatrix,
+  decisionIntelligence,
+  isLoading,
+  onUpdateInputs,
+  onPortfolioPinChanged,
+}: {
+  portfolio: ManagedPortfolio;
+  history: Recommendation[];
+  expertMatrix: ExpertActionMatrix | null;
+  decisionIntelligence: ReturnType<typeof buildDecisionIntelligence> | null;
+  isLoading: boolean;
+  onUpdateInputs: (rows: PortfolioInputRow[]) => void | Promise<void>;
+  onPortfolioPinChanged: (pinHash: string, updatedAt: string) => void;
+}) {
+  const [activePanel, setActivePanel] = useState<PortfolioActionPanel | null>(null);
+  const sections = useMemo(
+    () => buildSimplifiedPortfolioSections(portfolio, history, expertMatrix),
+    [expertMatrix, history, portfolio],
+  );
+  const panelButtons: Array<{
+    id: PortfolioActionPanel;
+    title: string;
+    description: string;
+  }> = [
+    {
+      id: "analysis",
+      title: "Recommendation Analysis",
+      description: "Reasoning, technical factors, fundamentals, sector context, and risks.",
+    },
+    {
+      id: "management",
+      title: "Portfolio Management",
+      description: "Current holdings, add/edit/delete holdings, and CSV import workflow.",
+    },
+    {
+      id: "diagnostics",
+      title: "Portfolio Diagnostics",
+      description: "Health, risk, sector concentration, and AI portfolio coach.",
+    },
+    {
+      id: "settings",
+      title: "User Settings",
+      description: "Telegram, notification preferences, admin contact, and support requests.",
+    },
+  ];
+
+  return (
+    <div className="space-y-5 border-t border-white/10 p-4 sm:p-5">
+      <section className="rounded-2xl border border-cyan-300/20 bg-gradient-to-br from-[#10243B] to-[#0B1726] p-5 shadow-xl">
+        <div className="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-amber-200">
+              Portfolio Command View
+            </p>
+            <h1 className="mt-2 text-2xl font-semibold text-white sm:text-3xl">
+              Welcome to {portfolio.name}
+            </h1>
+            <p className="mt-2 text-sm text-slate-400">
+              Buy, sell, long-term, and intraday actions are shown first. Deeper analytics stay one click away.
+            </p>
+          </div>
+          <div className="rounded-xl border border-white/10 bg-black/20 px-4 py-3 text-sm text-slate-300">
+            Last Updated:{" "}
+            <span className="font-semibold text-white">
+              {portfolio.refreshedAt
+                ? new Date(portfolio.refreshedAt).toLocaleString("en-IN", {
+                    dateStyle: "medium",
+                    timeStyle: "short",
+                  })
+                : "Pending"}
+            </span>
+          </div>
+        </div>
+      </section>
+
+      <section className="grid gap-4 xl:grid-cols-2">
+        <DecisionRecommendationTable
+          title="Top Buy Recommendations"
+          subtitle="Best buy/accumulate ideas only from stocks already inside this portfolio."
+          rows={sections.buy}
+          emptyText="No portfolio holding currently clears the buy threshold."
+        />
+        <DecisionRecommendationTable
+          title="Top Sell Recommendations"
+          subtitle="Sell discipline for stocks already inside this portfolio."
+          rows={sections.sell}
+          emptyText="No urgent sell opportunity is currently triggered within this portfolio."
+        />
+        <DecisionRecommendationTable
+          title="Market-Wide Long Term"
+          subtitle="6-12 month opportunities from across the stock market, not limited to this portfolio."
+          rows={sections.longTerm}
+          emptyText="Market-wide long-term recommendations are loading."
+        />
+        <DecisionRecommendationTable
+          title="Market-Wide Intraday"
+          subtitle="Intraday opportunities from across the stock market, not limited to this portfolio."
+          rows={sections.intraday}
+          emptyText="Market-wide intraday opportunities are loading."
+        />
+      </section>
+
+      <section className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+        {panelButtons.map((button) => (
+          <button
+            key={button.id}
+            type="button"
+            onClick={() =>
+              setActivePanel((current) => (current === button.id ? null : button.id))
+            }
+            className={cn(
+              "rounded-2xl border p-4 text-left shadow-lg transition hover:-translate-y-0.5",
+              activePanel === button.id
+                ? "border-amber-300/60 bg-amber-300/10"
+                : "border-white/10 bg-[#16263D] hover:border-cyan-300/40",
+            )}
+            aria-expanded={activePanel === button.id}
+          >
+            <div className="flex items-center justify-between gap-3">
+              <h3 className="text-sm font-semibold text-white">{button.title}</h3>
+              <ChevronRight
+                className={cn(
+                  "h-5 w-5 text-cyan-200 transition-transform",
+                  activePanel === button.id ? "rotate-90" : "",
+                )}
+                aria-hidden="true"
+              />
+            </div>
+            <p className="mt-2 text-xs leading-5 text-slate-400">{button.description}</p>
+          </button>
+        ))}
+      </section>
+
+      {activePanel === "analysis" ? (
+        <RecommendationAnalysisPanel rows={sections.all} />
+      ) : null}
+
+      {activePanel === "management" ? (
+        <PortfolioHoldingsAndSectors
+          portfolio={portfolio}
+          isLoading={isLoading}
+          onUpdateInputs={onUpdateInputs}
+        />
+      ) : null}
+
+      {activePanel === "diagnostics" ? (
+        <section className="space-y-4">
+          <PortfolioDiagnostics portfolio={portfolio} />
+          <section className="grid gap-4 xl:grid-cols-2">
+            <PortfolioCoach portfolio={portfolio} />
+            <PortfolioMarketOpportunities matrix={expertMatrix} />
+          </section>
+          <ChangeDetection snapshot={decisionIntelligence?.snapshot} />
+          <RecommendationReliability intelligence={decisionIntelligence} />
+        </section>
+      ) : null}
+
+      {activePanel === "settings" ? (
+        <PortfolioCommunicationCenter
+          portfolio={portfolio}
+          onPortfolioPinChanged={onPortfolioPinChanged}
+        />
+      ) : null}
+    </div>
+  );
+}
+
+function DecisionRecommendationTable({
+  title,
+  subtitle,
+  rows,
+  emptyText,
+}: {
+  title: string;
+  subtitle: string;
+  rows: DecisionRecommendationRow[];
+  emptyText: string;
+}) {
+  return (
+    <section className="min-w-0 space-y-3 rounded-2xl border border-white/10 bg-[#101D30] p-4 shadow-xl sm:p-5">
+      <SectionTitle title={title} subtitle={subtitle} badge="CALCULATED" accent="blue" />
+      <Table>
+        <TableHeader>
+          <TableRow>
+            <TableHead>Stock</TableHead>
+            <TableHead>Type</TableHead>
+            <TableHead>CMP</TableHead>
+            <TableHead>Target</TableHead>
+            <TableHead>Stop Loss</TableHead>
+            <TableHead>Confidence</TableHead>
+          </TableRow>
+        </TableHeader>
+        <TableBody>
+          {rows.map((row) => (
+            <TableRow key={`${title}-${row.symbol}-${row.type}`}>
+              <TableCell className="font-semibold text-white">{row.symbol}</TableCell>
+              <TableCell>{row.type}</TableCell>
+              <TableCell>{formatDecisionPrice(row.cmp)}</TableCell>
+              <TableCell>{formatDecisionPrice(row.target)}</TableCell>
+              <TableCell>{formatDecisionPrice(row.stopLoss)}</TableCell>
+              <TableCell
+                className={cn(
+                  "font-semibold",
+                  row.confidence >= 80 ? "text-amber-200" : "text-cyan-200",
+                )}
+              >
+                {row.confidence}%
+              </TableCell>
+            </TableRow>
+          ))}
+          {rows.length === 0 ? (
+            <TableRow>
+              <TableCell colSpan={6} className="text-sm text-slate-400">
+                {emptyText}
+              </TableCell>
+            </TableRow>
+          ) : null}
+        </TableBody>
+      </Table>
+    </section>
+  );
+}
+
+function RecommendationAnalysisPanel({
+  rows,
+}: {
+  rows: DecisionRecommendationRow[];
+}) {
+  return (
+    <section className="space-y-3 rounded-2xl border border-amber-300/25 bg-[#101D30] p-5 shadow-xl">
+      <SectionTitle
+        title="Recommendation Analysis"
+        subtitle="Expanded reasoning for the currently surfaced recommendations."
+        badge="CALCULATED"
+        accent="gold"
+      />
+      <div className="grid gap-3 lg:grid-cols-2">
+        {rows.slice(0, 8).map((row) => (
+          <article
+            key={`analysis-${row.symbol}-${row.type}`}
+            className="rounded-xl border border-white/10 bg-[#16263D] p-4"
+          >
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <h3 className="text-base font-semibold text-white">{row.symbol}</h3>
+                <p className="text-xs text-slate-400">{row.type}</p>
+              </div>
+              <span
+                className={cn(
+                  "rounded-full border px-2.5 py-1 text-xs font-semibold",
+                  row.action === "BUY"
+                    ? "border-cyan-300/30 bg-cyan-300/10 text-cyan-100"
+                    : "border-rose-300/30 bg-rose-300/10 text-rose-100",
+                )}
+              >
+                {row.action}
+              </span>
+            </div>
+            <AnalysisLine label="Why Recommended" value={row.reason} />
+            <AnalysisList label="Technical Factors" values={row.technicalFactors} />
+            <AnalysisList label="Fundamental Factors" values={row.fundamentalFactors} />
+            <AnalysisLine label="Sector Strength" value={row.sectorStrength} />
+            <AnalysisList label="Risk Factors" values={row.riskFactors} />
+          </article>
+        ))}
+        {rows.length === 0 ? (
+          <div className="rounded-xl border border-white/10 bg-[#16263D] p-4 text-sm text-slate-400">
+            Recommendation reasoning will appear once recommendations are available.
+          </div>
+        ) : null}
+      </div>
+    </section>
+  );
+}
+
+function AnalysisLine({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="mt-3">
+      <div className="text-xs font-semibold uppercase tracking-[0.14em] text-slate-500">
+        {label}
+      </div>
+      <p className="mt-1 text-sm leading-6 text-slate-300">{value}</p>
+    </div>
+  );
+}
+
+function AnalysisList({ label, values }: { label: string; values: string[] }) {
+  return (
+    <div className="mt-3">
+      <div className="text-xs font-semibold uppercase tracking-[0.14em] text-slate-500">
+        {label}
+      </div>
+      <ul className="mt-1 space-y-1 text-sm leading-6 text-slate-300">
+        {values.map((value) => (
+          <li key={value}>{value}</li>
+        ))}
+      </ul>
+    </div>
   );
 }
 
@@ -3977,6 +4289,250 @@ function buildMarketOpportunityRows(matrix: ExpertActionMatrix | null) {
     ]) ?? [];
 
   return rows.sort((a, b) => b.confidence - a.confidence).slice(0, 5);
+}
+
+function buildSimplifiedPortfolioSections(
+  portfolio: ManagedPortfolio,
+  history: Recommendation[],
+  matrix: ExpertActionMatrix | null,
+) {
+  const recommendations = generateRecommendations(portfolio, history);
+  const buy = buildPortfolioBuyRows(portfolio, recommendations);
+  const sell = buildPortfolioSellRows(portfolio, recommendations);
+  const longTerm = buildMarketLongTermRows(matrix, recommendations);
+  const intraday = buildMarketIntradayRows(matrix, recommendations);
+
+  return {
+    all: [...buy, ...sell, ...longTerm, ...intraday],
+    buy,
+    intraday,
+    longTerm,
+    sell,
+  };
+}
+
+function buildPortfolioBuyRows(
+  portfolio: ManagedPortfolio,
+  recommendations: ReturnType<typeof generateRecommendations>,
+) {
+  const ownedSymbols = new Set(
+    portfolio.positions
+      .filter((position) => position.list === "current" && position.quantity > 0)
+      .map((position) => position.symbol),
+  );
+
+  return [
+    ...recommendations.longTermPlan,
+    ...recommendations.intraday,
+    ...recommendations.multibaggerCandidates,
+  ]
+    .filter(
+      (item) =>
+        item.action === "Accumulate" &&
+        ownedSymbols.has(item.symbol),
+    )
+    .sort((a, b) => b.confidence - a.confidence)
+    .map((item) => buildDecisionRowFromRecommendation(item, portfolio, "Portfolio Holding"))
+    .slice(0, 6);
+}
+
+function buildPortfolioSellRows(
+  portfolio: ManagedPortfolio,
+  recommendations: ReturnType<typeof generateRecommendations>,
+) {
+  const ownedSymbols = new Set(
+    portfolio.positions
+      .filter((position) => position.list === "current" && position.quantity > 0)
+      .map((position) => position.symbol),
+  );
+
+  return recommendations.longTermPlan
+    .filter((item) => item.action === "Urgent Sell")
+    .filter((item) => ownedSymbols.has(item.symbol))
+    .sort((a, b) => b.confidence - a.confidence)
+    .map((item) => buildDecisionRowFromRecommendation(item, portfolio, "Sell Signal"))
+    .slice(0, 6);
+}
+
+function buildMarketLongTermRows(
+  matrix: ExpertActionMatrix | null,
+  recommendations: ReturnType<typeof generateRecommendations>,
+) {
+  const rows: DecisionRecommendationRow[] = [];
+  const categories = matrix?.categories ?? [];
+  const largeCap = categories.find((category) =>
+    category.title.toLowerCase().includes("large"),
+  );
+  const midCap = categories.find((category) =>
+    category.title.toLowerCase().includes("mid"),
+  );
+  const smallCap = categories.find((category) =>
+    category.title.toLowerCase().includes("small"),
+  );
+  const etfCategory = categories.find((category) => {
+    const title = category.title.toLowerCase();
+    return title.includes("etf") || title.includes("bees") || title.includes("index");
+  });
+
+  rows.push(...buildQuoteRowsForCategory(largeCap, "Large Cap | Market Wide", 3, "longTerm"));
+  rows.push(...buildQuoteRowsForCategory(midCap, "Mid Cap | Market Wide", 3, "longTerm"));
+  rows.push(...buildQuoteRowsForCategory(smallCap, "Small Cap | Market Wide", 3, "longTerm"));
+  rows.push(...buildQuoteRowsForCategory(etfCategory, "ETF | Market Wide", 1, "longTerm"));
+
+  if (rows.length > 0) {
+    return rows;
+  }
+
+  return [
+    ...recommendations.longTermPlan.filter((item) => item.action === "Accumulate"),
+    ...recommendations.etfs,
+  ]
+    .map((item) => buildDecisionRowFromRecommendation(item, undefined, "Market Wide"))
+    .slice(0, 10);
+}
+
+function buildMarketIntradayRows(
+  matrix: ExpertActionMatrix | null,
+  recommendations: ReturnType<typeof generateRecommendations>,
+) {
+  const rows =
+    matrix?.categories.flatMap((category) =>
+      buildQuoteRowsForCategory(
+        category,
+        `${getMarketCapType(category.title)} | Market Wide`,
+        3,
+        "intraday",
+      ),
+    ) ?? [];
+
+  if (rows.length > 0) {
+    return rows.sort((a, b) => b.confidence - a.confidence).slice(0, 10);
+  }
+
+  return recommendations.intraday
+    .filter((item) => item.action === "Accumulate")
+    .sort((a, b) => b.confidence - a.confidence)
+    .map((item) => buildDecisionRowFromRecommendation(item, undefined, "Market Intraday"))
+    .slice(0, 10);
+}
+
+function buildQuoteRowsForCategory(
+  category: ExpertMatrixCategory | undefined,
+  type: string,
+  limit: number,
+  source: "longTerm" | "intraday" = "longTerm",
+) {
+  if (!category) {
+    return [];
+  }
+
+  const quotes =
+    source === "intraday" ? category.intradayBreakouts : category.longTermUpsides;
+
+  return (
+    quotes
+      .filter((quote) => quote.action === "Accumulate")
+      .sort((a, b) => b.score - a.score)
+      .slice(0, limit)
+      .map((quote) => buildDecisionRowFromQuote(quote, type, category.title)) ?? []
+  );
+}
+
+function buildDecisionRowFromQuote(
+  quote: ExpertMatrixQuote,
+  type: string,
+  categoryTitle: string,
+): DecisionRecommendationRow {
+  const cmp = quote.price;
+  const target = quote.target > 0 ? quote.target : cmp * 1.12;
+  const stopLoss = getQuoteStopLoss(cmp, quote.score, quote.volumeShock);
+  const risk = getExecutionRisk(quote.score, quote.volumeShock);
+
+  return {
+    action: "BUY",
+    cmp,
+    confidence: Math.round(quote.score),
+    fundamentalFactors: [
+      quote.upside > 0
+        ? `Broker/model upside estimate: ${formatPercent(quote.upside)}.`
+        : "Fundamental validation required before position sizing.",
+      `${type} classification from ${categoryTitle}.`,
+    ],
+    reason: quote.remark || `${quote.symbol} is ranked by market-wide expert signals.`,
+    riskFactors: quote.caveats?.length
+      ? quote.caveats
+      : [`${risk} execution risk; validate liquidity and news before action.`],
+    sectorStrength: `${categoryTitle} opportunity bucket with ${Math.round(quote.score)}% confidence.`,
+    stopLoss,
+    symbol: quote.symbol,
+    target,
+    technicalFactors: [
+      `Volume shock: ${quote.volumeShock.toFixed(2)}x.`,
+      "Screened through the existing expert matrix ranking.",
+    ],
+    type,
+  };
+}
+
+function buildDecisionRowFromRecommendation(
+  recommendation: Recommendation,
+  portfolio?: ManagedPortfolio,
+  typeOverride?: string,
+): DecisionRecommendationRow {
+  const position = portfolio?.positions.find(
+    (item) => item.symbol === recommendation.symbol,
+  );
+  const cmp = position?.currentPrice ?? recommendation.metrics?.target ?? 0;
+  const isSell = recommendation.action === "Urgent Sell";
+  const target =
+    recommendation.metrics?.target ??
+    (cmp > 0 ? cmp * (isSell ? 0.9 : recommendation.section === "Intraday" ? 1.018 : 1.12) : 0);
+  const stopLoss =
+    cmp > 0 ? cmp * (isSell ? 1.05 : recommendation.section === "Intraday" ? 0.985 : 0.92) : 0;
+  const metrics = recommendation.metrics;
+
+  return {
+    action: isSell ? "SELL" : "BUY",
+    cmp,
+    confidence: recommendation.confidence,
+    fundamentalFactors: [
+      position?.sector
+        ? `${position.sector} exposure considered in portfolio scoring.`
+        : "Fundamental data placeholder ready for ROE, ROCE, debt/equity, and growth metrics.",
+      `Portfolio appetite: ${portfolio?.appetite ?? "moderate"}.`,
+    ],
+    reason: recommendation.rationale,
+    riskFactors: recommendation.caveats?.length
+      ? recommendation.caveats
+      : ["Model output is a screening signal; validate liquidity, valuation, and news before execution."],
+    sectorStrength: position?.sector
+      ? `${position.sector} evaluated against portfolio concentration.`
+      : "Sector context unavailable for this row.",
+    stopLoss,
+    symbol: recommendation.symbol,
+    target,
+    technicalFactors: metrics
+      ? [
+          `EMA20 ${formatDecisionPrice(metrics.ema20)} vs EMA50 ${formatDecisionPrice(metrics.ema50)}.`,
+          `VWAP distance ${formatPercent(metrics.vwapDistancePercent)}; ATR ${formatPercent(metrics.atrPercent)}.`,
+          `Volume shock ${metrics.volumeShock.toFixed(2)}x.`,
+        ]
+      : ["Technical metrics will populate when live bars are available."],
+    type: typeOverride ?? recommendation.section,
+  };
+}
+
+function getQuoteStopLoss(cmp: number, score: number, volumeShock = 0) {
+  const risk = getExecutionRisk(score, volumeShock);
+
+  if (risk === "Low") return cmp * 0.93;
+  if (risk === "Medium") return cmp * 0.9;
+
+  return cmp * 0.86;
+}
+
+function formatDecisionPrice(value: number) {
+  return value > 0 ? formatCurrency(value) : "Pending";
 }
 
 function buildMarketOpportunityRow(

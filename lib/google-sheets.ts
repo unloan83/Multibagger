@@ -6,6 +6,12 @@ import type {
 } from "@/lib/portfolio";
 import { buildPortfolioInputRow } from "@/lib/portfolio";
 import type { MarketQuote } from "@/lib/market-overview";
+import type {
+  LearningRow,
+  QualityFactors,
+  QualityStatus,
+  ValidationRecord,
+} from "@/lib/intelligence-validation";
 
 const spreadsheetId = process.env.GOOGLE_SHEETS_SPREADSHEET_ID;
 const clientEmail = process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL;
@@ -19,6 +25,7 @@ const userRequestsSheet = "User Requests";
 const requestMessagesSheet = "Request Messages";
 const notificationHistorySheet = "Notification History";
 const validationSheet = "Validation";
+const learningSheet = "Learning";
 const marketMoversSheet = "Market Movers";
 
 export type ValidationSource =
@@ -43,6 +50,17 @@ export type ValidationRow = {
   confidence: number;
   caveat: string;
   rationale: string;
+  portfolioId: string;
+  recommendationId: string;
+  sector: string;
+  stopLoss: number;
+  qualityScore: number;
+  qualityStatus: QualityStatus;
+  validationTimestamp: string;
+  validationDate: string;
+  returnPercent: number;
+  marketRegime: string;
+  qualityFactors: QualityFactors;
 };
 
 export type MarketMoverRow = {
@@ -462,7 +480,7 @@ export async function appendValidationRows(rows: ValidationRow[]) {
   await ensureSheets();
   await sheets.spreadsheets.values.append({
     spreadsheetId,
-    range: rangeFor(validationSheet, "A:S"),
+    range: rangeFor(validationSheet, "A:AJ"),
     valueInputOption: "USER_ENTERED",
     insertDataOption: "INSERT_ROWS",
     requestBody: {
@@ -484,15 +502,101 @@ export async function appendValidationRows(rows: ValidationRow[]) {
           row.predictedUpsidePercent,
           row.score,
           row.confidence,
-          "NA",
+          "Active",
           "",
           "",
           row.caveat,
           row.rationale,
+          row.portfolioId,
+          row.recommendationId,
+          row.sector,
+          row.stopLoss,
+          row.qualityScore,
+          row.qualityStatus,
+          row.validationTimestamp,
+          row.validationDate,
+          row.returnPercent,
+          row.marketRegime,
+          row.qualityFactors.marketRegimeAvailable ? "PASS" : "FAIL",
+          row.qualityFactors.sectorStrengthAvailable ? "PASS" : "FAIL",
+          row.qualityFactors.trendConfirmationAvailable ? "PASS" : "FAIL",
+          row.qualityFactors.riskScoreAssigned ? "PASS" : "FAIL",
+          row.qualityFactors.confidenceCalculated ? "PASS" : "FAIL",
+          row.qualityFactors.portfolioFitChecked ? "PASS" : "FAIL",
+          row.qualityFactors.recommendationHorizonAssigned ? "PASS" : "FAIL",
         ];
       }),
     },
   });
+}
+
+export async function readValidationRecords(): Promise<ValidationRecord[]> {
+  if (!isGoogleSheetsConfigured()) {
+    return [];
+  }
+
+  const sheets = await getSheetsClient();
+  await ensureSheets();
+  const response = await sheets.spreadsheets.values.get({
+    spreadsheetId,
+    range: rangeFor(validationSheet, "A2:AJ"),
+  });
+
+  return (response.data.values ?? []).map(parseValidationRecord);
+}
+
+export async function updateValidationRecords(records: ValidationRecord[]) {
+  if (!isGoogleSheetsConfigured()) {
+    throw new Error("Google Sheets is not configured.");
+  }
+
+  if (records.length === 0) {
+    return;
+  }
+
+  const sheets = await getSheetsClient();
+  await ensureSheets();
+  await sheets.spreadsheets.values.update({
+    spreadsheetId,
+    range: rangeFor(validationSheet, `A2:AJ${records.length + 1}`),
+    valueInputOption: "USER_ENTERED",
+    requestBody: { values: records.map(validationRecordValues) },
+  });
+}
+
+export async function writeLearningRows(rows: LearningRow[]) {
+  if (!isGoogleSheetsConfigured()) {
+    throw new Error("Google Sheets is not configured.");
+  }
+
+  const sheets = await getSheetsClient();
+  await ensureSheets();
+  await sheets.spreadsheets.values.batchClear({
+    spreadsheetId,
+    requestBody: { ranges: [rangeFor(learningSheet, "A2:J")] },
+  });
+
+  if (rows.length > 0) {
+    await sheets.spreadsheets.values.update({
+      spreadsheetId,
+      range: rangeFor(learningSheet, "A2:J"),
+      valueInputOption: "USER_ENTERED",
+      requestBody: {
+        values: rows.map((row) => [
+          toIstTimestamp(row.calculatedAt),
+          row.dimension,
+          row.label,
+          row.hits,
+          row.misses,
+          row.expired,
+          row.active,
+          row.sampleSize,
+          row.successRate,
+          row.weightMultiplier,
+        ]),
+      },
+    });
+  }
 }
 
 export async function appendMarketMoverRows(rows: MarketMoverRow[]) {
@@ -720,6 +824,7 @@ async function ensureSheets(additionalTitles: string[] = []) {
     requestMessagesSheet,
     notificationHistorySheet,
     validationSheet,
+    learningSheet,
     marketMoversSheet,
     ...additionalTitles,
   ]
@@ -772,7 +877,7 @@ async function ensureSheets(additionalTitles: string[] = []) {
           values: [["id", "portfolio_id", "created_at", "alert_type", "status", "detail"]],
         },
         {
-          range: rangeFor(validationSheet, "A1:S1"),
+          range: rangeFor(validationSheet, "A1:AJ1"),
           values: [[
             "timestamp_ist",
             "date",
@@ -793,6 +898,38 @@ async function ensureSheets(additionalTitles: string[] = []) {
             "actual_price",
             "caveat",
             "rationale",
+            "portfolio_id",
+            "recommendation_id",
+            "sector",
+            "stop_loss",
+            "quality_score",
+            "quality_status",
+            "validation_timestamp",
+            "validation_date",
+            "return_percent",
+            "market_regime",
+            "market_regime_available",
+            "sector_strength_available",
+            "trend_confirmation_available",
+            "risk_score_assigned",
+            "confidence_calculated",
+            "portfolio_fit_checked",
+            "recommendation_horizon_assigned",
+          ]],
+        },
+        {
+          range: rangeFor(learningSheet, "A1:J1"),
+          values: [[
+            "calculated_at",
+            "dimension",
+            "label",
+            "hits",
+            "misses",
+            "expired",
+            "active",
+            "sample_size",
+            "success_rate",
+            "weight_multiplier",
           ]],
         },
         {
@@ -817,6 +954,99 @@ async function ensureSheets(additionalTitles: string[] = []) {
       ],
     },
   });
+}
+
+function parseValidationRecord(row: unknown[]): ValidationRecord {
+  const qualityFactors: QualityFactors = {
+    marketRegimeAvailable: String(row[29] ?? "") === "PASS",
+    sectorStrengthAvailable: String(row[30] ?? "") === "PASS",
+    trendConfirmationAvailable: String(row[31] ?? "") === "PASS",
+    riskScoreAssigned: String(row[32] ?? "") === "PASS",
+    confidenceCalculated: String(row[33] ?? "") === "PASS",
+    portfolioFitChecked: String(row[34] ?? "") === "PASS",
+    recommendationHorizonAssigned: String(row[35] ?? "") === "PASS",
+  };
+
+  return {
+    timestamp: String(row[25] ?? row[0] ?? ""),
+    date: String(row[1] ?? ""),
+    source: String(row[2] ?? ""),
+    portfolioName: String(row[3] ?? ""),
+    section: String(row[4] ?? ""),
+    symbol: String(row[5] ?? ""),
+    company: String(row[6] ?? ""),
+    action: String(row[7] ?? ""),
+    horizon: String(row[8] ?? ""),
+    predictedPrice: Number(row[9] ?? 0),
+    targetPrice: Number(row[10] ?? 0),
+    predictedUpsidePercent: Number(row[11] ?? 0),
+    score: Number(row[12] ?? 0),
+    confidence: Number(row[13] ?? 0),
+    validationStatus: normalizeOutcomeStatus(row[14]),
+    hitTimestamp: String(row[15] ?? ""),
+    actualPrice: Number(row[16] ?? 0),
+    caveat: String(row[17] ?? ""),
+    rationale: String(row[18] ?? ""),
+    portfolioId: String(row[19] ?? ""),
+    recommendationId: String(row[20] ?? ""),
+    sector: String(row[21] ?? "Unclassified"),
+    stopLoss: Number(row[22] ?? 0),
+    qualityScore: Number(row[23] ?? 0),
+    qualityStatus: String(row[24] ?? "") === "PASS" ? "PASS" : "FAIL",
+    validationTimestamp: String(row[25] ?? ""),
+    validationDate: String(row[26] ?? ""),
+    returnPercent: Number(row[27] ?? 0),
+    marketRegime: String(row[28] ?? ""),
+    qualityFactors,
+  };
+}
+
+function validationRecordValues(row: ValidationRecord) {
+  return [
+    row.timestamp,
+    row.date,
+    row.source,
+    row.portfolioName,
+    row.section,
+    row.symbol,
+    row.company,
+    row.action,
+    row.horizon,
+    row.predictedPrice,
+    row.targetPrice,
+    row.predictedUpsidePercent,
+    row.score,
+    row.confidence,
+    row.validationStatus,
+    row.hitTimestamp,
+    row.actualPrice,
+    row.caveat,
+    row.rationale,
+    row.portfolioId,
+    row.recommendationId,
+    row.sector,
+    row.stopLoss,
+    row.qualityScore,
+    row.qualityStatus,
+    row.validationTimestamp,
+    row.validationDate,
+    row.returnPercent,
+    row.marketRegime,
+    row.qualityFactors.marketRegimeAvailable ? "PASS" : "FAIL",
+    row.qualityFactors.sectorStrengthAvailable ? "PASS" : "FAIL",
+    row.qualityFactors.trendConfirmationAvailable ? "PASS" : "FAIL",
+    row.qualityFactors.riskScoreAssigned ? "PASS" : "FAIL",
+    row.qualityFactors.confidenceCalculated ? "PASS" : "FAIL",
+    row.qualityFactors.portfolioFitChecked ? "PASS" : "FAIL",
+    row.qualityFactors.recommendationHorizonAssigned ? "PASS" : "FAIL",
+  ];
+}
+
+function normalizeOutcomeStatus(value: unknown): ValidationRecord["validationStatus"] {
+  const status = String(value ?? "");
+  return status === "Hit" || status === "Miss" || status === "Expired"
+    ? status
+    : "Active";
 }
 
 function getPortfolioSheetName(name: string) {

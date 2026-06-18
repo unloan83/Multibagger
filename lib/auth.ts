@@ -2,6 +2,7 @@ import { createHmac, timingSafeEqual } from "node:crypto";
 import { cookies } from "next/headers";
 
 export const sessionCookieName = "unloan_dashboard_session";
+export const portfolioAccessCookieName = "unloan_portfolio_access";
 
 const oneWeekInSeconds = 60 * 60 * 24 * 7;
 
@@ -60,6 +61,42 @@ export async function isRequestAuthenticated() {
 
   const cookieStore = await cookies();
   return verifySessionValue(cookieStore.get(sessionCookieName)?.value);
+}
+
+export function createPortfolioAccessValue(portfolioId: string) {
+  const issuedAt = Date.now();
+  const payload = `${encodeURIComponent(portfolioId)}:${issuedAt}`;
+  return `${payload}:${sign(payload, getAuthConfig().secret)}`;
+}
+
+export function verifyPortfolioAccessValue(value: string | undefined, portfolioId: string) {
+  if (!value) return false;
+  const [encodedPortfolioId, issuedAt, signature] = value.split(":");
+  const decodedPortfolioId = decodeURIComponent(encodedPortfolioId ?? "");
+  const age = Date.now() - Number(issuedAt);
+
+  if (
+    decodedPortfolioId !== portfolioId ||
+    !Number.isFinite(age) ||
+    age < 0 ||
+    age > oneWeekInSeconds * 1000
+  ) {
+    return false;
+  }
+
+  return safeEqual(
+    signature ?? "",
+    sign(`${encodedPortfolioId}:${issuedAt}`, getAuthConfig().secret),
+  );
+}
+
+export async function canAccessPortfolio(portfolioId: string) {
+  if (await isRequestAuthenticated()) return true;
+  const cookieStore = await cookies();
+  return verifyPortfolioAccessValue(
+    cookieStore.get(portfolioAccessCookieName)?.value,
+    portfolioId,
+  );
 }
 
 export async function setSessionCookie(username: string) {

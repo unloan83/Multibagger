@@ -1,5 +1,9 @@
 import { NextResponse } from "next/server";
 import {
+  createPortfolioAccessValue,
+  portfolioAccessCookieName,
+} from "@/lib/auth";
+import {
   isGoogleSheetsConfigured,
   readPortfolioPinHashesFromSheets,
 } from "@/lib/google-sheets";
@@ -27,11 +31,27 @@ export async function POST(request: Request) {
     storedHash: pinHashes[portfolioId]?.hash,
   });
 
-  return NextResponse.json({
+  const response = NextResponse.json({
     ok: result.pinMatch,
     portfolioFound: true,
     pinMatch: result.pinMatch,
     usedMasterPin: result.usedMasterPin,
     hasStoredHash: Boolean(pinHashes[portfolioId]?.hash),
   });
+
+  if (result.pinMatch) {
+    response.cookies.set(
+      portfolioAccessCookieName,
+      createPortfolioAccessValue(portfolioId),
+      {
+        httpOnly: true,
+        maxAge: 60 * 60 * 24 * 7,
+        path: "/",
+        sameSite: "lax",
+        secure: process.env.NODE_ENV === "production",
+      },
+    );
+  }
+
+  return response;
 }

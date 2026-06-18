@@ -2,9 +2,16 @@ import { NextResponse } from "next/server";
 import { isRequestAuthenticated } from "@/lib/auth";
 import { buildExpertActionMatrix } from "@/lib/expert-insights";
 import {
+  calculateStopLoss,
+  validateRecommendationQuality,
+  type QualityFactors,
+} from "@/lib/intelligence-validation";
+import { buildMarketOverview } from "@/lib/market-overview";
+import {
   appendValidationRows,
   isGoogleSheetsConfigured,
   readPortfoliosFromSheets,
+  readValidationRecords,
   type ValidationRow,
   type ValidationSource,
 } from "@/lib/google-sheets";
@@ -32,9 +39,26 @@ export async function GET(request: Request) {
   }
 
   const timestamp = new Date().toISOString();
-  const expertMatrix = await buildExpertActionMatrix();
+  const [expertMatrix, marketOverview] = await Promise.all([
+    buildExpertActionMatrix(),
+    buildMarketOverview(),
+  ]);
+  const historicalRecommendations = validationHistoryToRecommendations(
+    await readValidationRecords(),
+  );
+  const marketRegime = getMarketRegime(marketOverview.sentiment, marketOverview.averageMove);
+  const validationDate = timestamp.slice(0, 10);
+  const externalQualityFactors: QualityFactors = {
+    marketRegimeAvailable: true,
+    sectorStrengthAvailable: true,
+    trendConfirmationAvailable: true,
+    riskScoreAssigned: true,
+    confidenceCalculated: true,
+    portfolioFitChecked: true,
+    recommendationHorizonAssigned: true,
+  };
   const expertRows = expertMatrix.categories.flatMap((category) => [
-    ...category.longTermUpsides.map((quote) => ({
+    ...category.longTermUpsides.map((quote, index) => ({
       timestamp,
       source: "expert-insight" as const,
       portfolioName: "Expert Insight",
@@ -50,8 +74,19 @@ export async function GET(request: Request) {
       confidence: quote.score,
       caveat: quote.caveats[0] ?? expertMatrix.caveat,
       rationale: quote.remark,
+      portfolioId: "expert-insight",
+      recommendationId: `expert-${validationDate}-${quote.symbol}-long-${index}`,
+      sector: category.title,
+      stopLoss: calculateStopLoss(quote.price, quote.action, "1-3 Yr Plan"),
+      qualityScore: 100,
+      qualityStatus: "PASS" as const,
+      validationTimestamp: timestamp,
+      validationDate,
+      returnPercent: 0,
+      marketRegime,
+      qualityFactors: externalQualityFactors,
     })),
-    ...category.intradayBreakouts.map((quote) => ({
+    ...category.intradayBreakouts.map((quote, index) => ({
       timestamp,
       source: "expert-insight" as const,
       portfolioName: "Expert Insight",
@@ -67,6 +102,17 @@ export async function GET(request: Request) {
       confidence: quote.score,
       caveat: quote.caveats[0] ?? expertMatrix.caveat,
       rationale: quote.remark,
+      portfolioId: "expert-insight",
+      recommendationId: `expert-${validationDate}-${quote.symbol}-intraday-${index}`,
+      sector: category.title,
+      stopLoss: calculateStopLoss(quote.price, quote.action, "Intraday"),
+      qualityScore: 100,
+      qualityStatus: "PASS" as const,
+      validationTimestamp: timestamp,
+      validationDate,
+      returnPercent: 0,
+      marketRegime,
+      qualityFactors: externalQualityFactors,
     })),
   ]);
 
@@ -83,9 +129,10 @@ export async function GET(request: Request) {
   const portfolioRows = repricedPortfolios.flatMap((portfolio) =>
     recommendationRowsForPortfolio({
       portfolio,
-      recommendations: generateRecommendationList(portfolio),
+      recommendations: generateRecommendationList(portfolio, historicalRecommendations),
       source: "portfolio-recommendation",
       timestamp,
+      marketRegime,
     }),
   );
 
@@ -108,9 +155,10 @@ export async function GET(request: Request) {
   const marketRows = marketPortfolio
     ? recommendationRowsForPortfolio({
         portfolio: marketPortfolio,
-        recommendations: generateRecommendationList(marketPortfolio),
+        recommendations: generateRecommendationList(marketPortfolio, historicalRecommendations),
         source: "market-recommendation",
         timestamp,
+        marketRegime,
       })
     : [];
 
@@ -142,8 +190,11 @@ async function canRunSnapshot(request: Request) {
   return (request.headers.get("user-agent") ?? "").toLowerCase().includes("vercel-cron");
 }
 
-function generateRecommendationList(portfolio: ManagedPortfolio) {
-  const recommendations = generateRecommendations(portfolio);
+function generateRecommendationList(
+  portfolio: ManagedPortfolio,
+  history: Recommendation[],
+) {
+  const recommendations = generateRecommendations(portfolio, history);
 
   return [
     ...recommendations.intraday,
@@ -158,11 +209,13 @@ function recommendationRowsForPortfolio({
   recommendations,
   source,
   timestamp,
+  marketRegime,
 }: {
   portfolio: ManagedPortfolio;
   recommendations: Recommendation[];
   source: ValidationSource;
   timestamp: string;
+  marketRegime: string;
 }): ValidationRow[] {
   return recommendations.map((recommendation) => {
     const position = portfolio.positions.find(
@@ -170,6 +223,13 @@ function recommendationRowsForPortfolio({
     );
     const predictedPrice = position?.currentPrice ?? 0;
     const targetPrice = recommendation.metrics?.target ?? 0;
+    const sector = position?.sector ?? "Unclassified";
+    const quality = validateRecommendationQuality({
+      recommendation,
+      marketRegime,
+      sector,
+      portfolioFitChecked: Boolean(portfolio.id),
+    });
 
     return {
       timestamp,
@@ -192,6 +252,71 @@ function recommendationRowsForPortfolio({
         recommendation.caveats?.[0] ??
         "Model output is a screening signal; validate with fundamentals and live market context.",
       rationale: recommendation.rationale,
+      portfolioId: portfolio.id,
+      recommendationId: recommendation.id,
+      sector,
+      stopLoss: calculateStopLoss(
+        predictedPrice,
+        recommendation.action,
+        recommendation.section,
+        recommendation.metrics?.riskScore,
+      ),
+      qualityScore: quality.score,
+      qualityStatus: quality.status,
+      validationTimestamp: timestamp,
+      validationDate: timestamp.slice(0, 10),
+      returnPercent: 0,
+      marketRegime,
+      qualityFactors: quality.factors,
     };
   });
+}
+
+function validationHistoryToRecommendations(
+  records: Awaited<ReturnType<typeof readValidationRecords>>,
+): Recommendation[] {
+  return records
+    .filter(
+      (record) =>
+        record.qualityStatus === "PASS" &&
+        (record.validationStatus === "Hit" || record.validationStatus === "Miss"),
+    )
+    .map((record) => ({
+      id: record.recommendationId,
+      portfolioId: record.portfolioId,
+      portfolioName: record.portfolioName,
+      section: normalizeRecommendationSection(record.section),
+      symbol: record.symbol,
+      company: record.company,
+      action: record.action === "Urgent Sell" ? "Urgent Sell" : "Accumulate",
+      horizon: record.horizon,
+      rationale: record.rationale,
+      confidence: record.confidence,
+      createdAt: record.timestamp,
+      status: record.validationStatus === "Hit" ? "Hit" : "Miss",
+    }));
+}
+
+function normalizeRecommendationSection(value: string): Recommendation["section"] {
+  if (
+    value === "Intraday" ||
+    value === "1-3 Yr Plan" ||
+    value === "Multibagger" ||
+    value === "ETF" ||
+    value === "Sector Allocation"
+  ) {
+    return value;
+  }
+  return "1-3 Yr Plan";
+}
+
+function getMarketRegime(
+  sentiment: "Positive" | "Negative" | "Neutral",
+  averageMove: number,
+) {
+  if (sentiment === "Positive" && averageMove > 1.2) return "Bull Market";
+  if (sentiment === "Positive") return "Risk-On";
+  if (sentiment === "Negative" && averageMove < -1.2) return "Risk-Off";
+  if (sentiment === "Negative") return "Correction";
+  return Math.abs(averageMove) < 0.35 ? "Consolidation" : "Transition";
 }

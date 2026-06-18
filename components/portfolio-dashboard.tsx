@@ -203,6 +203,54 @@ type NotificationHistoryRow = {
   detail: string;
 };
 
+type OutcomeSummary = {
+  total: number;
+  hits: number;
+  misses: number;
+  active: number;
+  expired: number;
+  hitRate: number;
+};
+
+type IntelligenceRecord = {
+  recommendationId: string;
+  timestamp: string;
+  source?: string;
+  portfolioName?: string;
+  section?: string;
+  symbol: string;
+  action: string;
+  predictedPrice: number;
+  targetPrice: number;
+  actualPrice: number;
+  validationStatus: "Active" | "Hit" | "Miss" | "Expired";
+  returnPercent: number;
+  qualityScore?: number;
+  qualityStatus?: "PASS" | "FAIL";
+  confidence?: number;
+};
+
+type LearningMetric = {
+  dimension: string;
+  label: string;
+  hits: number;
+  misses: number;
+  sampleSize: number;
+  successRate: number;
+  weightMultiplier: number;
+};
+
+type IntelligenceSummary = {
+  total?: number;
+  quality?: { averageScore: number; passed: number; failed: number };
+  outcomes?: OutcomeSummary;
+  last7Days: OutcomeSummary;
+  last30Days: OutcomeSummary;
+  confidenceCalibration?: LearningMetric[];
+  learning?: LearningMetric[];
+  recent: IntelligenceRecord[];
+};
+
 const notificationModes: NotificationMode[] = [
   "Immediate Alerts",
   "Daily Summary",
@@ -266,6 +314,8 @@ export function PortfolioDashboard({
   const [hasRepricedSavedPortfolios, setHasRepricedSavedPortfolios] = useState(false);
   const [isSheetsStorage, setIsSheetsStorage] = useState(false);
   const [hydrated, setHydrated] = useState(false);
+  const [intelligenceSummary, setIntelligenceSummary] =
+    useState<IntelligenceSummary | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const fetchQuotePositions = useCallback(async (rows: PortfolioInputRow[]) => {
@@ -485,6 +535,21 @@ export function PortfolioDashboard({
     setHasRepricedSavedPortfolios(true);
     repriceSavedPortfolios();
   }, [hydrated, hasRepricedSavedPortfolios, repriceSavedPortfolios]);
+
+  useEffect(() => {
+    if (!hydrated) return;
+    const query = adminMode
+      ? ""
+      : `?portfolioId=${encodeURIComponent(selectedPortfolioId)}`;
+
+    fetch(`/api/intelligence${query}`)
+      .then(async (response) => {
+        if (!response.ok) return null;
+        return (await response.json()) as { summary?: IntelligenceSummary };
+      })
+      .then((payload) => setIntelligenceSummary(payload?.summary ?? null))
+      .catch(() => setIntelligenceSummary(null));
+  }, [adminMode, hydrated, routeUnlocked, selectedPortfolioId]);
 
   function updateDraftRow(index: number, nextRow: Partial<PortfolioInputRow>) {
     setDraftRows((rows) =>
@@ -1019,6 +1084,7 @@ export function PortfolioDashboard({
             pinHashes={pinHashes}
             pinUpdatedAt={pinUpdatedAt}
             portfolios={portfolios}
+            validationSummary={intelligenceSummary}
             onOpen={(portfolio) => setSelectedPortfolioId(portfolio.id)}
             onEdit={updatePortfolioMetadata}
             onDelete={(portfolio) => removePortfolio(portfolio.id)}
@@ -1134,6 +1200,7 @@ export function PortfolioDashboard({
                 history={history}
                 expertMatrix={expertMatrix}
                 decisionIntelligence={decisionIntelligence}
+                intelligenceSummary={intelligenceSummary}
                 isLoading={isLoading}
                 onUpdateInputs={(rows) => updatePortfolioInputs(selectedPortfolio, rows)}
                 onPortfolioPinChanged={(pinHash, updatedAt) => {
@@ -1204,6 +1271,7 @@ function SimplifiedPortfolioView({
   history,
   expertMatrix,
   decisionIntelligence,
+  intelligenceSummary,
   isLoading,
   onUpdateInputs,
   onPortfolioPinChanged,
@@ -1212,6 +1280,7 @@ function SimplifiedPortfolioView({
   history: Recommendation[];
   expertMatrix: ExpertActionMatrix | null;
   decisionIntelligence: ReturnType<typeof buildDecisionIntelligence> | null;
+  intelligenceSummary: IntelligenceSummary | null;
   isLoading: boolean;
   onUpdateInputs: (rows: PortfolioInputRow[]) => void | Promise<void>;
   onPortfolioPinChanged: (pinHash: string, updatedAt: string) => void;
@@ -1247,6 +1316,68 @@ function SimplifiedPortfolioView({
       description: "Telegram, notification preferences, admin contact, and support requests.",
     },
   ];
+  const activePanelContent =
+    activePanel === "analysis" ? (
+      <section className="space-y-4">
+        <RecommendationAnalysisPanel rows={sections.all} />
+        <RecommendationPerformancePanel
+          history={history}
+          portfolio={portfolio}
+          validationSummary={intelligenceSummary}
+        />
+      </section>
+    ) : activePanel === "management" ? (
+      <PortfolioHoldingsAndSectors
+        portfolio={portfolio}
+        isLoading={isLoading}
+        onUpdateInputs={onUpdateInputs}
+      />
+    ) : activePanel === "diagnostics" ? (
+      <section className="space-y-4">
+        <PortfolioDiagnostics portfolio={portfolio} />
+        <section className="grid gap-4 xl:grid-cols-2">
+          <PortfolioCoach portfolio={portfolio} />
+          <PortfolioMarketOpportunities matrix={expertMatrix} />
+        </section>
+        <ChangeDetection snapshot={decisionIntelligence?.snapshot} />
+        <RecommendationReliability intelligence={decisionIntelligence} />
+      </section>
+    ) : activePanel === "settings" ? (
+      <PortfolioCommunicationCenter
+        portfolio={portfolio}
+        onPortfolioPinChanged={onPortfolioPinChanged}
+      />
+    ) : null;
+
+  function renderPanelButton(button: (typeof panelButtons)[number]) {
+    return (
+      <button
+        type="button"
+        onClick={() =>
+          setActivePanel((current) => (current === button.id ? null : button.id))
+        }
+        className={cn(
+          "w-full rounded-2xl border p-4 text-left shadow-lg transition hover:-translate-y-0.5",
+          activePanel === button.id
+            ? "border-amber-300/60 bg-amber-300/10"
+            : "border-white/10 bg-[#16263D] hover:border-cyan-300/40",
+        )}
+        aria-expanded={activePanel === button.id}
+      >
+        <div className="flex items-center justify-between gap-3">
+          <h3 className="text-sm font-semibold text-white">{button.title}</h3>
+          <ChevronRight
+            className={cn(
+              "h-5 w-5 text-cyan-200 transition-transform",
+              activePanel === button.id ? "rotate-90" : "",
+            )}
+            aria-hidden="true"
+          />
+        </div>
+        <p className="mt-2 text-xs leading-5 text-slate-400">{button.description}</p>
+      </button>
+    );
+  }
 
   return (
     <div className="space-y-5 border-t border-white/10 p-4 sm:p-5">
@@ -1304,69 +1435,27 @@ function SimplifiedPortfolioView({
         />
       </section>
 
-      <section className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+      <section className="space-y-3 md:hidden">
         {panelButtons.map((button) => (
-          <button
-            key={button.id}
-            type="button"
-            onClick={() =>
-              setActivePanel((current) => (current === button.id ? null : button.id))
-            }
-            className={cn(
-              "rounded-2xl border p-4 text-left shadow-lg transition hover:-translate-y-0.5",
-              activePanel === button.id
-                ? "border-amber-300/60 bg-amber-300/10"
-                : "border-white/10 bg-[#16263D] hover:border-cyan-300/40",
-            )}
-            aria-expanded={activePanel === button.id}
-          >
-            <div className="flex items-center justify-between gap-3">
-              <h3 className="text-sm font-semibold text-white">{button.title}</h3>
-              <ChevronRight
-                className={cn(
-                  "h-5 w-5 text-cyan-200 transition-transform",
-                  activePanel === button.id ? "rotate-90" : "",
-                )}
-                aria-hidden="true"
-              />
-            </div>
-            <p className="mt-2 text-xs leading-5 text-slate-400">{button.description}</p>
-          </button>
+          <div key={button.id} className="space-y-3">
+            {renderPanelButton(button)}
+            {activePanel === button.id ? (
+              <div>{activePanelContent}</div>
+            ) : null}
+          </div>
         ))}
       </section>
 
-      {activePanel === "analysis" ? (
-        <section className="space-y-4">
-          <RecommendationAnalysisPanel rows={sections.all} />
-          <RecommendationPerformancePanel history={history} portfolio={portfolio} />
-        </section>
-      ) : null}
+      <section className="hidden gap-3 md:grid md:grid-cols-2 xl:grid-cols-4">
+        {panelButtons.map((button) => (
+          <div key={button.id}>{renderPanelButton(button)}</div>
+        ))}
+      </section>
 
-      {activePanel === "management" ? (
-        <PortfolioHoldingsAndSectors
-          portfolio={portfolio}
-          isLoading={isLoading}
-          onUpdateInputs={onUpdateInputs}
-        />
-      ) : null}
-
-      {activePanel === "diagnostics" ? (
-        <section className="space-y-4">
-          <PortfolioDiagnostics portfolio={portfolio} />
-          <section className="grid gap-4 xl:grid-cols-2">
-            <PortfolioCoach portfolio={portfolio} />
-            <PortfolioMarketOpportunities matrix={expertMatrix} />
-          </section>
-          <ChangeDetection snapshot={decisionIntelligence?.snapshot} />
-          <RecommendationReliability intelligence={decisionIntelligence} />
-        </section>
-      ) : null}
-
-      {activePanel === "settings" ? (
-        <PortfolioCommunicationCenter
-          portfolio={portfolio}
-          onPortfolioPinChanged={onPortfolioPinChanged}
-        />
+      {activePanelContent ? (
+        <div className="hidden md:block">
+          {activePanelContent}
+        </div>
       ) : null}
     </div>
   );
@@ -1541,12 +1630,14 @@ function DetailList({ label, values }: { label: string; values: string[] }) {
 function RecommendationPerformancePanel({
   history,
   portfolio,
+  validationSummary,
 }: {
   history: Recommendation[];
   portfolio: ManagedPortfolio;
+  validationSummary: IntelligenceSummary | null;
 }) {
   const currentPrices = buildCurrentPriceLookup([portfolio]);
-  const rows = history
+  const historyRows = history
     .filter(
       (item) =>
         item.portfolioId === portfolio.id &&
@@ -1572,11 +1663,42 @@ function RecommendationPerformancePanel({
       };
     })
     .sort((a, b) => b.date.localeCompare(a.date));
+  const rows =
+    historyRows.length > 0
+      ? historyRows
+      : generateRecommendationList(portfolio, history).map((item) => {
+          const currentPrice = currentPrices[item.symbol] ?? 0;
+          const cmp = getRecommendationPrice(item, currentPrice);
+
+          return {
+            cmp,
+            date: new Date(item.createdAt).toLocaleDateString("en-IN"),
+            id: item.id,
+            recommendation: item.action === "Accumulate" ? "BUY" : "SELL",
+            result: "Active",
+            stock: item.symbol,
+            target: item.metrics?.target ?? cmp,
+          };
+        });
   const hits = rows.filter((row) => row.result === "Hit").length;
   const misses = rows.filter((row) => row.result === "Miss").length;
   const active = rows.filter((row) => row.result === "Active").length;
   const scored = hits + misses;
   const hitRate = scored ? Math.round((hits / scored) * 100) : 0;
+  const recentRows = validationSummary?.recent ?? [];
+  const sevenDay = validationSummary?.last7Days;
+  const thirtyDay = validationSummary?.last30Days;
+  const displayRows = recentRows.length
+    ? recentRows.map((row) => ({
+        id: row.recommendationId,
+        date: new Date(row.timestamp).toLocaleDateString("en-IN"),
+        stock: row.symbol,
+        recommendation: row.action === "Accumulate" ? "BUY" : "SELL",
+        cmp: row.actualPrice || row.predictedPrice,
+        target: row.targetPrice,
+        result: row.validationStatus,
+      }))
+    : rows;
 
   return (
     <section className="space-y-4 rounded-2xl border border-cyan-300/20 bg-[#101D30] p-5 shadow-xl">
@@ -1587,53 +1709,93 @@ function RecommendationPerformancePanel({
         accent="blue"
       />
       <div className="grid gap-3 grid-cols-2 lg:grid-cols-4">
-        <CompactMetric label="Hit Rate" value={`${hitRate}%`} />
-        <CompactMetric label="Hits" value={String(hits)} />
-        <CompactMetric label="Misses" value={String(misses)} />
-        <CompactMetric label="Active" value={String(active)} />
+        <CompactMetric label="Last 7 Day Hit Rate" value={`${sevenDay?.hitRate ?? hitRate}%`} />
+        <CompactMetric label="Last 30 Day Hit Rate" value={`${thirtyDay?.hitRate ?? hitRate}%`} />
+        <CompactMetric label="Hits" value={String(sevenDay?.hits ?? hits)} />
+        <CompactMetric label="Active" value={String(sevenDay?.active ?? active)} />
       </div>
-      <Table>
-        <TableHeader>
-          <TableRow>
-            <TableHead>Date</TableHead>
-            <TableHead>Stock</TableHead>
-            <TableHead>Recommendation</TableHead>
-            <TableHead>CMP</TableHead>
-            <TableHead>Target</TableHead>
-            <TableHead>Result</TableHead>
-          </TableRow>
-        </TableHeader>
-        <TableBody>
-          {rows.map((row) => (
-            <TableRow key={row.id}>
-              <TableCell>{row.date}</TableCell>
-              <TableCell className="font-semibold text-white">{row.stock}</TableCell>
-              <TableCell>{row.recommendation}</TableCell>
-              <TableCell>{formatDecisionPrice(row.cmp)}</TableCell>
-              <TableCell>{formatDecisionPrice(row.target)}</TableCell>
-              <TableCell
+      <div className="space-y-3 md:hidden">
+        {displayRows.map((row) => (
+          <article
+            key={`mobile-performance-${row.id}`}
+            className="rounded-xl border border-white/10 bg-[#16263D] p-4"
+          >
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <div className="font-semibold text-white">{row.stock}</div>
+                <div className="mt-1 text-xs text-slate-400">
+                  {row.date} · {row.recommendation}
+                </div>
+              </div>
+              <span
                 className={cn(
-                  "font-semibold",
+                  "rounded-full border px-2.5 py-1 text-xs font-semibold",
                   row.result === "Hit"
-                    ? "text-emerald-300"
+                    ? "border-emerald-300/30 bg-emerald-300/10 text-emerald-200"
                     : row.result === "Miss"
-                      ? "text-rose-300"
-                      : "text-amber-200",
+                      ? "border-rose-300/30 bg-rose-300/10 text-rose-200"
+                      : "border-amber-300/30 bg-amber-300/10 text-amber-200",
                 )}
               >
                 {row.result}
-              </TableCell>
-            </TableRow>
-          ))}
-          {rows.length === 0 ? (
+              </span>
+            </div>
+            <div className="mt-3 grid grid-cols-2 gap-2">
+              <CompactMetric label="Current Price" value={formatDecisionPrice(row.cmp)} />
+              <CompactMetric label="Target" value={formatDecisionPrice(row.target)} />
+            </div>
+          </article>
+        ))}
+        {displayRows.length === 0 ? (
+          <div className="rounded-xl border border-white/10 bg-[#16263D] p-4 text-sm text-slate-400">
+            No recommendations recorded in the last 7 days.
+          </div>
+        ) : null}
+      </div>
+      <div className="hidden md:block">
+        <Table>
+          <TableHeader>
             <TableRow>
-              <TableCell colSpan={6} className="text-slate-400">
-                No recommendations recorded in the last 7 days.
-              </TableCell>
+              <TableHead>Date</TableHead>
+              <TableHead>Stock</TableHead>
+              <TableHead>Recommendation</TableHead>
+              <TableHead>CMP</TableHead>
+              <TableHead>Target</TableHead>
+              <TableHead>Result</TableHead>
             </TableRow>
-          ) : null}
-        </TableBody>
-      </Table>
+          </TableHeader>
+          <TableBody>
+            {displayRows.map((row) => (
+              <TableRow key={row.id}>
+                <TableCell>{row.date}</TableCell>
+                <TableCell className="font-semibold text-white">{row.stock}</TableCell>
+                <TableCell>{row.recommendation}</TableCell>
+                <TableCell>{formatDecisionPrice(row.cmp)}</TableCell>
+                <TableCell>{formatDecisionPrice(row.target)}</TableCell>
+                <TableCell
+                  className={cn(
+                    "font-semibold",
+                    row.result === "Hit"
+                      ? "text-emerald-300"
+                      : row.result === "Miss"
+                        ? "text-rose-300"
+                        : "text-amber-200",
+                  )}
+                >
+                  {row.result}
+                </TableCell>
+              </TableRow>
+            ))}
+            {displayRows.length === 0 ? (
+              <TableRow>
+                <TableCell colSpan={6} className="text-slate-400">
+                  No recommendations recorded in the last 7 days.
+                </TableCell>
+              </TableRow>
+            ) : null}
+          </TableBody>
+        </Table>
+      </div>
     </section>
   );
 }
@@ -1797,6 +1959,7 @@ function AdminControlPanel({
   pinHashes,
   pinUpdatedAt,
   portfolios,
+  validationSummary,
   onOpen,
   onEdit,
   onDelete,
@@ -1808,6 +1971,7 @@ function AdminControlPanel({
   pinHashes: Record<string, string>;
   pinUpdatedAt: Record<string, string>;
   portfolios: ManagedPortfolio[];
+  validationSummary: IntelligenceSummary | null;
   onOpen: (portfolio: ManagedPortfolio) => void;
   onEdit: (portfolio: ManagedPortfolio) => void;
   onDelete: (portfolio: ManagedPortfolio) => void;
@@ -1895,6 +2059,9 @@ function AdminControlPanel({
           portfolios={portfolios}
         />
       ) : null}
+      {activeTab === "validation" ? (
+        <IntelligenceValidationTab summary={validationSummary} />
+      ) : null}
       {activeTab === "export" ? (
         <DataExportTab
           intelligence={intelligence}
@@ -1925,12 +2092,13 @@ function AdminControlPanel({
   );
 }
 
-type AdminTab = "portfolio" | "monitor" | "performance" | "export" | "pin-diagnostics" | "requests";
+type AdminTab = "portfolio" | "monitor" | "performance" | "validation" | "export" | "pin-diagnostics" | "requests";
 
 const adminTabs: Array<{ id: AdminTab; label: string }> = [
   { id: "portfolio", label: "Portfolio Administration" },
   { id: "monitor", label: "Intelligence Monitor" },
   { id: "performance", label: "Performance Analytics" },
+  { id: "validation", label: "Intelligence Validation" },
   { id: "export", label: "Data Export" },
   { id: "pin-diagnostics", label: "PIN Diagnostics" },
   { id: "requests", label: "User Requests" },
@@ -2437,6 +2605,123 @@ function PerformanceAnalyticsTab({
         <PerformanceList title="Worst 10 Recommendations" rows={filtered.bottomPerformers} />
       </div>
       <div className="hidden">{performance.summary.total}</div>
+    </div>
+  );
+}
+
+function IntelligenceValidationTab({
+  summary,
+}: {
+  summary: IntelligenceSummary | null;
+}) {
+  if (!summary?.quality || !summary.outcomes) {
+    return (
+      <div className="rounded-xl border border-white/10 bg-[#16263D] p-4 text-sm text-slate-400">
+        Validation intelligence is unavailable until the scheduled recommendation snapshot runs.
+      </div>
+    );
+  }
+
+  const sectorRows =
+    summary.learning
+      ?.filter((row) => row.dimension === "Sector")
+      .sort((a, b) => b.successRate - a.successRate)
+      .slice(0, 10) ?? [];
+
+  return (
+    <div className="space-y-4">
+      <div className="grid gap-3 md:grid-cols-3 xl:grid-cols-6">
+        <AdminMetric label="Quality Score" value={`${summary.quality.averageScore}/100`} />
+        <AdminMetric label="Quality Passed" value={String(summary.quality.passed)} tone="up" />
+        <AdminMetric label="Hits" value={String(summary.outcomes.hits)} tone="up" />
+        <AdminMetric label="Misses" value={String(summary.outcomes.misses)} tone="down" />
+        <AdminMetric label="Active" value={String(summary.outcomes.active)} />
+        <AdminMetric label="Reliability" value={`${summary.outcomes.hitRate}%`} />
+      </div>
+
+      <div className="grid gap-4 xl:grid-cols-2">
+        <section className="overflow-x-auto rounded-xl border border-white/10">
+          <div className="border-b border-white/10 px-4 py-3 text-sm font-semibold text-white">
+            Outcome Validation
+          </div>
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Portfolio</TableHead>
+                <TableHead>Symbol</TableHead>
+                <TableHead>Quality</TableHead>
+                <TableHead>Outcome</TableHead>
+                <TableHead>Return</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {summary.recent.slice(0, 12).map((row) => (
+                <TableRow key={row.recommendationId}>
+                  <TableCell>{row.portfolioName ?? "Global"}</TableCell>
+                  <TableCell className="font-semibold">{row.symbol}</TableCell>
+                  <TableCell>{row.qualityScore ?? 0}/100</TableCell>
+                  <TableCell>{row.validationStatus}</TableCell>
+                  <TableCell>{row.returnPercent}%</TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </section>
+
+        <section className="overflow-x-auto rounded-xl border border-white/10">
+          <div className="border-b border-white/10 px-4 py-3 text-sm font-semibold text-white">
+            Learning Summary
+          </div>
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Sector</TableHead>
+                <TableHead>Hit Rate</TableHead>
+                <TableHead>Samples</TableHead>
+                <TableHead>Feedback Weight</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {sectorRows.map((row) => (
+                <TableRow key={row.label}>
+                  <TableCell className="font-semibold">{row.label}</TableCell>
+                  <TableCell>{row.successRate}%</TableCell>
+                  <TableCell>{row.sampleSize}</TableCell>
+                  <TableCell>{row.weightMultiplier.toFixed(2)}x</TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </section>
+      </div>
+
+      <section className="overflow-x-auto rounded-xl border border-white/10">
+        <div className="border-b border-white/10 px-4 py-3 text-sm font-semibold text-white">
+          Confidence Calibration
+        </div>
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead>Confidence Band</TableHead>
+              <TableHead>Actual Success</TableHead>
+              <TableHead>Hits</TableHead>
+              <TableHead>Misses</TableHead>
+              <TableHead>Sample Size</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {(summary.confidenceCalibration ?? []).map((row) => (
+              <TableRow key={row.label}>
+                <TableCell className="font-semibold">{row.label}</TableCell>
+                <TableCell>{row.successRate}%</TableCell>
+                <TableCell>{row.hits}</TableCell>
+                <TableCell>{row.misses}</TableCell>
+                <TableCell>{row.sampleSize}</TableCell>
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
+      </section>
     </div>
   );
 }

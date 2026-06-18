@@ -1190,6 +1190,7 @@ type DecisionRecommendationRow = {
   target: number;
   stopLoss: number;
   confidence: number;
+  horizon: string;
   action: "BUY" | "SELL";
   reason: string;
   technicalFactors: string[];
@@ -1335,7 +1336,10 @@ function SimplifiedPortfolioView({
       </section>
 
       {activePanel === "analysis" ? (
-        <RecommendationAnalysisPanel rows={sections.all} />
+        <section className="space-y-4">
+          <RecommendationAnalysisPanel rows={sections.all} />
+          <RecommendationPerformancePanel history={history} portfolio={portfolio} />
+        </section>
       ) : null}
 
       {activePanel === "management" ? (
@@ -1429,24 +1433,26 @@ function RecommendationAnalysisPanel({
 }: {
   rows: DecisionRecommendationRow[];
 }) {
+  const recommendations = getUniqueRecommendationRows(rows);
+
   return (
     <section className="space-y-3 rounded-2xl border border-amber-300/25 bg-[#101D30] p-5 shadow-xl">
       <SectionTitle
         title="Recommendation Analysis"
-        subtitle="Expanded reasoning for the currently surfaced recommendations."
+        subtitle="Compact decision cards with detailed analysis available on demand."
         badge="CALCULATED"
         accent="gold"
       />
-      <div className="grid gap-3 lg:grid-cols-2">
-        {rows.slice(0, 8).map((row) => (
+      <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+        {recommendations.map((row) => (
           <article
-            key={`analysis-${row.symbol}-${row.type}`}
+            key={`analysis-${row.symbol}`}
             className="rounded-xl border border-white/10 bg-[#16263D] p-4"
           >
             <div className="flex items-start justify-between gap-3">
               <div>
-                <h3 className="text-base font-semibold text-white">{row.symbol}</h3>
-                <p className="text-xs text-slate-400">{row.type}</p>
+                <h3 className="text-lg font-semibold text-white">{row.symbol}</h3>
+                <p className="mt-1 text-xs text-slate-400">{row.horizon}</p>
               </div>
               <span
                 className={cn(
@@ -1459,14 +1465,44 @@ function RecommendationAnalysisPanel({
                 {row.action}
               </span>
             </div>
-            <AnalysisLine label="Why Recommended" value={row.reason} />
-            <AnalysisList label="Technical Factors" values={row.technicalFactors} />
-            <AnalysisList label="Fundamental Factors" values={row.fundamentalFactors} />
-            <AnalysisLine label="Sector Strength" value={row.sectorStrength} />
-            <AnalysisList label="Risk Factors" values={row.riskFactors} />
+
+            <div className="mt-4 grid grid-cols-2 gap-2 text-xs">
+              <CompactMetric label="Confidence" value={`${row.confidence}%`} />
+              <CompactMetric label="Conviction" value={getConviction(row.confidence)} />
+              <CompactMetric label="CMP" value={formatDecisionPrice(row.cmp)} />
+              <CompactMetric label="Target" value={formatDecisionPrice(row.target)} />
+              <CompactMetric label="Stop Loss" value={formatDecisionPrice(row.stopLoss)} />
+              <CompactMetric label="Horizon" value={row.horizon} />
+            </div>
+
+            <div className="mt-4">
+              <div className="text-xs font-semibold uppercase tracking-[0.12em] text-slate-500">
+                Why?
+              </div>
+              <ul className="mt-2 space-y-1.5 text-sm leading-5 text-slate-300">
+                {getWhyBullets(row).map((reason) => (
+                  <li key={reason} className="flex gap-2">
+                    <span className="text-amber-200">•</span>
+                    <span>{reason}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+
+            <details className="mt-4 rounded-lg border border-white/10 bg-[#08121F]">
+              <summary className="cursor-pointer px-3 py-2 text-sm font-semibold text-cyan-200">
+                View Detailed Analysis
+              </summary>
+              <div className="space-y-3 border-t border-white/10 p-3">
+                <DetailList label="Technical Factors" values={row.technicalFactors} />
+                <DetailList label="Fundamental Factors" values={row.fundamentalFactors} />
+                <DetailList label="Sector Strength" values={[row.sectorStrength]} />
+                <DetailList label="Risk Factors" values={row.riskFactors} />
+              </div>
+            </details>
           </article>
         ))}
-        {rows.length === 0 ? (
+        {recommendations.length === 0 ? (
           <div className="rounded-xl border border-white/10 bg-[#16263D] p-4 text-sm text-slate-400">
             Recommendation reasoning will appear once recommendations are available.
           </div>
@@ -1476,30 +1512,175 @@ function RecommendationAnalysisPanel({
   );
 }
 
-function AnalysisLine({ label, value }: { label: string; value: string }) {
+function CompactMetric({ label, value }: { label: string; value: string }) {
   return (
-    <div className="mt-3">
-      <div className="text-xs font-semibold uppercase tracking-[0.14em] text-slate-500">
+    <div className="rounded-lg border border-white/10 bg-black/20 p-2.5">
+      <div className="text-[10px] font-semibold uppercase tracking-[0.1em] text-slate-500">
         {label}
       </div>
-      <p className="mt-1 text-sm leading-6 text-slate-300">{value}</p>
+      <div className="mt-1 font-semibold text-slate-100">{value}</div>
     </div>
   );
 }
 
-function AnalysisList({ label, values }: { label: string; values: string[] }) {
+function DetailList({ label, values }: { label: string; values: string[] }) {
   return (
-    <div className="mt-3">
-      <div className="text-xs font-semibold uppercase tracking-[0.14em] text-slate-500">
+    <div>
+      <div className="text-[10px] font-semibold uppercase tracking-[0.1em] text-slate-500">
         {label}
       </div>
-      <ul className="mt-1 space-y-1 text-sm leading-6 text-slate-300">
+      <ul className="mt-1 space-y-1 text-xs leading-5 text-slate-300">
         {values.map((value) => (
-          <li key={value}>{value}</li>
+          <li key={value}>• {value}</li>
         ))}
       </ul>
     </div>
   );
+}
+
+function RecommendationPerformancePanel({
+  history,
+  portfolio,
+}: {
+  history: Recommendation[];
+  portfolio: ManagedPortfolio;
+}) {
+  const currentPrices = buildCurrentPriceLookup([portfolio]);
+  const rows = history
+    .filter(
+      (item) =>
+        item.portfolioId === portfolio.id &&
+        isInsideWindow(item.createdAt, "7d"),
+    )
+    .map((item) => {
+      const cmp = getRecommendationPrice(item, currentPrices[item.symbol] ?? 0);
+      const performance = buildPerformanceRow(item, currentPrices[item.symbol] ?? 0);
+
+      return {
+        cmp,
+        date: new Date(item.createdAt).toLocaleDateString("en-IN"),
+        id: item.id,
+        recommendation: item.action === "Accumulate" ? "BUY" : "SELL",
+        result:
+          performance.status === "Success"
+            ? "Hit"
+            : performance.status === "Failure"
+              ? "Miss"
+              : "Active",
+        stock: item.symbol,
+        target: item.metrics?.target ?? cmp,
+      };
+    })
+    .sort((a, b) => b.date.localeCompare(a.date));
+  const hits = rows.filter((row) => row.result === "Hit").length;
+  const misses = rows.filter((row) => row.result === "Miss").length;
+  const active = rows.filter((row) => row.result === "Active").length;
+  const scored = hits + misses;
+  const hitRate = scored ? Math.round((hits / scored) * 100) : 0;
+
+  return (
+    <section className="space-y-4 rounded-2xl border border-cyan-300/20 bg-[#101D30] p-5 shadow-xl">
+      <SectionTitle
+        title="Recommendation Performance"
+        subtitle="Last 7 days"
+        badge="CALCULATED"
+        accent="blue"
+      />
+      <div className="grid gap-3 grid-cols-2 lg:grid-cols-4">
+        <CompactMetric label="Hit Rate" value={`${hitRate}%`} />
+        <CompactMetric label="Hits" value={String(hits)} />
+        <CompactMetric label="Misses" value={String(misses)} />
+        <CompactMetric label="Active" value={String(active)} />
+      </div>
+      <Table>
+        <TableHeader>
+          <TableRow>
+            <TableHead>Date</TableHead>
+            <TableHead>Stock</TableHead>
+            <TableHead>Recommendation</TableHead>
+            <TableHead>CMP</TableHead>
+            <TableHead>Target</TableHead>
+            <TableHead>Result</TableHead>
+          </TableRow>
+        </TableHeader>
+        <TableBody>
+          {rows.map((row) => (
+            <TableRow key={row.id}>
+              <TableCell>{row.date}</TableCell>
+              <TableCell className="font-semibold text-white">{row.stock}</TableCell>
+              <TableCell>{row.recommendation}</TableCell>
+              <TableCell>{formatDecisionPrice(row.cmp)}</TableCell>
+              <TableCell>{formatDecisionPrice(row.target)}</TableCell>
+              <TableCell
+                className={cn(
+                  "font-semibold",
+                  row.result === "Hit"
+                    ? "text-emerald-300"
+                    : row.result === "Miss"
+                      ? "text-rose-300"
+                      : "text-amber-200",
+                )}
+              >
+                {row.result}
+              </TableCell>
+            </TableRow>
+          ))}
+          {rows.length === 0 ? (
+            <TableRow>
+              <TableCell colSpan={6} className="text-slate-400">
+                No recommendations recorded in the last 7 days.
+              </TableCell>
+            </TableRow>
+          ) : null}
+        </TableBody>
+      </Table>
+    </section>
+  );
+}
+
+function getUniqueRecommendationRows(rows: DecisionRecommendationRow[]) {
+  return Object.values(
+    rows.reduce<Record<string, DecisionRecommendationRow>>((acc, row) => {
+      const existing = acc[row.symbol];
+
+      if (!existing || row.confidence > existing.confidence) {
+        acc[row.symbol] = row;
+      }
+
+      return acc;
+    }, {}),
+  )
+    .sort((a, b) => b.confidence - a.confidence)
+    .slice(0, 9);
+}
+
+function getConviction(confidence: number) {
+  if (confidence >= 85) return "A+";
+  if (confidence >= 78) return "A";
+  if (confidence >= 68) return "B";
+  return "C";
+}
+
+function getWhyBullets(row: DecisionRecommendationRow) {
+  return [
+    compactRecommendationText(row.reason, row.symbol),
+    compactRecommendationText(row.sectorStrength, row.symbol),
+    compactRecommendationText(row.technicalFactors[0] ?? "", row.symbol),
+  ].filter(Boolean).slice(0, 3);
+}
+
+function compactRecommendationText(text: string, symbol: string) {
+  const escapedSymbol = symbol.replace(/[.*+?^${}()|[\]\\]/gu, "\\$&");
+  const cleaned = text
+    .replace(new RegExp(`\\b${escapedSymbol}\\b`, "giu"), "")
+    .replace(/\s+/gu, " ")
+    .trim()
+    .replace(/^[|:;,\s-]+/u, "");
+  const firstSentence = cleaned.split(/(?<=[.!?])\s/u)[0] ?? cleaned;
+
+  return firstSentence.length > 110
+    ? `${firstSentence.slice(0, 107).trim()}...`
+    : firstSentence;
 }
 
 function AddPortfolioModal({
@@ -4434,7 +4615,7 @@ function buildQuoteRowsForCategory(
       .filter((quote) => quote.action === "Accumulate")
       .sort((a, b) => b.score - a.score)
       .slice(0, limit)
-      .map((quote) => buildDecisionRowFromQuote(quote, type, category.title)) ?? []
+      .map((quote) => buildDecisionRowFromQuote(quote, type, category.title, source)) ?? []
   );
 }
 
@@ -4442,6 +4623,7 @@ function buildDecisionRowFromQuote(
   quote: ExpertMatrixQuote,
   type: string,
   categoryTitle: string,
+  source: "longTerm" | "intraday",
 ): DecisionRecommendationRow {
   const cmp = quote.price;
   const target = quote.target > 0 ? quote.target : cmp * 1.12;
@@ -4462,6 +4644,7 @@ function buildDecisionRowFromQuote(
     riskFactors: quote.caveats?.length
       ? quote.caveats
       : [`${risk} execution risk; validate liquidity and news before action.`],
+    horizon: getExecutionHorizon(categoryTitle, source, quote.score),
     sectorStrength: `${categoryTitle} opportunity bucket with ${Math.round(quote.score)}% confidence.`,
     stopLoss,
     symbol: quote.symbol,
@@ -4505,6 +4688,7 @@ function buildDecisionRowFromRecommendation(
     riskFactors: recommendation.caveats?.length
       ? recommendation.caveats
       : ["Model output is a screening signal; validate liquidity, valuation, and news before execution."],
+    horizon: recommendation.horizon,
     sectorStrength: position?.sector
       ? `${position.sector} evaluated against portfolio concentration.`
       : "Sector context unavailable for this row.",

@@ -1252,6 +1252,7 @@ type PortfolioActionPanel =
 
 type DecisionRecommendationRow = {
   symbol: string;
+  company?: string;
   type: string;
   cmp: number;
   target: number;
@@ -1264,6 +1265,8 @@ type DecisionRecommendationRow = {
   fundamentalFactors: string[];
   sectorStrength: string;
   riskFactors: string[];
+  expertFocus?: number;
+  consensusBadge?: "Strong Buy" | "Buy" | "Watchlist";
 };
 
 function SimplifiedPortfolioView({
@@ -1410,28 +1413,32 @@ function SimplifiedPortfolioView({
 
       <section className="grid gap-4 xl:grid-cols-2">
         <DecisionRecommendationTable
-          title="Top Buy Recommendations"
-          subtitle="Best buy/accumulate ideas only from stocks already inside this portfolio."
-          rows={sections.buy}
-          emptyText="No portfolio holding currently clears the buy threshold."
+          className="xl:col-span-2"
+          title="Portfolio Recommendations"
+          subtitle="Best Buy or Sell Opportunities · 3–6 Months / 6–12 Months"
+          rows={sections.portfolio}
+          emptyText="No portfolio recommendation currently clears the display threshold."
         />
         <DecisionRecommendationTable
-          title="Top Sell Recommendations"
-          subtitle="Sell discipline for stocks already inside this portfolio."
-          rows={sections.sell}
-          emptyText="No urgent sell opportunity is currently triggered within this portfolio."
-        />
-        <DecisionRecommendationTable
-          title="Market-Wide Long Term"
-          subtitle="6-12 month opportunities from across the stock market, not limited to this portfolio."
+          className="xl:col-span-2"
+          title="Long Term Opportunities"
+          subtitle="Mid-cap and small-cap opportunities prioritized for 3–12 month horizons."
           rows={sections.longTerm}
-          emptyText="Market-wide long-term recommendations are loading."
+          emptyText="Long-term opportunities are loading."
         />
         <DecisionRecommendationTable
-          title="Market-Wide Intraday"
-          subtitle="Intraday opportunities from across the stock market, not limited to this portfolio."
+          className="xl:col-span-2"
+          title="Expert Consensus Picks"
+          subtitle="Stocks receiving the highest number of positive mentions from trusted market experts, research houses and financial platforms."
+          rows={sections.consensus}
+          emptyText="Expert consensus picks are loading."
+        />
+        <DecisionRecommendationTable
+          className="xl:col-span-2"
+          title="Intraday Opportunities"
+          subtitle="High-momentum mid-cap and small-cap opportunities."
           rows={sections.intraday}
-          emptyText="Market-wide intraday opportunities are loading."
+          emptyText="Intraday opportunities are loading."
         />
       </section>
 
@@ -1462,58 +1469,106 @@ function SimplifiedPortfolioView({
 }
 
 function DecisionRecommendationTable({
+  className,
   title,
   subtitle,
   rows,
   emptyText,
 }: {
+  className?: string;
   title: string;
   subtitle: string;
   rows: DecisionRecommendationRow[];
   emptyText: string;
 }) {
   return (
-    <section className="min-w-0 space-y-3 rounded-2xl border border-white/10 bg-[#101D30] p-4 shadow-xl sm:p-5">
+    <section className={cn("min-w-0 space-y-3 rounded-2xl border border-white/10 bg-[#101D30] p-4 shadow-xl sm:p-5", className)}>
       <SectionTitle title={title} subtitle={subtitle} badge="CALCULATED" accent="blue" />
-      <Table>
-        <TableHeader>
-          <TableRow>
-            <TableHead>Stock</TableHead>
-            <TableHead>Type</TableHead>
-            <TableHead>CMP</TableHead>
-            <TableHead>Target</TableHead>
-            <TableHead>Stop Loss</TableHead>
-            <TableHead>Confidence</TableHead>
-          </TableRow>
-        </TableHeader>
-        <TableBody>
-          {rows.map((row) => (
-            <TableRow key={`${title}-${row.symbol}-${row.type}`}>
-              <TableCell className="font-semibold text-white">{row.symbol}</TableCell>
-              <TableCell>{row.type}</TableCell>
-              <TableCell>{formatDecisionPrice(row.cmp)}</TableCell>
-              <TableCell>{formatDecisionPrice(row.target)}</TableCell>
-              <TableCell>{formatDecisionPrice(row.stopLoss)}</TableCell>
-              <TableCell
-                className={cn(
-                  "font-semibold",
-                  row.confidence >= 80 ? "text-amber-200" : "text-cyan-200",
-                )}
-              >
-                {row.confidence}%
-              </TableCell>
-            </TableRow>
-          ))}
-          {rows.length === 0 ? (
+      <div className="space-y-3 md:hidden">
+        {rows.map((row) => (
+          <article key={`${title}-mobile-${row.symbol}-${row.type}`} className="rounded-xl border border-white/10 bg-[#16263D] p-4">
+            <div className="flex items-start justify-between gap-3">
+              <RecommendationStockLabel row={row} />
+              <RecommendationActionBadge action={row.action} />
+            </div>
+            <div className="mt-3 grid grid-cols-2 gap-2">
+              <CompactMetric label="CMP" value={formatDecisionPrice(row.cmp)} />
+              <CompactMetric label="Target" value={formatDecisionPrice(row.target)} />
+              <CompactMetric label="Stop Loss" value={formatDecisionPrice(row.stopLoss)} />
+              <CompactMetric label="Horizon" value={row.horizon} />
+            </div>
+          </article>
+        ))}
+        {rows.length === 0 ? (
+          <div className="rounded-xl border border-white/10 bg-[#16263D] p-4 text-sm text-slate-400">{emptyText}</div>
+        ) : null}
+      </div>
+      <div className="hidden md:block">
+        <Table className="min-w-[700px]">
+          <TableHeader>
             <TableRow>
-              <TableCell colSpan={6} className="text-sm text-slate-400">
-                {emptyText}
-              </TableCell>
+              <TableHead>Stock</TableHead>
+              <TableHead>Action</TableHead>
+              <TableHead>CMP</TableHead>
+              <TableHead>Target</TableHead>
+              <TableHead>Stop Loss</TableHead>
+              <TableHead>Horizon</TableHead>
             </TableRow>
-          ) : null}
-        </TableBody>
-      </Table>
+          </TableHeader>
+          <TableBody>
+            {rows.map((row) => (
+              <TableRow key={`${title}-${row.symbol}-${row.type}`}>
+                <TableCell><RecommendationStockLabel row={row} /></TableCell>
+                <TableCell><RecommendationActionBadge action={row.action} /></TableCell>
+                <TableCell>{formatDecisionPrice(row.cmp)}</TableCell>
+                <TableCell>{formatDecisionPrice(row.target)}</TableCell>
+                <TableCell>{formatDecisionPrice(row.stopLoss)}</TableCell>
+                <TableCell>{row.horizon}</TableCell>
+              </TableRow>
+            ))}
+            {rows.length === 0 ? (
+              <TableRow>
+                <TableCell colSpan={6} className="text-sm text-slate-400">{emptyText}</TableCell>
+              </TableRow>
+            ) : null}
+          </TableBody>
+        </Table>
+      </div>
     </section>
+  );
+}
+
+function RecommendationStockLabel({ row }: { row: DecisionRecommendationRow }) {
+  return (
+    <div className="min-w-0">
+      <div className="font-semibold text-white">{row.company || row.symbol}</div>
+      {row.company && row.company !== row.symbol ? (
+        <div className="mt-0.5 text-[11px] text-slate-500">{row.symbol}</div>
+      ) : null}
+      <div className="mt-1 text-xs text-slate-400">
+        {row.expertFocus
+          ? `Expert Focus: ${row.expertFocus} Expert${row.expertFocus === 1 ? "" : "s"}`
+          : `Confidence: ${row.confidence}%`}
+      </div>
+      {row.consensusBadge ? (
+        <span className="mt-1.5 inline-flex rounded-full border border-amber-300/30 bg-amber-300/10 px-2 py-0.5 text-[10px] font-semibold text-amber-100">
+          {row.consensusBadge}
+        </span>
+      ) : null}
+    </div>
+  );
+}
+
+function RecommendationActionBadge({ action }: { action: "BUY" | "SELL" }) {
+  return (
+    <span className={cn(
+      "inline-flex rounded-full border px-2.5 py-1 text-xs font-semibold",
+      action === "BUY"
+        ? "border-emerald-300/30 bg-emerald-300/10 text-emerald-200"
+        : "border-rose-300/30 bg-rose-300/10 text-rose-200",
+    )}>
+      {action}
+    </span>
   );
 }
 
@@ -4765,14 +4820,18 @@ function buildSimplifiedPortfolioSections(
   const recommendations = generateRecommendations(portfolio, history);
   const buy = buildPortfolioBuyRows(portfolio, recommendations);
   const sell = buildPortfolioSellRows(portfolio, recommendations);
+  const portfolioRows = getUniqueDecisionRows([...buy, ...sell], 8);
   const longTerm = buildMarketLongTermRows(matrix, recommendations);
+  const consensus = buildExpertConsensusRows(matrix);
   const intraday = buildMarketIntradayRows(matrix, recommendations);
 
   return {
-    all: [...buy, ...sell, ...longTerm, ...intraday],
+    all: [...portfolioRows, ...longTerm, ...consensus, ...intraday],
     buy,
+    consensus,
     intraday,
     longTerm,
+    portfolio: portfolioRows,
     sell,
   };
 }
@@ -4789,7 +4848,6 @@ function buildPortfolioBuyRows(
 
   return [
     ...recommendations.longTermPlan,
-    ...recommendations.intraday,
     ...recommendations.multibaggerCandidates,
   ]
     .filter(
@@ -4835,15 +4893,9 @@ function buildMarketLongTermRows(
   const smallCap = categories.find((category) =>
     category.title.toLowerCase().includes("small"),
   );
-  const etfCategory = categories.find((category) => {
-    const title = category.title.toLowerCase();
-    return title.includes("etf") || title.includes("bees") || title.includes("index");
-  });
-
-  rows.push(...buildQuoteRowsForCategory(largeCap, "Large Cap | Market Wide", 3, "longTerm"));
   rows.push(...buildQuoteRowsForCategory(midCap, "Mid Cap | Market Wide", 3, "longTerm"));
   rows.push(...buildQuoteRowsForCategory(smallCap, "Small Cap | Market Wide", 3, "longTerm"));
-  rows.push(...buildQuoteRowsForCategory(etfCategory, "ETF | Market Wide", 1, "longTerm"));
+  rows.push(...buildQuoteRowsForCategory(largeCap, "Large Cap | Market Wide", 2, "longTerm"));
 
   if (rows.length > 0) {
     return rows;
@@ -4861,18 +4913,24 @@ function buildMarketIntradayRows(
   matrix: ExpertActionMatrix | null,
   recommendations: ReturnType<typeof generateRecommendations>,
 ) {
-  const rows =
-    matrix?.categories.flatMap((category) =>
-      buildQuoteRowsForCategory(
-        category,
-        `${getMarketCapType(category.title)} | Market Wide`,
-        3,
-        "intraday",
-      ),
-    ) ?? [];
+  const categories = matrix?.categories ?? [];
+  const midCap = categories.find((category) =>
+    category.title.toLowerCase().includes("mid"),
+  );
+  const smallCap = categories.find((category) =>
+    category.title.toLowerCase().includes("small"),
+  );
+  const largeCap = categories.find((category) =>
+    category.title.toLowerCase().includes("large"),
+  );
+  const rows = [
+    ...buildQuoteRowsForCategory(midCap, "Mid Cap | High Momentum", 3, "intraday"),
+    ...buildQuoteRowsForCategory(smallCap, "Small Cap | High Momentum", 3, "intraday"),
+    ...buildQuoteRowsForCategory(largeCap, "Large Cap | High Momentum", 2, "intraday"),
+  ];
 
   if (rows.length > 0) {
-    return rows.sort((a, b) => b.confidence - a.confidence).slice(0, 10);
+    return rows;
   }
 
   return recommendations.intraday
@@ -4880,6 +4938,62 @@ function buildMarketIntradayRows(
     .sort((a, b) => b.confidence - a.confidence)
     .map((item) => buildDecisionRowFromRecommendation(item, undefined, "Market Intraday"))
     .slice(0, 10);
+}
+
+function buildExpertConsensusRows(
+  matrix: ExpertActionMatrix | null,
+): DecisionRecommendationRow[] {
+  if (!matrix) return [];
+  const quotes = matrix.categories.flatMap((category) => [
+    ...category.longTermUpsides.map((quote) => ({ category, quote })),
+    ...category.intradayBreakouts.map((quote) => ({ category, quote })),
+  ]);
+  const quoteBySymbol = quotes.reduce<Record<string, (typeof quotes)[number]>>(
+    (acc, item) => {
+      const current = acc[item.quote.symbol];
+      if (!current || item.quote.score > current.quote.score) {
+        acc[item.quote.symbol] = item;
+      }
+      return acc;
+    },
+    {},
+  );
+  const liveMentions = quotes.reduce<Record<string, number>>((acc, item) => {
+    acc[item.quote.symbol] = (acc[item.quote.symbol] ?? 0) + 1;
+    return acc;
+  }, {});
+  const focusBySymbol = matrix.consecutivePicks?.reduce<Record<string, number>>(
+    (acc, pick) => {
+      acc[pick.symbol] = Math.max(pick.appearances, liveMentions[pick.symbol] ?? 0);
+      return acc;
+    },
+    {},
+  ) ?? {};
+
+  return Object.values(quoteBySymbol)
+    .map(({ category, quote }) => {
+      const expertFocus = focusBySymbol[quote.symbol] ?? liveMentions[quote.symbol] ?? 1;
+      return {
+        ...buildDecisionRowFromQuote(
+          quote,
+          `${getMarketCapType(category.title)} | Expert Consensus`,
+          category.title,
+          "longTerm",
+        ),
+        expertFocus,
+        consensusBadge:
+          expertFocus >= 3 || quote.score >= 80
+            ? "Strong Buy" as const
+            : expertFocus >= 2 || quote.score >= 65
+              ? "Buy" as const
+              : "Watchlist" as const,
+      };
+    })
+    .sort((a, b) => {
+      const focusDifference = (b.expertFocus ?? 0) - (a.expertFocus ?? 0);
+      return focusDifference || b.confidence - a.confidence;
+    })
+    .slice(0, 6);
 }
 
 function buildQuoteRowsForCategory(
@@ -4918,6 +5032,7 @@ function buildDecisionRowFromQuote(
   return {
     action: "BUY",
     cmp,
+    company: quote.name,
     confidence: Math.round(quote.score),
     fundamentalFactors: [
       quote.upside > 0
@@ -4929,7 +5044,11 @@ function buildDecisionRowFromQuote(
     riskFactors: quote.caveats?.length
       ? quote.caveats
       : [`${risk} execution risk; validate liquidity and news before action.`],
-    horizon: getExecutionHorizon(categoryTitle, source, quote.score),
+    horizon: getPresentationHorizon({
+      categoryTitle,
+      source,
+      horizon: getExecutionHorizon(categoryTitle, source, quote.score),
+    }),
     sectorStrength: `${categoryTitle} opportunity bucket with ${Math.round(quote.score)}% confidence.`,
     stopLoss,
     symbol: quote.symbol,
@@ -4962,6 +5081,7 @@ function buildDecisionRowFromRecommendation(
   return {
     action: isSell ? "SELL" : "BUY",
     cmp,
+    company: recommendation.company,
     confidence: recommendation.confidence,
     fundamentalFactors: [
       position?.sector
@@ -4973,7 +5093,10 @@ function buildDecisionRowFromRecommendation(
     riskFactors: recommendation.caveats?.length
       ? recommendation.caveats
       : ["Model output is a screening signal; validate liquidity, valuation, and news before execution."],
-    horizon: recommendation.horizon,
+    horizon: getPresentationHorizon({
+      source: recommendation.section === "Intraday" ? "intraday" : "longTerm",
+      horizon: recommendation.horizon,
+    }),
     sectorStrength: position?.sector
       ? `${position.sector} evaluated against portfolio concentration.`
       : "Sector context unavailable for this row.",
@@ -4989,6 +5112,35 @@ function buildDecisionRowFromRecommendation(
       : ["Technical metrics will populate when live bars are available."],
     type: typeOverride ?? recommendation.section,
   };
+}
+
+function getUniqueDecisionRows(rows: DecisionRecommendationRow[], limit: number) {
+  return Object.values(
+    rows.reduce<Record<string, DecisionRecommendationRow>>((acc, row) => {
+      const current = acc[row.symbol];
+      if (!current || row.confidence > current.confidence) {
+        acc[row.symbol] = row;
+      }
+      return acc;
+    }, {}),
+  )
+    .sort((a, b) => b.confidence - a.confidence)
+    .slice(0, limit);
+}
+
+function getPresentationHorizon({
+  categoryTitle = "",
+  source,
+  horizon,
+}: {
+  categoryTitle?: string;
+  source: "longTerm" | "intraday";
+  horizon: string;
+}) {
+  if (source === "intraday") return "Intraday";
+  const normalized = `${categoryTitle} ${horizon}`.toLowerCase();
+  if (normalized.includes("mid") || normalized.includes("swing")) return "3–6 Months";
+  return "6–12 Months";
 }
 
 function getQuoteStopLoss(cmp: number, score: number, volumeShock = 0) {

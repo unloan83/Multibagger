@@ -1447,7 +1447,9 @@ function SimplifiedPortfolioView({
           <div key={button.id} className="space-y-3">
             {renderPanelButton(button)}
             {activePanel === button.id ? (
-              <div>{activePanelContent}</div>
+              <div className="min-w-0 max-w-full overflow-hidden">
+                {activePanelContent}
+              </div>
             ) : null}
           </div>
         ))}
@@ -2186,7 +2188,7 @@ function PortfolioAdministrationTab({
   onResetPin: (portfolio: ManagedPortfolio) => void;
 }) {
   return (
-    <div className="overflow-x-auto rounded-xl border border-white/10">
+    <div className="min-w-0 overflow-hidden rounded-xl border border-white/10">
       <Table>
         <TableHeader>
           <TableRow>
@@ -2341,7 +2343,7 @@ function PinDiagnosticsTab({
         </div>
       ) : null}
 
-      <div className="overflow-x-auto rounded-xl border border-white/10">
+      <div className="min-w-0 overflow-hidden rounded-xl border border-white/10">
         <Table>
           <TableHeader>
             <TableRow>
@@ -2478,7 +2480,7 @@ function UserRequestsTab({
 
   return (
     <div className="grid gap-4 xl:grid-cols-[1fr_1.2fr]">
-      <div className="overflow-x-auto rounded-xl border border-white/10">
+      <div className="min-w-0 overflow-hidden rounded-xl border border-white/10">
         <Table>
           <TableHeader>
             <TableRow>
@@ -2576,7 +2578,7 @@ function IntelligenceMonitorTab({
         <AdminMetric label="Confidence Updated" value={intelligence.summary.confidenceUpdated} />
         <AdminMetric label="Portfolios Evaluated" value={String(intelligence.summary.portfoliosEvaluated)} />
       </div>
-      <div className="overflow-x-auto rounded-xl border border-white/10">
+      <div className="min-w-0 overflow-hidden rounded-xl border border-white/10">
         <Table>
           <TableHeader>
             <TableRow>
@@ -2695,7 +2697,7 @@ function IntelligenceValidationTab({
       </div>
 
       <div className="grid gap-4 xl:grid-cols-2">
-        <section className="overflow-x-auto rounded-xl border border-white/10">
+        <section className="min-w-0 overflow-hidden rounded-xl border border-white/10">
           <div className="border-b border-white/10 px-4 py-3 text-sm font-semibold text-white">
             Outcome Validation
           </div>
@@ -2723,7 +2725,7 @@ function IntelligenceValidationTab({
           </Table>
         </section>
 
-        <section className="overflow-x-auto rounded-xl border border-white/10">
+        <section className="min-w-0 overflow-hidden rounded-xl border border-white/10">
           <div className="border-b border-white/10 px-4 py-3 text-sm font-semibold text-white">
             Learning Summary
           </div>
@@ -2750,7 +2752,7 @@ function IntelligenceValidationTab({
         </section>
       </div>
 
-      <section className="overflow-x-auto rounded-xl border border-white/10">
+      <section className="min-w-0 overflow-hidden rounded-xl border border-white/10">
         <div className="border-b border-white/10 px-4 py-3 text-sm font-semibold text-white">
           Confidence Calibration
         </div>
@@ -2856,7 +2858,7 @@ function AdminMetric({
 
 function PerformanceTable({ rows }: { rows: PerformanceRow[] }) {
   return (
-    <div className="overflow-x-auto rounded-xl border border-white/10">
+    <div className="min-w-0 overflow-hidden rounded-xl border border-white/10">
       <Table>
         <TableHeader>
           <TableRow>
@@ -4042,7 +4044,7 @@ function PortfolioHoldingsAndSectors({
   const metrics = calculatePortfolioMetrics(portfolio.positions);
 
   return (
-    <section className="grid gap-4 xl:grid-cols-2">
+    <section className="grid min-w-0 max-w-full gap-4 overflow-hidden xl:grid-cols-2">
       <CurrentHoldingsCard
         portfolio={portfolio}
         metrics={metrics}
@@ -4154,7 +4156,7 @@ function CurrentHoldingsCard({
   const hasHiddenHoldings = sortedHoldings.length > 5;
 
   return (
-    <section className="space-y-3 rounded-2xl border border-sky-300/20 bg-[#0F1B2D] p-5 shadow-xl">
+    <section className="min-w-0 max-w-full space-y-3 overflow-hidden rounded-2xl border border-sky-300/20 bg-[#0F1B2D] p-4 shadow-xl sm:p-5">
       <div className="flex items-start justify-between gap-3">
         <SectionTitle
           title="Current Holdings"
@@ -4185,8 +4187,8 @@ function CurrentHoldingsCard({
       <p className="text-xs text-slate-400">
         Swipe sideways to view all columns. Use the zoom controls at the top for a wider table view.
       </p>
-      <div className="overflow-x-auto rounded-xl border border-white/10">
-        <Table>
+      <div className="min-w-0 max-w-full overflow-hidden rounded-xl border border-white/10">
+        <Table scrollLabel={`${portfolio.name} current holdings`}>
           <TableHeader>
             <TableRow>
               <TableHead>Symbol</TableHead>

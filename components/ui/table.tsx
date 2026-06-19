@@ -1,24 +1,29 @@
 import * as React from "react";
 import { cn } from "@/lib/utils";
 
-const Table = React.forwardRef<
-  HTMLTableElement,
-  React.HTMLAttributes<HTMLTableElement>
->(({ className, ...props }, ref) => (
-  <div
-    className="table-scroll w-full"
-    role="region"
-    aria-label="Scrollable data table"
-    tabIndex={0}
-  >
-    <div className="table-scroll-hint md:hidden">Swipe left/right to view more</div>
-    <table
-      ref={ref}
-      className={cn("w-max min-w-[760px] max-w-none caption-bottom text-sm", className)}
-      {...props}
-    />
-  </div>
-));
+type TableProps = React.HTMLAttributes<HTMLTableElement> & {
+  scrollLabel?: string;
+};
+
+const Table = React.forwardRef<HTMLTableElement, TableProps>(
+  ({ className, scrollLabel = "Scrollable data table", ...props }, ref) => (
+    <div
+      className="table-scroll w-full min-w-0 max-w-full overflow-x-auto"
+      role="region"
+      aria-label={scrollLabel}
+      tabIndex={0}
+    >
+      <div className="table-scroll-hint md:hidden" aria-hidden="true">
+        Swipe left/right to view more
+      </div>
+      <table
+        ref={ref}
+        className={cn("w-full min-w-max caption-bottom text-sm", className)}
+        {...props}
+      />
+    </div>
+  ),
+);
 Table.displayName = "Table";
 
 const TableHeader = React.forwardRef<

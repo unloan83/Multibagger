@@ -1,10 +1,16 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import {
+  MIN_INTRADAY_POTENTIAL_PERCENT,
+  analyzeStockSignal,
+  qualifiesForHighPotentialIntraday,
+} from "@/lib/analysis";
+import {
   evaluateSafetyGates,
   type FundamentalProfile,
   type TechnicalCandidate,
 } from "@/lib/wealth-screening";
+import { generateRecommendations, type ManagedPortfolio } from "@/lib/portfolio";
 import type { StockSignalMetrics } from "@/lib/analysis";
 
 const bars = Array.from({ length: 220 }, (_, index) => ({
@@ -28,6 +34,7 @@ const metrics: StockSignalMetrics = {
   liquidityScore: 30,
   riskScore: 8,
   finalScore: 72,
+  intradayPotentialPercent: 0,
   target: 0,
   upsidePercent: 0,
   caveats: [],
@@ -186,4 +193,66 @@ test("rejects excessive valuation and leverage", () => {
   });
   assert(result.some((item) => item.includes("80x")));
   assert(result.some((item) => item.includes("Debt-to-equity")));
+});
+
+function buildIntradayBars(highExcursionPercent: number) {
+  return Array.from({ length: 61 }, (_, index) => {
+    const close = 100 + index * 0.02;
+    const breakoutHigh =
+      index > 0 && index % 5 === 0
+        ? (100 + (index - 1) * 0.02) * (1 + highExcursionPercent / 100)
+        : close * 1.01;
+
+    return {
+      close,
+      high: breakoutHigh,
+      low: close * 0.995,
+      volume: 2_000_000,
+    };
+  });
+}
+
+test("qualifies only evidence-backed intraday setups with at least 10% potential", () => {
+  const highPotentialBars = buildIntradayBars(12);
+  const price = highPotentialBars.at(-1)!.close * 1.02;
+  const signal = analyzeStockSignal({
+    symbol: "MOMENTUM",
+    price,
+    previousClose: highPotentialBars.at(-1)!.close,
+    volume: 4_000_000,
+    bars: highPotentialBars,
+    profile: "intraday",
+  });
+
+  assert(signal.intradayPotentialPercent >= MIN_INTRADAY_POTENTIAL_PERCENT);
+  assert(qualifiesForHighPotentialIntraday(signal));
+  assert((signal.target / price - 1) * 100 >= MIN_INTRADAY_POTENTIAL_PERCENT);
+});
+
+test("abstains from lower-potential intraday recommendations across portfolios", () => {
+  const lowPotentialBars = buildIntradayBars(2);
+  const currentPrice = lowPotentialBars.at(-1)!.close * 1.01;
+  const portfolio: ManagedPortfolio = {
+    id: "intraday-test",
+    name: "Intraday Test",
+    appetite: "aggressive",
+    inputs: [],
+    positions: [
+      {
+        list: "watchlist",
+        stock: "LOWMOVE",
+        symbol: "LOWMOVE",
+        company: "Low Move Ltd.",
+        sector: "Industrials",
+        quantity: 0,
+        currentPrice,
+        previousClose: lowPotentialBars.at(-1)!.close,
+        volume: 4_000_000,
+        bars: lowPotentialBars,
+        currency: "INR",
+      },
+    ],
+  };
+
+  assert.deepEqual(generateRecommendations(portfolio).intraday, []);
 });

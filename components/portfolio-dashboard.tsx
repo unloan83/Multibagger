@@ -5128,7 +5128,9 @@ function buildDecisionRowFromRecommendation(
   const isSell = recommendation.action === "Urgent Sell";
   const target =
     recommendation.metrics?.target ??
-    (cmp > 0 ? cmp * (isSell ? 0.9 : recommendation.section === "Intraday" ? 1.018 : 1.12) : 0);
+    (cmp > 0
+      ? cmp * (isSell ? 0.9 : recommendation.section === "Intraday" ? 0 : 1.12)
+      : 0);
   const stopLoss =
     cmp > 0 ? cmp * (isSell ? 1.05 : recommendation.section === "Intraday" ? 0.985 : 0.92) : 0;
   const metrics = recommendation.metrics;

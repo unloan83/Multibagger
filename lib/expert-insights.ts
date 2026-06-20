@@ -2,6 +2,10 @@ import fs from "node:fs/promises";
 import path from "node:path";
 import { buildMarketOverview } from "@/lib/market-overview";
 import {
+  MIN_INTRADAY_POTENTIAL_PERCENT,
+  qualifiesForHighPotentialIntraday,
+} from "@/lib/analysis";
+import {
   getMarketUniverse,
   screenWealthUniverse,
   type FactorScores,
@@ -190,10 +194,8 @@ function buildCategory(
   marketRegime: ScreeningRegime,
 ): ExpertCategory {
   const meta = categoryMeta[bucket];
-  const candidates = screened.filter(
-    (stock) => stock.capBucket === bucket && stock.eligible,
-  );
-  const longTermUpsides = candidates
+  const bucketStocks = screened.filter((stock) => stock.capBucket === bucket);
+  const longTermUpsides = bucketStocks
     .filter(isLongTermCandidate)
     .sort(
       (a, b) =>
@@ -202,23 +204,18 @@ function buildCategory(
     )
     .slice(0, 6)
     .map((stock) => toExpertQuote(stock, marketRegime));
-  const intradayBreakouts = candidates
-    .filter(
-      (stock) =>
-        !["Correction", "Risk-Off", "Transition"].includes(marketRegime) &&
-        isMomentumCandidate(stock),
-    )
+  const intradayBreakouts = bucketStocks
+    .filter(isMomentumCandidate)
     .sort(
       (a, b) =>
+        b.metrics.intradayPotentialPercent -
+          a.metrics.intradayPotentialPercent ||
         b.factorScores.momentum +
-        b.factorScores.sectorStrength +
-        b.volumeShock * 3 -
-        (a.factorScores.momentum +
-          a.factorScores.sectorStrength +
-          a.volumeShock * 3),
+          b.factorScores.liquidity -
+          (a.factorScores.momentum + a.factorScores.liquidity),
     )
     .slice(0, 5)
-    .map((stock) => toExpertQuote(stock, marketRegime));
+    .map((stock) => toExpertQuote(stock, marketRegime, "intraday"));
 
   return {
     key: meta.key,
@@ -242,22 +239,28 @@ function isLongTermCandidate(stock: ScreenedStock) {
 }
 
 function isMomentumCandidate(stock: ScreenedStock) {
+  const minimumTurnover =
+    stock.capBucket === "large" ? 20 : stock.capBucket === "mid" ? 10 : 5;
+
   return (
-    stock.eligible &&
-    stock.score >= 70 &&
-    stock.metrics.finalScore >= 52 &&
-    stock.metrics.ema20 >= stock.metrics.ema50 * 0.985 &&
-    stock.metrics.riskScore <= 18 &&
-    Math.abs(stock.changePercent) <= 8 &&
-    Math.abs(stock.metrics.vwapDistancePercent) <= 8 &&
-    stock.volumeShock >= 0.75
+    stock.score >= 60 &&
+    stock.factorScores.momentum >= 9 &&
+    stock.factorScores.liquidity >= 8 &&
+    stock.averageDailyTurnoverCr >= minimumTurnover &&
+    qualifiesForHighPotentialIntraday(stock.metrics) &&
+    !stock.gateFailures.some((failure) =>
+      failure.includes("governance or regulatory risk"),
+    )
   );
 }
 
 function toExpertQuote(
   stock: ScreenedStock,
   marketRegime: ScreeningRegime,
+  source: "longTerm" | "intraday" = "longTerm",
 ): ExpertQuote {
+  const intradayPotential =
+    source === "intraday" ? stock.metrics.intradayPotentialPercent : 0;
   return {
     symbol: stock.symbol,
     name: stock.name,
@@ -266,14 +269,22 @@ function toExpertQuote(
     changePercent: stock.changePercent,
     volume: stock.volume,
     volumeShock: stock.volumeShock,
-    target: stock.target,
-    upside: stock.upside,
+    target:
+      source === "intraday"
+        ? stock.price * (1 + intradayPotential / 100)
+        : stock.target,
+    upside: source === "intraday" ? intradayPotential : stock.upside,
     score: stock.score,
     action:
-      marketRegime === "Bull Market" || marketRegime === "Risk-On"
+      source === "intraday" ||
+      marketRegime === "Bull Market" ||
+      marketRegime === "Risk-On"
         ? "Accumulate"
         : "Watchlist",
-    remark: stock.remark,
+    remark:
+      source === "intraday"
+        ? `${stock.remark} Evidence-derived intraday potential ${intradayPotential.toFixed(1)}%; minimum hurdle ${MIN_INTRADAY_POTENTIAL_PERCENT}%.`
+        : stock.remark,
     caveats: stock.caveats,
     metrics: stock.metrics,
     theme: stock.theme,

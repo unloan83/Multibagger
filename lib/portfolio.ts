@@ -2,6 +2,7 @@ import {
   analyzeStockSignal,
   buildSignalRemark,
   getSignalAction,
+  qualifiesForHighPotentialIntraday,
   type AnalysisProfile,
   type StockSignalMetrics,
 } from "@/lib/analysis";
@@ -766,6 +767,7 @@ export function generateRecommendations(
 
       return { position, metrics };
     })
+    .filter(({ metrics }) => qualifiesForHighPotentialIntraday(metrics))
     .sort((a, b) => b.metrics.finalScore - a.metrics.finalScore)
     .slice(0, appetite.maxIntraday)
     .map(({ position, metrics }) =>
@@ -777,7 +779,7 @@ export function generateRecommendations(
         action: getSignalAction(metrics, "intraday"),
         horizon: "Today | refresh 5-15 min",
         confidence: confidenceFromSignal(metrics, appetite.confidenceShift),
-        rationale: `${buildSignalRemark(metrics, "intraday")} ${formatNewsSignal(position.newsHeadlines)} Appetite mode: ${appetite.riskLabel}.`,
+        rationale: `${buildSignalRemark(metrics, "intraday")} Evidence-derived intraday potential ${metrics.intradayPotentialPercent.toFixed(1)}%; only setups at or above the 10% hurdle are included. ${formatNewsSignal(position.newsHeadlines)} Appetite mode: ${appetite.riskLabel}.`,
         caveats: metrics.caveats,
         metrics,
       }),

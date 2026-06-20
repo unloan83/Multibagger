@@ -21,6 +21,7 @@ export type StockSignalMetrics = {
   liquidityScore: number;
   riskScore: number;
   finalScore: number;
+  intradayPotentialPercent: number;
   target: number;
   upsidePercent: number;
   caveats: string[];
@@ -42,6 +43,8 @@ export type SignalInput = {
 
 const defaultCaveat =
   "Model output is a screening signal, not financial advice. Validate fundamentals, news, liquidity, and risk before trading.";
+
+export const MIN_INTRADAY_POTENTIAL_PERCENT = 10;
 
 export function analyzeStockSignal(input: SignalInput): StockSignalMetrics {
   const bars = input.bars?.filter((bar) => bar.close > 0) ?? [];
@@ -78,14 +81,27 @@ export function analyzeStockSignal(input: SignalInput): StockSignalMetrics {
     0,
     100,
   );
-  const targetMultiplier = getTargetMultiplier({
+  const profile = input.profile ?? "short-term";
+  const intradayPotentialPercent = estimateIntradayPotentialPercent({
+    bars,
+    dayChangePercent,
+    ema20,
+    ema50,
     finalScore,
-    trendScore,
+    price,
     volumeShock,
-    atrPercent,
-    segment: input.segment,
-    profile: input.profile ?? "short-term",
   });
+  const targetMultiplier =
+    profile === "intraday"
+      ? 1 + intradayPotentialPercent / 100
+      : getTargetMultiplier({
+          finalScore,
+          trendScore,
+          volumeShock,
+          atrPercent,
+          segment: input.segment,
+          profile,
+        });
   const target = price * targetMultiplier;
 
   return {
@@ -102,6 +118,7 @@ export function analyzeStockSignal(input: SignalInput): StockSignalMetrics {
     liquidityScore,
     riskScore,
     finalScore: Math.round(finalScore),
+    intradayPotentialPercent,
     target,
     upsidePercent: price === 0 ? 0 : ((target - price) / price) * 100,
     caveats: buildCaveats({
@@ -116,6 +133,20 @@ export function analyzeStockSignal(input: SignalInput): StockSignalMetrics {
       portfolioWeight: input.portfolioWeight ?? 0,
     }),
   };
+}
+
+export function qualifiesForHighPotentialIntraday(
+  metrics: StockSignalMetrics,
+) {
+  return (
+    metrics.intradayPotentialPercent >= MIN_INTRADAY_POTENTIAL_PERCENT &&
+    metrics.finalScore >= 65 &&
+    metrics.dayChangePercent > 0 &&
+    metrics.dayChangePercent <= 8 &&
+    metrics.volumeShock >= 1.5 &&
+    metrics.ema20 >= metrics.ema50 &&
+    metrics.riskScore <= 18
+  );
 }
 
 export function getSignalAction(
@@ -192,6 +223,65 @@ export function calculateAtr(bars: PriceBar[], period: number) {
   const sample = trueRanges.slice(-period);
 
   return sample.reduce((sum, value) => sum + value, 0) / Math.max(sample.length, 1);
+}
+
+function estimateIntradayPotentialPercent({
+  bars,
+  dayChangePercent,
+  ema20,
+  ema50,
+  finalScore,
+  price,
+  volumeShock,
+}: {
+  bars: PriceBar[];
+  dayChangePercent: number;
+  ema20: number;
+  ema50: number;
+  finalScore: number;
+  price: number;
+  volumeShock: number;
+}) {
+  if (price <= 0 || bars.length < 20 || dayChangePercent <= 0) {
+    return 0;
+  }
+
+  const recentBars = bars.slice(-61);
+  const upsideExcursions = recentBars
+    .slice(1)
+    .map((bar, index) => {
+      const previousClose = recentBars[index]?.close ?? 0;
+      return previousClose > 0
+        ? Math.max(0, ((bar.high - previousClose) / previousClose) * 100)
+        : 0;
+    })
+    .filter(Number.isFinite)
+    .sort((a, b) => a - b);
+  const highExcursion = percentile(upsideExcursions, 0.9);
+  const volumeMultiplier = clamp(0.8 + Math.max(0, volumeShock - 1) * 0.25, 0.8, 1.35);
+  const trendMultiplier = ema20 >= ema50 && price >= ema20 ? 1 : 0.65;
+  const scoreMultiplier = clamp(0.8 + Math.max(0, finalScore - 50) / 100, 0.8, 1.25);
+  const continuation = Math.min(dayChangePercent, 6) * 0.25;
+
+  return Number(
+    clamp(
+      (highExcursion + continuation) *
+        volumeMultiplier *
+        trendMultiplier *
+        scoreMultiplier,
+      0,
+      25,
+    ).toFixed(2),
+  );
+}
+
+function percentile(values: number[], quantile: number) {
+  if (values.length === 0) return 0;
+  const index = Math.min(
+    values.length - 1,
+    Math.max(0, Math.ceil(values.length * quantile) - 1),
+  );
+  return values[index];
 }
 
 function calculateVolumeShock(symbol: string, volume: number, bars: PriceBar[]) {

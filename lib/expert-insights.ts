@@ -1,34 +1,15 @@
 import fs from "node:fs/promises";
 import path from "node:path";
+import { buildMarketOverview } from "@/lib/market-overview";
 import {
-  analyzeStockSignal,
-  buildSignalRemark,
-  type PriceBar,
-  type StockSignalMetrics,
-} from "@/lib/analysis";
-
-type YahooChartResponse = {
-  chart?: {
-    result?: Array<{
-      meta?: {
-        regularMarketPrice?: number;
-        previousClose?: number;
-        chartPreviousClose?: number;
-        regularMarketVolume?: number;
-        shortName?: string;
-        longName?: string;
-      };
-      indicators?: {
-        quote?: Array<{
-          close?: Array<number | null>;
-          high?: Array<number | null>;
-          low?: Array<number | null>;
-          volume?: Array<number | null>;
-        }>;
-      };
-    }>;
-  };
-};
+  getMarketUniverse,
+  screenWealthUniverse,
+  type FactorScores,
+  type MarketCapBucket,
+  type ScreeningRegime,
+  type ScreenedStock,
+} from "@/lib/wealth-screening";
+import type { StockSignalMetrics } from "@/lib/analysis";
 
 export type ExpertQuote = {
   symbol: string;
@@ -41,10 +22,19 @@ export type ExpertQuote = {
   target: number;
   upside: number;
   score: number;
-  action: "Accumulate";
+  action: "Accumulate" | "Watchlist";
   remark: string;
   caveats: string[];
   metrics: StockSignalMetrics;
+  theme: string;
+  sector: string;
+  factorScores: FactorScores;
+  reasons: string[];
+  marketCapCr: number;
+  dataQuality: number;
+  fundamentalAsOf: string;
+  averageDailyTurnoverCr: number;
+  catalystSummary: string;
 };
 
 export type ExpertCategory = {
@@ -61,6 +51,13 @@ export type ConsecutivePick = {
   categories: string[];
 };
 
+export type ExclusionDiagnostic = {
+  symbol: string;
+  name: string;
+  score: number;
+  reason: string;
+};
+
 export type ExpertActionMatrix = {
   title: string;
   verified: string;
@@ -68,184 +65,312 @@ export type ExpertActionMatrix = {
   asOf: string;
   refreshCycle: string;
   caveat: string;
+  universeSize: number;
+  evaluatedSize: number;
+  eligibleSize: number;
+  abstained: boolean;
+  marketRegime: ScreeningRegime;
+  rejectionSummary: Array<{ reason: string; count: number }>;
+  methodology: string[];
+  exclusionDiagnostics: ExclusionDiagnostic[];
   consecutivePicks: ConsecutivePick[];
   categories: ExpertCategory[];
 };
 
-const expertUniverse = {
-  largeCap: [
-    "RELIANCE",
-    "HDFCBANK",
-    "TCS",
-    "ICICIBANK",
-    "INFY",
-    "NTPC",
-    "POWERGRID",
-    "SBIN",
-    "SUNPHARMA",
-    "BHARTIARTL",
-    "PATANJALI",
-    "MAXHEALTH",
-    "RECLTD",
-    "VBL",
-  ],
-  midCap: ["AHLUCONT", "BALAMINES", "POLYCAB", "DIXON", "PERSISTENT", "CUMMINSIND"],
-  smallCap: [
-    "GIPCL",
-    "NUCLEUS",
-    "TEXRAIL",
-    "ORISSAMINE",
-    "RAMASTEEL",
-    "DWARKESH",
-    "MOREPENLAB",
-    "SUZLON",
-    "IREDA",
-    "RVNL",
-  ],
-  etf: ["GOLDBEES", "AUTOBEES", "ITBEES", "NIFTYBEES", "BANKBEES", "JUNIORBEES"],
-};
-
-const categoryMeta = {
-  largeCap: {
-    title: "Large-Cap Bluechips",
-  },
-  midCap: {
-    title: "Mid-Cap Momentum",
-  },
-  smallCap: {
-    title: "Small-Cap Alpha",
-  },
-  etf: {
-    title: "ETFs & Index BeES",
-  },
+const categoryMeta: Record<
+  MarketCapBucket,
+  { key: string; title: string }
+> = {
+  large: { key: "largeCap", title: "Large-Cap Quality Compounders" },
+  mid: { key: "midCap", title: "Mid-Cap Growth Leaders" },
+  small: { key: "smallCap", title: "Small-Cap Wealth Candidates" },
 };
 
 export async function buildExpertActionMatrix(): Promise<ExpertActionMatrix> {
-  const categories = await Promise.all(
-    Object.entries(expertUniverse).map(async ([key, symbols]) => {
-      const quotes = (
-        await Promise.all(
-          symbols.map((symbol) =>
-            fetchExpertQuote(symbol, categoryMeta[key as keyof typeof categoryMeta].title),
-          ),
-        )
-      ).filter((quote) => quote.price > 0);
-      const buyCandidates = quotes.filter(isBuyCandidate);
+  const snapshot = await readSnapshot();
 
-      return {
-        key,
-        title: categoryMeta[key as keyof typeof categoryMeta].title,
-        longTermUpsides: [...buyCandidates]
-          .sort((a, b) => b.score + b.upside - (a.score + a.upside))
-          .slice(0, 5),
-        intradayBreakouts: [...buyCandidates]
-          .sort(
-            (a, b) =>
-              b.metrics.finalScore +
-              b.volumeShock * 5 -
-              (a.metrics.finalScore + a.volumeShock * 5),
-          )
-          .slice(0, 5),
-      } satisfies ExpertCategory;
-    }),
+  if (snapshot) {
+    return snapshot;
+  }
+
+  if (process.env.VERCEL) {
+    return unavailableMatrix(
+      "The scheduled recommendation snapshot is missing or stale; the engine is abstaining.",
+    );
+  }
+
+  return generateExpertActionMatrix();
+}
+
+export async function generateExpertActionMatrix(): Promise<ExpertActionMatrix> {
+  const market = await buildMarketOverview();
+  const marketRegime = getMarketRegime(
+    market.sentiment,
+    market.averageMove,
+  );
+  const screened = await screenWealthUniverse(marketRegime);
+  const categories = (Object.keys(categoryMeta) as MarketCapBucket[]).map(
+    (bucket) => buildCategory(bucket, screened, marketRegime),
   );
   const consecutivePicks = await getConsecutiveExpertPicks(categories);
+  const selectedSymbols = new Set(
+    categories.flatMap((category) =>
+      [...category.longTermUpsides, ...category.intradayBreakouts].map(
+        (quote) => quote.symbol,
+      ),
+    ),
+  );
+  const exclusionDiagnostics = screened
+    .filter((stock) => !selectedSymbols.has(stock.symbol))
+    .slice(0, 12)
+    .map((stock) => ({
+      symbol: stock.symbol,
+      name: stock.name,
+      score: stock.score,
+      reason: getExclusionReason(stock),
+    }));
+  const rejectionSummary = Object.entries(
+    screened.reduce<Record<string, number>>((acc, stock) => {
+      for (const reason of stock.gateFailures) {
+        acc[reason] = (acc[reason] ?? 0) + 1;
+      }
+      return acc;
+    }, {}),
+  )
+    .map(([reason, count]) => ({ reason, count }))
+    .sort((a, b) => b.count - a.count)
+    .slice(0, 12);
 
   return {
-    title: "Expert Action Matrix",
-    verified: "NSE quote, EMA20/50, VWAP, ATR, volume shock, target, risk and caveat scoring",
-    source: "Adapted from unloan83/Expert_insight recommendation matrix style",
+    title: "Multi-Factor Wealth Discovery Matrix",
+    verified:
+      "NSE price trend, sector-relative strength, revenue and earnings growth, profitability, leverage, valuation, liquidity, news catalysts and risk",
+    source:
+      "Expanded thematic NSE screening universe with Yahoo market/fundamental feeds and outcome-learning history",
     asOf: new Date().toISOString(),
     refreshCycle:
-      "Intraday breakout signals refresh every 5 minutes; long-term targets refresh every 15 minutes.",
+      "Technical and catalyst signals refresh intraday; fundamental factors are cached for six hours.",
     caveat:
-      "For research and screening only. Validate with fundamentals, news, liquidity, and risk controls before investing.",
+      "Research screening only—not a guarantee of returns. Verify exchange filings, valuation, governance, liquidity, and position sizing before investing.",
+    universeSize: getMarketUniverse().length,
+    evaluatedSize: screened.length,
+    eligibleSize: screened.filter((stock) => stock.eligible).length,
+    abstained: categories.every(
+      (category) =>
+        category.longTermUpsides.length === 0 &&
+        category.intradayBreakouts.length === 0,
+    ),
+    marketRegime,
+    rejectionSummary,
+    methodology: [
+      "Uniform benchmark-relative screening; no example stock receives a score adjustment or guaranteed inclusion.",
+      "Mandatory gates cover data freshness, positive TTM earnings, revenue direction, ROE, leverage, valuation, liquidity, trend, price extension and market regime.",
+      "The engine abstains when evidence is incomplete or no stock clears every safety gate; non-selected names retain exclusion diagnostics.",
+    ],
+    exclusionDiagnostics,
     consecutivePicks,
     categories,
   };
 }
 
-async function fetchExpertQuote(symbol: string, segment: string): Promise<ExpertQuote> {
-  const fallback = {
-    symbol,
-    name: symbol,
-    price: 0,
-    previousClose: 0,
-    changePercent: 0,
-    volume: 0,
-    volumeShock: 0,
-    target: 0,
-    upside: 0,
-    score: 0,
-    action: "Accumulate" as const,
-    remark: "Quote unavailable.",
-    caveats: ["Quote unavailable; do not act without live validation."],
-    metrics: analyzeStockSignal({ symbol, price: 0, previousClose: 0 }),
+export async function writeExpertActionMatrixSnapshot(
+  matrix: ExpertActionMatrix,
+) {
+  const snapshotPath = path.join(
+    process.cwd(),
+    "data",
+    "wealth_recommendations.json",
+  );
+  await fs.writeFile(snapshotPath, `${JSON.stringify(matrix, null, 2)}\n`, "utf8");
+}
+
+function buildCategory(
+  bucket: MarketCapBucket,
+  screened: ScreenedStock[],
+  marketRegime: ScreeningRegime,
+): ExpertCategory {
+  const meta = categoryMeta[bucket];
+  const candidates = screened.filter(
+    (stock) => stock.capBucket === bucket && stock.eligible,
+  );
+  const longTermUpsides = candidates
+    .filter(isLongTermCandidate)
+    .sort(
+      (a, b) =>
+        b.score + b.factorScores.growth + b.factorScores.quality -
+        (a.score + a.factorScores.growth + a.factorScores.quality),
+    )
+    .slice(0, 6)
+    .map((stock) => toExpertQuote(stock, marketRegime));
+  const intradayBreakouts = candidates
+    .filter(
+      (stock) =>
+        !["Correction", "Risk-Off", "Transition"].includes(marketRegime) &&
+        isMomentumCandidate(stock),
+    )
+    .sort(
+      (a, b) =>
+        b.factorScores.momentum +
+        b.factorScores.sectorStrength +
+        b.volumeShock * 3 -
+        (a.factorScores.momentum +
+          a.factorScores.sectorStrength +
+          a.volumeShock * 3),
+    )
+    .slice(0, 5)
+    .map((stock) => toExpertQuote(stock, marketRegime));
+
+  return {
+    key: meta.key,
+    title: meta.title,
+    longTermUpsides,
+    intradayBreakouts,
   };
+}
 
+function isLongTermCandidate(stock: ScreenedStock) {
+  const threshold =
+    stock.capBucket === "small" ? 58 : stock.capBucket === "mid" ? 60 : 62;
+
+  return (
+    stock.eligible &&
+    stock.score >= threshold &&
+    stock.factorScores.growth + stock.factorScores.quality >= 18 &&
+    stock.metrics.ema20 >= stock.metrics.ema50 * 0.97 &&
+    stock.metrics.riskScore <= 18
+  );
+}
+
+function isMomentumCandidate(stock: ScreenedStock) {
+  return (
+    stock.eligible &&
+    stock.score >= 70 &&
+    stock.metrics.finalScore >= 52 &&
+    stock.metrics.ema20 >= stock.metrics.ema50 * 0.985 &&
+    stock.metrics.riskScore <= 18 &&
+    Math.abs(stock.changePercent) <= 8 &&
+    Math.abs(stock.metrics.vwapDistancePercent) <= 8 &&
+    stock.volumeShock >= 0.75
+  );
+}
+
+function toExpertQuote(
+  stock: ScreenedStock,
+  marketRegime: ScreeningRegime,
+): ExpertQuote {
+  return {
+    symbol: stock.symbol,
+    name: stock.name,
+    price: stock.price,
+    previousClose: stock.previousClose,
+    changePercent: stock.changePercent,
+    volume: stock.volume,
+    volumeShock: stock.volumeShock,
+    target: stock.target,
+    upside: stock.upside,
+    score: stock.score,
+    action:
+      marketRegime === "Bull Market" || marketRegime === "Risk-On"
+        ? "Accumulate"
+        : "Watchlist",
+    remark: stock.remark,
+    caveats: stock.caveats,
+    metrics: stock.metrics,
+    theme: stock.theme,
+    sector: stock.sector,
+    factorScores: stock.factorScores,
+    reasons: stock.reasons,
+    marketCapCr: stock.marketCapCr,
+    dataQuality: stock.dataQuality,
+    fundamentalAsOf: stock.fundamentalAsOf,
+    averageDailyTurnoverCr: stock.averageDailyTurnoverCr,
+    catalystSummary: stock.catalystSummary,
+  };
+}
+
+function getExclusionReason(stock: ScreenedStock) {
+  if (stock.gateFailures.length) {
+    return stock.gateFailures.slice(0, 2).join(" ");
+  }
+  if (stock.metrics.riskScore > 22) {
+    return `Risk score ${stock.metrics.riskScore.toFixed(1)} is above the long-term limit.`;
+  }
+  if (stock.metrics.ema20 < stock.metrics.ema50 * 0.97) {
+    return "Trend confirmation is weak because EMA20 remains below EMA50.";
+  }
+  if (stock.factorScores.growth + stock.factorScores.quality < 10) {
+    return "Growth and business-quality evidence is not strong enough for the current shortlist.";
+  }
+  if (stock.upside < 8) {
+    return "Risk-adjusted target upside is below the minimum entry hurdle.";
+  }
+  return `Wealth score ${stock.score}/100 ranked below stronger candidates in its market-cap group.`;
+}
+
+function getMarketRegime(
+  sentiment: "Positive" | "Negative" | "Neutral",
+  averageMove: number,
+): ScreeningRegime {
+  if (sentiment === "Positive" && averageMove > 1.2) return "Bull Market";
+  if (sentiment === "Positive") return "Risk-On";
+  if (sentiment === "Negative" && averageMove < -1.2) return "Risk-Off";
+  if (sentiment === "Negative") return "Correction";
+  return Math.abs(averageMove) < 0.35 ? "Consolidation" : "Transition";
+}
+
+async function readSnapshot(): Promise<ExpertActionMatrix | null> {
   try {
-    const response = await fetch(
-      `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(
-        `${symbol}.NS`,
-      )}?range=3mo&interval=1d`,
-      {
-        headers: {
-          "User-Agent": "Mozilla/5.0",
-        },
-        next: { revalidate: 300 },
-      },
+    const snapshotPath = path.join(
+      process.cwd(),
+      "data",
+      "wealth_recommendations.json",
     );
+    const snapshot = JSON.parse(
+      await fs.readFile(snapshotPath, "utf8"),
+    ) as ExpertActionMatrix;
+    const ageHours = (Date.now() - Date.parse(snapshot.asOf)) / 3_600_000;
 
-    if (!response.ok) {
-      return fallback;
+    if (
+      !Number.isFinite(ageHours) ||
+      ageHours < -1 ||
+      ageHours > 36 ||
+      snapshot.universeSize < 450
+    ) {
+      return null;
     }
 
-    const data = (await response.json()) as YahooChartResponse;
-    const meta = data.chart?.result?.[0]?.meta;
-    const price = meta?.regularMarketPrice ?? 0;
-    const previousClose = meta?.previousClose ?? meta?.chartPreviousClose ?? 0;
-    const changePercent =
-      previousClose === 0 ? 0 : ((price - previousClose) / previousClose) * 100;
-    const volume = meta?.regularMarketVolume ?? 0;
-    const bars = buildPriceBars(data.chart?.result?.[0]?.indicators?.quote?.[0]);
-    const metrics = analyzeStockSignal({
-      symbol,
-      price,
-      previousClose,
-      volume,
-      bars,
-      segment,
-      profile: "intraday",
-    });
-
-    return {
-      symbol,
-      name: meta?.shortName ?? meta?.longName ?? symbol,
-      price,
-      previousClose,
-      changePercent,
-      volume,
-      volumeShock: metrics.volumeShock,
-      target: metrics.target,
-      upside: metrics.upsidePercent,
-      score: metrics.finalScore,
-      action: "Accumulate",
-      remark: buildSignalRemark(metrics, "intraday"),
-      caveats: metrics.caveats,
-      metrics,
-    };
+    return snapshot;
   } catch {
-    return fallback;
+    return null;
   }
 }
 
-function isBuyCandidate(quote: ExpertQuote) {
-  return (
-    quote.score >= 52 &&
-    quote.upside > 0 &&
-    quote.metrics.ema20 >= quote.metrics.ema50 * 0.985 &&
-    quote.metrics.riskScore <= 14
-  );
+function unavailableMatrix(reason: string): ExpertActionMatrix {
+  return {
+    title: "Multi-Factor Wealth Discovery Matrix",
+    verified: "No recommendation published without a fresh validated snapshot.",
+    source: "Official NIFTY 500 universe; scheduled safety-gated screening",
+    asOf: new Date().toISOString(),
+    refreshCycle: "Scheduled twice each market day.",
+    caveat: reason,
+    universeSize: getMarketUniverse().length,
+    evaluatedSize: 0,
+    eligibleSize: 0,
+    abstained: true,
+    marketRegime: "Transition",
+    rejectionSummary: [],
+    methodology: [
+      "The model abstains when the scheduled snapshot is unavailable or older than 36 hours.",
+    ],
+    exclusionDiagnostics: [],
+    consecutivePicks: [],
+    categories: (Object.values(categoryMeta)).map((meta) => ({
+      key: meta.key,
+      title: meta.title,
+      longTermUpsides: [],
+      intradayBreakouts: [],
+    })),
+  };
 }
 
 async function getConsecutiveExpertPicks(
@@ -271,38 +396,45 @@ async function readConsecutivePicksFromCsv(): Promise<ConsecutivePick[]> {
     const headers = parseCsvLine(headerLine);
     const rows = lines.map((line) => {
       const cells = parseCsvLine(line);
-      return Object.fromEntries(headers.map((header, index) => [header, cells[index] ?? ""]));
+      return Object.fromEntries(
+        headers.map((header, index) => [header, cells[index] ?? ""]),
+      );
     });
-    const expertRows = rows.filter((row) =>
-      row.source === "expert-action-matrix" &&
-      row.action === "Accumulate" &&
-      row.symbol &&
-      row.date,
+    const expertRows = rows.filter(
+      (row) =>
+        row.source === "expert-action-matrix" &&
+        row.action === "Accumulate" &&
+        row.symbol &&
+        row.date,
     );
-    const sortedDates = [...new Set(expertRows.map((row) => row.date))].sort().slice(-2);
+    const sortedDates = [...new Set(expertRows.map((row) => row.date))]
+      .sort()
+      .slice(-2);
 
-    if (sortedDates.length < 2) {
-      return [];
-    }
+    if (sortedDates.length < 2) return [];
 
     const bySymbol = expertRows
       .filter((row) => sortedDates.includes(row.date))
-      .reduce<Record<string, ConsecutivePick & { dates: Set<string> }>>((acc, row) => {
-        const current =
-          acc[row.symbol] ??
-          {
-            symbol: row.symbol,
-            name: row.stock_name || row.symbol,
-            appearances: 0,
-            categories: [],
-            dates: new Set<string>(),
-          };
-
-        current.dates.add(row.date);
-        current.categories = [...new Set([...current.categories, row.segment])];
-        acc[row.symbol] = current;
-        return acc;
-      }, {});
+      .reduce<Record<string, ConsecutivePick & { dates: Set<string> }>>(
+        (acc, row) => {
+          const current =
+            acc[row.symbol] ??
+            {
+              symbol: row.symbol,
+              name: row.stock_name || row.symbol,
+              appearances: 0,
+              categories: [],
+              dates: new Set<string>(),
+            };
+          current.dates.add(row.date);
+          current.categories = [
+            ...new Set([...current.categories, row.segment]),
+          ];
+          acc[row.symbol] = current;
+          return acc;
+        },
+        {},
+      );
 
     return Object.values(bySymbol)
       .filter((item) => item.dates.size >= 2)
@@ -342,22 +474,4 @@ function parseCsvLine(line: string) {
 
   cells.push(current);
   return cells;
-}
-
-function buildPriceBars(quote?: {
-  close?: Array<number | null>;
-  high?: Array<number | null>;
-  low?: Array<number | null>;
-  volume?: Array<number | null>;
-}): PriceBar[] {
-  const closes = quote?.close ?? [];
-
-  return closes
-    .map((close, index) => ({
-      close: close ?? 0,
-      high: quote?.high?.[index] ?? close ?? 0,
-      low: quote?.low?.[index] ?? close ?? 0,
-      volume: quote?.volume?.[index] ?? 0,
-    }))
-    .filter((bar) => bar.close > 0 && bar.high > 0 && bar.low > 0);
 }

@@ -39,11 +39,19 @@ type ExpertMatrixQuote = {
   symbol: string;
   name: string;
   score: number;
-  action: "Accumulate" | "Urgent Sell";
+  action: "Accumulate" | "Watchlist" | "Urgent Sell";
 };
 
 type ExpertActionMatrix = {
   asOf: string;
+  universeSize?: number;
+  evaluatedSize?: number;
+  eligibleSize?: number;
+  abstained?: boolean;
+  marketRegime?: string;
+  rejectionSummary?: Array<{ reason: string; count: number }>;
+  caveat?: string;
+  methodology?: string[];
   categories: Array<{
     title: string;
     longTermUpsides: ExpertMatrixQuote[];
@@ -959,7 +967,12 @@ function MarketOpportunitiesSection({
         };
         existing.score += item.score;
         existing.count += 1;
-        existing.action = item.action === "Accumulate" ? "BUY" : "REDUCE";
+        existing.action =
+          item.action === "Accumulate"
+            ? "BUY"
+            : item.action === "Watchlist"
+              ? "WATCH"
+              : "REDUCE";
         if (horizonRank[item.horizon] > horizonRank[existing.horizon]) {
           existing.horizon = item.horizon;
         }
@@ -988,7 +1001,7 @@ function MarketOpportunitiesSection({
   const totalRecommendations = picks.reduce((sum, item) => sum + item.count, 0);
   const buyCount = picks.filter((item) => item.action === "BUY").length;
   const reduceCount = picks.filter((item) => item.action === "REDUCE").length;
-  const holdCount = 0;
+  const holdCount = picks.filter((item) => item.action === "WATCH").length;
   const doNothingCount = picks.length ? 0 : 1;
   const summary = getMarketOpportunitySummary(picks, classification, market);
 
@@ -1024,9 +1037,37 @@ function MarketOpportunitiesSection({
           <Metric label="REDUCE" value={String(reduceCount)} tone="down" />
           <Metric label="DO NOTHING" value={String(doNothingCount)} />
           <Metric label="Total Signals" value={String(totalRecommendations)} className="hidden sm:block" />
-          <Metric label="Stocks Covered" value={String(picks.length || (market?.gainers.length ?? 0) + (market?.losers.length ?? 0))} className="hidden sm:block" />
+          <Metric
+            label="Universe Scanned"
+            value={String(
+              matrix?.universeSize ??
+                (picks.length ||
+                  (market?.gainers.length ?? 0) + (market?.losers.length ?? 0)),
+            )}
+            className="hidden sm:block"
+          />
+          <Metric
+            label="Eligible"
+            value={String(matrix?.eligibleSize ?? picks.length)}
+            className="hidden sm:block"
+          />
         </div>
       </div>
+      {matrix?.abstained ? (
+        <div className="space-y-2 rounded-xl border border-amber-300/30 bg-amber-300/10 p-4 text-sm text-amber-100">
+          <p>No stock cleared every safety and data-quality gate. {matrix.caveat}</p>
+          {matrix.rejectionSummary?.slice(0, 3).map((item) => (
+            <p key={item.reason} className="text-xs text-amber-100/80">
+              {item.count} exclusions: {item.reason}
+            </p>
+          ))}
+        </div>
+      ) : null}
+      {matrix?.methodology?.length ? (
+        <p className="text-xs leading-5 text-slate-400">
+          {matrix.methodology[1]}
+        </p>
+      ) : null}
       <div className="table-scroll rounded-xl border border-white/10" role="region" aria-label="Scrollable market opportunities table" tabIndex={0}>
         <div className="table-scroll-hint md:hidden">Swipe left/right to view more</div>
         <table className="w-max min-w-[860px] max-w-none text-left text-sm">

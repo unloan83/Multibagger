@@ -119,9 +119,30 @@ type ExpertMatrixQuote = {
   upside: number;
   volumeShock: number;
   score: number;
-  action: "Accumulate" | "Urgent Sell";
+  action: "Accumulate" | "Watchlist" | "Urgent Sell";
   remark: string;
   caveats: string[];
+  theme?: string;
+  sector?: string;
+  reasons?: string[];
+  catalystSummary?: string;
+  marketCapCr?: number;
+  dataQuality?: number;
+  fundamentalAsOf?: string;
+  averageDailyTurnoverCr?: number;
+  factorScores?: {
+    fundamentals: number;
+    growth: number;
+    momentum: number;
+    quality: number;
+    sectorStrength: number;
+    valuation: number;
+    catalyst: number;
+    liquidity: number;
+    dataQuality: number;
+    risk: number;
+    total: number;
+  };
 };
 
 type ExpertMatrixCategory = {
@@ -138,6 +159,14 @@ type ExpertActionMatrix = {
   asOf: string;
   refreshCycle?: string;
   caveat?: string;
+  universeSize?: number;
+  methodology?: string[];
+  exclusionDiagnostics?: Array<{
+    symbol: string;
+    name: string;
+    score: number;
+    reason: string;
+  }>;
   consecutivePicks?: Array<{
     symbol: string;
     name: string;
@@ -1259,7 +1288,7 @@ type DecisionRecommendationRow = {
   stopLoss: number;
   confidence: number;
   horizon: string;
-  action: "BUY" | "SELL";
+  action: "BUY" | "WATCH" | "SELL";
   reason: string;
   technicalFactors: string[];
   fundamentalFactors: string[];
@@ -1561,13 +1590,19 @@ function RecommendationStockLabel({ row }: { row: DecisionRecommendationRow }) {
   );
 }
 
-function RecommendationActionBadge({ action }: { action: "BUY" | "SELL" }) {
+function RecommendationActionBadge({
+  action,
+}: {
+  action: "BUY" | "WATCH" | "SELL";
+}) {
   return (
     <span className={cn(
       "inline-flex rounded-full border px-2.5 py-1 text-xs font-semibold",
       action === "BUY"
         ? "border-emerald-300/30 bg-emerald-300/10 text-emerald-200"
-        : "border-rose-300/30 bg-rose-300/10 text-rose-200",
+        : action === "WATCH"
+          ? "border-amber-300/30 bg-amber-300/10 text-amber-100"
+          : "border-rose-300/30 bg-rose-300/10 text-rose-200",
     )}>
       {action}
     </span>
@@ -1605,7 +1640,9 @@ function RecommendationAnalysisPanel({
                   "rounded-full border px-2.5 py-1 text-xs font-semibold",
                   row.action === "BUY"
                     ? "border-cyan-300/30 bg-cyan-300/10 text-cyan-100"
-                    : "border-rose-300/30 bg-rose-300/10 text-rose-100",
+                    : row.action === "WATCH"
+                      ? "border-amber-300/30 bg-amber-300/10 text-amber-100"
+                      : "border-rose-300/30 bg-rose-300/10 text-rose-100",
                 )}
               >
                 {row.action}
@@ -4984,7 +5021,9 @@ function buildExpertConsensusRows(
         ),
         expertFocus,
         consensusBadge:
-          expertFocus >= 3 || quote.score >= 80
+          quote.action === "Watchlist"
+            ? "Watchlist" as const
+            : expertFocus >= 3 || quote.score >= 80
             ? "Strong Buy" as const
             : expertFocus >= 2 || quote.score >= 65
               ? "Buy" as const
@@ -5013,7 +5052,6 @@ function buildQuoteRowsForCategory(
 
   return (
     quotes
-      .filter((quote) => quote.action === "Accumulate")
       .sort((a, b) => b.score - a.score)
       .slice(0, limit)
       .map((quote) => buildDecisionRowFromQuote(quote, type, category.title, source)) ?? []
@@ -5027,20 +5065,31 @@ function buildDecisionRowFromQuote(
   source: "longTerm" | "intraday",
 ): DecisionRecommendationRow {
   const cmp = quote.price;
-  const target = quote.target > 0 ? quote.target : cmp * 1.12;
-  const stopLoss = getQuoteStopLoss(cmp, quote.score, quote.volumeShock);
+  const target = quote.target;
+  const stopLoss =
+    quote.action === "Accumulate"
+      ? getQuoteStopLoss(cmp, quote.score, quote.volumeShock)
+      : 0;
   const risk = getExecutionRisk(quote.score, quote.volumeShock);
 
   return {
-    action: "BUY",
+    action: quote.action === "Accumulate" ? "BUY" : "WATCH",
     cmp,
     company: quote.name,
     confidence: Math.round(quote.score),
     fundamentalFactors: [
-      quote.upside > 0
-        ? `Broker/model upside estimate: ${formatPercent(quote.upside)}.`
-        : "Fundamental validation required before position sizing.",
-      `${type} classification from ${categoryTitle}.`,
+      ...(quote.reasons?.slice(0, 3) ?? []),
+      quote.factorScores
+        ? `Growth ${quote.factorScores.growth}/20 · Quality ${quote.factorScores.quality}/20 · Valuation ${quote.factorScores.valuation}/15.`
+        : quote.upside > 0
+          ? `Risk-adjusted model upside: ${formatPercent(quote.upside)}.`
+          : "Fundamental validation required before position sizing.",
+      quote.marketCapCr
+        ? `Approximate market cap: INR ${quote.marketCapCr.toFixed(0)} Cr.`
+        : `${type} classification from ${categoryTitle}.`,
+      quote.fundamentalAsOf
+        ? `Latest fundamental period: ${quote.fundamentalAsOf}; data quality ${quote.dataQuality ?? 0}/100.`
+        : "Fundamental reporting date unavailable.",
     ],
     reason: quote.remark || `${quote.symbol} is ranked by market-wide expert signals.`,
     riskFactors: quote.caveats?.length
@@ -5051,13 +5100,17 @@ function buildDecisionRowFromQuote(
       source,
       horizon: getExecutionHorizon(categoryTitle, source, quote.score),
     }),
-    sectorStrength: `${categoryTitle} opportunity bucket with ${Math.round(quote.score)}% confidence.`,
+    sectorStrength: quote.factorScores
+      ? `${quote.theme ?? quote.sector ?? categoryTitle}: sector-relative score ${quote.factorScores.sectorStrength}/15.`
+      : `${categoryTitle} opportunity bucket with ${Math.round(quote.score)}% confidence.`,
     stopLoss,
     symbol: quote.symbol,
     target,
     technicalFactors: [
       `Volume shock: ${quote.volumeShock.toFixed(2)}x.`,
-      "Screened through the existing expert matrix ranking.",
+      quote.factorScores
+        ? `Momentum ${quote.factorScores.momentum}/15 · Liquidity ${quote.factorScores.liquidity}/10 · Risk quality ${quote.factorScores.risk}/10.`
+        : "Screened through the market matrix ranking.",
     ],
     type,
   };
@@ -5164,17 +5217,19 @@ function buildMarketOpportunityRow(
   source: "intraday" | "longTerm",
 ) {
   const cmp = quote.price;
-  const target = quote.target > 0 ? quote.target : cmp * 1.12;
+  const target = quote.target;
   const risk = getExecutionRisk(quote.score, quote.volumeShock);
   const horizon = getExecutionHorizon(categoryTitle, source, quote.score);
   const buyLow = source === "intraday" ? cmp * 0.992 : cmp * 0.96;
   const buyHigh = source === "intraday" ? cmp * 1.006 : cmp * 1.01;
   const stopLoss =
-    risk === "Low"
-      ? cmp * 0.93
-      : risk === "Medium"
-        ? cmp * 0.9
-        : cmp * 0.86;
+    quote.action === "Accumulate"
+      ? risk === "Low"
+        ? cmp * 0.93
+        : risk === "Medium"
+          ? cmp * 0.9
+          : cmp * 0.86
+      : 0;
 
   return {
     buyHigh,
@@ -5183,7 +5238,12 @@ function buildMarketOpportunityRow(
     confidence: Math.round(quote.score),
     horizon,
     marketCap: getMarketCapType(categoryTitle),
-    recommendation: quote.action === "Accumulate" ? "BUY" : "REDUCE",
+    recommendation:
+      quote.action === "Accumulate"
+        ? "BUY"
+        : quote.action === "Watchlist"
+          ? "WATCH"
+          : "REDUCE",
     reason: quote.remark || `${quote.symbol} is ranked by market-wide expert signals.`,
     risk,
     stopLoss,

@@ -8,7 +8,10 @@
     "start": "next start",
     "lint": "eslint app components lib",
     "csv:market-close": "node scripts/update_daily_recommendations.mjs --slot market-close",
-    "csv:morning": "node scripts/update_daily_recommendations.mjs --slot morning"
+    "csv:morning": "node scripts/update_daily_recommendations.mjs --slot morning",
+    "universe:sync": "node scripts/sync_nifty500_universe.mjs",
+    "wealth:snapshot": "node --import tsx scripts/generate_wealth_snapshot.ts",
+    "test:wealth": "node --import tsx --test lib/wealth-screening.test.ts"
   },
   "dependencies": {
     "@radix-ui/react-slot": "^1.1.0",
@@ -34,6 +37,7 @@
     "eslint-config-next": "15.5.19",
     "postcss": "^8.4.49",
     "tailwindcss": "^3.4.17",
+    "tsx": "^4.22.4",
     "typescript": "^5.7.2"
   }
 }

@@ -48,17 +48,15 @@ export async function GET(request: Request) {
   );
   const marketRegime = getMarketRegime(marketOverview.sentiment, marketOverview.averageMove);
   const validationDate = timestamp.slice(0, 10);
-  const externalQualityFactors: QualityFactors = {
-    marketRegimeAvailable: true,
-    sectorStrengthAvailable: true,
-    trendConfirmationAvailable: true,
-    riskScoreAssigned: true,
-    confidenceCalculated: true,
-    portfolioFitChecked: true,
-    recommendationHorizonAssigned: true,
-  };
   const expertRows = expertMatrix.categories.flatMap((category) => [
-    ...category.longTermUpsides.map((quote, index) => ({
+    ...category.longTermUpsides.map((quote, index) => {
+      const qualityFactors = expertQualityFactors(quote, marketRegime);
+      const qualityScore = Math.round(
+        (Object.values(qualityFactors).filter(Boolean).length /
+          Object.keys(qualityFactors).length) *
+          100,
+      );
+      return {
       timestamp,
       source: "expert-insight" as const,
       portfolioName: "Expert Insight",
@@ -76,17 +74,25 @@ export async function GET(request: Request) {
       rationale: quote.remark,
       portfolioId: "expert-insight",
       recommendationId: `expert-${validationDate}-${quote.symbol}-long-${index}`,
-      sector: category.title,
+      sector: quote.sector || category.title,
       stopLoss: calculateStopLoss(quote.price, quote.action, "1-3 Yr Plan"),
-      qualityScore: 100,
-      qualityStatus: "PASS" as const,
+      qualityScore,
+      qualityStatus: (qualityScore >= 85 ? "PASS" : "FAIL") as "PASS" | "FAIL",
       validationTimestamp: timestamp,
       validationDate,
       returnPercent: 0,
       marketRegime,
-      qualityFactors: externalQualityFactors,
-    })),
-    ...category.intradayBreakouts.map((quote, index) => ({
+      qualityFactors,
+    };
+    }),
+    ...category.intradayBreakouts.map((quote, index) => {
+      const qualityFactors = expertQualityFactors(quote, marketRegime);
+      const qualityScore = Math.round(
+        (Object.values(qualityFactors).filter(Boolean).length /
+          Object.keys(qualityFactors).length) *
+          100,
+      );
+      return {
       timestamp,
       source: "expert-insight" as const,
       portfolioName: "Expert Insight",
@@ -104,16 +110,17 @@ export async function GET(request: Request) {
       rationale: quote.remark,
       portfolioId: "expert-insight",
       recommendationId: `expert-${validationDate}-${quote.symbol}-intraday-${index}`,
-      sector: category.title,
+      sector: quote.sector || category.title,
       stopLoss: calculateStopLoss(quote.price, quote.action, "Intraday"),
-      qualityScore: 100,
-      qualityStatus: "PASS" as const,
+      qualityScore,
+      qualityStatus: (qualityScore >= 85 ? "PASS" : "FAIL") as "PASS" | "FAIL",
       validationTimestamp: timestamp,
       validationDate,
       returnPercent: 0,
       marketRegime,
-      qualityFactors: externalQualityFactors,
-    })),
+      qualityFactors,
+    };
+    }),
   ]);
 
   const sheetPortfolios = await readPortfoliosFromSheets();
@@ -173,6 +180,30 @@ export async function GET(request: Request) {
     marketRecommendationRows: marketRows.length,
     timestamp,
   });
+}
+
+function expertQualityFactors(
+  quote: {
+    sector: string;
+    dataQuality: number;
+    score: number;
+    metrics: { ema20: number; ema50: number; riskScore: number };
+  },
+  marketRegime: string,
+): QualityFactors {
+  return {
+    marketRegimeAvailable: Boolean(marketRegime),
+    sectorStrengthAvailable: Boolean(quote.sector),
+    trendConfirmationAvailable:
+      quote.metrics.ema20 > 0 &&
+      quote.metrics.ema50 > 0 &&
+      quote.metrics.ema20 >= quote.metrics.ema50,
+    riskScoreAssigned: Number.isFinite(quote.metrics.riskScore),
+    confidenceCalculated:
+      quote.dataQuality >= 80 && quote.score >= 0 && quote.score <= 100,
+    portfolioFitChecked: false,
+    recommendationHorizonAssigned: true,
+  };
 }
 
 async function canRunSnapshot(request: Request) {

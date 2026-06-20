@@ -1,0 +1,4002 @@
+[
+  {
+    "symbol": "360ONE",
+    "company": "360 ONE WAM Ltd.",
+    "theme": "Financial Services",
+    "capHint": "mid",
+    "benchmark": "^CNXFIN",
+    "source": "NIFTY 500"
+  },
+  {
+    "symbol": "3MINDIA",
+    "company": "3M India Ltd.",
+    "theme": "Diversified",
+    "capHint": "mid",
+    "benchmark": "^NSEI",
+    "source": "NIFTY 500"
+  },
+  {
+    "symbol": "ABB",
+    "company": "ABB India Ltd.",
+    "theme": "Capital Goods",
+    "capHint": "mid",
+    "benchmark": "^CNXINFRA",
+    "source": "NIFTY 500"
+  },
+  {
+    "symbol": "ACC",
+    "company": "ACC Ltd.",
+    "theme": "Construction Materials",
+    "capHint": "mid",
+    "benchmark": "^CNXINFRA",
+    "source": "NIFTY 500"
+  },
+  {
+    "symbol": "ACMESOLAR",
+    "company": "ACME Solar Holdings Ltd.",
+    "theme": "Power",
+    "capHint": "mid",
+    "benchmark": "^CNXENERGY",
+    "source": "NIFTY 500"
+  },
+  {
+    "symbol": "AIAENG",
+    "company": "AIA Engineering Ltd.",
+    "theme": "Capital Goods",
+    "capHint": "mid",
+    "benchmark": "^CNXINFRA",
+    "source": "NIFTY 500"
+  },
+  {
+    "symbol": "APLAPOLLO",
+    "company": "APL Apollo Tubes Ltd.",
+    "theme": "Capital Goods",
+    "capHint": "mid",
+    "benchmark": "^CNXINFRA",
+    "source": "NIFTY 500"
+  },
+  {
+    "symbol": "AUBANK",
+    "company": "AU Small Finance Bank Ltd.",
+    "theme": "Financial Services",
+    "capHint": "mid",
+    "benchmark": "^CNXFIN",
+    "source": "NIFTY 500"
+  },
+  {
+    "symbol": "AWL",
+    "company": "AWL Agri Business Ltd.",
+    "theme": "Fast Moving Consumer Goods",
+    "capHint": "mid",
+    "benchmark": "^CNXFMCG",
+    "source": "NIFTY 500"
+  },
+  {
+    "symbol": "AADHARHFC",
+    "company": "Aadhar Housing Finance Ltd.",
+    "theme": "Financial Services",
+    "capHint": "mid",
+    "benchmark": "^CNXFIN",
+    "source": "NIFTY 500"
+  },
+  {
+    "symbol": "AARTIIND",
+    "company": "Aarti Industries Ltd.",
+    "theme": "Chemicals",
+    "capHint": "mid",
+    "benchmark": "^NSEI",
+    "source": "NIFTY 500"
+  },
+  {
+    "symbol": "AAVAS",
+    "company": "Aavas Financiers Ltd.",
+    "theme": "Financial Services",
+    "capHint": "mid",
+    "benchmark": "^CNXFIN",
+    "source": "NIFTY 500"
+  },
+  {
+    "symbol": "ABBOTINDIA",
+    "company": "Abbott India Ltd.",
+    "theme": "Healthcare",
+    "capHint": "mid",
+    "benchmark": "^CNXPHARMA",
+    "source": "NIFTY 500"
+  },
+  {
+    "symbol": "ACE",
+    "company": "Action Construction Equipment Ltd.",
+    "theme": "Capital Goods",
+    "capHint": "mid",
+    "benchmark": "^CNXINFRA",
+    "source": "NIFTY 500"
+  },
+  {
+    "symbol": "ACUTAAS",
+    "company": "Acutaas Chemicals Ltd.",
+    "theme": "Healthcare",
+    "capHint": "mid",
+    "benchmark": "^CNXPHARMA",
+    "source": "NIFTY 500"
+  },
+  {
+    "symbol": "ADANIENSOL",
+    "company": "Adani Energy Solutions Ltd.",
+    "theme": "Power",
+    "capHint": "mid",
+    "benchmark": "^CNXENERGY",
+    "source": "NIFTY 500"
+  },
+  {
+    "symbol": "ADANIENT",
+    "company": "Adani Enterprises Ltd.",
+    "theme": "Metals & Mining",
+    "capHint": "mid",
+    "benchmark": "^CNXMETAL",
+    "source": "NIFTY 500"
+  },
+  {
+    "symbol": "ADANIGREEN",
+    "company": "Adani Green Energy Ltd.",
+    "theme": "Power",
+    "capHint": "mid",
+    "benchmark": "^CNXENERGY",
+    "source": "NIFTY 500"
+  },
+  {
+    "symbol": "ADANIPORTS",
+    "company": "Adani Ports and Special Economic Zone Ltd.",
+    "theme": "Services",
+    "capHint": "mid",
+    "benchmark": "^CNXINFRA",
+    "source": "NIFTY 500"
+  },
+  {
+    "symbol": "ADANIPOWER",
+    "company": "Adani Power Ltd.",
+    "theme": "Power",
+    "capHint": "mid",
+    "benchmark": "^CNXENERGY",
+    "source": "NIFTY 500"
+  },
+  {
+    "symbol": "ATGL",
+    "company": "Adani Total Gas Ltd.",
+    "theme": "Oil Gas & Consumable Fuels",
+    "capHint": "mid",
+    "benchmark": "^CNXENERGY",
+    "source": "NIFTY 500"
+  },
+  {
+    "symbol": "ABCAPITAL",
+    "company": "Aditya Birla Capital Ltd.",
+    "theme": "Financial Services",
+    "capHint": "mid",
+    "benchmark": "^CNXFIN",
+    "source": "NIFTY 500"
+  },
+  {
+    "symbol": "ABFRL",
+    "company": "Aditya Birla Fashion and Retail Ltd.",
+    "theme": "Consumer Services",
+    "capHint": "mid",
+    "benchmark": "^CNXCONSUM",
+    "source": "NIFTY 500"
+  },
+  {
+    "symbol": "ABLBL",
+    "company": "Aditya Birla Lifestyle Brands Ltd.",
+    "theme": "Consumer Services",
+    "capHint": "mid",
+    "benchmark": "^CNXCONSUM",
+    "source": "NIFTY 500"
+  },
+  {
+    "symbol": "ABREL",
+    "company": "Aditya Birla Real Estate Ltd.",
+    "theme": "Realty",
+    "capHint": "mid",
+    "benchmark": "^CNXREALTY",
+    "source": "NIFTY 500"
+  },
+  {
+    "symbol": "ABSLAMC",
+    "company": "Aditya Birla Sun Life AMC Ltd.",
+    "theme": "Financial Services",
+    "capHint": "mid",
+    "benchmark": "^CNXFIN",
+    "source": "NIFTY 500"
+  },
+  {
+    "symbol": "CPPLUS",
+    "company": "Aditya Infotech Ltd.",
+    "theme": "Capital Goods",
+    "capHint": "mid",
+    "benchmark": "^CNXINFRA",
+    "source": "NIFTY 500"
+  },
+  {
+    "symbol": "AEGISLOG",
+    "company": "Aegis Logistics Ltd.",
+    "theme": "Oil Gas & Consumable Fuels",
+    "capHint": "mid",
+    "benchmark": "^CNXENERGY",
+    "source": "NIFTY 500"
+  },
+  {
+    "symbol": "AEGISVOPAK",
+    "company": "Aegis Vopak Terminals Ltd.",
+    "theme": "Oil Gas & Consumable Fuels",
+    "capHint": "mid",
+    "benchmark": "^CNXENERGY",
+    "source": "NIFTY 500"
+  },
+  {
+    "symbol": "AFCONS",
+    "company": "Afcons Infrastructure Ltd.",
+    "theme": "Construction",
+    "capHint": "mid",
+    "benchmark": "^CNXINFRA",
+    "source": "NIFTY 500"
+  },
+  {
+    "symbol": "AFFLE",
+    "company": "Affle 3i Ltd.",
+    "theme": "Information Technology",
+    "capHint": "mid",
+    "benchmark": "^CNXIT",
+    "source": "NIFTY 500"
+  },
+  {
+    "symbol": "AJANTPHARM",
+    "company": "Ajanta Pharmaceuticals Ltd.",
+    "theme": "Healthcare",
+    "capHint": "mid",
+    "benchmark": "^CNXPHARMA",
+    "source": "NIFTY 500"
+  },
+  {
+    "symbol": "ALKEM",
+    "company": "Alkem Laboratories Ltd.",
+    "theme": "Healthcare",
+    "capHint": "mid",
+    "benchmark": "^CNXPHARMA",
+    "source": "NIFTY 500"
+  },
+  {
+    "symbol": "ABDL",
+    "company": "Allied Blenders and Distillers Ltd.",
+    "theme": "Fast Moving Consumer Goods",
+    "capHint": "mid",
+    "benchmark": "^CNXFMCG",
+    "source": "NIFTY 500"
+  },
+  {
+    "symbol": "ARE&M",
+    "company": "Amara Raja Energy & Mobility Ltd.",
+    "theme": "Automobile and Auto Components",
+    "capHint": "mid",
+    "benchmark": "^CNXAUTO",
+    "source": "NIFTY 500"
+  },
+  {
+    "symbol": "AMBER",
+    "company": "Amber Enterprises India Ltd.",
+    "theme": "Consumer Durables",
+    "capHint": "mid",
+    "benchmark": "^CNXCONSUM",
+    "source": "NIFTY 500"
+  },
+  {
+    "symbol": "AMBUJACEM",
+    "company": "Ambuja Cements Ltd.",
+    "theme": "Construction Materials",
+    "capHint": "mid",
+    "benchmark": "^CNXINFRA",
+    "source": "NIFTY 500"
+  },
+  {
+    "symbol": "ANANDRATHI",
+    "company": "Anand Rathi Wealth Ltd.",
+    "theme": "Financial Services",
+    "capHint": "mid",
+    "benchmark": "^CNXFIN",
+    "source": "NIFTY 500"
+  },
+  {
+    "symbol": "ANANTRAJ",
+    "company": "Anant Raj Ltd.",
+    "theme": "Realty",
+    "capHint": "mid",
+    "benchmark": "^CNXREALTY",
+    "source": "NIFTY 500"
+  },
+  {
+    "symbol": "ANGELONE",
+    "company": "Angel One Ltd.",
+    "theme": "Financial Services",
+    "capHint": "mid",
+    "benchmark": "^CNXFIN",
+    "source": "NIFTY 500"
+  },
+  {
+    "symbol": "ANTHEM",
+    "company": "Anthem Biosciences Ltd.",
+    "theme": "Healthcare",
+    "capHint": "mid",
+    "benchmark": "^CNXPHARMA",
+    "source": "NIFTY 500"
+  },
+  {
+    "symbol": "ANURAS",
+    "company": "Anupam Rasayan India Ltd.",
+    "theme": "Chemicals",
+    "capHint": "mid",
+    "benchmark": "^NSEI",
+    "source": "NIFTY 500"
+  },
+  {
+    "symbol": "APARINDS",
+    "company": "Apar Industries Ltd.",
+    "theme": "Capital Goods",
+    "capHint": "mid",
+    "benchmark": "^CNXINFRA",
+    "source": "NIFTY 500"
+  },
+  {
+    "symbol": "APOLLOHOSP",
+    "company": "Apollo Hospitals Enterprise Ltd.",
+    "theme": "Healthcare",
+    "capHint": "mid",
+    "benchmark": "^CNXPHARMA",
+    "source": "NIFTY 500"
+  },
+  {
+    "symbol": "APOLLOTYRE",
+    "company": "Apollo Tyres Ltd.",
+    "theme": "Automobile and Auto Components",
+    "capHint": "mid",
+    "benchmark": "^CNXAUTO",
+    "source": "NIFTY 500"
+  },
+  {
+    "symbol": "APTUS",
+    "company": "Aptus Value Housing Finance India Ltd.",
+    "theme": "Financial Services",
+    "capHint": "mid",
+    "benchmark": "^CNXFIN",
+    "source": "NIFTY 500"
+  },
+  {
+    "symbol": "ASAHIINDIA",
+    "company": "Asahi India Glass Ltd.",
+    "theme": "Automobile and Auto Components",
+    "capHint": "mid",
+    "benchmark": "^CNXAUTO",
+    "source": "NIFTY 500"
+  },
+  {
+    "symbol": "ASHOKLEY",
+    "company": "Ashok Leyland Ltd.",
+    "theme": "Capital Goods",
+    "capHint": "mid",
+    "benchmark": "^CNXINFRA",
+    "source": "NIFTY 500"
+  },
+  {
+    "symbol": "ASIANPAINT",
+    "company": "Asian Paints Ltd.",
+    "theme": "Consumer Durables",
+    "capHint": "mid",
+    "benchmark": "^CNXCONSUM",
+    "source": "NIFTY 500"
+  },
+  {
+    "symbol": "ASTERDM",
+    "company": "Aster DM Healthcare Ltd.",
+    "theme": "Healthcare",
+    "capHint": "mid",
+    "benchmark": "^CNXPHARMA",
+    "source": "NIFTY 500"
+  },
+  {
+    "symbol": "ASTRAL",
+    "company": "Astral Ltd.",
+    "theme": "Capital Goods",
+    "capHint": "mid",
+    "benchmark": "^CNXINFRA",
+    "source": "NIFTY 500"
+  },
+  {
+    "symbol": "ATHERENERG",
+    "company": "Ather Energy Ltd.",
+    "theme": "Automobile and Auto Components",
+    "capHint": "mid",
+    "benchmark": "^CNXAUTO",
+    "source": "NIFTY 500"
+  },
+  {
+    "symbol": "ATUL",
+    "company": "Atul Ltd.",
+    "theme": "Chemicals",
+    "capHint": "mid",
+    "benchmark": "^NSEI",
+    "source": "NIFTY 500"
+  },
+  {
+    "symbol": "AUROPHARMA",
+    "company": "Aurobindo Pharma Ltd.",
+    "theme": "Healthcare",
+    "capHint": "mid",
+    "benchmark": "^CNXPHARMA",
+    "source": "NIFTY 500"
+  },
+  {
+    "symbol": "AIIL",
+    "company": "Authum Investment & Infrastructure Ltd.",
+    "theme": "Financial Services",
+    "capHint": "mid",
+    "benchmark": "^CNXFIN",
+    "source": "NIFTY 500"
+  },
+  {
+    "symbol": "DMART",
+    "company": "Avenue Supermarts Ltd.",
+    "theme": "Consumer Services",
+    "capHint": "mid",
+    "benchmark": "^CNXCONSUM",
+    "source": "NIFTY 500"
+  },
+  {
+    "symbol": "AXISBANK",
+    "company": "Axis Bank Ltd.",
+    "theme": "Financial Services",
+    "capHint": "mid",
+    "benchmark": "^CNXFIN",
+    "source": "NIFTY 500"
+  },
+  {
+    "symbol": "BEML",
+    "company": "BEML Ltd.",
+    "theme": "Capital Goods",
+    "capHint": "mid",
+    "benchmark": "^CNXINFRA",
+    "source": "NIFTY 500"
+  },
+  {
+    "symbol": "BLS",
+    "company": "BLS International Services Ltd.",
+    "theme": "Consumer Services",
+    "capHint": "mid",
+    "benchmark": "^CNXCONSUM",
+    "source": "NIFTY 500"
+  },
+  {
+    "symbol": "BSE",
+    "company": "BSE Ltd.",
+    "theme": "Financial Services",
+    "capHint": "mid",
+    "benchmark": "^CNXFIN",
+    "source": "NIFTY 500"
+  },
+  {
+    "symbol": "BAJAJ-AUTO",
+    "company": "Bajaj Auto Ltd.",
+    "theme": "Automobile and Auto Components",
+    "capHint": "mid",
+    "benchmark": "^CNXAUTO",
+    "source": "NIFTY 500"
+  },
+  {
+    "symbol": "BAJFINANCE",
+    "company": "Bajaj Finance Ltd.",
+    "theme": "Financial Services",
+    "capHint": "mid",
+    "benchmark": "^CNXFIN",
+    "source": "NIFTY 500"
+  },
+  {
+    "symbol": "BAJAJFINSV",
+    "company": "Bajaj Finserv Ltd.",
+    "theme": "Financial Services",
+    "capHint": "mid",
+    "benchmark": "^CNXFIN",
+    "source": "NIFTY 500"
+  },
+  {
+    "symbol": "BAJAJHLDNG",
+    "company": "Bajaj Holdings & Investment Ltd.",
+    "theme": "Financial Services",
+    "capHint": "mid",
+    "benchmark": "^CNXFIN",
+    "source": "NIFTY 500"
+  },
+  {
+    "symbol": "BAJAJHFL",
+    "company": "Bajaj Housing Finance Ltd.",
+    "theme": "Financial Services",
+    "capHint": "mid",
+    "benchmark": "^CNXFIN",
+    "source": "NIFTY 500"
+  },
+  {
+    "symbol": "BALKRISIND",
+    "company": "Balkrishna Industries Ltd.",
+    "theme": "Automobile and Auto Components",
+    "capHint": "mid",
+    "benchmark": "^CNXAUTO",
+    "source": "NIFTY 500"
+  },
+  {
+    "symbol": "BALRAMCHIN",
+    "company": "Balrampur Chini Mills Ltd.",
+    "theme": "Fast Moving Consumer Goods",
+    "capHint": "mid",
+    "benchmark": "^CNXFMCG",
+    "source": "NIFTY 500"
+  },
+  {
+    "symbol": "BANDHANBNK",
+    "company": "Bandhan Bank Ltd.",
+    "theme": "Financial Services",
+    "capHint": "mid",
+    "benchmark": "^CNXFIN",
+    "source": "NIFTY 500"
+  },
+  {
+    "symbol": "BANKBARODA",
+    "company": "Bank of Baroda",
+    "theme": "Financial Services",
+    "capHint": "mid",
+    "benchmark": "^CNXFIN",
+    "source": "NIFTY 500"
+  },
+  {
+    "symbol": "BANKINDIA",
+    "company": "Bank of India",
+    "theme": "Financial Services",
+    "capHint": "mid",
+    "benchmark": "^CNXFIN",
+    "source": "NIFTY 500"
+  },
+  {
+    "symbol": "MAHABANK",
+    "company": "Bank of Maharashtra",
+    "theme": "Financial Services",
+    "capHint": "mid",
+    "benchmark": "^CNXFIN",
+    "source": "NIFTY 500"
+  },
+  {
+    "symbol": "BATAINDIA",
+    "company": "Bata India Ltd.",
+    "theme": "Consumer Durables",
+    "capHint": "mid",
+    "benchmark": "^CNXCONSUM",
+    "source": "NIFTY 500"
+  },
+  {
+    "symbol": "BAYERCROP",
+    "company": "Bayer Cropscience Ltd.",
+    "theme": "Chemicals",
+    "capHint": "mid",
+    "benchmark": "^NSEI",
+    "source": "NIFTY 500"
+  },
+  {
+    "symbol": "BELRISE",
+    "company": "Belrise Industries Ltd.",
+    "theme": "Automobile and Auto Components",
+    "capHint": "mid",
+    "benchmark": "^CNXAUTO",
+    "source": "NIFTY 500"
+  },
+  {
+    "symbol": "BERGEPAINT",
+    "company": "Berger Paints India Ltd.",
+    "theme": "Consumer Durables",
+    "capHint": "mid",
+    "benchmark": "^CNXCONSUM",
+    "source": "NIFTY 500"
+  },
+  {
+    "symbol": "BDL",
+    "company": "Bharat Dynamics Ltd.",
+    "theme": "Capital Goods",
+    "capHint": "mid",
+    "benchmark": "^CNXINFRA",
+    "source": "NIFTY 500"
+  },
+  {
+    "symbol": "BEL",
+    "company": "Bharat Electronics Ltd.",
+    "theme": "Capital Goods",
+    "capHint": "mid",
+    "benchmark": "^CNXINFRA",
+    "source": "NIFTY 500"
+  },
+  {
+    "symbol": "BHARATFORG",
+    "company": "Bharat Forge Ltd.",
+    "theme": "Automobile and Auto Components",
+    "capHint": "mid",
+    "benchmark": "^CNXAUTO",
+    "source": "NIFTY 500"
+  },
+  {
+    "symbol": "BHEL",
+    "company": "Bharat Heavy Electricals Ltd.",
+    "theme": "Capital Goods",
+    "capHint": "mid",
+    "benchmark": "^CNXINFRA",
+    "source": "NIFTY 500"
+  },
+  {
+    "symbol": "BPCL",
+    "company": "Bharat Petroleum Corporation Ltd.",
+    "theme": "Oil Gas & Consumable Fuels",
+    "capHint": "mid",
+    "benchmark": "^CNXENERGY",
+    "source": "NIFTY 500"
+  },
+  {
+    "symbol": "BHARTIARTL",
+    "company": "Bharti Airtel Ltd.",
+    "theme": "Telecommunication",
+    "capHint": "mid",
+    "benchmark": "^NSEI",
+    "source": "NIFTY 500"
+  },
+  {
+    "symbol": "BHARTIHEXA",
+    "company": "Bharti Hexacom Ltd.",
+    "theme": "Telecommunication",
+    "capHint": "mid",
+    "benchmark": "^NSEI",
+    "source": "NIFTY 500"
+  },
+  {
+    "symbol": "BIKAJI",
+    "company": "Bikaji Foods International Ltd.",
+    "theme": "Fast Moving Consumer Goods",
+    "capHint": "mid",
+    "benchmark": "^CNXFMCG",
+    "source": "NIFTY 500"
+  },
+  {
+    "symbol": "GROWW",
+    "company": "Billionbrains Garage Ventures Ltd.",
+    "theme": "Financial Services",
+    "capHint": "mid",
+    "benchmark": "^CNXFIN",
+    "source": "NIFTY 500"
+  },
+  {
+    "symbol": "BIOCON",
+    "company": "Biocon Ltd.",
+    "theme": "Healthcare",
+    "capHint": "mid",
+    "benchmark": "^CNXPHARMA",
+    "source": "NIFTY 500"
+  },
+  {
+    "symbol": "BSOFT",
+    "company": "Birlasoft Ltd.",
+    "theme": "Information Technology",
+    "capHint": "mid",
+    "benchmark": "^CNXIT",
+    "source": "NIFTY 500"
+  },
+  {
+    "symbol": "BLUEDART",
+    "company": "Blue Dart Express Ltd.",
+    "theme": "Services",
+    "capHint": "mid",
+    "benchmark": "^CNXINFRA",
+    "source": "NIFTY 500"
+  },
+  {
+    "symbol": "BLUEJET",
+    "company": "Blue Jet Healthcare Ltd.",
+    "theme": "Healthcare",
+    "capHint": "mid",
+    "benchmark": "^CNXPHARMA",
+    "source": "NIFTY 500"
+  },
+  {
+    "symbol": "BLUESTARCO",
+    "company": "Blue Star Ltd.",
+    "theme": "Consumer Durables",
+    "capHint": "mid",
+    "benchmark": "^CNXCONSUM",
+    "source": "NIFTY 500"
+  },
+  {
+    "symbol": "BBTC",
+    "company": "Bombay Burmah Trading Corporation Ltd.",
+    "theme": "Fast Moving Consumer Goods",
+    "capHint": "mid",
+    "benchmark": "^CNXFMCG",
+    "source": "NIFTY 500"
+  },
+  {
+    "symbol": "BOSCHLTD",
+    "company": "Bosch Ltd.",
+    "theme": "Automobile and Auto Components",
+    "capHint": "mid",
+    "benchmark": "^CNXAUTO",
+    "source": "NIFTY 500"
+  },
+  {
+    "symbol": "FIRSTCRY",
+    "company": "Brainbees Solutions Ltd.",
+    "theme": "Consumer Services",
+    "capHint": "mid",
+    "benchmark": "^CNXCONSUM",
+    "source": "NIFTY 500"
+  },
+  {
+    "symbol": "BRIGADE",
+    "company": "Brigade Enterprises Ltd.",
+    "theme": "Realty",
+    "capHint": "mid",
+    "benchmark": "^CNXREALTY",
+    "source": "NIFTY 500"
+  },
+  {
+    "symbol": "BRITANNIA",
+    "company": "Britannia Industries Ltd.",
+    "theme": "Fast Moving Consumer Goods",
+    "capHint": "mid",
+    "benchmark": "^CNXFMCG",
+    "source": "NIFTY 500"
+  },
+  {
+    "symbol": "MAPMYINDIA",
+    "company": "C.E. Info Systems Ltd.",
+    "theme": "Information Technology",
+    "capHint": "mid",
+    "benchmark": "^CNXIT",
+    "source": "NIFTY 500"
+  },
+  {
+    "symbol": "CCL",
+    "company": "CCL Products (I) Ltd.",
+    "theme": "Fast Moving Consumer Goods",
+    "capHint": "mid",
+    "benchmark": "^CNXFMCG",
+    "source": "NIFTY 500"
+  },
+  {
+    "symbol": "CESC",
+    "company": "CESC Ltd.",
+    "theme": "Power",
+    "capHint": "mid",
+    "benchmark": "^CNXENERGY",
+    "source": "NIFTY 500"
+  },
+  {
+    "symbol": "CGPOWER",
+    "company": "CG Power and Industrial Solutions Ltd.",
+    "theme": "Capital Goods",
+    "capHint": "mid",
+    "benchmark": "^CNXINFRA",
+    "source": "NIFTY 500"
+  },
+  {
+    "symbol": "CIEINDIA",
+    "company": "CIE Automotive India Ltd.",
+    "theme": "Automobile and Auto Components",
+    "capHint": "mid",
+    "benchmark": "^CNXAUTO",
+    "source": "NIFTY 500"
+  },
+  {
+    "symbol": "CRISIL",
+    "company": "CRISIL Ltd.",
+    "theme": "Financial Services",
+    "capHint": "mid",
+    "benchmark": "^CNXFIN",
+    "source": "NIFTY 500"
+  },
+  {
+    "symbol": "CANFINHOME",
+    "company": "Can Fin Homes Ltd.",
+    "theme": "Financial Services",
+    "capHint": "mid",
+    "benchmark": "^CNXFIN",
+    "source": "NIFTY 500"
+  },
+  {
+    "symbol": "CANBK",
+    "company": "Canara Bank",
+    "theme": "Financial Services",
+    "capHint": "mid",
+    "benchmark": "^CNXFIN",
+    "source": "NIFTY 500"
+  },
+  {
+    "symbol": "CANHLIFE",
+    "company": "Canara HSBC Life Insurance Company Ltd.",
+    "theme": "Financial Services",
+    "capHint": "mid",
+    "benchmark": "^CNXFIN",
+    "source": "NIFTY 500"
+  },
+  {
+    "symbol": "CAPLIPOINT",
+    "company": "Caplin Point Laboratories Ltd.",
+    "theme": "Healthcare",
+    "capHint": "mid",
+    "benchmark": "^CNXPHARMA",
+    "source": "NIFTY 500"
+  },
+  {
+    "symbol": "CGCL",
+    "company": "Capri Global Capital Ltd.",
+    "theme": "Financial Services",
+    "capHint": "mid",
+    "benchmark": "^CNXFIN",
+    "source": "NIFTY 500"
+  },
+  {
+    "symbol": "CARBORUNIV",
+    "company": "Carborundum Universal Ltd.",
+    "theme": "Capital Goods",
+    "capHint": "mid",
+    "benchmark": "^CNXINFRA",
+    "source": "NIFTY 500"
+  },
+  {
+    "symbol": "CARTRADE",
+    "company": "Cartrade Tech Ltd.",
+    "theme": "Consumer Services",
+    "capHint": "mid",
+    "benchmark": "^CNXCONSUM",
+    "source": "NIFTY 500"
+  },
+  {
+    "symbol": "CASTROLIND",
+    "company": "Castrol India Ltd.",
+    "theme": "Oil Gas & Consumable Fuels",
+    "capHint": "mid",
+    "benchmark": "^CNXENERGY",
+    "source": "NIFTY 500"
+  },
+  {
+    "symbol": "CEATLTD",
+    "company": "Ceat Ltd.",
+    "theme": "Automobile and Auto Components",
+    "capHint": "mid",
+    "benchmark": "^CNXAUTO",
+    "source": "NIFTY 500"
+  },
+  {
+    "symbol": "CEMPRO",
+    "company": "Cemindia Projects Ltd.",
+    "theme": "Construction",
+    "capHint": "mid",
+    "benchmark": "^CNXINFRA",
+    "source": "NIFTY 500"
+  },
+  {
+    "symbol": "CENTRALBK",
+    "company": "Central Bank of India",
+    "theme": "Financial Services",
+    "capHint": "mid",
+    "benchmark": "^CNXFIN",
+    "source": "NIFTY 500"
+  },
+  {
+    "symbol": "CDSL",
+    "company": "Central Depository Services (India) Ltd.",
+    "theme": "Financial Services",
+    "capHint": "mid",
+    "benchmark": "^CNXFIN",
+    "source": "NIFTY 500"
+  },
+  {
+    "symbol": "CHALET",
+    "company": "Chalet Hotels Ltd.",
+    "theme": "Consumer Services",
+    "capHint": "mid",
+    "benchmark": "^CNXCONSUM",
+    "source": "NIFTY 500"
+  },
+  {
+    "symbol": "CHAMBLFERT",
+    "company": "Chambal Fertilizers & Chemicals Ltd.",
+    "theme": "Chemicals",
+    "capHint": "mid",
+    "benchmark": "^NSEI",
+    "source": "NIFTY 500"
+  },
+  {
+    "symbol": "CHENNPETRO",
+    "company": "Chennai Petroleum Corporation Ltd.",
+    "theme": "Oil Gas & Consumable Fuels",
+    "capHint": "mid",
+    "benchmark": "^CNXENERGY",
+    "source": "NIFTY 500"
+  },
+  {
+    "symbol": "CHOICEIN",
+    "company": "Choice International Ltd.",
+    "theme": "Financial Services",
+    "capHint": "mid",
+    "benchmark": "^CNXFIN",
+    "source": "NIFTY 500"
+  },
+  {
+    "symbol": "CHOLAHLDNG",
+    "company": "Cholamandalam Financial Holdings Ltd.",
+    "theme": "Financial Services",
+    "capHint": "mid",
+    "benchmark": "^CNXFIN",
+    "source": "NIFTY 500"
+  },
+  {
+    "symbol": "CHOLAFIN",
+    "company": "Cholamandalam Investment and Finance Company Ltd.",
+    "theme": "Financial Services",
+    "capHint": "mid",
+    "benchmark": "^CNXFIN",
+    "source": "NIFTY 500"
+  },
+  {
+    "symbol": "CIPLA",
+    "company": "Cipla Ltd.",
+    "theme": "Healthcare",
+    "capHint": "mid",
+    "benchmark": "^CNXPHARMA",
+    "source": "NIFTY 500"
+  },
+  {
+    "symbol": "CUB",
+    "company": "City Union Bank Ltd.",
+    "theme": "Financial Services",
+    "capHint": "mid",
+    "benchmark": "^CNXFIN",
+    "source": "NIFTY 500"
+  },
+  {
+    "symbol": "CLEAN",
+    "company": "Clean Science and Technology Ltd.",
+    "theme": "Chemicals",
+    "capHint": "mid",
+    "benchmark": "^NSEI",
+    "source": "NIFTY 500"
+  },
+  {
+    "symbol": "COALINDIA",
+    "company": "Coal India Ltd.",
+    "theme": "Oil Gas & Consumable Fuels",
+    "capHint": "mid",
+    "benchmark": "^CNXENERGY",
+    "source": "NIFTY 500"
+  },
+  {
+    "symbol": "COCHINSHIP",
+    "company": "Cochin Shipyard Ltd.",
+    "theme": "Capital Goods",
+    "capHint": "mid",
+    "benchmark": "^CNXINFRA",
+    "source": "NIFTY 500"
+  },
+  {
+    "symbol": "COFORGE",
+    "company": "Coforge Ltd.",
+    "theme": "Information Technology",
+    "capHint": "mid",
+    "benchmark": "^CNXIT",
+    "source": "NIFTY 500"
+  },
+  {
+    "symbol": "COHANCE",
+    "company": "Cohance Lifesciences Ltd.",
+    "theme": "Healthcare",
+    "capHint": "mid",
+    "benchmark": "^CNXPHARMA",
+    "source": "NIFTY 500"
+  },
+  {
+    "symbol": "COLPAL",
+    "company": "Colgate Palmolive (India) Ltd.",
+    "theme": "Fast Moving Consumer Goods",
+    "capHint": "mid",
+    "benchmark": "^CNXFMCG",
+    "source": "NIFTY 500"
+  },
+  {
+    "symbol": "CAMS",
+    "company": "Computer Age Management Services Ltd.",
+    "theme": "Financial Services",
+    "capHint": "mid",
+    "benchmark": "^CNXFIN",
+    "source": "NIFTY 500"
+  },
+  {
+    "symbol": "CONCORDBIO",
+    "company": "Concord Biotech Ltd.",
+    "theme": "Healthcare",
+    "capHint": "mid",
+    "benchmark": "^CNXPHARMA",
+    "source": "NIFTY 500"
+  },
+  {
+    "symbol": "CONCOR",
+    "company": "Container Corporation of India Ltd.",
+    "theme": "Services",
+    "capHint": "mid",
+    "benchmark": "^CNXINFRA",
+    "source": "NIFTY 500"
+  },
+  {
+    "symbol": "COROMANDEL",
+    "company": "Coromandel International Ltd.",
+    "theme": "Chemicals",
+    "capHint": "mid",
+    "benchmark": "^NSEI",
+    "source": "NIFTY 500"
+  },
+  {
+    "symbol": "CRAFTSMAN",
+    "company": "Craftsman Automation Ltd.",
+    "theme": "Automobile and Auto Components",
+    "capHint": "mid",
+    "benchmark": "^CNXAUTO",
+    "source": "NIFTY 500"
+  },
+  {
+    "symbol": "CREDITACC",
+    "company": "CreditAccess Grameen Ltd.",
+    "theme": "Financial Services",
+    "capHint": "mid",
+    "benchmark": "^CNXFIN",
+    "source": "NIFTY 500"
+  },
+  {
+    "symbol": "CROMPTON",
+    "company": "Crompton Greaves Consumer Electricals Ltd.",
+    "theme": "Consumer Durables",
+    "capHint": "mid",
+    "benchmark": "^CNXCONSUM",
+    "source": "NIFTY 500"
+  },
+  {
+    "symbol": "CUMMINSIND",
+    "company": "Cummins India Ltd.",
+    "theme": "Capital Goods",
+    "capHint": "mid",
+    "benchmark": "^CNXINFRA",
+    "source": "NIFTY 500"
+  },
+  {
+    "symbol": "CYIENT",
+    "company": "Cyient Ltd.",
+    "theme": "Information Technology",
+    "capHint": "mid",
+    "benchmark": "^CNXIT",
+    "source": "NIFTY 500"
+  },
+  {
+    "symbol": "DCMSHRIRAM",
+    "company": "DCM Shriram Ltd.",
+    "theme": "Diversified",
+    "capHint": "mid",
+    "benchmark": "^NSEI",
+    "source": "NIFTY 500"
+  },
+  {
+    "symbol": "DLF",
+    "company": "DLF Ltd.",
+    "theme": "Realty",
+    "capHint": "mid",
+    "benchmark": "^CNXREALTY",
+    "source": "NIFTY 500"
+  },
+  {
+    "symbol": "DOMS",
+    "company": "DOMS Industries Ltd.",
+    "theme": "Fast Moving Consumer Goods",
+    "capHint": "mid",
+    "benchmark": "^CNXFMCG",
+    "source": "NIFTY 500"
+  },
+  {
+    "symbol": "DABUR",
+    "company": "Dabur India Ltd.",
+    "theme": "Fast Moving Consumer Goods",
+    "capHint": "mid",
+    "benchmark": "^CNXFMCG",
+    "source": "NIFTY 500"
+  },
+  {
+    "symbol": "DALBHARAT",
+    "company": "Dalmia Bharat Ltd.",
+    "theme": "Construction Materials",
+    "capHint": "mid",
+    "benchmark": "^CNXINFRA",
+    "source": "NIFTY 500"
+  },
+  {
+    "symbol": "DATAPATTNS",
+    "company": "Data Patterns (India) Ltd.",
+    "theme": "Capital Goods",
+    "capHint": "mid",
+    "benchmark": "^CNXINFRA",
+    "source": "NIFTY 500"
+  },
+  {
+    "symbol": "DEEPAKFERT",
+    "company": "Deepak Fertilisers & Petrochemicals Corp. Ltd.",
+    "theme": "Chemicals",
+    "capHint": "mid",
+    "benchmark": "^NSEI",
+    "source": "NIFTY 500"
+  },
+  {
+    "symbol": "DEEPAKNTR",
+    "company": "Deepak Nitrite Ltd.",
+    "theme": "Chemicals",
+    "capHint": "mid",
+    "benchmark": "^NSEI",
+    "source": "NIFTY 500"
+  },
+  {
+    "symbol": "DELHIVERY",
+    "company": "Delhivery Ltd.",
+    "theme": "Services",
+    "capHint": "mid",
+    "benchmark": "^CNXINFRA",
+    "source": "NIFTY 500"
+  },
+  {
+    "symbol": "DEVYANI",
+    "company": "Devyani International Ltd.",
+    "theme": "Consumer Services",
+    "capHint": "mid",
+    "benchmark": "^CNXCONSUM",
+    "source": "NIFTY 500"
+  },
+  {
+    "symbol": "DIVISLAB",
+    "company": "Divi's Laboratories Ltd.",
+    "theme": "Healthcare",
+    "capHint": "mid",
+    "benchmark": "^CNXPHARMA",
+    "source": "NIFTY 500"
+  },
+  {
+    "symbol": "DIXON",
+    "company": "Dixon Technologies (India) Ltd.",
+    "theme": "Consumer Durables",
+    "capHint": "mid",
+    "benchmark": "^CNXCONSUM",
+    "source": "NIFTY 500"
+  },
+  {
+    "symbol": "LALPATHLAB",
+    "company": "Dr. Lal Path Labs Ltd.",
+    "theme": "Healthcare",
+    "capHint": "mid",
+    "benchmark": "^CNXPHARMA",
+    "source": "NIFTY 500"
+  },
+  {
+    "symbol": "DRREDDY",
+    "company": "Dr. Reddy's Laboratories Ltd.",
+    "theme": "Healthcare",
+    "capHint": "mid",
+    "benchmark": "^CNXPHARMA",
+    "source": "NIFTY 500"
+  },
+  {
+    "symbol": "EIDPARRY",
+    "company": "E.I.D. Parry (India) Ltd.",
+    "theme": "Fast Moving Consumer Goods",
+    "capHint": "mid",
+    "benchmark": "^CNXFMCG",
+    "source": "NIFTY 500"
+  },
+  {
+    "symbol": "EIHOTEL",
+    "company": "EIH Ltd.",
+    "theme": "Consumer Services",
+    "capHint": "mid",
+    "benchmark": "^CNXCONSUM",
+    "source": "NIFTY 500"
+  },
+  {
+    "symbol": "EICHERMOT",
+    "company": "Eicher Motors Ltd.",
+    "theme": "Automobile and Auto Components",
+    "capHint": "mid",
+    "benchmark": "^CNXAUTO",
+    "source": "NIFTY 500"
+  },
+  {
+    "symbol": "ELECON",
+    "company": "Elecon Engineering Co. Ltd.",
+    "theme": "Capital Goods",
+    "capHint": "mid",
+    "benchmark": "^CNXINFRA",
+    "source": "NIFTY 500"
+  },
+  {
+    "symbol": "ELGIEQUIP",
+    "company": "Elgi Equipments Ltd.",
+    "theme": "Capital Goods",
+    "capHint": "mid",
+    "benchmark": "^CNXINFRA",
+    "source": "NIFTY 500"
+  },
+  {
+    "symbol": "EMAMILTD",
+    "company": "Emami Ltd.",
+    "theme": "Fast Moving Consumer Goods",
+    "capHint": "mid",
+    "benchmark": "^CNXFMCG",
+    "source": "NIFTY 500"
+  },
+  {
+    "symbol": "EMCURE",
+    "company": "Emcure Pharmaceuticals Ltd.",
+    "theme": "Healthcare",
+    "capHint": "mid",
+    "benchmark": "^CNXPHARMA",
+    "source": "NIFTY 500"
+  },
+  {
+    "symbol": "EMMVEE",
+    "company": "Emmvee Photovoltaic Power Ltd.",
+    "theme": "Capital Goods",
+    "capHint": "mid",
+    "benchmark": "^CNXINFRA",
+    "source": "NIFTY 500"
+  },
+  {
+    "symbol": "ENDURANCE",
+    "company": "Endurance Technologies Ltd.",
+    "theme": "Automobile and Auto Components",
+    "capHint": "mid",
+    "benchmark": "^CNXAUTO",
+    "source": "NIFTY 500"
+  },
+  {
+    "symbol": "ENGINERSIN",
+    "company": "Engineers India Ltd.",
+    "theme": "Construction",
+    "capHint": "mid",
+    "benchmark": "^CNXINFRA",
+    "source": "NIFTY 500"
+  },
+  {
+    "symbol": "ERIS",
+    "company": "Eris Lifesciences Ltd.",
+    "theme": "Healthcare",
+    "capHint": "mid",
+    "benchmark": "^CNXPHARMA",
+    "source": "NIFTY 500"
+  },
+  {
+    "symbol": "ESCORTS",
+    "company": "Escorts Kubota Ltd.",
+    "theme": "Capital Goods",
+    "capHint": "mid",
+    "benchmark": "^CNXINFRA",
+    "source": "NIFTY 500"
+  },
+  {
+    "symbol": "ETERNAL",
+    "company": "Eternal Ltd.",
+    "theme": "Consumer Services",
+    "capHint": "mid",
+    "benchmark": "^CNXCONSUM",
+    "source": "NIFTY 500"
+  },
+  {
+    "symbol": "EXIDEIND",
+    "company": "Exide Industries Ltd.",
+    "theme": "Automobile and Auto Components",
+    "capHint": "mid",
+    "benchmark": "^CNXAUTO",
+    "source": "NIFTY 500"
+  },
+  {
+    "symbol": "NYKAA",
+    "company": "FSN E-Commerce Ventures Ltd.",
+    "theme": "Consumer Services",
+    "capHint": "mid",
+    "benchmark": "^CNXCONSUM",
+    "source": "NIFTY 500"
+  },
+  {
+    "symbol": "FEDERALBNK",
+    "company": "Federal Bank Ltd.",
+    "theme": "Financial Services",
+    "capHint": "mid",
+    "benchmark": "^CNXFIN",
+    "source": "NIFTY 500"
+  },
+  {
+    "symbol": "FACT",
+    "company": "Fertilisers and Chemicals Travancore Ltd.",
+    "theme": "Chemicals",
+    "capHint": "mid",
+    "benchmark": "^NSEI",
+    "source": "NIFTY 500"
+  },
+  {
+    "symbol": "FINCABLES",
+    "company": "Finolex Cables Ltd.",
+    "theme": "Capital Goods",
+    "capHint": "mid",
+    "benchmark": "^CNXINFRA",
+    "source": "NIFTY 500"
+  },
+  {
+    "symbol": "FSL",
+    "company": "Firstsource Solutions Ltd.",
+    "theme": "Services",
+    "capHint": "mid",
+    "benchmark": "^CNXINFRA",
+    "source": "NIFTY 500"
+  },
+  {
+    "symbol": "FIVESTAR",
+    "company": "Five-Star Business Finance Ltd.",
+    "theme": "Financial Services",
+    "capHint": "mid",
+    "benchmark": "^CNXFIN",
+    "source": "NIFTY 500"
+  },
+  {
+    "symbol": "FORCEMOT",
+    "company": "Force Motors Ltd.",
+    "theme": "Automobile and Auto Components",
+    "capHint": "mid",
+    "benchmark": "^CNXAUTO",
+    "source": "NIFTY 500"
+  },
+  {
+    "symbol": "FORTIS",
+    "company": "Fortis Healthcare Ltd.",
+    "theme": "Healthcare",
+    "capHint": "mid",
+    "benchmark": "^CNXPHARMA",
+    "source": "NIFTY 500"
+  },
+  {
+    "symbol": "GAIL",
+    "company": "GAIL (India) Ltd.",
+    "theme": "Oil Gas & Consumable Fuels",
+    "capHint": "mid",
+    "benchmark": "^CNXENERGY",
+    "source": "NIFTY 500"
+  },
+  {
+    "symbol": "GVT&D",
+    "company": "GE Vernova T&D India Ltd.",
+    "theme": "Capital Goods",
+    "capHint": "mid",
+    "benchmark": "^CNXINFRA",
+    "source": "NIFTY 500"
+  },
+  {
+    "symbol": "GMRAIRPORT",
+    "company": "GMR Airports Ltd.",
+    "theme": "Services",
+    "capHint": "mid",
+    "benchmark": "^CNXINFRA",
+    "source": "NIFTY 500"
+  },
+  {
+    "symbol": "GABRIEL",
+    "company": "Gabriel India Ltd.",
+    "theme": "Automobile and Auto Components",
+    "capHint": "mid",
+    "benchmark": "^CNXAUTO",
+    "source": "NIFTY 500"
+  },
+  {
+    "symbol": "GALLANTT",
+    "company": "Gallantt Ispat Ltd.",
+    "theme": "Capital Goods",
+    "capHint": "mid",
+    "benchmark": "^CNXINFRA",
+    "source": "NIFTY 500"
+  },
+  {
+    "symbol": "GRSE",
+    "company": "Garden Reach Shipbuilders & Engineers Ltd.",
+    "theme": "Capital Goods",
+    "capHint": "mid",
+    "benchmark": "^CNXINFRA",
+    "source": "NIFTY 500"
+  },
+  {
+    "symbol": "GICRE",
+    "company": "General Insurance Corporation of India",
+    "theme": "Financial Services",
+    "capHint": "mid",
+    "benchmark": "^CNXFIN",
+    "source": "NIFTY 500"
+  },
+  {
+    "symbol": "GILLETTE",
+    "company": "Gillette India Ltd.",
+    "theme": "Fast Moving Consumer Goods",
+    "capHint": "mid",
+    "benchmark": "^CNXFMCG",
+    "source": "NIFTY 500"
+  },
+  {
+    "symbol": "GLAND",
+    "company": "Gland Pharma Ltd.",
+    "theme": "Healthcare",
+    "capHint": "mid",
+    "benchmark": "^CNXPHARMA",
+    "source": "NIFTY 500"
+  },
+  {
+    "symbol": "GLAXO",
+    "company": "Glaxosmithkline Pharmaceuticals Ltd.",
+    "theme": "Healthcare",
+    "capHint": "mid",
+    "benchmark": "^CNXPHARMA",
+    "source": "NIFTY 500"
+  },
+  {
+    "symbol": "GLENMARK",
+    "company": "Glenmark Pharmaceuticals Ltd.",
+    "theme": "Healthcare",
+    "capHint": "mid",
+    "benchmark": "^CNXPHARMA",
+    "source": "NIFTY 500"
+  },
+  {
+    "symbol": "MEDANTA",
+    "company": "Global Health Ltd.",
+    "theme": "Healthcare",
+    "capHint": "mid",
+    "benchmark": "^CNXPHARMA",
+    "source": "NIFTY 500"
+  },
+  {
+    "symbol": "GODIGIT",
+    "company": "Go Digit General Insurance Ltd.",
+    "theme": "Financial Services",
+    "capHint": "mid",
+    "benchmark": "^CNXFIN",
+    "source": "NIFTY 500"
+  },
+  {
+    "symbol": "GPIL",
+    "company": "Godawari Power & Ispat Ltd.",
+    "theme": "Capital Goods",
+    "capHint": "mid",
+    "benchmark": "^CNXINFRA",
+    "source": "NIFTY 500"
+  },
+  {
+    "symbol": "GODFRYPHLP",
+    "company": "Godfrey Phillips India Ltd.",
+    "theme": "Fast Moving Consumer Goods",
+    "capHint": "mid",
+    "benchmark": "^CNXFMCG",
+    "source": "NIFTY 500"
+  },
+  {
+    "symbol": "GODREJCP",
+    "company": "Godrej Consumer Products Ltd.",
+    "theme": "Fast Moving Consumer Goods",
+    "capHint": "mid",
+    "benchmark": "^CNXFMCG",
+    "source": "NIFTY 500"
+  },
+  {
+    "symbol": "GODREJIND",
+    "company": "Godrej Industries Ltd.",
+    "theme": "Diversified",
+    "capHint": "mid",
+    "benchmark": "^NSEI",
+    "source": "NIFTY 500"
+  },
+  {
+    "symbol": "GODREJPROP",
+    "company": "Godrej Properties Ltd.",
+    "theme": "Realty",
+    "capHint": "mid",
+    "benchmark": "^CNXREALTY",
+    "source": "NIFTY 500"
+  },
+  {
+    "symbol": "GRANULES",
+    "company": "Granules India Ltd.",
+    "theme": "Healthcare",
+    "capHint": "mid",
+    "benchmark": "^CNXPHARMA",
+    "source": "NIFTY 500"
+  },
+  {
+    "symbol": "GRAPHITE",
+    "company": "Graphite India Ltd.",
+    "theme": "Capital Goods",
+    "capHint": "mid",
+    "benchmark": "^CNXINFRA",
+    "source": "NIFTY 500"
+  },
+  {
+    "symbol": "GRASIM",
+    "company": "Grasim Industries Ltd.",
+    "theme": "Construction Materials",
+    "capHint": "mid",
+    "benchmark": "^CNXINFRA",
+    "source": "NIFTY 500"
+  },
+  {
+    "symbol": "GRAVITA",
+    "company": "Gravita India Ltd.",
+    "theme": "Metals & Mining",
+    "capHint": "mid",
+    "benchmark": "^CNXMETAL",
+    "source": "NIFTY 500"
+  },
+  {
+    "symbol": "GESHIP",
+    "company": "Great Eastern Shipping Co. Ltd.",
+    "theme": "Services",
+    "capHint": "mid",
+    "benchmark": "^CNXINFRA",
+    "source": "NIFTY 500"
+  },
+  {
+    "symbol": "FLUOROCHEM",
+    "company": "Gujarat Fluorochemicals Ltd.",
+    "theme": "Chemicals",
+    "capHint": "mid",
+    "benchmark": "^NSEI",
+    "source": "NIFTY 500"
+  },
+  {
+    "symbol": "GMDCLTD",
+    "company": "Gujarat Mineral Development Corporation Ltd.",
+    "theme": "Metals & Mining",
+    "capHint": "mid",
+    "benchmark": "^CNXMETAL",
+    "source": "NIFTY 500"
+  },
+  {
+    "symbol": "HEG",
+    "company": "H.E.G. Ltd.",
+    "theme": "Capital Goods",
+    "capHint": "mid",
+    "benchmark": "^CNXINFRA",
+    "source": "NIFTY 500"
+  },
+  {
+    "symbol": "HBLENGINE",
+    "company": "HBL Engineering Ltd.",
+    "theme": "Capital Goods",
+    "capHint": "mid",
+    "benchmark": "^CNXINFRA",
+    "source": "NIFTY 500"
+  },
+  {
+    "symbol": "HCLTECH",
+    "company": "HCL Technologies Ltd.",
+    "theme": "Information Technology",
+    "capHint": "mid",
+    "benchmark": "^CNXIT",
+    "source": "NIFTY 500"
+  },
+  {
+    "symbol": "HDBFS",
+    "company": "HDB Financial Services Ltd.",
+    "theme": "Financial Services",
+    "capHint": "mid",
+    "benchmark": "^CNXFIN",
+    "source": "NIFTY 500"
+  },
+  {
+    "symbol": "HDFCAMC",
+    "company": "HDFC Asset Management Company Ltd.",
+    "theme": "Financial Services",
+    "capHint": "mid",
+    "benchmark": "^CNXFIN",
+    "source": "NIFTY 500"
+  },
+  {
+    "symbol": "HDFCBANK",
+    "company": "HDFC Bank Ltd.",
+    "theme": "Financial Services",
+    "capHint": "mid",
+    "benchmark": "^CNXFIN",
+    "source": "NIFTY 500"
+  },
+  {
+    "symbol": "HDFCLIFE",
+    "company": "HDFC Life Insurance Company Ltd.",
+    "theme": "Financial Services",
+    "capHint": "mid",
+    "benchmark": "^CNXFIN",
+    "source": "NIFTY 500"
+  },
+  {
+    "symbol": "HFCL",
+    "company": "HFCL Ltd.",
+    "theme": "Telecommunication",
+    "capHint": "mid",
+    "benchmark": "^NSEI",
+    "source": "NIFTY 500"
+  },
+  {
+    "symbol": "HAVELLS",
+    "company": "Havells India Ltd.",
+    "theme": "Consumer Durables",
+    "capHint": "mid",
+    "benchmark": "^CNXCONSUM",
+    "source": "NIFTY 500"
+  },
+  {
+    "symbol": "HEROMOTOCO",
+    "company": "Hero MotoCorp Ltd.",
+    "theme": "Automobile and Auto Components",
+    "capHint": "mid",
+    "benchmark": "^CNXAUTO",
+    "source": "NIFTY 500"
+  },
+  {
+    "symbol": "HEXT",
+    "company": "Hexaware Technologies Ltd.",
+    "theme": "Information Technology",
+    "capHint": "mid",
+    "benchmark": "^CNXIT",
+    "source": "NIFTY 500"
+  },
+  {
+    "symbol": "HSCL",
+    "company": "Himadri Speciality Chemical Ltd.",
+    "theme": "Chemicals",
+    "capHint": "mid",
+    "benchmark": "^NSEI",
+    "source": "NIFTY 500"
+  },
+  {
+    "symbol": "HINDALCO",
+    "company": "Hindalco Industries Ltd.",
+    "theme": "Metals & Mining",
+    "capHint": "mid",
+    "benchmark": "^CNXMETAL",
+    "source": "NIFTY 500"
+  },
+  {
+    "symbol": "HAL",
+    "company": "Hindustan Aeronautics Ltd.",
+    "theme": "Capital Goods",
+    "capHint": "mid",
+    "benchmark": "^CNXINFRA",
+    "source": "NIFTY 500"
+  },
+  {
+    "symbol": "HINDCOPPER",
+    "company": "Hindustan Copper Ltd.",
+    "theme": "Metals & Mining",
+    "capHint": "mid",
+    "benchmark": "^CNXMETAL",
+    "source": "NIFTY 500"
+  },
+  {
+    "symbol": "HINDPETRO",
+    "company": "Hindustan Petroleum Corporation Ltd.",
+    "theme": "Oil Gas & Consumable Fuels",
+    "capHint": "mid",
+    "benchmark": "^CNXENERGY",
+    "source": "NIFTY 500"
+  },
+  {
+    "symbol": "HINDUNILVR",
+    "company": "Hindustan Unilever Ltd.",
+    "theme": "Fast Moving Consumer Goods",
+    "capHint": "mid",
+    "benchmark": "^CNXFMCG",
+    "source": "NIFTY 500"
+  },
+  {
+    "symbol": "HINDZINC",
+    "company": "Hindustan Zinc Ltd.",
+    "theme": "Metals & Mining",
+    "capHint": "mid",
+    "benchmark": "^CNXMETAL",
+    "source": "NIFTY 500"
+  },
+  {
+    "symbol": "POWERINDIA",
+    "company": "Hitachi Energy India Ltd.",
+    "theme": "Capital Goods",
+    "capHint": "mid",
+    "benchmark": "^CNXINFRA",
+    "source": "NIFTY 500"
+  },
+  {
+    "symbol": "HOMEFIRST",
+    "company": "Home First Finance Company India Ltd.",
+    "theme": "Financial Services",
+    "capHint": "mid",
+    "benchmark": "^CNXFIN",
+    "source": "NIFTY 500"
+  },
+  {
+    "symbol": "HONASA",
+    "company": "Honasa Consumer Ltd.",
+    "theme": "Fast Moving Consumer Goods",
+    "capHint": "mid",
+    "benchmark": "^CNXFMCG",
+    "source": "NIFTY 500"
+  },
+  {
+    "symbol": "HONAUT",
+    "company": "Honeywell Automation India Ltd.",
+    "theme": "Capital Goods",
+    "capHint": "mid",
+    "benchmark": "^CNXINFRA",
+    "source": "NIFTY 500"
+  },
+  {
+    "symbol": "HUDCO",
+    "company": "Housing & Urban Development Corporation Ltd.",
+    "theme": "Financial Services",
+    "capHint": "mid",
+    "benchmark": "^CNXFIN",
+    "source": "NIFTY 500"
+  },
+  {
+    "symbol": "HYUNDAI",
+    "company": "Hyundai Motor India Ltd.",
+    "theme": "Automobile and Auto Components",
+    "capHint": "mid",
+    "benchmark": "^CNXAUTO",
+    "source": "NIFTY 500"
+  },
+  {
+    "symbol": "ICICIBANK",
+    "company": "ICICI Bank Ltd.",
+    "theme": "Financial Services",
+    "capHint": "mid",
+    "benchmark": "^CNXFIN",
+    "source": "NIFTY 500"
+  },
+  {
+    "symbol": "ICICIGI",
+    "company": "ICICI Lombard General Insurance Company Ltd.",
+    "theme": "Financial Services",
+    "capHint": "mid",
+    "benchmark": "^CNXFIN",
+    "source": "NIFTY 500"
+  },
+  {
+    "symbol": "ICICIAMC",
+    "company": "ICICI Prudential Asset Management Company Ltd.",
+    "theme": "Financial Services",
+    "capHint": "mid",
+    "benchmark": "^CNXFIN",
+    "source": "NIFTY 500"
+  },
+  {
+    "symbol": "ICICIPRULI",
+    "company": "ICICI Prudential Life Insurance Company Ltd.",
+    "theme": "Financial Services",
+    "capHint": "mid",
+    "benchmark": "^CNXFIN",
+    "source": "NIFTY 500"
+  },
+  {
+    "symbol": "IDBI",
+    "company": "IDBI Bank Ltd.",
+    "theme": "Financial Services",
+    "capHint": "mid",
+    "benchmark": "^CNXFIN",
+    "source": "NIFTY 500"
+  },
+  {
+    "symbol": "IDFCFIRSTB",
+    "company": "IDFC First Bank Ltd.",
+    "theme": "Financial Services",
+    "capHint": "mid",
+    "benchmark": "^CNXFIN",
+    "source": "NIFTY 500"
+  },
+  {
+    "symbol": "IFCI",
+    "company": "IFCI Ltd.",
+    "theme": "Financial Services",
+    "capHint": "mid",
+    "benchmark": "^CNXFIN",
+    "source": "NIFTY 500"
+  },
+  {
+    "symbol": "IIFL",
+    "company": "IIFL Finance Ltd.",
+    "theme": "Financial Services",
+    "capHint": "mid",
+    "benchmark": "^CNXFIN",
+    "source": "NIFTY 500"
+  },
+  {
+    "symbol": "IRB",
+    "company": "IRB Infrastructure Developers Ltd.",
+    "theme": "Construction",
+    "capHint": "mid",
+    "benchmark": "^CNXINFRA",
+    "source": "NIFTY 500"
+  },
+  {
+    "symbol": "IRCON",
+    "company": "IRCON International Ltd.",
+    "theme": "Construction",
+    "capHint": "mid",
+    "benchmark": "^CNXINFRA",
+    "source": "NIFTY 500"
+  },
+  {
+    "symbol": "ITCHOTELS",
+    "company": "ITC Hotels Ltd.",
+    "theme": "Consumer Services",
+    "capHint": "mid",
+    "benchmark": "^CNXCONSUM",
+    "source": "NIFTY 500"
+  },
+  {
+    "symbol": "ITC",
+    "company": "ITC Ltd.",
+    "theme": "Fast Moving Consumer Goods",
+    "capHint": "mid",
+    "benchmark": "^CNXFMCG",
+    "source": "NIFTY 500"
+  },
+  {
+    "symbol": "ITI",
+    "company": "ITI Ltd.",
+    "theme": "Telecommunication",
+    "capHint": "mid",
+    "benchmark": "^NSEI",
+    "source": "NIFTY 500"
+  },
+  {
+    "symbol": "INDGN",
+    "company": "Indegene Ltd.",
+    "theme": "Healthcare",
+    "capHint": "mid",
+    "benchmark": "^CNXPHARMA",
+    "source": "NIFTY 500"
+  },
+  {
+    "symbol": "INDIACEM",
+    "company": "India Cements Ltd.",
+    "theme": "Construction Materials",
+    "capHint": "mid",
+    "benchmark": "^CNXINFRA",
+    "source": "NIFTY 500"
+  },
+  {
+    "symbol": "INDIAMART",
+    "company": "Indiamart Intermesh Ltd.",
+    "theme": "Consumer Services",
+    "capHint": "mid",
+    "benchmark": "^CNXCONSUM",
+    "source": "NIFTY 500"
+  },
+  {
+    "symbol": "INDIANB",
+    "company": "Indian Bank",
+    "theme": "Financial Services",
+    "capHint": "mid",
+    "benchmark": "^CNXFIN",
+    "source": "NIFTY 500"
+  },
+  {
+    "symbol": "IEX",
+    "company": "Indian Energy Exchange Ltd.",
+    "theme": "Financial Services",
+    "capHint": "mid",
+    "benchmark": "^CNXFIN",
+    "source": "NIFTY 500"
+  },
+  {
+    "symbol": "INDHOTEL",
+    "company": "Indian Hotels Co. Ltd.",
+    "theme": "Consumer Services",
+    "capHint": "mid",
+    "benchmark": "^CNXCONSUM",
+    "source": "NIFTY 500"
+  },
+  {
+    "symbol": "IOC",
+    "company": "Indian Oil Corporation Ltd.",
+    "theme": "Oil Gas & Consumable Fuels",
+    "capHint": "mid",
+    "benchmark": "^CNXENERGY",
+    "source": "NIFTY 500"
+  },
+  {
+    "symbol": "IOB",
+    "company": "Indian Overseas Bank",
+    "theme": "Financial Services",
+    "capHint": "mid",
+    "benchmark": "^CNXFIN",
+    "source": "NIFTY 500"
+  },
+  {
+    "symbol": "IRCTC",
+    "company": "Indian Railway Catering And Tourism Corporation Ltd.",
+    "theme": "Consumer Services",
+    "capHint": "mid",
+    "benchmark": "^CNXCONSUM",
+    "source": "NIFTY 500"
+  },
+  {
+    "symbol": "IRFC",
+    "company": "Indian Railway Finance Corporation Ltd.",
+    "theme": "Financial Services",
+    "capHint": "mid",
+    "benchmark": "^CNXFIN",
+    "source": "NIFTY 500"
+  },
+  {
+    "symbol": "IREDA",
+    "company": "Indian Renewable Energy Development Agency Ltd.",
+    "theme": "Financial Services",
+    "capHint": "mid",
+    "benchmark": "^CNXFIN",
+    "source": "NIFTY 500"
+  },
+  {
+    "symbol": "IGL",
+    "company": "Indraprastha Gas Ltd.",
+    "theme": "Oil Gas & Consumable Fuels",
+    "capHint": "mid",
+    "benchmark": "^CNXENERGY",
+    "source": "NIFTY 500"
+  },
+  {
+    "symbol": "INDUSTOWER",
+    "company": "Indus Towers Ltd.",
+    "theme": "Telecommunication",
+    "capHint": "mid",
+    "benchmark": "^NSEI",
+    "source": "NIFTY 500"
+  },
+  {
+    "symbol": "INDUSINDBK",
+    "company": "IndusInd Bank Ltd.",
+    "theme": "Financial Services",
+    "capHint": "mid",
+    "benchmark": "^CNXFIN",
+    "source": "NIFTY 500"
+  },
+  {
+    "symbol": "NAUKRI",
+    "company": "Info Edge (India) Ltd.",
+    "theme": "Consumer Services",
+    "capHint": "mid",
+    "benchmark": "^CNXCONSUM",
+    "source": "NIFTY 500"
+  },
+  {
+    "symbol": "INFY",
+    "company": "Infosys Ltd.",
+    "theme": "Information Technology",
+    "capHint": "mid",
+    "benchmark": "^CNXIT",
+    "source": "NIFTY 500"
+  },
+  {
+    "symbol": "INOXWIND",
+    "company": "Inox Wind Ltd.",
+    "theme": "Capital Goods",
+    "capHint": "mid",
+    "benchmark": "^CNXINFRA",
+    "source": "NIFTY 500"
+  },
+  {
+    "symbol": "INTELLECT",
+    "company": "Intellect Design Arena Ltd.",
+    "theme": "Information Technology",
+    "capHint": "mid",
+    "benchmark": "^CNXIT",
+    "source": "NIFTY 500"
+  },
+  {
+    "symbol": "INDIGO",
+    "company": "InterGlobe Aviation Ltd.",
+    "theme": "Services",
+    "capHint": "mid",
+    "benchmark": "^CNXINFRA",
+    "source": "NIFTY 500"
+  },
+  {
+    "symbol": "IGIL",
+    "company": "International Gemological Institute Ltd.",
+    "theme": "Services",
+    "capHint": "mid",
+    "benchmark": "^CNXINFRA",
+    "source": "NIFTY 500"
+  },
+  {
+    "symbol": "IKS",
+    "company": "Inventurus Knowledge Solutions Ltd.",
+    "theme": "Information Technology",
+    "capHint": "mid",
+    "benchmark": "^CNXIT",
+    "source": "NIFTY 500"
+  },
+  {
+    "symbol": "IPCALAB",
+    "company": "Ipca Laboratories Ltd.",
+    "theme": "Healthcare",
+    "capHint": "mid",
+    "benchmark": "^CNXPHARMA",
+    "source": "NIFTY 500"
+  },
+  {
+    "symbol": "JBCHEPHARM",
+    "company": "J.B. Chemicals & Pharmaceuticals Ltd.",
+    "theme": "Healthcare",
+    "capHint": "mid",
+    "benchmark": "^CNXPHARMA",
+    "source": "NIFTY 500"
+  },
+  {
+    "symbol": "JKCEMENT",
+    "company": "J.K. Cement Ltd.",
+    "theme": "Construction Materials",
+    "capHint": "mid",
+    "benchmark": "^CNXINFRA",
+    "source": "NIFTY 500"
+  },
+  {
+    "symbol": "JBMA",
+    "company": "JBM Auto Ltd.",
+    "theme": "Automobile and Auto Components",
+    "capHint": "mid",
+    "benchmark": "^CNXAUTO",
+    "source": "NIFTY 500"
+  },
+  {
+    "symbol": "JKTYRE",
+    "company": "JK Tyre & Industries Ltd.",
+    "theme": "Automobile and Auto Components",
+    "capHint": "mid",
+    "benchmark": "^CNXAUTO",
+    "source": "NIFTY 500"
+  },
+  {
+    "symbol": "JMFINANCIL",
+    "company": "JM Financial Ltd.",
+    "theme": "Financial Services",
+    "capHint": "mid",
+    "benchmark": "^CNXFIN",
+    "source": "NIFTY 500"
+  },
+  {
+    "symbol": "JSWCEMENT",
+    "company": "JSW Cement Ltd.",
+    "theme": "Construction Materials",
+    "capHint": "mid",
+    "benchmark": "^CNXINFRA",
+    "source": "NIFTY 500"
+  },
+  {
+    "symbol": "JSWDULUX",
+    "company": "JSW Dulux Ltd.",
+    "theme": "Consumer Durables",
+    "capHint": "mid",
+    "benchmark": "^CNXCONSUM",
+    "source": "NIFTY 500"
+  },
+  {
+    "symbol": "JSWENERGY",
+    "company": "JSW Energy Ltd.",
+    "theme": "Power",
+    "capHint": "mid",
+    "benchmark": "^CNXENERGY",
+    "source": "NIFTY 500"
+  },
+  {
+    "symbol": "JSWINFRA",
+    "company": "JSW Infrastructure Ltd.",
+    "theme": "Services",
+    "capHint": "mid",
+    "benchmark": "^CNXINFRA",
+    "source": "NIFTY 500"
+  },
+  {
+    "symbol": "JSWSTEEL",
+    "company": "JSW Steel Ltd.",
+    "theme": "Metals & Mining",
+    "capHint": "mid",
+    "benchmark": "^CNXMETAL",
+    "source": "NIFTY 500"
+  },
+  {
+    "symbol": "JAINREC",
+    "company": "Jain Resource Recycling Ltd.",
+    "theme": "Metals & Mining",
+    "capHint": "mid",
+    "benchmark": "^CNXMETAL",
+    "source": "NIFTY 500"
+  },
+  {
+    "symbol": "JPPOWER",
+    "company": "Jaiprakash Power Ventures Ltd.",
+    "theme": "Power",
+    "capHint": "mid",
+    "benchmark": "^CNXENERGY",
+    "source": "NIFTY 500"
+  },
+  {
+    "symbol": "J&KBANK",
+    "company": "Jammu & Kashmir Bank Ltd.",
+    "theme": "Financial Services",
+    "capHint": "mid",
+    "benchmark": "^CNXFIN",
+    "source": "NIFTY 500"
+  },
+  {
+    "symbol": "JINDALSAW",
+    "company": "Jindal Saw Ltd.",
+    "theme": "Capital Goods",
+    "capHint": "mid",
+    "benchmark": "^CNXINFRA",
+    "source": "NIFTY 500"
+  },
+  {
+    "symbol": "JSL",
+    "company": "Jindal Stainless Ltd.",
+    "theme": "Metals & Mining",
+    "capHint": "mid",
+    "benchmark": "^CNXMETAL",
+    "source": "NIFTY 500"
+  },
+  {
+    "symbol": "JINDALSTEL",
+    "company": "Jindal Steel Ltd.",
+    "theme": "Metals & Mining",
+    "capHint": "mid",
+    "benchmark": "^CNXMETAL",
+    "source": "NIFTY 500"
+  },
+  {
+    "symbol": "JIOFIN",
+    "company": "Jio Financial Services Ltd.",
+    "theme": "Financial Services",
+    "capHint": "mid",
+    "benchmark": "^CNXFIN",
+    "source": "NIFTY 500"
+  },
+  {
+    "symbol": "JUBLFOOD",
+    "company": "Jubilant Foodworks Ltd.",
+    "theme": "Consumer Services",
+    "capHint": "mid",
+    "benchmark": "^CNXCONSUM",
+    "source": "NIFTY 500"
+  },
+  {
+    "symbol": "JUBLINGREA",
+    "company": "Jubilant Ingrevia Ltd.",
+    "theme": "Chemicals",
+    "capHint": "mid",
+    "benchmark": "^NSEI",
+    "source": "NIFTY 500"
+  },
+  {
+    "symbol": "JUBLPHARMA",
+    "company": "Jubilant Pharmova Ltd.",
+    "theme": "Healthcare",
+    "capHint": "mid",
+    "benchmark": "^CNXPHARMA",
+    "source": "NIFTY 500"
+  },
+  {
+    "symbol": "JWL",
+    "company": "Jupiter Wagons Ltd.",
+    "theme": "Capital Goods",
+    "capHint": "mid",
+    "benchmark": "^CNXINFRA",
+    "source": "NIFTY 500"
+  },
+  {
+    "symbol": "JYOTICNC",
+    "company": "Jyoti CNC Automation Ltd.",
+    "theme": "Capital Goods",
+    "capHint": "mid",
+    "benchmark": "^CNXINFRA",
+    "source": "NIFTY 500"
+  },
+  {
+    "symbol": "KPRMILL",
+    "company": "K.P.R. Mill Ltd.",
+    "theme": "Textiles",
+    "capHint": "mid",
+    "benchmark": "^CNXCONSUM",
+    "source": "NIFTY 500"
+  },
+  {
+    "symbol": "KEI",
+    "company": "KEI Industries Ltd.",
+    "theme": "Capital Goods",
+    "capHint": "mid",
+    "benchmark": "^CNXINFRA",
+    "source": "NIFTY 500"
+  },
+  {
+    "symbol": "KPITTECH",
+    "company": "KPIT Technologies Ltd.",
+    "theme": "Information Technology",
+    "capHint": "mid",
+    "benchmark": "^CNXIT",
+    "source": "NIFTY 500"
+  },
+  {
+    "symbol": "KAJARIACER",
+    "company": "Kajaria Ceramics Ltd.",
+    "theme": "Consumer Durables",
+    "capHint": "mid",
+    "benchmark": "^CNXCONSUM",
+    "source": "NIFTY 500"
+  },
+  {
+    "symbol": "KPIL",
+    "company": "Kalpataru Projects International Ltd.",
+    "theme": "Construction",
+    "capHint": "mid",
+    "benchmark": "^CNXINFRA",
+    "source": "NIFTY 500"
+  },
+  {
+    "symbol": "KALYANKJIL",
+    "company": "Kalyan Jewellers India Ltd.",
+    "theme": "Consumer Durables",
+    "capHint": "mid",
+    "benchmark": "^CNXCONSUM",
+    "source": "NIFTY 500"
+  },
+  {
+    "symbol": "KARURVYSYA",
+    "company": "Karur Vysya Bank Ltd.",
+    "theme": "Financial Services",
+    "capHint": "mid",
+    "benchmark": "^CNXFIN",
+    "source": "NIFTY 500"
+  },
+  {
+    "symbol": "KAYNES",
+    "company": "Kaynes Technology India Ltd.",
+    "theme": "Capital Goods",
+    "capHint": "mid",
+    "benchmark": "^CNXINFRA",
+    "source": "NIFTY 500"
+  },
+  {
+    "symbol": "KEC",
+    "company": "Kec International Ltd.",
+    "theme": "Construction",
+    "capHint": "mid",
+    "benchmark": "^CNXINFRA",
+    "source": "NIFTY 500"
+  },
+  {
+    "symbol": "KFINTECH",
+    "company": "Kfin Technologies Ltd.",
+    "theme": "Financial Services",
+    "capHint": "mid",
+    "benchmark": "^CNXFIN",
+    "source": "NIFTY 500"
+  },
+  {
+    "symbol": "KIRLOSENG",
+    "company": "Kirloskar Oil Eng Ltd.",
+    "theme": "Capital Goods",
+    "capHint": "mid",
+    "benchmark": "^CNXINFRA",
+    "source": "NIFTY 500"
+  },
+  {
+    "symbol": "KOTAKBANK",
+    "company": "Kotak Mahindra Bank Ltd.",
+    "theme": "Financial Services",
+    "capHint": "mid",
+    "benchmark": "^CNXFIN",
+    "source": "NIFTY 500"
+  },
+  {
+    "symbol": "KIMS",
+    "company": "Krishna Institute of Medical Sciences Ltd.",
+    "theme": "Healthcare",
+    "capHint": "mid",
+    "benchmark": "^CNXPHARMA",
+    "source": "NIFTY 500"
+  },
+  {
+    "symbol": "LTF",
+    "company": "L&T Finance Ltd.",
+    "theme": "Financial Services",
+    "capHint": "mid",
+    "benchmark": "^CNXFIN",
+    "source": "NIFTY 500"
+  },
+  {
+    "symbol": "LTTS",
+    "company": "L&T Technology Services Ltd.",
+    "theme": "Information Technology",
+    "capHint": "mid",
+    "benchmark": "^CNXIT",
+    "source": "NIFTY 500"
+  },
+  {
+    "symbol": "LGEINDIA",
+    "company": "LG Electronics India Ltd.",
+    "theme": "Consumer Durables",
+    "capHint": "mid",
+    "benchmark": "^CNXCONSUM",
+    "source": "NIFTY 500"
+  },
+  {
+    "symbol": "LICHSGFIN",
+    "company": "LIC Housing Finance Ltd.",
+    "theme": "Financial Services",
+    "capHint": "mid",
+    "benchmark": "^CNXFIN",
+    "source": "NIFTY 500"
+  },
+  {
+    "symbol": "LTFOODS",
+    "company": "LT Foods Ltd.",
+    "theme": "Fast Moving Consumer Goods",
+    "capHint": "mid",
+    "benchmark": "^CNXFMCG",
+    "source": "NIFTY 500"
+  },
+  {
+    "symbol": "LTM",
+    "company": "LTM Ltd.",
+    "theme": "Information Technology",
+    "capHint": "mid",
+    "benchmark": "^CNXIT",
+    "source": "NIFTY 500"
+  },
+  {
+    "symbol": "LT",
+    "company": "Larsen & Toubro Ltd.",
+    "theme": "Construction",
+    "capHint": "mid",
+    "benchmark": "^CNXINFRA",
+    "source": "NIFTY 500"
+  },
+  {
+    "symbol": "LATENTVIEW",
+    "company": "Latent View Analytics Ltd.",
+    "theme": "Information Technology",
+    "capHint": "mid",
+    "benchmark": "^CNXIT",
+    "source": "NIFTY 500"
+  },
+  {
+    "symbol": "LAURUSLABS",
+    "company": "Laurus Labs Ltd.",
+    "theme": "Healthcare",
+    "capHint": "mid",
+    "benchmark": "^CNXPHARMA",
+    "source": "NIFTY 500"
+  },
+  {
+    "symbol": "THELEELA",
+    "company": "Leela Palaces Hotels & Resorts Ltd.",
+    "theme": "Consumer Services",
+    "capHint": "mid",
+    "benchmark": "^CNXCONSUM",
+    "source": "NIFTY 500"
+  },
+  {
+    "symbol": "LEMONTREE",
+    "company": "Lemon Tree Hotels Ltd.",
+    "theme": "Consumer Services",
+    "capHint": "mid",
+    "benchmark": "^CNXCONSUM",
+    "source": "NIFTY 500"
+  },
+  {
+    "symbol": "LENSKART",
+    "company": "Lenskart Solutions Ltd.",
+    "theme": "Consumer Services",
+    "capHint": "mid",
+    "benchmark": "^CNXCONSUM",
+    "source": "NIFTY 500"
+  },
+  {
+    "symbol": "LICI",
+    "company": "Life Insurance Corporation of India",
+    "theme": "Financial Services",
+    "capHint": "mid",
+    "benchmark": "^CNXFIN",
+    "source": "NIFTY 500"
+  },
+  {
+    "symbol": "LINDEINDIA",
+    "company": "Linde India Ltd.",
+    "theme": "Chemicals",
+    "capHint": "mid",
+    "benchmark": "^NSEI",
+    "source": "NIFTY 500"
+  },
+  {
+    "symbol": "LLOYDSME",
+    "company": "Lloyds Metals And Energy Ltd.",
+    "theme": "Metals & Mining",
+    "capHint": "mid",
+    "benchmark": "^CNXMETAL",
+    "source": "NIFTY 500"
+  },
+  {
+    "symbol": "LODHA",
+    "company": "Lodha Developers Ltd.",
+    "theme": "Realty",
+    "capHint": "mid",
+    "benchmark": "^CNXREALTY",
+    "source": "NIFTY 500"
+  },
+  {
+    "symbol": "LUPIN",
+    "company": "Lupin Ltd.",
+    "theme": "Healthcare",
+    "capHint": "mid",
+    "benchmark": "^CNXPHARMA",
+    "source": "NIFTY 500"
+  },
+  {
+    "symbol": "MMTC",
+    "company": "MMTC Ltd.",
+    "theme": "Services",
+    "capHint": "mid",
+    "benchmark": "^CNXINFRA",
+    "source": "NIFTY 500"
+  },
+  {
+    "symbol": "MRF",
+    "company": "MRF Ltd.",
+    "theme": "Automobile and Auto Components",
+    "capHint": "mid",
+    "benchmark": "^CNXAUTO",
+    "source": "NIFTY 500"
+  },
+  {
+    "symbol": "MGL",
+    "company": "Mahanagar Gas Ltd.",
+    "theme": "Oil Gas & Consumable Fuels",
+    "capHint": "mid",
+    "benchmark": "^CNXENERGY",
+    "source": "NIFTY 500"
+  },
+  {
+    "symbol": "M&MFIN",
+    "company": "Mahindra & Mahindra Financial Services Ltd.",
+    "theme": "Financial Services",
+    "capHint": "mid",
+    "benchmark": "^CNXFIN",
+    "source": "NIFTY 500"
+  },
+  {
+    "symbol": "M&M",
+    "company": "Mahindra & Mahindra Ltd.",
+    "theme": "Automobile and Auto Components",
+    "capHint": "mid",
+    "benchmark": "^CNXAUTO",
+    "source": "NIFTY 500"
+  },
+  {
+    "symbol": "MANAPPURAM",
+    "company": "Manappuram Finance Ltd.",
+    "theme": "Financial Services",
+    "capHint": "mid",
+    "benchmark": "^CNXFIN",
+    "source": "NIFTY 500"
+  },
+  {
+    "symbol": "MRPL",
+    "company": "Mangalore Refinery & Petrochemicals Ltd.",
+    "theme": "Oil Gas & Consumable Fuels",
+    "capHint": "mid",
+    "benchmark": "^CNXENERGY",
+    "source": "NIFTY 500"
+  },
+  {
+    "symbol": "MANKIND",
+    "company": "Mankind Pharma Ltd.",
+    "theme": "Healthcare",
+    "capHint": "mid",
+    "benchmark": "^CNXPHARMA",
+    "source": "NIFTY 500"
+  },
+  {
+    "symbol": "MARICO",
+    "company": "Marico Ltd.",
+    "theme": "Fast Moving Consumer Goods",
+    "capHint": "mid",
+    "benchmark": "^CNXFMCG",
+    "source": "NIFTY 500"
+  },
+  {
+    "symbol": "MARUTI",
+    "company": "Maruti Suzuki India Ltd.",
+    "theme": "Automobile and Auto Components",
+    "capHint": "mid",
+    "benchmark": "^CNXAUTO",
+    "source": "NIFTY 500"
+  },
+  {
+    "symbol": "MFSL",
+    "company": "Max Financial Services Ltd.",
+    "theme": "Financial Services",
+    "capHint": "mid",
+    "benchmark": "^CNXFIN",
+    "source": "NIFTY 500"
+  },
+  {
+    "symbol": "MAXHEALTH",
+    "company": "Max Healthcare Institute Ltd.",
+    "theme": "Healthcare",
+    "capHint": "mid",
+    "benchmark": "^CNXPHARMA",
+    "source": "NIFTY 500"
+  },
+  {
+    "symbol": "MAZDOCK",
+    "company": "Mazagoan Dock Shipbuilders Ltd.",
+    "theme": "Capital Goods",
+    "capHint": "mid",
+    "benchmark": "^CNXINFRA",
+    "source": "NIFTY 500"
+  },
+  {
+    "symbol": "MEESHO",
+    "company": "Meesho Ltd.",
+    "theme": "Consumer Services",
+    "capHint": "mid",
+    "benchmark": "^CNXCONSUM",
+    "source": "NIFTY 500"
+  },
+  {
+    "symbol": "MINDACORP",
+    "company": "Minda Corporation Ltd.",
+    "theme": "Automobile and Auto Components",
+    "capHint": "mid",
+    "benchmark": "^CNXAUTO",
+    "source": "NIFTY 500"
+  },
+  {
+    "symbol": "MSUMI",
+    "company": "Motherson Sumi Wiring India Ltd.",
+    "theme": "Automobile and Auto Components",
+    "capHint": "mid",
+    "benchmark": "^CNXAUTO",
+    "source": "NIFTY 500"
+  },
+  {
+    "symbol": "MOTILALOFS",
+    "company": "Motilal Oswal Financial Services Ltd.",
+    "theme": "Financial Services",
+    "capHint": "mid",
+    "benchmark": "^CNXFIN",
+    "source": "NIFTY 500"
+  },
+  {
+    "symbol": "MPHASIS",
+    "company": "MphasiS Ltd.",
+    "theme": "Information Technology",
+    "capHint": "mid",
+    "benchmark": "^CNXIT",
+    "source": "NIFTY 500"
+  },
+  {
+    "symbol": "MCX",
+    "company": "Multi Commodity Exchange of India Ltd.",
+    "theme": "Financial Services",
+    "capHint": "mid",
+    "benchmark": "^CNXFIN",
+    "source": "NIFTY 500"
+  },
+  {
+    "symbol": "MUTHOOTFIN",
+    "company": "Muthoot Finance Ltd.",
+    "theme": "Financial Services",
+    "capHint": "mid",
+    "benchmark": "^CNXFIN",
+    "source": "NIFTY 500"
+  },
+  {
+    "symbol": "NATCOPHARM",
+    "company": "NATCO Pharma Ltd.",
+    "theme": "Healthcare",
+    "capHint": "mid",
+    "benchmark": "^CNXPHARMA",
+    "source": "NIFTY 500"
+  },
+  {
+    "symbol": "NBCC",
+    "company": "NBCC (India) Ltd.",
+    "theme": "Construction",
+    "capHint": "mid",
+    "benchmark": "^CNXINFRA",
+    "source": "NIFTY 500"
+  },
+  {
+    "symbol": "NCC",
+    "company": "NCC Ltd.",
+    "theme": "Construction",
+    "capHint": "mid",
+    "benchmark": "^CNXINFRA",
+    "source": "NIFTY 500"
+  },
+  {
+    "symbol": "NHPC",
+    "company": "NHPC Ltd.",
+    "theme": "Power",
+    "capHint": "mid",
+    "benchmark": "^CNXENERGY",
+    "source": "NIFTY 500"
+  },
+  {
+    "symbol": "NLCINDIA",
+    "company": "NLC India Ltd.",
+    "theme": "Power",
+    "capHint": "mid",
+    "benchmark": "^CNXENERGY",
+    "source": "NIFTY 500"
+  },
+  {
+    "symbol": "NMDC",
+    "company": "NMDC Ltd.",
+    "theme": "Metals & Mining",
+    "capHint": "mid",
+    "benchmark": "^CNXMETAL",
+    "source": "NIFTY 500"
+  },
+  {
+    "symbol": "NSLNISP",
+    "company": "NMDC Steel Ltd.",
+    "theme": "Metals & Mining",
+    "capHint": "mid",
+    "benchmark": "^CNXMETAL",
+    "source": "NIFTY 500"
+  },
+  {
+    "symbol": "NTPCGREEN",
+    "company": "NTPC Green Energy Ltd.",
+    "theme": "Power",
+    "capHint": "mid",
+    "benchmark": "^CNXENERGY",
+    "source": "NIFTY 500"
+  },
+  {
+    "symbol": "NTPC",
+    "company": "NTPC Ltd.",
+    "theme": "Power",
+    "capHint": "mid",
+    "benchmark": "^CNXENERGY",
+    "source": "NIFTY 500"
+  },
+  {
+    "symbol": "NH",
+    "company": "Narayana Hrudayalaya Ltd.",
+    "theme": "Healthcare",
+    "capHint": "mid",
+    "benchmark": "^CNXPHARMA",
+    "source": "NIFTY 500"
+  },
+  {
+    "symbol": "NATIONALUM",
+    "company": "National Aluminium Co. Ltd.",
+    "theme": "Metals & Mining",
+    "capHint": "mid",
+    "benchmark": "^CNXMETAL",
+    "source": "NIFTY 500"
+  },
+  {
+    "symbol": "NAVA",
+    "company": "Nava Ltd.",
+    "theme": "Power",
+    "capHint": "mid",
+    "benchmark": "^CNXENERGY",
+    "source": "NIFTY 500"
+  },
+  {
+    "symbol": "NAVINFLUOR",
+    "company": "Navin Fluorine International Ltd.",
+    "theme": "Chemicals",
+    "capHint": "mid",
+    "benchmark": "^NSEI",
+    "source": "NIFTY 500"
+  },
+  {
+    "symbol": "NESTLEIND",
+    "company": "Nestle India Ltd.",
+    "theme": "Fast Moving Consumer Goods",
+    "capHint": "mid",
+    "benchmark": "^CNXFMCG",
+    "source": "NIFTY 500"
+  },
+  {
+    "symbol": "NETWEB",
+    "company": "Netweb Technologies India Ltd.",
+    "theme": "Information Technology",
+    "capHint": "mid",
+    "benchmark": "^CNXIT",
+    "source": "NIFTY 500"
+  },
+  {
+    "symbol": "NEULANDLAB",
+    "company": "Neuland Laboratories Ltd.",
+    "theme": "Healthcare",
+    "capHint": "mid",
+    "benchmark": "^CNXPHARMA",
+    "source": "NIFTY 500"
+  },
+  {
+    "symbol": "NEWGEN",
+    "company": "Newgen Software Technologies Ltd.",
+    "theme": "Information Technology",
+    "capHint": "mid",
+    "benchmark": "^CNXIT",
+    "source": "NIFTY 500"
+  },
+  {
+    "symbol": "NAM-INDIA",
+    "company": "Nippon Life India Asset Management Ltd.",
+    "theme": "Financial Services",
+    "capHint": "mid",
+    "benchmark": "^CNXFIN",
+    "source": "NIFTY 500"
+  },
+  {
+    "symbol": "NIVABUPA",
+    "company": "Niva Bupa Health Insurance Company Ltd.",
+    "theme": "Financial Services",
+    "capHint": "mid",
+    "benchmark": "^CNXFIN",
+    "source": "NIFTY 500"
+  },
+  {
+    "symbol": "NUVAMA",
+    "company": "Nuvama Wealth Management Ltd.",
+    "theme": "Financial Services",
+    "capHint": "mid",
+    "benchmark": "^CNXFIN",
+    "source": "NIFTY 500"
+  },
+  {
+    "symbol": "NUVOCO",
+    "company": "Nuvoco Vistas Corporation Ltd.",
+    "theme": "Construction Materials",
+    "capHint": "mid",
+    "benchmark": "^CNXINFRA",
+    "source": "NIFTY 500"
+  },
+  {
+    "symbol": "OBEROIRLTY",
+    "company": "Oberoi Realty Ltd.",
+    "theme": "Realty",
+    "capHint": "mid",
+    "benchmark": "^CNXREALTY",
+    "source": "NIFTY 500"
+  },
+  {
+    "symbol": "ONGC",
+    "company": "Oil & Natural Gas Corporation Ltd.",
+    "theme": "Oil Gas & Consumable Fuels",
+    "capHint": "mid",
+    "benchmark": "^CNXENERGY",
+    "source": "NIFTY 500"
+  },
+  {
+    "symbol": "OIL",
+    "company": "Oil India Ltd.",
+    "theme": "Oil Gas & Consumable Fuels",
+    "capHint": "mid",
+    "benchmark": "^CNXENERGY",
+    "source": "NIFTY 500"
+  },
+  {
+    "symbol": "OLAELEC",
+    "company": "Ola Electric Mobility Ltd.",
+    "theme": "Automobile and Auto Components",
+    "capHint": "mid",
+    "benchmark": "^CNXAUTO",
+    "source": "NIFTY 500"
+  },
+  {
+    "symbol": "OLECTRA",
+    "company": "Olectra Greentech Ltd.",
+    "theme": "Automobile and Auto Components",
+    "capHint": "mid",
+    "benchmark": "^CNXAUTO",
+    "source": "NIFTY 500"
+  },
+  {
+    "symbol": "PAYTM",
+    "company": "One 97 Communications Ltd.",
+    "theme": "Financial Services",
+    "capHint": "mid",
+    "benchmark": "^CNXFIN",
+    "source": "NIFTY 500"
+  },
+  {
+    "symbol": "ONESOURCE",
+    "company": "Onesource Specialty Pharma Ltd.",
+    "theme": "Healthcare",
+    "capHint": "mid",
+    "benchmark": "^CNXPHARMA",
+    "source": "NIFTY 500"
+  },
+  {
+    "symbol": "OFSS",
+    "company": "Oracle Financial Services Software Ltd.",
+    "theme": "Information Technology",
+    "capHint": "mid",
+    "benchmark": "^CNXIT",
+    "source": "NIFTY 500"
+  },
+  {
+    "symbol": "POLICYBZR",
+    "company": "PB Fintech Ltd.",
+    "theme": "Financial Services",
+    "capHint": "mid",
+    "benchmark": "^CNXFIN",
+    "source": "NIFTY 500"
+  },
+  {
+    "symbol": "PCBL",
+    "company": "PCBL Chemical Ltd.",
+    "theme": "Chemicals",
+    "capHint": "mid",
+    "benchmark": "^NSEI",
+    "source": "NIFTY 500"
+  },
+  {
+    "symbol": "PGEL",
+    "company": "PG Electroplast Ltd.",
+    "theme": "Consumer Durables",
+    "capHint": "mid",
+    "benchmark": "^CNXCONSUM",
+    "source": "NIFTY 500"
+  },
+  {
+    "symbol": "PIIND",
+    "company": "PI Industries Ltd.",
+    "theme": "Chemicals",
+    "capHint": "mid",
+    "benchmark": "^NSEI",
+    "source": "NIFTY 500"
+  },
+  {
+    "symbol": "PNBHOUSING",
+    "company": "PNB Housing Finance Ltd.",
+    "theme": "Financial Services",
+    "capHint": "mid",
+    "benchmark": "^CNXFIN",
+    "source": "NIFTY 500"
+  },
+  {
+    "symbol": "PTCIL",
+    "company": "PTC Industries Ltd.",
+    "theme": "Capital Goods",
+    "capHint": "mid",
+    "benchmark": "^CNXINFRA",
+    "source": "NIFTY 500"
+  },
+  {
+    "symbol": "PVRINOX",
+    "company": "PVR INOX Ltd.",
+    "theme": "Media Entertainment & Publication",
+    "capHint": "mid",
+    "benchmark": "^CNXCONSUM",
+    "source": "NIFTY 500"
+  },
+  {
+    "symbol": "PAGEIND",
+    "company": "Page Industries Ltd.",
+    "theme": "Textiles",
+    "capHint": "mid",
+    "benchmark": "^CNXCONSUM",
+    "source": "NIFTY 500"
+  },
+  {
+    "symbol": "PARADEEP",
+    "company": "Paradeep Phosphates Ltd.",
+    "theme": "Chemicals",
+    "capHint": "mid",
+    "benchmark": "^NSEI",
+    "source": "NIFTY 500"
+  },
+  {
+    "symbol": "PATANJALI",
+    "company": "Patanjali Foods Ltd.",
+    "theme": "Fast Moving Consumer Goods",
+    "capHint": "mid",
+    "benchmark": "^CNXFMCG",
+    "source": "NIFTY 500"
+  },
+  {
+    "symbol": "PERSISTENT",
+    "company": "Persistent Systems Ltd.",
+    "theme": "Information Technology",
+    "capHint": "mid",
+    "benchmark": "^CNXIT",
+    "source": "NIFTY 500"
+  },
+  {
+    "symbol": "PETRONET",
+    "company": "Petronet LNG Ltd.",
+    "theme": "Oil Gas & Consumable Fuels",
+    "capHint": "mid",
+    "benchmark": "^CNXENERGY",
+    "source": "NIFTY 500"
+  },
+  {
+    "symbol": "PFIZER",
+    "company": "Pfizer Ltd.",
+    "theme": "Healthcare",
+    "capHint": "mid",
+    "benchmark": "^CNXPHARMA",
+    "source": "NIFTY 500"
+  },
+  {
+    "symbol": "PHOENIXLTD",
+    "company": "Phoenix Mills Ltd.",
+    "theme": "Realty",
+    "capHint": "mid",
+    "benchmark": "^CNXREALTY",
+    "source": "NIFTY 500"
+  },
+  {
+    "symbol": "PWL",
+    "company": "Physicswallah Ltd.",
+    "theme": "Consumer Services",
+    "capHint": "mid",
+    "benchmark": "^CNXCONSUM",
+    "source": "NIFTY 500"
+  },
+  {
+    "symbol": "PIDILITIND",
+    "company": "Pidilite Industries Ltd.",
+    "theme": "Chemicals",
+    "capHint": "mid",
+    "benchmark": "^NSEI",
+    "source": "NIFTY 500"
+  },
+  {
+    "symbol": "PINELABS",
+    "company": "Pine Labs Ltd.",
+    "theme": "Financial Services",
+    "capHint": "mid",
+    "benchmark": "^CNXFIN",
+    "source": "NIFTY 500"
+  },
+  {
+    "symbol": "PIRAMALFIN",
+    "company": "Piramal Finance Ltd.",
+    "theme": "Financial Services",
+    "capHint": "mid",
+    "benchmark": "^CNXFIN",
+    "source": "NIFTY 500"
+  },
+  {
+    "symbol": "PPLPHARMA",
+    "company": "Piramal Pharma Ltd.",
+    "theme": "Healthcare",
+    "capHint": "mid",
+    "benchmark": "^CNXPHARMA",
+    "source": "NIFTY 500"
+  },
+  {
+    "symbol": "POLYMED",
+    "company": "Poly Medicure Ltd.",
+    "theme": "Healthcare",
+    "capHint": "mid",
+    "benchmark": "^CNXPHARMA",
+    "source": "NIFTY 500"
+  },
+  {
+    "symbol": "POLYCAB",
+    "company": "Polycab India Ltd.",
+    "theme": "Capital Goods",
+    "capHint": "mid",
+    "benchmark": "^CNXINFRA",
+    "source": "NIFTY 500"
+  },
+  {
+    "symbol": "POONAWALLA",
+    "company": "Poonawalla Fincorp Ltd.",
+    "theme": "Financial Services",
+    "capHint": "mid",
+    "benchmark": "^CNXFIN",
+    "source": "NIFTY 500"
+  },
+  {
+    "symbol": "PFC",
+    "company": "Power Finance Corporation Ltd.",
+    "theme": "Financial Services",
+    "capHint": "mid",
+    "benchmark": "^CNXFIN",
+    "source": "NIFTY 500"
+  },
+  {
+    "symbol": "POWERGRID",
+    "company": "Power Grid Corporation of India Ltd.",
+    "theme": "Power",
+    "capHint": "mid",
+    "benchmark": "^CNXENERGY",
+    "source": "NIFTY 500"
+  },
+  {
+    "symbol": "PREMIERENE",
+    "company": "Premier Energies Ltd.",
+    "theme": "Capital Goods",
+    "capHint": "mid",
+    "benchmark": "^CNXINFRA",
+    "source": "NIFTY 500"
+  },
+  {
+    "symbol": "PRESTIGE",
+    "company": "Prestige Estates Projects Ltd.",
+    "theme": "Realty",
+    "capHint": "mid",
+    "benchmark": "^CNXREALTY",
+    "source": "NIFTY 500"
+  },
+  {
+    "symbol": "PNB",
+    "company": "Punjab National Bank",
+    "theme": "Financial Services",
+    "capHint": "mid",
+    "benchmark": "^CNXFIN",
+    "source": "NIFTY 500"
+  },
+  {
+    "symbol": "RRKABEL",
+    "company": "R R Kabel Ltd.",
+    "theme": "Capital Goods",
+    "capHint": "mid",
+    "benchmark": "^CNXINFRA",
+    "source": "NIFTY 500"
+  },
+  {
+    "symbol": "RBLBANK",
+    "company": "RBL Bank Ltd.",
+    "theme": "Financial Services",
+    "capHint": "mid",
+    "benchmark": "^CNXFIN",
+    "source": "NIFTY 500"
+  },
+  {
+    "symbol": "RECLTD",
+    "company": "REC Ltd.",
+    "theme": "Financial Services",
+    "capHint": "mid",
+    "benchmark": "^CNXFIN",
+    "source": "NIFTY 500"
+  },
+  {
+    "symbol": "RHIM",
+    "company": "RHI MAGNESITA INDIA LTD.",
+    "theme": "Capital Goods",
+    "capHint": "mid",
+    "benchmark": "^CNXINFRA",
+    "source": "NIFTY 500"
+  },
+  {
+    "symbol": "RITES",
+    "company": "RITES Ltd.",
+    "theme": "Construction",
+    "capHint": "mid",
+    "benchmark": "^CNXINFRA",
+    "source": "NIFTY 500"
+  },
+  {
+    "symbol": "RADICO",
+    "company": "Radico Khaitan Ltd",
+    "theme": "Fast Moving Consumer Goods",
+    "capHint": "mid",
+    "benchmark": "^CNXFMCG",
+    "source": "NIFTY 500"
+  },
+  {
+    "symbol": "RVNL",
+    "company": "Rail Vikas Nigam Ltd.",
+    "theme": "Construction",
+    "capHint": "mid",
+    "benchmark": "^CNXINFRA",
+    "source": "NIFTY 500"
+  },
+  {
+    "symbol": "RAILTEL",
+    "company": "Railtel Corporation Of India Ltd.",
+    "theme": "Telecommunication",
+    "capHint": "mid",
+    "benchmark": "^NSEI",
+    "source": "NIFTY 500"
+  },
+  {
+    "symbol": "RAINBOW",
+    "company": "Rainbow Childrens Medicare Ltd.",
+    "theme": "Healthcare",
+    "capHint": "mid",
+    "benchmark": "^CNXPHARMA",
+    "source": "NIFTY 500"
+  },
+  {
+    "symbol": "RKFORGE",
+    "company": "Ramkrishna Forgings Ltd.",
+    "theme": "Automobile and Auto Components",
+    "capHint": "mid",
+    "benchmark": "^CNXAUTO",
+    "source": "NIFTY 500"
+  },
+  {
+    "symbol": "REDINGTON",
+    "company": "Redington Ltd.",
+    "theme": "Services",
+    "capHint": "mid",
+    "benchmark": "^CNXINFRA",
+    "source": "NIFTY 500"
+  },
+  {
+    "symbol": "RELIANCE",
+    "company": "Reliance Industries Ltd.",
+    "theme": "Oil Gas & Consumable Fuels",
+    "capHint": "mid",
+    "benchmark": "^CNXENERGY",
+    "source": "NIFTY 500"
+  },
+  {
+    "symbol": "RPOWER",
+    "company": "Reliance Power Ltd.",
+    "theme": "Power",
+    "capHint": "mid",
+    "benchmark": "^CNXENERGY",
+    "source": "NIFTY 500"
+  },
+  {
+    "symbol": "SBFC",
+    "company": "SBFC Finance Ltd.",
+    "theme": "Financial Services",
+    "capHint": "mid",
+    "benchmark": "^CNXFIN",
+    "source": "NIFTY 500"
+  },
+  {
+    "symbol": "SBICARD",
+    "company": "SBI Cards and Payment Services Ltd.",
+    "theme": "Financial Services",
+    "capHint": "mid",
+    "benchmark": "^CNXFIN",
+    "source": "NIFTY 500"
+  },
+  {
+    "symbol": "SBILIFE",
+    "company": "SBI Life Insurance Company Ltd.",
+    "theme": "Financial Services",
+    "capHint": "mid",
+    "benchmark": "^CNXFIN",
+    "source": "NIFTY 500"
+  },
+  {
+    "symbol": "SJVN",
+    "company": "SJVN Ltd.",
+    "theme": "Power",
+    "capHint": "mid",
+    "benchmark": "^CNXENERGY",
+    "source": "NIFTY 500"
+  },
+  {
+    "symbol": "SRF",
+    "company": "SRF Ltd.",
+    "theme": "Chemicals",
+    "capHint": "mid",
+    "benchmark": "^NSEI",
+    "source": "NIFTY 500"
+  },
+  {
+    "symbol": "SAGILITY",
+    "company": "Sagility Ltd.",
+    "theme": "Information Technology",
+    "capHint": "mid",
+    "benchmark": "^CNXIT",
+    "source": "NIFTY 500"
+  },
+  {
+    "symbol": "SAILIFE",
+    "company": "Sai Life Sciences Ltd.",
+    "theme": "Healthcare",
+    "capHint": "mid",
+    "benchmark": "^CNXPHARMA",
+    "source": "NIFTY 500"
+  },
+  {
+    "symbol": "SAMMAANCAP",
+    "company": "Sammaan Capital Ltd.",
+    "theme": "Financial Services",
+    "capHint": "mid",
+    "benchmark": "^CNXFIN",
+    "source": "NIFTY 500"
+  },
+  {
+    "symbol": "MOTHERSON",
+    "company": "Samvardhana Motherson International Ltd.",
+    "theme": "Automobile and Auto Components",
+    "capHint": "mid",
+    "benchmark": "^CNXAUTO",
+    "source": "NIFTY 500"
+  },
+  {
+    "symbol": "SAPPHIRE",
+    "company": "Sapphire Foods India Ltd.",
+    "theme": "Consumer Services",
+    "capHint": "mid",
+    "benchmark": "^CNXCONSUM",
+    "source": "NIFTY 500"
+  },
+  {
+    "symbol": "SARDAEN",
+    "company": "Sarda Energy and Minerals Ltd.",
+    "theme": "Metals & Mining",
+    "capHint": "mid",
+    "benchmark": "^CNXMETAL",
+    "source": "NIFTY 500"
+  },
+  {
+    "symbol": "SAREGAMA",
+    "company": "Saregama India Ltd",
+    "theme": "Media Entertainment & Publication",
+    "capHint": "mid",
+    "benchmark": "^CNXCONSUM",
+    "source": "NIFTY 500"
+  },
+  {
+    "symbol": "SCHAEFFLER",
+    "company": "Schaeffler India Ltd.",
+    "theme": "Automobile and Auto Components",
+    "capHint": "mid",
+    "benchmark": "^CNXAUTO",
+    "source": "NIFTY 500"
+  },
+  {
+    "symbol": "SCHNEIDER",
+    "company": "Schneider Electric Infrastructure Ltd.",
+    "theme": "Capital Goods",
+    "capHint": "mid",
+    "benchmark": "^CNXINFRA",
+    "source": "NIFTY 500"
+  },
+  {
+    "symbol": "SCI",
+    "company": "Shipping Corporation of India Ltd.",
+    "theme": "Services",
+    "capHint": "mid",
+    "benchmark": "^CNXINFRA",
+    "source": "NIFTY 500"
+  },
+  {
+    "symbol": "SHREECEM",
+    "company": "Shree Cement Ltd.",
+    "theme": "Construction Materials",
+    "capHint": "mid",
+    "benchmark": "^CNXINFRA",
+    "source": "NIFTY 500"
+  },
+  {
+    "symbol": "SHRIRAMFIN",
+    "company": "Shriram Finance Ltd.",
+    "theme": "Financial Services",
+    "capHint": "mid",
+    "benchmark": "^CNXFIN",
+    "source": "NIFTY 500"
+  },
+  {
+    "symbol": "SHYAMMETL",
+    "company": "Shyam Metalics and Energy Ltd.",
+    "theme": "Capital Goods",
+    "capHint": "mid",
+    "benchmark": "^CNXINFRA",
+    "source": "NIFTY 500"
+  },
+  {
+    "symbol": "ENRIN",
+    "company": "Siemens Energy India Ltd.",
+    "theme": "Capital Goods",
+    "capHint": "mid",
+    "benchmark": "^CNXINFRA",
+    "source": "NIFTY 500"
+  },
+  {
+    "symbol": "SIEMENS",
+    "company": "Siemens Ltd.",
+    "theme": "Capital Goods",
+    "capHint": "mid",
+    "benchmark": "^CNXINFRA",
+    "source": "NIFTY 500"
+  },
+  {
+    "symbol": "SIGNATURE",
+    "company": "Signatureglobal (India) Ltd.",
+    "theme": "Realty",
+    "capHint": "mid",
+    "benchmark": "^CNXREALTY",
+    "source": "NIFTY 500"
+  },
+  {
+    "symbol": "SOBHA",
+    "company": "Sobha Ltd.",
+    "theme": "Realty",
+    "capHint": "mid",
+    "benchmark": "^CNXREALTY",
+    "source": "NIFTY 500"
+  },
+  {
+    "symbol": "SOLARINDS",
+    "company": "Solar Industries India Ltd.",
+    "theme": "Chemicals",
+    "capHint": "mid",
+    "benchmark": "^NSEI",
+    "source": "NIFTY 500"
+  },
+  {
+    "symbol": "SONACOMS",
+    "company": "Sona BLW Precision Forgings Ltd.",
+    "theme": "Automobile and Auto Components",
+    "capHint": "mid",
+    "benchmark": "^CNXAUTO",
+    "source": "NIFTY 500"
+  },
+  {
+    "symbol": "SONATSOFTW",
+    "company": "Sonata Software Ltd.",
+    "theme": "Information Technology",
+    "capHint": "mid",
+    "benchmark": "^CNXIT",
+    "source": "NIFTY 500"
+  },
+  {
+    "symbol": "STARHEALTH",
+    "company": "Star Health and Allied Insurance Company Ltd.",
+    "theme": "Financial Services",
+    "capHint": "mid",
+    "benchmark": "^CNXFIN",
+    "source": "NIFTY 500"
+  },
+  {
+    "symbol": "SBIN",
+    "company": "State Bank of India",
+    "theme": "Financial Services",
+    "capHint": "mid",
+    "benchmark": "^CNXFIN",
+    "source": "NIFTY 500"
+  },
+  {
+    "symbol": "SAIL",
+    "company": "Steel Authority of India Ltd.",
+    "theme": "Metals & Mining",
+    "capHint": "mid",
+    "benchmark": "^CNXMETAL",
+    "source": "NIFTY 500"
+  },
+  {
+    "symbol": "SUMICHEM",
+    "company": "Sumitomo Chemical India Ltd.",
+    "theme": "Chemicals",
+    "capHint": "mid",
+    "benchmark": "^NSEI",
+    "source": "NIFTY 500"
+  },
+  {
+    "symbol": "SUNPHARMA",
+    "company": "Sun Pharmaceutical Industries Ltd.",
+    "theme": "Healthcare",
+    "capHint": "mid",
+    "benchmark": "^CNXPHARMA",
+    "source": "NIFTY 500"
+  },
+  {
+    "symbol": "SUNTV",
+    "company": "Sun TV Network Ltd.",
+    "theme": "Media Entertainment & Publication",
+    "capHint": "mid",
+    "benchmark": "^CNXCONSUM",
+    "source": "NIFTY 500"
+  },
+  {
+    "symbol": "SUNDARMFIN",
+    "company": "Sundaram Finance Ltd.",
+    "theme": "Financial Services",
+    "capHint": "mid",
+    "benchmark": "^CNXFIN",
+    "source": "NIFTY 500"
+  },
+  {
+    "symbol": "SUPREMEIND",
+    "company": "Supreme Industries Ltd.",
+    "theme": "Capital Goods",
+    "capHint": "mid",
+    "benchmark": "^CNXINFRA",
+    "source": "NIFTY 500"
+  },
+  {
+    "symbol": "SPLPETRO",
+    "company": "Supreme Petrochem Ltd.",
+    "theme": "Chemicals",
+    "capHint": "mid",
+    "benchmark": "^NSEI",
+    "source": "NIFTY 500"
+  },
+  {
+    "symbol": "SUZLON",
+    "company": "Suzlon Energy Ltd.",
+    "theme": "Capital Goods",
+    "capHint": "mid",
+    "benchmark": "^CNXINFRA",
+    "source": "NIFTY 500"
+  },
+  {
+    "symbol": "SWANCORP",
+    "company": "Swan Corp Ltd.",
+    "theme": "Chemicals",
+    "capHint": "mid",
+    "benchmark": "^NSEI",
+    "source": "NIFTY 500"
+  },
+  {
+    "symbol": "SWIGGY",
+    "company": "Swiggy Ltd.",
+    "theme": "Consumer Services",
+    "capHint": "mid",
+    "benchmark": "^CNXCONSUM",
+    "source": "NIFTY 500"
+  },
+  {
+    "symbol": "SYNGENE",
+    "company": "Syngene International Ltd.",
+    "theme": "Healthcare",
+    "capHint": "mid",
+    "benchmark": "^CNXPHARMA",
+    "source": "NIFTY 500"
+  },
+  {
+    "symbol": "SYRMA",
+    "company": "Syrma SGS Technology Ltd.",
+    "theme": "Capital Goods",
+    "capHint": "mid",
+    "benchmark": "^CNXINFRA",
+    "source": "NIFTY 500"
+  },
+  {
+    "symbol": "TBOTEK",
+    "company": "TBO Tek Ltd.",
+    "theme": "Consumer Services",
+    "capHint": "mid",
+    "benchmark": "^CNXCONSUM",
+    "source": "NIFTY 500"
+  },
+  {
+    "symbol": "TVSMOTOR",
+    "company": "TVS Motor Company Ltd.",
+    "theme": "Automobile and Auto Components",
+    "capHint": "mid",
+    "benchmark": "^CNXAUTO",
+    "source": "NIFTY 500"
+  },
+  {
+    "symbol": "TATACAP",
+    "company": "Tata Capital Ltd.",
+    "theme": "Financial Services",
+    "capHint": "mid",
+    "benchmark": "^CNXFIN",
+    "source": "NIFTY 500"
+  },
+  {
+    "symbol": "TATACHEM",
+    "company": "Tata Chemicals Ltd.",
+    "theme": "Chemicals",
+    "capHint": "mid",
+    "benchmark": "^NSEI",
+    "source": "NIFTY 500"
+  },
+  {
+    "symbol": "TATACOMM",
+    "company": "Tata Communications Ltd.",
+    "theme": "Telecommunication",
+    "capHint": "mid",
+    "benchmark": "^NSEI",
+    "source": "NIFTY 500"
+  },
+  {
+    "symbol": "TCS",
+    "company": "Tata Consultancy Services Ltd.",
+    "theme": "Information Technology",
+    "capHint": "mid",
+    "benchmark": "^CNXIT",
+    "source": "NIFTY 500"
+  },
+  {
+    "symbol": "TATACONSUM",
+    "company": "Tata Consumer Products Ltd.",
+    "theme": "Fast Moving Consumer Goods",
+    "capHint": "mid",
+    "benchmark": "^CNXFMCG",
+    "source": "NIFTY 500"
+  },
+  {
+    "symbol": "TATAELXSI",
+    "company": "Tata Elxsi Ltd.",
+    "theme": "Information Technology",
+    "capHint": "mid",
+    "benchmark": "^CNXIT",
+    "source": "NIFTY 500"
+  },
+  {
+    "symbol": "TATAINVEST",
+    "company": "Tata Investment Corporation Ltd.",
+    "theme": "Financial Services",
+    "capHint": "mid",
+    "benchmark": "^CNXFIN",
+    "source": "NIFTY 500"
+  },
+  {
+    "symbol": "TMCV",
+    "company": "Tata Motors Ltd.",
+    "theme": "Capital Goods",
+    "capHint": "mid",
+    "benchmark": "^CNXINFRA",
+    "source": "NIFTY 500"
+  },
+  {
+    "symbol": "TMPV",
+    "company": "Tata Motors Passenger Vehicles Ltd.",
+    "theme": "Automobile and Auto Components",
+    "capHint": "mid",
+    "benchmark": "^CNXAUTO",
+    "source": "NIFTY 500"
+  },
+  {
+    "symbol": "TATAPOWER",
+    "company": "Tata Power Co. Ltd.",
+    "theme": "Power",
+    "capHint": "mid",
+    "benchmark": "^CNXENERGY",
+    "source": "NIFTY 500"
+  },
+  {
+    "symbol": "TATASTEEL",
+    "company": "Tata Steel Ltd.",
+    "theme": "Metals & Mining",
+    "capHint": "mid",
+    "benchmark": "^CNXMETAL",
+    "source": "NIFTY 500"
+  },
+  {
+    "symbol": "TATATECH",
+    "company": "Tata Technologies Ltd.",
+    "theme": "Information Technology",
+    "capHint": "mid",
+    "benchmark": "^CNXIT",
+    "source": "NIFTY 500"
+  },
+  {
+    "symbol": "TTML",
+    "company": "Tata Teleservices (Maharashtra) Ltd.",
+    "theme": "Telecommunication",
+    "capHint": "mid",
+    "benchmark": "^NSEI",
+    "source": "NIFTY 500"
+  },
+  {
+    "symbol": "TECHM",
+    "company": "Tech Mahindra Ltd.",
+    "theme": "Information Technology",
+    "capHint": "mid",
+    "benchmark": "^CNXIT",
+    "source": "NIFTY 500"
+  },
+  {
+    "symbol": "TECHNOE",
+    "company": "Techno Electric & Engineering Company Ltd.",
+    "theme": "Construction",
+    "capHint": "mid",
+    "benchmark": "^CNXINFRA",
+    "source": "NIFTY 500"
+  },
+  {
+    "symbol": "TEGA",
+    "company": "Tega Industries Ltd.",
+    "theme": "Capital Goods",
+    "capHint": "mid",
+    "benchmark": "^CNXINFRA",
+    "source": "NIFTY 500"
+  },
+  {
+    "symbol": "TEJASNET",
+    "company": "Tejas Networks Ltd.",
+    "theme": "Telecommunication",
+    "capHint": "mid",
+    "benchmark": "^NSEI",
+    "source": "NIFTY 500"
+  },
+  {
+    "symbol": "TENNIND",
+    "company": "Tenneco Clean Air India Ltd.",
+    "theme": "Automobile and Auto Components",
+    "capHint": "mid",
+    "benchmark": "^CNXAUTO",
+    "source": "NIFTY 500"
+  },
+  {
+    "symbol": "NIACL",
+    "company": "The New India Assurance Company Ltd.",
+    "theme": "Financial Services",
+    "capHint": "mid",
+    "benchmark": "^CNXFIN",
+    "source": "NIFTY 500"
+  },
+  {
+    "symbol": "RAMCOCEM",
+    "company": "The Ramco Cements Ltd.",
+    "theme": "Construction Materials",
+    "capHint": "mid",
+    "benchmark": "^CNXINFRA",
+    "source": "NIFTY 500"
+  },
+  {
+    "symbol": "THERMAX",
+    "company": "Thermax Ltd.",
+    "theme": "Capital Goods",
+    "capHint": "mid",
+    "benchmark": "^CNXINFRA",
+    "source": "NIFTY 500"
+  },
+  {
+    "symbol": "TIMKEN",
+    "company": "Timken India Ltd.",
+    "theme": "Capital Goods",
+    "capHint": "mid",
+    "benchmark": "^CNXINFRA",
+    "source": "NIFTY 500"
+  },
+  {
+    "symbol": "TITAGARH",
+    "company": "Titagarh Rail Systems Ltd.",
+    "theme": "Capital Goods",
+    "capHint": "mid",
+    "benchmark": "^CNXINFRA",
+    "source": "NIFTY 500"
+  },
+  {
+    "symbol": "TITAN",
+    "company": "Titan Company Ltd.",
+    "theme": "Consumer Durables",
+    "capHint": "mid",
+    "benchmark": "^CNXCONSUM",
+    "source": "NIFTY 500"
+  },
+  {
+    "symbol": "TORNTPHARM",
+    "company": "Torrent Pharmaceuticals Ltd.",
+    "theme": "Healthcare",
+    "capHint": "mid",
+    "benchmark": "^CNXPHARMA",
+    "source": "NIFTY 500"
+  },
+  {
+    "symbol": "TORNTPOWER",
+    "company": "Torrent Power Ltd.",
+    "theme": "Power",
+    "capHint": "mid",
+    "benchmark": "^CNXENERGY",
+    "source": "NIFTY 500"
+  },
+  {
+    "symbol": "TARIL",
+    "company": "Transformers And Rectifiers (India) Ltd.",
+    "theme": "Capital Goods",
+    "capHint": "mid",
+    "benchmark": "^CNXINFRA",
+    "source": "NIFTY 500"
+  },
+  {
+    "symbol": "TRAVELFOOD",
+    "company": "Travel Food Services Ltd.",
+    "theme": "Consumer Services",
+    "capHint": "mid",
+    "benchmark": "^CNXCONSUM",
+    "source": "NIFTY 500"
+  },
+  {
+    "symbol": "TRENT",
+    "company": "Trent Ltd.",
+    "theme": "Consumer Services",
+    "capHint": "mid",
+    "benchmark": "^CNXCONSUM",
+    "source": "NIFTY 500"
+  },
+  {
+    "symbol": "TRIDENT",
+    "company": "Trident Ltd.",
+    "theme": "Textiles",
+    "capHint": "mid",
+    "benchmark": "^CNXCONSUM",
+    "source": "NIFTY 500"
+  },
+  {
+    "symbol": "TRITURBINE",
+    "company": "Triveni Turbine Ltd.",
+    "theme": "Capital Goods",
+    "capHint": "mid",
+    "benchmark": "^CNXINFRA",
+    "source": "NIFTY 500"
+  },
+  {
+    "symbol": "TIINDIA",
+    "company": "Tube Investments of India Ltd.",
+    "theme": "Automobile and Auto Components",
+    "capHint": "mid",
+    "benchmark": "^CNXAUTO",
+    "source": "NIFTY 500"
+  },
+  {
+    "symbol": "UCOBANK",
+    "company": "UCO Bank",
+    "theme": "Financial Services",
+    "capHint": "mid",
+    "benchmark": "^CNXFIN",
+    "source": "NIFTY 500"
+  },
+  {
+    "symbol": "UNOMINDA",
+    "company": "UNO Minda Ltd.",
+    "theme": "Automobile and Auto Components",
+    "capHint": "mid",
+    "benchmark": "^CNXAUTO",
+    "source": "NIFTY 500"
+  },
+  {
+    "symbol": "UPL",
+    "company": "UPL Ltd.",
+    "theme": "Chemicals",
+    "capHint": "mid",
+    "benchmark": "^NSEI",
+    "source": "NIFTY 500"
+  },
+  {
+    "symbol": "UTIAMC",
+    "company": "UTI Asset Management Company Ltd.",
+    "theme": "Financial Services",
+    "capHint": "mid",
+    "benchmark": "^CNXFIN",
+    "source": "NIFTY 500"
+  },
+  {
+    "symbol": "ULTRACEMCO",
+    "company": "UltraTech Cement Ltd.",
+    "theme": "Construction Materials",
+    "capHint": "mid",
+    "benchmark": "^CNXINFRA",
+    "source": "NIFTY 500"
+  },
+  {
+    "symbol": "UNIONBANK",
+    "company": "Union Bank of India",
+    "theme": "Financial Services",
+    "capHint": "mid",
+    "benchmark": "^CNXFIN",
+    "source": "NIFTY 500"
+  },
+  {
+    "symbol": "UBL",
+    "company": "United Breweries Ltd.",
+    "theme": "Fast Moving Consumer Goods",
+    "capHint": "mid",
+    "benchmark": "^CNXFMCG",
+    "source": "NIFTY 500"
+  },
+  {
+    "symbol": "UNITDSPR",
+    "company": "United Spirits Ltd.",
+    "theme": "Fast Moving Consumer Goods",
+    "capHint": "mid",
+    "benchmark": "^CNXFMCG",
+    "source": "NIFTY 500"
+  },
+  {
+    "symbol": "URBANCO",
+    "company": "Urban Company Ltd.",
+    "theme": "Consumer Services",
+    "capHint": "mid",
+    "benchmark": "^CNXCONSUM",
+    "source": "NIFTY 500"
+  },
+  {
+    "symbol": "USHAMART",
+    "company": "Usha Martin Ltd.",
+    "theme": "Capital Goods",
+    "capHint": "mid",
+    "benchmark": "^CNXINFRA",
+    "source": "NIFTY 500"
+  },
+  {
+    "symbol": "VTL",
+    "company": "Vardhman Textiles Ltd.",
+    "theme": "Textiles",
+    "capHint": "mid",
+    "benchmark": "^CNXCONSUM",
+    "source": "NIFTY 500"
+  },
+  {
+    "symbol": "VBL",
+    "company": "Varun Beverages Ltd.",
+    "theme": "Fast Moving Consumer Goods",
+    "capHint": "mid",
+    "benchmark": "^CNXFMCG",
+    "source": "NIFTY 500"
+  },
+  {
+    "symbol": "VEDL",
+    "company": "Vedanta Ltd.",
+    "theme": "Metals & Mining",
+    "capHint": "mid",
+    "benchmark": "^CNXMETAL",
+    "source": "NIFTY 500"
+  },
+  {
+    "symbol": "VIJAYA",
+    "company": "Vijaya Diagnostic Centre Ltd.",
+    "theme": "Healthcare",
+    "capHint": "mid",
+    "benchmark": "^CNXPHARMA",
+    "source": "NIFTY 500"
+  },
+  {
+    "symbol": "VMM",
+    "company": "Vishal Mega Mart Ltd.",
+    "theme": "Consumer Services",
+    "capHint": "mid",
+    "benchmark": "^CNXCONSUM",
+    "source": "NIFTY 500"
+  },
+  {
+    "symbol": "IDEA",
+    "company": "Vodafone Idea Ltd.",
+    "theme": "Telecommunication",
+    "capHint": "mid",
+    "benchmark": "^NSEI",
+    "source": "NIFTY 500"
+  },
+  {
+    "symbol": "VOLTAS",
+    "company": "Voltas Ltd.",
+    "theme": "Consumer Durables",
+    "capHint": "mid",
+    "benchmark": "^CNXCONSUM",
+    "source": "NIFTY 500"
+  },
+  {
+    "symbol": "WAAREEENER",
+    "company": "Waaree Energies Ltd.",
+    "theme": "Capital Goods",
+    "capHint": "mid",
+    "benchmark": "^CNXINFRA",
+    "source": "NIFTY 500"
+  },
+  {
+    "symbol": "WELCORP",
+    "company": "Welspun Corp Ltd.",
+    "theme": "Capital Goods",
+    "capHint": "mid",
+    "benchmark": "^CNXINFRA",
+    "source": "NIFTY 500"
+  },
+  {
+    "symbol": "WELSPUNLIV",
+    "company": "Welspun Living Ltd.",
+    "theme": "Textiles",
+    "capHint": "mid",
+    "benchmark": "^CNXCONSUM",
+    "source": "NIFTY 500"
+  },
+  {
+    "symbol": "WHIRLPOOL",
+    "company": "Whirlpool of India Ltd.",
+    "theme": "Consumer Durables",
+    "capHint": "mid",
+    "benchmark": "^CNXCONSUM",
+    "source": "NIFTY 500"
+  },
+  {
+    "symbol": "WIPRO",
+    "company": "Wipro Ltd.",
+    "theme": "Information Technology",
+    "capHint": "mid",
+    "benchmark": "^CNXIT",
+    "source": "NIFTY 500"
+  },
+  {
+    "symbol": "WOCKPHARMA",
+    "company": "Wockhardt Ltd.",
+    "theme": "Healthcare",
+    "capHint": "mid",
+    "benchmark": "^CNXPHARMA",
+    "source": "NIFTY 500"
+  },
+  {
+    "symbol": "YESBANK",
+    "company": "Yes Bank Ltd.",
+    "theme": "Financial Services",
+    "capHint": "mid",
+    "benchmark": "^CNXFIN",
+    "source": "NIFTY 500"
+  },
+  {
+    "symbol": "ZFCVINDIA",
+    "company": "ZF Commercial Vehicle Control Systems India Ltd.",
+    "theme": "Automobile and Auto Components",
+    "capHint": "mid",
+    "benchmark": "^CNXAUTO",
+    "source": "NIFTY 500"
+  },
+  {
+    "symbol": "ZEEL",
+    "company": "Zee Entertainment Enterprises Ltd.",
+    "theme": "Media Entertainment & Publication",
+    "capHint": "mid",
+    "benchmark": "^CNXCONSUM",
+    "source": "NIFTY 500"
+  },
+  {
+    "symbol": "ZENTEC",
+    "company": "Zen Technologies Ltd.",
+    "theme": "Capital Goods",
+    "capHint": "mid",
+    "benchmark": "^CNXINFRA",
+    "source": "NIFTY 500"
+  },
+  {
+    "symbol": "ZENSARTECH",
+    "company": "Zensar Technolgies Ltd.",
+    "theme": "Information Technology",
+    "capHint": "mid",
+    "benchmark": "^CNXIT",
+    "source": "NIFTY 500"
+  },
+  {
+    "symbol": "ZYDUSLIFE",
+    "company": "Zydus Lifesciences Ltd.",
+    "theme": "Healthcare",
+    "capHint": "mid",
+    "benchmark": "^CNXPHARMA",
+    "source": "NIFTY 500"
+  },
+  {
+    "symbol": "ZYDUSWELL",
+    "company": "Zydus Wellness Ltd.",
+    "theme": "Fast Moving Consumer Goods",
+    "capHint": "mid",
+    "benchmark": "^CNXFMCG",
+    "source": "NIFTY 500"
+  },
+  {
+    "symbol": "ECLERX",
+    "company": "eClerx Services Ltd.",
+    "theme": "Services",
+    "capHint": "mid",
+    "benchmark": "^CNXINFRA",
+    "source": "NIFTY 500"
+  }
+]

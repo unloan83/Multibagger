@@ -4,6 +4,7 @@ import path from "node:path";
 const repoRoot = process.cwd();
 const outputPath = path.join(repoRoot, "data", "daily_recommendations.csv");
 const portfolioCsvPath = path.join(repoRoot, "public", "portfolio.csv");
+const wealthSnapshotPath = path.join(repoRoot, "data", "wealth_recommendations.json");
 
 const headers = [
   "date",
@@ -24,6 +25,9 @@ const headers = [
   "volume_shock",
   "portfolio",
   "notes",
+  "decision_score",
+  "data_quality",
+  "factor_summary",
 ];
 
 const marketMoverGroups = {
@@ -81,39 +85,6 @@ const marketMoverGroups = {
     "SENCO",
     "HBLPOWER",
   ],
-};
-
-const expertGroups = {
-  "Large-Cap Bluechips": [
-    "RELIANCE",
-    "HDFCBANK",
-    "TCS",
-    "ICICIBANK",
-    "INFY",
-    "NTPC",
-    "POWERGRID",
-    "SBIN",
-    "SUNPHARMA",
-    "BHARTIARTL",
-    "PATANJALI",
-    "MAXHEALTH",
-    "RECLTD",
-    "VBL",
-  ],
-  "Mid-Cap Momentum": ["AHLUCONT", "BALAMINES", "POLYCAB", "DIXON", "PERSISTENT", "CUMMINSIND"],
-  "Small-Cap Alpha": [
-    "GIPCL",
-    "NUCLEUS",
-    "TEXRAIL",
-    "ORISSAMINE",
-    "RAMASTEEL",
-    "DWARKESH",
-    "MOREPENLAB",
-    "SUZLON",
-    "IREDA",
-    "RVNL",
-  ],
-  "ETFs & Index BeES": ["GOLDBEES", "AUTOBEES", "ITBEES", "NIFTYBEES", "BANKBEES", "JUNIORBEES"],
 };
 
 const slot = getArgValue("--slot") ?? "all";
@@ -188,46 +159,41 @@ async function buildMarketRows() {
 }
 
 async function buildExpertRows() {
-  const rows = [];
+  const snapshot = JSON.parse(await fs.readFile(wealthSnapshotPath, "utf8"));
+  const ageHours = (Date.now() - Date.parse(snapshot.asOf)) / 3_600_000;
 
-  for (const [segment, symbols] of Object.entries(expertGroups)) {
-    const quotes = (await Promise.all(symbols.map(fetchQuote))).filter(
-      (quote) => quote.price > 0,
-    );
-    const longTerm = [...quotes]
-      .map((quote) => addTarget(quote, segment))
-      .sort((a, b) => b.upside - a.upside)
-      .slice(0, 5);
-    const breakouts = [...quotes]
-      .map((quote) => addTarget(quote, segment))
-      .sort((a, b) => b.volumeShock - a.volumeShock)
-      .slice(0, 5);
+  if (!Number.isFinite(ageHours) || ageHours > 36 || snapshot.universeSize < 450) {
+    throw new Error("Wealth recommendation snapshot is stale or incomplete.");
+  }
 
-    rows.push(
-      ...longTerm.map((quote) =>
+  return snapshot.categories.flatMap((category) => [
+      ...category.longTermUpsides.map((quote) =>
         toCsvRow(quote, {
           runSlot: "morning",
           category: "expert-long-term",
           source: "expert-action-matrix",
-          segment,
-          action: "Accumulate",
-          notes: "Expert matrix long-term upside candidate",
+          segment: category.title,
+          action: quote.action,
+          notes: `Safety-gated long-term candidate | ${quote.reasons.join(" ")}`,
+          decisionScore: quote.score,
+          dataQuality: quote.dataQuality,
+          factorSummary: formatFactorSummary(quote.factorScores),
         }),
       ),
-      ...breakouts.map((quote) =>
+      ...category.intradayBreakouts.map((quote) =>
         toCsvRow(quote, {
           runSlot: "morning",
           category: "expert-intraday",
           source: "expert-action-matrix",
-          segment,
-          action: "Track Breakout",
-          notes: "Expert matrix intraday volume-shock candidate",
+          segment: category.title,
+          action: quote.action === "Accumulate" ? "Track Breakout" : "Watchlist",
+          notes: `Safety-gated momentum candidate | ${quote.reasons.join(" ")}`,
+          decisionScore: quote.score,
+          dataQuality: quote.dataQuality,
+          factorSummary: formatFactorSummary(quote.factorScores),
         }),
       ),
-    );
-  }
-
-  return rows;
+    ]);
 }
 
 async function buildPortfolioRows() {
@@ -343,11 +309,9 @@ function emptyQuote(symbol, fallbackName) {
 
 function addTarget(quote, segment) {
   const [floor, ceiling] =
-    segment === "Small-Cap Alpha"
+    segment.includes("Small-Cap")
       ? [1.15, 2.35]
-      : segment === "ETFs & Index BeES"
-        ? [1.08, 1.08]
-        : segment === "Mid-Cap Momentum"
+      : segment.includes("Mid-Cap")
           ? [1.12, 1.32]
           : [1.15, 1.45];
   const multiplier = Math.min(
@@ -382,6 +346,9 @@ function toCsvRow(
     action,
     portfolio = "",
     notes = "",
+    decisionScore = "",
+    dataQuality = "",
+    factorSummary = "",
   },
 ) {
   return {
@@ -403,6 +370,9 @@ function toCsvRow(
     volume_shock: quote.volumeShock,
     portfolio,
     notes,
+    decision_score: decisionScore,
+    data_quality: dataQuality,
+    factor_summary: factorSummary,
   };
 }
 
@@ -466,6 +436,18 @@ function csvEscape(value) {
 
 function round(value) {
   return Number(Number(value || 0).toFixed(2));
+}
+
+function formatFactorSummary(factors = {}) {
+  return [
+    `Growth ${factors.growth ?? 0}/20`,
+    `Quality ${factors.quality ?? 0}/20`,
+    `Valuation ${factors.valuation ?? 0}/15`,
+    `Momentum ${factors.momentum ?? 0}/15`,
+    `Sector ${factors.sectorStrength ?? 0}/10`,
+    `Liquidity ${factors.liquidity ?? 0}/10`,
+    `Risk ${factors.risk ?? 0}/10`,
+  ].join(" | ");
 }
 
 function getArgValue(name) {

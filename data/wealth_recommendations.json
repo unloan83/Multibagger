@@ -2,7 +2,7 @@
   "title": "Multi-Factor Wealth Discovery Matrix",
   "verified": "NSE price trend, sector-relative strength, revenue and earnings growth, profitability, leverage, valuation, liquidity, news catalysts and risk",
   "source": "Expanded thematic NSE screening universe with Yahoo market/fundamental feeds and outcome-learning history",
-  "asOf": "2026-06-20T04:26:08.919Z",
+  "asOf": "2026-06-20T14:17:13.750Z",
   "refreshCycle": "Technical and catalyst signals refresh intraday; fundamental factors are cached for six hours.",
   "caveat": "Research screening only—not a guarantee of returns. Verify exchange filings, valuation, governance, liquidity, and position sizing before investing.",
   "universeSize": 500,
@@ -66,6 +66,12 @@
     "The engine abstains when evidence is incomplete or no stock clears every safety gate; non-selected names retain exclusion diagnostics."
   ],
   "exclusionDiagnostics": [
+    {
+      "symbol": "IKS",
+      "name": "INVENTURUS KNOWLEDGE SO L",
+      "score": 84,
+      "reason": "Evidence-derived long-term potential is below the 15% entry hurdle."
+    },
     {
       "symbol": "SUZLON",
       "name": "Suzlon Energy Limited",
@@ -131,12 +137,6 @@
       "name": "Lloyds Metals and Energy Limited",
       "score": 83,
       "reason": "Debt-to-equity exceeds the safety limit."
-    },
-    {
-      "symbol": "CUB",
-      "name": "City Union Bank Limited",
-      "score": 83,
-      "reason": "Financial companies require a separate banking/NBFC capital-adequacy model. Operating cash flow is below 70% of reported earnings."
     }
   ],
   "consecutivePicks": [
@@ -166,17 +166,24 @@
           "upside": 0,
           "score": 81,
           "action": "Watchlist",
-          "remark": "Score 100/100 | EMA20 9,568 vs EMA50 9,041.39 | VWAP gap +32.23% | ATR risk +2.17% | Volume shock 1.67x | daily review. Decision score 81/100 | Industry theme: Capital Goods. Latest annual revenue growth +28.3% and earnings growth +32.3%. ROE +22.3%, margin +9.5%, debt/equity 37.",
+          "remark": "Score 100/100 | EMA20 9,568 vs EMA50 9,041.39 | VWAP gap +32.23% | ATR risk +2.17% | Volume shock 1.67x | daily review. Decision score 81/100 | Industry theme: Capital Goods. Latest annual revenue growth +28.3% and earnings growth +32.3%. ROE +22.3%, margin +9.5%, debt/equity 37. Evidence-derived long-term potential 45.3%; minimum hurdle 15%.",
           "caveats": [
             "Model output is a screening signal, not financial advice. Validate fundamentals, news, liquidity, and risk before trading.",
             "No verified company-specific news catalyst is included; review current exchange filings manually.",
             "Governance, promoter pledging, auditor qualifications, contingent liabilities and cash-flow quality require manual filing review."
           ],
           "metrics": {
+            "historyDays": 250,
             "dayChangePercent": 1.3112283345892992,
+            "return5Percent": 5.536947875235503,
+            "return20Percent": 8.846548280887353,
+            "return60Percent": 48.38852097130243,
+            "return120Percent": 32.140750933752706,
+            "drawdownFrom60DayHighPercent": -0.36561264822134387,
             "volumeShock": 1.67,
             "ema20": 9568.000978622591,
             "ema50": 9041.386335803976,
+            "ema200": 7994.424740542476,
             "vwap": 7625.271391349581,
             "vwapDistancePercent": 32.23135915448946,
             "atr": 219.21428571428572,
@@ -187,8 +194,11 @@
             "riskScore": 0,
             "finalScore": 100,
             "intradayPotentialPercent": 5.31,
-            "target": 13060.221814285715,
-            "upsidePercent": 29.527142857142856,
+            "longTermPotentialPercent": 45.25,
+            "persistentDeclineScore": 0,
+            "expectedDownsidePercent": 0,
+            "target": 14645.5575,
+            "upsidePercent": 45.25000000000001,
             "caveats": [
               "Model output is a screening signal, not financial advice. Validate fundamentals, news, liquidity, and risk before trading.",
               "Price is extended from VWAP; avoid chasing without confirmation."
@@ -218,7 +228,7 @@
             "Average daily traded value approximately INR 269.5 Cr.",
             "Market regime: Correction."
           ],
-          "marketCapCr": 149829.275445,
+          "marketCapCr": 151773.9955198,
           "dataQuality": 100,
           "fundamentalAsOf": "2026-03-31",
           "averageDailyTurnoverCr": 269.49454927249997,
@@ -236,17 +246,24 @@
           "upside": 0,
           "score": 79,
           "action": "Watchlist",
-          "remark": "Score 100/100 | EMA20 1,804.59 vs EMA50 1,727.33 | VWAP gap +22.34% | ATR risk +2.19% | Volume shock 1.98x | daily review. Decision score 79/100 | Industry theme: Services. Latest annual revenue growth +27.1% and earnings growth +15.5%. ROE +13.3%, margin +33.1%, debt/equity 66.",
+          "remark": "Score 100/100 | EMA20 1,804.59 vs EMA50 1,727.33 | VWAP gap +22.34% | ATR risk +2.19% | Volume shock 1.98x | daily review. Decision score 79/100 | Industry theme: Services. Latest annual revenue growth +27.1% and earnings growth +15.5%. ROE +13.3%, margin +33.1%, debt/equity 66. Evidence-derived long-term potential 38.1%; minimum hurdle 15%.",
           "caveats": [
             "Model output is a screening signal, not financial advice. Validate fundamentals, news, liquidity, and risk before trading.",
             "No verified company-specific news catalyst is included; review current exchange filings manually.",
             "Governance, promoter pledging, auditor qualifications, contingent liabilities and cash-flow quality require manual filing review."
           ],
           "metrics": {
+            "historyDays": 250,
             "dayChangePercent": -0.3691425913935317,
+            "return5Percent": 1.235588023844681,
+            "return20Percent": 2.7086000853242003,
+            "return60Percent": 40.787053879398535,
+            "return120Percent": 22.820045508216197,
+            "drawdownFrom60DayHighPercent": -1.2111125113985097,
             "volumeShock": 1.98,
             "ema20": 1804.593376377157,
             "ema50": 1727.3303627882678,
+            "ema200": 1554.6628931252292,
             "vwap": 1500.1701123243834,
             "vwapDistancePercent": 22.33945903350667,
             "atr": 40.142874581473215,
@@ -257,8 +274,11 @@
             "riskScore": 0,
             "finalScore": 100,
             "intradayPotentialPercent": 0,
-            "target": 2382.901082857143,
-            "upsidePercent": 29.837142857142872,
+            "longTermPotentialPercent": 38.07,
+            "persistentDeclineScore": 0,
+            "expectedDownsidePercent": 0,
+            "target": 2533.99871,
+            "upsidePercent": 38.06999999999999,
             "caveats": [
               "Model output is a screening signal, not financial advice. Validate fundamentals, news, liquidity, and risk before trading.",
               "Price is extended from VWAP; avoid chasing without confirmation."
@@ -302,76 +322,6 @@
       "title": "Mid-Cap Growth Leaders",
       "longTermUpsides": [
         {
-          "symbol": "IKS",
-          "name": "INVENTURUS KNOWLEDGE SO L",
-          "price": 1675.2,
-          "previousClose": 1619.8,
-          "changePercent": 3.4201753302876954,
-          "volume": 233117,
-          "volumeShock": 1.54,
-          "target": 0,
-          "upside": 0,
-          "score": 84,
-          "action": "Watchlist",
-          "remark": "Score 100/100 | EMA20 1,657.04 vs EMA50 1,616 | VWAP gap +6.10% | ATR risk +3.07% | Volume shock 1.54x | daily review. Decision score 84/100 | Industry theme: Information Technology. Latest annual revenue growth +19.9% and earnings growth +48.4%. ROE +25.8%, margin +22.6%, debt/equity 27.",
-          "caveats": [
-            "Model output is a screening signal, not financial advice. Validate fundamentals, news, liquidity, and risk before trading.",
-            "No verified company-specific news catalyst is included; review current exchange filings manually.",
-            "Governance, promoter pledging, auditor qualifications, contingent liabilities and cash-flow quality require manual filing review."
-          ],
-          "metrics": {
-            "dayChangePercent": 3.4201753302876954,
-            "volumeShock": 1.54,
-            "ema20": 1657.040656469968,
-            "ema50": 1615.9973692961667,
-            "vwap": 1578.9525400280643,
-            "vwapDistancePercent": 6.095652499487101,
-            "atr": 51.48573521205357,
-            "atrPercent": 3.0734082624196257,
-            "trendScore": 30,
-            "momentumScore": 35,
-            "liquidityScore": 32.20545485087541,
-            "riskScore": 0.12479404611336373,
-            "finalScore": 100,
-            "intradayPotentialPercent": 7.13,
-            "target": 2167.6609371428576,
-            "upsidePercent": 29.39714285714288,
-            "caveats": [
-              "Model output is a screening signal, not financial advice. Validate fundamentals, news, liquidity, and risk before trading.",
-              "Price is extended from VWAP; avoid chasing without confirmation."
-            ]
-          },
-          "theme": "Information Technology",
-          "sector": "Information Technology",
-          "factorScores": {
-            "fundamentals": 15,
-            "growth": 17,
-            "momentum": 15,
-            "quality": 20,
-            "sectorStrength": 10,
-            "valuation": 8,
-            "catalyst": 0,
-            "liquidity": 6,
-            "dataQuality": 100,
-            "risk": 8,
-            "total": 84
-          },
-          "reasons": [
-            "Industry theme: Information Technology.",
-            "Latest annual revenue growth +19.9% and earnings growth +48.4%.",
-            "ROE +25.8%, margin +22.6%, debt/equity 27.",
-            "Operating cash conversion 0.93x reported earnings; positive growth years 2/3 revenue and 2/3 earnings.",
-            "Sector-relative return +30.4% with EMA20 above EMA50.",
-            "Average daily traded value approximately INR 22.6 Cr.",
-            "Market regime: Correction."
-          ],
-          "marketCapCr": 28101.2250345,
-          "dataQuality": 100,
-          "fundamentalAsOf": "2026-03-31",
-          "averageDailyTurnoverCr": 22.613905427992552,
-          "catalystSummary": "No verified company-specific catalyst is included in the score."
-        },
-        {
           "symbol": "NAVINFLUOR",
           "name": "Navin Fluorine International Limited",
           "price": 7493.5,
@@ -383,16 +333,24 @@
           "upside": 0,
           "score": 81,
           "action": "Watchlist",
-          "remark": "Score 100/100 | EMA20 7,171.65 vs EMA50 6,932.38 | VWAP gap +24.69% | ATR risk +2.75% | Volume shock 1.37x | daily review. Decision score 81/100 | Industry theme: Chemicals. Latest annual revenue growth +41.1% and earnings growth +129.9%. ROE +16.7%, margin +20.0%, debt/equity 32.",
+          "remark": "Score 100/100 | EMA20 7,171.65 vs EMA50 6,932.38 | VWAP gap +24.69% | ATR risk +2.75% | Volume shock 1.37x | daily review. Decision score 81/100 | Industry theme: Chemicals. Latest annual revenue growth +41.1% and earnings growth +129.9%. ROE +16.7%, margin +20.0%, debt/equity 32. Evidence-derived long-term potential 35.2%; minimum hurdle 15%.",
           "caveats": [
             "Model output is a screening signal, not financial advice. Validate fundamentals, news, liquidity, and risk before trading.",
+            "No verified company-specific news catalyst is included; review current exchange filings manually.",
             "Governance, promoter pledging, auditor qualifications, contingent liabilities and cash-flow quality require manual filing review."
           ],
           "metrics": {
+            "historyDays": 249,
             "dayChangePercent": 2.60149243513384,
+            "return5Percent": 2.60851704778858,
+            "return20Percent": 5.171929824561404,
+            "return60Percent": 27.29975367366007,
+            "return120Percent": 23.583738764739838,
+            "drawdownFrom60DayHighPercent": -1.049782120691932,
             "volumeShock": 1.37,
             "ema20": 7171.652843796093,
             "ema50": 6932.379709697845,
+            "ema200": 6076.770080552575,
             "vwap": 6009.543311443473,
             "vwapDistancePercent": 24.693335444155167,
             "atr": 206.42857142857142,
@@ -403,8 +361,11 @@
             "riskScore": 0,
             "finalScore": 100,
             "intradayPotentialPercent": 4.89,
-            "target": 9683.635950000002,
-            "upsidePercent": 29.22714285714288,
+            "longTermPotentialPercent": 35.17,
+            "persistentDeclineScore": 0,
+            "expectedDownsidePercent": 0,
+            "target": 10128.963950000001,
+            "upsidePercent": 35.170000000000016,
             "caveats": [
               "Model output is a screening signal, not financial advice. Validate fundamentals, news, liquidity, and risk before trading.",
               "Price is extended from VWAP; avoid chasing without confirmation."
@@ -438,7 +399,7 @@
           "dataQuality": 100,
           "fundamentalAsOf": "2026-03-31",
           "averageDailyTurnoverCr": 109.5732541575,
-          "catalystSummary": "Successful Debut of International Symposium on Emergency Response and Aeromedical Services in Hong Kong"
+          "catalystSummary": "No verified company-specific catalyst is included in the score."
         }
       ],
       "intradayBreakouts": [
@@ -466,10 +427,17 @@
             "Governance, promoter pledging, auditor qualifications, contingent liabilities and cash-flow quality require manual filing review."
           ],
           "metrics": {
+            "historyDays": 250,
             "dayChangePercent": 5.094706598775564,
+            "return5Percent": 17.307098765432094,
+            "return20Percent": 25.883916657013838,
+            "return60Percent": 48.46679687499999,
+            "return120Percent": 21.672669067627048,
+            "drawdownFrom60DayHighPercent": -0.9382909773913426,
             "volumeShock": 3.26,
             "ema20": 1310.473878517627,
             "ema50": 1248.1071095359007,
+            "ema200": 1272.692742767512,
             "vwap": 1302.0775017106123,
             "vwapDistancePercent": 16.759562929449014,
             "atr": 68.15001569475446,
@@ -480,8 +448,11 @@
             "riskScore": 3.83418509415934,
             "finalScore": 100,
             "intradayPotentialPercent": 14.95,
-            "target": 1989.421142857143,
-            "upsidePercent": 30.857142857142865,
+            "longTermPotentialPercent": 0,
+            "persistentDeclineScore": 15,
+            "expectedDownsidePercent": 0,
+            "target": 1520.3,
+            "upsidePercent": 0,
             "caveats": [
               "Model output is a screening signal, not financial advice. Validate fundamentals, news, liquidity, and risk before trading.",
               "Price is extended from VWAP; avoid chasing without confirmation.",
@@ -540,10 +511,17 @@
             "Governance, promoter pledging, auditor qualifications, contingent liabilities and cash-flow quality require manual filing review."
           ],
           "metrics": {
+            "historyDays": 250,
             "dayChangePercent": 4.860318276498507,
+            "return5Percent": 15.068232567060381,
+            "return20Percent": 6.910714285714294,
+            "return60Percent": 44.09145607701566,
+            "return120Percent": 14.266625832891942,
+            "drawdownFrom60DayHighPercent": -1.5296052631578871,
             "volumeShock": 2.9,
             "ema20": 1090.6835505374659,
             "ema50": 1055.800126192518,
+            "ema200": 1051.4197268496841,
             "vwap": 1043.053755750212,
             "vwapDistancePercent": 14.797534968729883,
             "atr": 52.057155064174104,
@@ -554,8 +532,11 @@
             "riskScore": 3.323158916022023,
             "finalScore": 100,
             "intradayPotentialPercent": 10.37,
-            "target": 1565.6860285714288,
-            "upsidePercent": 30.757142857142867,
+            "longTermPotentialPercent": 40.22,
+            "persistentDeclineScore": 0,
+            "expectedDownsidePercent": 0,
+            "target": 1678.9942800000003,
+            "upsidePercent": 40.22000000000002,
             "caveats": [
               "Model output is a screening signal, not financial advice. Validate fundamentals, news, liquidity, and risk before trading.",
               "Price is extended from VWAP; avoid chasing without confirmation."

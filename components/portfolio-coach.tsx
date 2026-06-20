@@ -219,7 +219,7 @@ function coachItemForHolding({
   bestScore: number;
   hasSellSignal: boolean;
 }): CoachItem {
-  if (hasSellSignal && holding.dayChangePercent < -2) {
+  if (hasSellSignal) {
     return {
       symbol: holding.symbol,
       company: holding.company,
@@ -228,7 +228,8 @@ function coachItemForHolding({
       priority: "HIGH",
       score: Math.max(20, bestScore),
       suggestedAllocation: "Exit or reduce to zero.",
-      reason: `Existing recommendation score is weak and recent return is ${holding.dayChangePercent.toFixed(2)}%; exit or set strict stop-loss if recovery signal is absent.`,
+      reason:
+        "Persistent decline is confirmed across 5, 20 and 60 sessions with weak trend alignment and limited recovery evidence.",
     };
   }
 
@@ -236,29 +237,30 @@ function coachItemForHolding({
     return {
       symbol: holding.symbol,
       company: holding.company,
-      action: "REDUCE",
+      action: "HOLD",
       ...buildExecutionGuide(holding.currentPrice, bestScore || 55, "Short Term"),
       priority: "HIGH",
       score: bestScore || 55,
       suggestedAllocation:
-        holding.portfolioWeight > 30 ? "Reduce by 5-10%." : "Trim sector exposure by 5%.",
+        "Avoid adding; rebalance through future contributions rather than an unsupported sell.",
       reason:
         holding.portfolioWeight > 30
-          ? `Portfolio concentration exceeds 30% at ${holding.portfolioWeight.toFixed(1)}%.`
-          : `${holding.sector} exposure is high at ${sectorExposure.toFixed(1)}%; reduce concentration risk.`,
+          ? `Portfolio concentration exceeds 30% at ${holding.portfolioWeight.toFixed(1)}%, but concentration alone does not establish prolonged price decline.`
+          : `${holding.sector} exposure is high at ${sectorExposure.toFixed(1)}%, but there is no persistent-decline sell signal.`,
     };
   }
 
-  if (holding.portfolioWeight > 22 || (hasSellSignal && holding.dayChangePercent <= 0)) {
+  if (holding.portfolioWeight > 22) {
     return {
       symbol: holding.symbol,
       company: holding.company,
-      action: "REDUCE",
+      action: "HOLD",
       ...buildExecutionGuide(holding.currentPrice, bestScore || 58, "Short Term"),
       priority: "MEDIUM",
       score: bestScore || 58,
-      suggestedAllocation: "Reduce by 3-5% if weakness persists.",
-      reason: `Position weight is ${holding.portfolioWeight.toFixed(1)}% with limited recent support; trim gradually and monitor next refresh.`,
+      suggestedAllocation:
+        "Avoid adding; direct new capital to underweight areas.",
+      reason: `Position weight is ${holding.portfolioWeight.toFixed(1)}%; monitor concentration without issuing a sell unless persistent decline is confirmed.`,
     };
   }
 

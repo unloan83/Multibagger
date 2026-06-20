@@ -256,14 +256,14 @@ function buildSellDiscipline(
     const hasSellSignal = sellSignals.has(holding.symbol);
     const isTopConcentration =
       holding.symbol === risk.metrics.maxStockSymbol && risk.metrics.maxStockAllocation > 22;
-    const weakTrend = holding.dayChangePercent < -2;
 
-    if (hasSellSignal && weakTrend) {
+    if (hasSellSignal) {
       return {
         symbol: holding.symbol,
         company: holding.company,
         action: "EXIT",
-        reason: "Trend broken with active sell signal.",
+        reason:
+          "Persistent deterioration is confirmed across short, medium and long trend windows.",
         urgency: "High Urgency",
       };
     }
@@ -272,9 +272,10 @@ function buildSellDiscipline(
       return {
         symbol: holding.symbol,
         company: holding.company,
-        action: "REDUCE",
-        reason: "Concentration high.",
-        urgency: "Medium Urgency",
+        action: "HOLD",
+        reason:
+          "Concentration is high, but concentration alone is not a sell signal; rebalance with future allocations unless decline evidence appears.",
+        urgency: "Low Urgency",
       };
     }
 

@@ -3,6 +3,8 @@ import {
   buildSignalRemark,
   getSignalAction,
   qualifiesForHighPotentialIntraday,
+  qualifiesForLongTermAccumulation,
+  qualifiesForPersistentDeclineSell,
   type AnalysisProfile,
   type StockSignalMetrics,
 } from "@/lib/analysis";
@@ -804,23 +806,42 @@ export function generateRecommendations(
         position,
         metrics: signalMetrics,
         sectorWeight,
+        action: qualifiesForPersistentDeclineSell(signalMetrics)
+          ? "Urgent Sell" as const
+          : qualifiesForLongTermAccumulation(signalMetrics)
+            ? "Accumulate" as const
+            : null,
       };
     })
-    .sort((a, b) => b.metrics.finalScore - a.metrics.finalScore)
+    .filter(
+      (
+        item,
+      ): item is typeof item & {
+        action: "Accumulate" | "Urgent Sell";
+      } => item.action !== null,
+    )
+    .sort((a, b) => {
+      if (a.action !== b.action) {
+        return a.action === "Urgent Sell" ? -1 : 1;
+      }
+      return a.action === "Urgent Sell"
+        ? b.metrics.persistentDeclineScore - a.metrics.persistentDeclineScore
+        : b.metrics.longTermPotentialPercent - a.metrics.longTermPotentialPercent;
+    })
     .slice(0, 5)
-    .map(({ position, metrics, sectorWeight }) =>
+    .map(({ position, metrics, sectorWeight, action }) =>
       buildRecommendation({
         portfolio,
         createdAt,
         section: "1-3 Yr Plan",
         position,
-        action:
-          sectorWeight > 40 && portfolio.appetite !== "aggressive"
-            ? "Urgent Sell"
-            : getSignalAction(metrics, "long-term"),
+        action,
         horizon: "1-3 years",
         confidence: confidenceFromSignal(metrics, appetite.confidenceShift),
-        rationale: `${buildSignalRemark(metrics, "long-term")} ${position.sector} is ${sectorWeight.toFixed(1)}% of portfolio; ${appetite.riskLabel} mode shapes the buy/sell threshold.`,
+        rationale:
+          action === "Urgent Sell"
+            ? `${buildSignalRemark(metrics, "long-term")} Persistent decline score ${metrics.persistentDeclineScore.toFixed(0)}/100 with modeled downside ${metrics.expectedDownsidePercent.toFixed(1)}%; weakness is confirmed across 5, 20, 60 and 120 sessions with EMA20 below EMA50 below EMA200.`
+            : `${buildSignalRemark(metrics, "long-term")} Evidence-derived long-term potential ${metrics.longTermPotentialPercent.toFixed(1)}%; only high-conviction trend-aligned holdings are included. ${position.sector} is ${sectorWeight.toFixed(1)}% of portfolio.`,
         caveats: metrics.caveats,
         metrics,
       }),
@@ -848,6 +869,7 @@ export function generateRecommendations(
 
       return { position, metrics };
     })
+    .filter(({ metrics }) => qualifiesForLongTermAccumulation(metrics))
     .sort((a, b) => b.metrics.finalScore - a.metrics.finalScore)
     .slice(0, 3)
     .map(({ position, metrics }) =>
@@ -856,7 +878,7 @@ export function generateRecommendations(
         createdAt,
         section: "Multibagger",
         position,
-        action: getSignalAction(metrics, "watchlist"),
+        action: "Accumulate",
         horizon: "6-12 months",
         confidence: confidenceFromSignal(metrics, appetite.confidenceShift),
         rationale: `${buildSignalRemark(metrics, "watchlist")} ${position.sector} exposure with momentum; validate earnings growth, debt, valuation, and news before entry.`,

@@ -3,7 +3,9 @@ import path from "node:path";
 import { buildMarketOverview } from "@/lib/market-overview";
 import {
   MIN_INTRADAY_POTENTIAL_PERCENT,
+  MIN_LONG_TERM_POTENTIAL_PERCENT,
   qualifiesForHighPotentialIntraday,
+  qualifiesForLongTermAccumulation,
 } from "@/lib/analysis";
 import {
   getMarketUniverse,
@@ -233,8 +235,7 @@ function isLongTermCandidate(stock: ScreenedStock) {
     stock.eligible &&
     stock.score >= threshold &&
     stock.factorScores.growth + stock.factorScores.quality >= 18 &&
-    stock.metrics.ema20 >= stock.metrics.ema50 * 0.97 &&
-    stock.metrics.riskScore <= 18
+    qualifiesForLongTermAccumulation(stock.metrics)
   );
 }
 
@@ -284,7 +285,7 @@ function toExpertQuote(
     remark:
       source === "intraday"
         ? `${stock.remark} Evidence-derived intraday potential ${intradayPotential.toFixed(1)}%; minimum hurdle ${MIN_INTRADAY_POTENTIAL_PERCENT}%.`
-        : stock.remark,
+        : `${stock.remark} Evidence-derived long-term potential ${stock.metrics.longTermPotentialPercent.toFixed(1)}%; minimum hurdle ${MIN_LONG_TERM_POTENTIAL_PERCENT}%.`,
     caveats: stock.caveats,
     metrics: stock.metrics,
     theme: stock.theme,
@@ -312,8 +313,11 @@ function getExclusionReason(stock: ScreenedStock) {
   if (stock.factorScores.growth + stock.factorScores.quality < 10) {
     return "Growth and business-quality evidence is not strong enough for the current shortlist.";
   }
-  if (stock.upside < 8) {
-    return "Risk-adjusted target upside is below the minimum entry hurdle.";
+  if (
+    stock.metrics.longTermPotentialPercent <
+    MIN_LONG_TERM_POTENTIAL_PERCENT
+  ) {
+    return `Evidence-derived long-term potential is below the ${MIN_LONG_TERM_POTENTIAL_PERCENT}% entry hurdle.`;
   }
   return `Wealth score ${stock.score}/100 ranked below stronger candidates in its market-cap group.`;
 }

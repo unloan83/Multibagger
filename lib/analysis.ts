@@ -8,10 +8,17 @@ export type PriceBar = {
 export type AnalysisProfile = "intraday" | "short-term" | "long-term" | "watchlist";
 
 export type StockSignalMetrics = {
+  historyDays: number;
   dayChangePercent: number;
+  return5Percent: number;
+  return20Percent: number;
+  return60Percent: number;
+  return120Percent: number;
+  drawdownFrom60DayHighPercent: number;
   volumeShock: number;
   ema20: number;
   ema50: number;
+  ema200: number;
   vwap: number;
   vwapDistancePercent: number;
   atr: number;
@@ -22,6 +29,9 @@ export type StockSignalMetrics = {
   riskScore: number;
   finalScore: number;
   intradayPotentialPercent: number;
+  longTermPotentialPercent: number;
+  persistentDeclineScore: number;
+  expectedDownsidePercent: number;
   target: number;
   upsidePercent: number;
   caveats: string[];
@@ -45,6 +55,7 @@ const defaultCaveat =
   "Model output is a screening signal, not financial advice. Validate fundamentals, news, liquidity, and risk before trading.";
 
 export const MIN_INTRADAY_POTENTIAL_PERCENT = 10;
+export const MIN_LONG_TERM_POTENTIAL_PERCENT = 15;
 
 export function analyzeStockSignal(input: SignalInput): StockSignalMetrics {
   const bars = input.bars?.filter((bar) => bar.close > 0) ?? [];
@@ -52,8 +63,19 @@ export function analyzeStockSignal(input: SignalInput): StockSignalMetrics {
   const previousClose = input.previousClose || bars.at(-2)?.close || 0;
   const dayChangePercent =
     previousClose === 0 ? 0 : ((price - previousClose) / previousClose) * 100;
+  const historyDays = bars.length;
+  const return5Percent = calculatePeriodReturn(bars, price, 5);
+  const return20Percent = calculatePeriodReturn(bars, price, 20);
+  const return60Percent = calculatePeriodReturn(bars, price, 60);
+  const return120Percent = calculatePeriodReturn(bars, price, 120);
+  const drawdownFrom60DayHighPercent = calculateDrawdownFromHigh(
+    bars,
+    price,
+    60,
+  );
   const ema20 = calculateEma(bars.map((bar) => bar.close), 20) || price;
   const ema50 = calculateEma(bars.map((bar) => bar.close), 50) || price;
+  const ema200 = calculateEma(bars.map((bar) => bar.close), 200) || price;
   const vwap = calculateVwap(bars) || price;
   const atr = calculateAtr(bars, 14);
   const atrPercent = price === 0 ? 0 : (atr / price) * 100;
@@ -91,9 +113,45 @@ export function analyzeStockSignal(input: SignalInput): StockSignalMetrics {
     price,
     volumeShock,
   });
+  const longTermPotentialPercent = estimateLongTermPotentialPercent({
+    drawdownFrom60DayHighPercent,
+    ema20,
+    ema50,
+    ema200,
+    finalScore,
+    price,
+    return5Percent,
+    return20Percent,
+    return60Percent,
+    return120Percent,
+  });
+  const persistentDeclineScore = scorePersistentDecline({
+    drawdownFrom60DayHighPercent,
+    ema20,
+    ema50,
+    ema200,
+    finalScore,
+    price,
+    return5Percent,
+    return20Percent,
+    return60Percent,
+    return120Percent,
+  });
+  const expectedDownsidePercent = estimateExpectedDownsidePercent({
+    drawdownFrom60DayHighPercent,
+    persistentDeclineScore,
+    return5Percent,
+    return20Percent,
+    return60Percent,
+    return120Percent,
+  });
   const targetMultiplier =
     profile === "intraday"
       ? 1 + intradayPotentialPercent / 100
+      : profile === "long-term"
+        ? persistentDeclineScore >= 70
+          ? 1 - expectedDownsidePercent / 100
+          : 1 + longTermPotentialPercent / 100
       : getTargetMultiplier({
           finalScore,
           trendScore,
@@ -105,10 +163,17 @@ export function analyzeStockSignal(input: SignalInput): StockSignalMetrics {
   const target = price * targetMultiplier;
 
   return {
+    historyDays,
     dayChangePercent,
+    return5Percent,
+    return20Percent,
+    return60Percent,
+    return120Percent,
+    drawdownFrom60DayHighPercent,
     volumeShock,
     ema20,
     ema50,
+    ema200,
     vwap,
     vwapDistancePercent,
     atr,
@@ -119,6 +184,9 @@ export function analyzeStockSignal(input: SignalInput): StockSignalMetrics {
     riskScore,
     finalScore: Math.round(finalScore),
     intradayPotentialPercent,
+    longTermPotentialPercent,
+    persistentDeclineScore,
+    expectedDownsidePercent,
     target,
     upsidePercent: price === 0 ? 0 : ((target - price) / price) * 100,
     caveats: buildCaveats({
@@ -133,6 +201,40 @@ export function analyzeStockSignal(input: SignalInput): StockSignalMetrics {
       portfolioWeight: input.portfolioWeight ?? 0,
     }),
   };
+}
+
+export function qualifiesForLongTermAccumulation(
+  metrics: StockSignalMetrics,
+) {
+  return (
+    metrics.longTermPotentialPercent >= MIN_LONG_TERM_POTENTIAL_PERCENT &&
+    metrics.historyDays >= 180 &&
+    metrics.finalScore >= 65 &&
+    metrics.return20Percent > 0 &&
+    metrics.return60Percent >= 5 &&
+    metrics.return120Percent >= 10 &&
+    metrics.ema20 >= metrics.ema50 &&
+    metrics.ema50 >= metrics.ema200 &&
+    metrics.persistentDeclineScore < 25 &&
+    metrics.riskScore <= 18
+  );
+}
+
+export function qualifiesForPersistentDeclineSell(
+  metrics: StockSignalMetrics,
+) {
+  return (
+    metrics.persistentDeclineScore >= 70 &&
+    metrics.historyDays >= 180 &&
+    metrics.expectedDownsidePercent >= 10 &&
+    metrics.return5Percent < 0 &&
+    metrics.return20Percent <= -8 &&
+    metrics.return60Percent <= -12 &&
+    metrics.return120Percent <= -18 &&
+    metrics.ema20 < metrics.ema50 &&
+    metrics.ema50 < metrics.ema200 &&
+    metrics.finalScore <= 40
+  );
 }
 
 export function qualifiesForHighPotentialIntraday(
@@ -153,7 +255,13 @@ export function getSignalAction(
   metrics: StockSignalMetrics,
   profile: AnalysisProfile,
 ): "Accumulate" | "Urgent Sell" {
-  const riskLimit = profile === "intraday" ? 9 : profile === "long-term" ? 11 : 10;
+  if (profile === "long-term") {
+    return qualifiesForPersistentDeclineSell(metrics)
+      ? "Urgent Sell"
+      : "Accumulate";
+  }
+
+  const riskLimit = profile === "intraday" ? 9 : 10;
 
   if (metrics.finalScore < 42 || metrics.riskScore > riskLimit || metrics.ema20 < metrics.ema50) {
     return "Urgent Sell";
@@ -273,6 +381,145 @@ function estimateIntradayPotentialPercent({
       25,
     ).toFixed(2),
   );
+}
+
+function estimateLongTermPotentialPercent({
+  drawdownFrom60DayHighPercent,
+  ema20,
+  ema50,
+  ema200,
+  finalScore,
+  price,
+  return5Percent,
+  return20Percent,
+  return60Percent,
+  return120Percent,
+}: {
+  drawdownFrom60DayHighPercent: number;
+  ema20: number;
+  ema50: number;
+  ema200: number;
+  finalScore: number;
+  price: number;
+  return5Percent: number;
+  return20Percent: number;
+  return60Percent: number;
+  return120Percent: number;
+}) {
+  if (
+    price <= 0 ||
+    return120Percent <= 0 ||
+    ema20 < ema50 ||
+    ema50 < ema200
+  ) {
+    return 0;
+  }
+
+  const trendEvidence =
+    Math.max(0, return120Percent) * 0.25 +
+    Math.max(0, return60Percent) * 0.3 +
+    Math.max(0, return20Percent) * 0.3 +
+    Math.max(0, return5Percent) * 0.15;
+  const qualityLift = Math.max(0, finalScore - 55) * 0.25;
+  const alignmentLift =
+    price >= ema20 && ema20 >= ema50 && ema50 >= ema200 ? 8 : 0;
+  const extensionHaircut =
+    Math.abs(Math.min(0, drawdownFrom60DayHighPercent)) * 0.1;
+
+  return Number(
+    clamp(
+      trendEvidence + qualityLift + alignmentLift - extensionHaircut,
+      0,
+      60,
+    ).toFixed(2),
+  );
+}
+
+function scorePersistentDecline({
+  drawdownFrom60DayHighPercent,
+  ema20,
+  ema50,
+  ema200,
+  finalScore,
+  price,
+  return5Percent,
+  return20Percent,
+  return60Percent,
+  return120Percent,
+}: {
+  drawdownFrom60DayHighPercent: number;
+  ema20: number;
+  ema50: number;
+  ema200: number;
+  finalScore: number;
+  price: number;
+  return5Percent: number;
+  return20Percent: number;
+  return60Percent: number;
+  return120Percent: number;
+}) {
+  let score = 0;
+  if (price < ema20) score += 18;
+  if (ema20 < ema50) score += 20;
+  if (ema50 < ema200) score += 15;
+  if (return5Percent <= -2) score += 12;
+  if (return20Percent <= -8) score += 18;
+  if (return60Percent <= -12) score += 18;
+  if (return120Percent <= -18) score += 15;
+  if (drawdownFrom60DayHighPercent <= -20) score += 12;
+  if (finalScore <= 35) score += 10;
+  return clamp(score, 0, 100);
+}
+
+function estimateExpectedDownsidePercent({
+  drawdownFrom60DayHighPercent,
+  persistentDeclineScore,
+  return5Percent,
+  return20Percent,
+  return60Percent,
+  return120Percent,
+}: {
+  drawdownFrom60DayHighPercent: number;
+  persistentDeclineScore: number;
+  return5Percent: number;
+  return20Percent: number;
+  return60Percent: number;
+  return120Percent: number;
+}) {
+  if (persistentDeclineScore < 50) return 0;
+
+  return Number(
+    clamp(
+      Math.max(0, -return5Percent) * 0.3 +
+        Math.max(0, -return20Percent) * 0.35 +
+        Math.max(0, -return60Percent) * 0.15 +
+        Math.max(0, -return120Percent) * 0.1 +
+        Math.max(0, -drawdownFrom60DayHighPercent) * 0.2,
+      0,
+      35,
+    ).toFixed(2),
+  );
+}
+
+function calculatePeriodReturn(
+  bars: PriceBar[],
+  price: number,
+  periods: number,
+) {
+  const base = bars.at(-(periods + 1))?.close ?? 0;
+  return base > 0 && price > 0 ? ((price - base) / base) * 100 : 0;
+}
+
+function calculateDrawdownFromHigh(
+  bars: PriceBar[],
+  price: number,
+  periods: number,
+) {
+  const high = Math.max(
+    0,
+    ...bars.slice(-periods).map((bar) => bar.high || bar.close),
+  );
+  return high > 0 && price > 0 ? ((price - high) / high) * 100 : 0;
 }
 
 function percentile(values: number[], quantile: number) {

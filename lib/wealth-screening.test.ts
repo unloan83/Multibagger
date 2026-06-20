@@ -2,8 +2,11 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import {
   MIN_INTRADAY_POTENTIAL_PERCENT,
+  MIN_LONG_TERM_POTENTIAL_PERCENT,
   analyzeStockSignal,
   qualifiesForHighPotentialIntraday,
+  qualifiesForLongTermAccumulation,
+  qualifiesForPersistentDeclineSell,
 } from "@/lib/analysis";
 import {
   evaluateSafetyGates,
@@ -21,10 +24,17 @@ const bars = Array.from({ length: 220 }, (_, index) => ({
 }));
 
 const metrics: StockSignalMetrics = {
+  historyDays: 220,
   dayChangePercent: 1,
+  return5Percent: 3,
+  return20Percent: 8,
+  return60Percent: 16,
+  return120Percent: 24,
+  drawdownFrom60DayHighPercent: -2,
   volumeShock: 1.2,
   ema20: 120,
   ema50: 115,
+  ema200: 105,
   vwap: 119,
   vwapDistancePercent: 1,
   atr: 2,
@@ -35,6 +45,9 @@ const metrics: StockSignalMetrics = {
   riskScore: 8,
   finalScore: 72,
   intradayPotentialPercent: 0,
+  longTermPotentialPercent: 20,
+  persistentDeclineScore: 0,
+  expectedDownsidePercent: 0,
   target: 0,
   upsidePercent: 0,
   caveats: [],
@@ -255,4 +268,85 @@ test("abstains from lower-potential intraday recommendations across portfolios",
   };
 
   assert.deepEqual(generateRecommendations(portfolio).intraday, []);
+});
+
+function buildTrendBars(direction: "up" | "down") {
+  return Array.from({ length: 240 }, (_, index) => {
+    const close =
+      direction === "up"
+        ? 100 + index * 0.65
+        : 400 - index * 1.2;
+    return {
+      close,
+      high: close * 1.01,
+      low: close * 0.99,
+      volume: 2_000_000,
+    };
+  });
+}
+
+test("requires evidence-derived long-term potential before accumulation", () => {
+  const trendBars = buildTrendBars("up");
+  const signal = analyzeStockSignal({
+    symbol: "LONGTERM",
+    price: trendBars.at(-1)!.close,
+    previousClose: trendBars.at(-2)!.close,
+    volume: 3_000_000,
+    bars: trendBars,
+    profile: "long-term",
+  });
+
+  assert(signal.longTermPotentialPercent >= MIN_LONG_TERM_POTENTIAL_PERCENT);
+  assert(qualifiesForLongTermAccumulation(signal));
+  assert(!qualifiesForPersistentDeclineSell(signal));
+});
+
+test("issues sell only for persistent multi-period deterioration", () => {
+  const declineBars = buildTrendBars("down");
+  const signal = analyzeStockSignal({
+    symbol: "DECLINE",
+    price: declineBars.at(-1)!.close * 0.98,
+    previousClose: declineBars.at(-1)!.close,
+    volume: 3_000_000,
+    bars: declineBars,
+    profile: "long-term",
+  });
+
+  assert(signal.persistentDeclineScore >= 70);
+  assert(signal.expectedDownsidePercent >= 10);
+  assert(qualifiesForPersistentDeclineSell(signal));
+  assert(!qualifiesForLongTermAccumulation(signal));
+});
+
+test("does not convert a temporary dip or concentration into a sell", () => {
+  const trendBars = buildTrendBars("up");
+  const currentPrice = trendBars.at(-1)!.close * 0.97;
+  const portfolio: ManagedPortfolio = {
+    id: "concentrated-test",
+    name: "Concentrated Test",
+    appetite: "safe",
+    inputs: [],
+    positions: [
+      {
+        list: "current",
+        stock: "RECOVER",
+        symbol: "RECOVER",
+        company: "Recover Ltd.",
+        sector: "Industrials",
+        quantity: 100,
+        currentPrice,
+        previousClose: trendBars.at(-1)!.close,
+        volume: 3_000_000,
+        bars: trendBars,
+        currency: "INR",
+      },
+    ],
+  };
+  const recommendations = generateRecommendations(portfolio);
+
+  assert(
+    recommendations.longTermPlan.every(
+      (recommendation) => recommendation.action !== "Urgent Sell",
+    ),
+  );
 });

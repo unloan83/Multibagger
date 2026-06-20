@@ -212,8 +212,15 @@ async function buildPortfolioRows() {
     .sort((a, b) => b.changePercent + b.volumeShock - (a.changePercent + a.volumeShock))
     .slice(0, 5);
   const longTerm = [...current]
-    .map((quote) => addTarget(quote, "Portfolio Analysis"))
-    .sort((a, b) => b.upside - a.upside)
+    .map(classifyLongTermPortfolioQuote)
+    .filter((quote) => quote.action)
+    .sort((a, b) =>
+      a.action === b.action
+        ? b.signalStrength - a.signalStrength
+        : a.action === "Urgent Sell"
+          ? -1
+          : 1,
+    )
     .slice(0, 5);
 
   return [
@@ -223,7 +230,7 @@ async function buildPortfolioRows() {
         category: "portfolio-short-term",
         source: "portfolio-analysis",
         segment: "Short-Term Buy/Sell Analysis",
-        action: quote.changePercent < -2 ? "Urgent Sell" : "Accumulate",
+        action: quote.changePercent >= 0 ? "Track" : "Watchlist",
         portfolio: "public/portfolio.csv",
         notes: "Repo portfolio management signal from uploaded-format seed file",
       }),
@@ -234,9 +241,12 @@ async function buildPortfolioRows() {
         category: "portfolio-long-term",
         source: "portfolio-analysis",
         segment: "Long-Term Buy/Sell Plan",
-        action: quote.upside > 10 ? "Accumulate" : "Urgent Sell",
+        action: quote.action,
         portfolio: "public/portfolio.csv",
-        notes: "Repo portfolio management signal from uploaded-format seed file",
+        notes:
+          quote.action === "Urgent Sell"
+            ? `Persistent decline confirmed across 5, 20, 60 and 120 sessions with EMA50 below EMA200; decline score ${quote.persistentDeclineScore}/100`
+            : `High-conviction long-term trend; evidence-derived potential ${quote.longTermPotentialPercent.toFixed(1)}%`,
       }),
     ),
   ];
@@ -265,7 +275,7 @@ async function fetchQuote(symbol, fallbackName = symbol) {
   const response = await fetch(
     `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(
       `${normalizedSymbol}.NS`,
-    )}?range=1d&interval=1d`,
+    )}?range=1y&interval=1d`,
     { headers: { "User-Agent": "Mozilla/5.0" } },
   );
 
@@ -280,6 +290,15 @@ async function fetchQuote(symbol, fallbackName = symbol) {
   const changePercent =
     previousClose === 0 ? 0 : ((price - previousClose) / previousClose) * 100;
   const volume = meta?.regularMarketVolume ?? 0;
+  const chart = data.chart?.result?.[0]?.indicators?.quote?.[0];
+  const bars = (chart?.close ?? [])
+    .map((close, index) => ({
+      close: close ?? 0,
+      high: chart?.high?.[index] ?? close ?? 0,
+      low: chart?.low?.[index] ?? close ?? 0,
+      volume: chart?.volume?.[index] ?? 0,
+    }))
+    .filter((bar) => bar.close > 0);
 
   return {
     ...emptyQuote(normalizedSymbol, fallbackName),
@@ -289,6 +308,7 @@ async function fetchQuote(symbol, fallbackName = symbol) {
     changePercent,
     volume,
     volumeShock: buildVolumeShock(normalizedSymbol, volume, changePercent),
+    bars,
   };
 }
 
@@ -301,30 +321,110 @@ function emptyQuote(symbol, fallbackName) {
     changePercent: 0,
     volume: 0,
     volumeShock: 0,
+    bars: [],
     target: 0,
     upside: 0,
     quantity: 0,
   };
 }
 
-function addTarget(quote, segment) {
-  const [floor, ceiling] =
-    segment.includes("Small-Cap")
-      ? [1.15, 2.35]
-      : segment.includes("Mid-Cap")
-          ? [1.12, 1.32]
-          : [1.15, 1.45];
-  const multiplier = Math.min(
-    ceiling,
-    floor + quote.volumeShock * 0.08 + Math.max(quote.changePercent, 0) / 100,
+function classifyLongTermPortfolioQuote(quote) {
+  const closes = quote.bars.map((bar) => bar.close);
+  const ema20 = calculateEma(closes, 20) || quote.price;
+  const ema50 = calculateEma(closes, 50) || quote.price;
+  const ema200 = calculateEma(closes, 200) || quote.price;
+  const return5 = periodReturn(closes, quote.price, 5);
+  const return20 = periodReturn(closes, quote.price, 20);
+  const return60 = periodReturn(closes, quote.price, 60);
+  const return120 = periodReturn(closes, quote.price, 120);
+  const high60 = Math.max(0, ...quote.bars.slice(-60).map((bar) => bar.high));
+  const drawdown = high60 > 0 ? ((quote.price - high60) / high60) * 100 : 0;
+  const persistentDeclineScore = Math.min(
+    100,
+    (quote.price < ema20 ? 18 : 0) +
+      (ema20 < ema50 ? 20 : 0) +
+      (ema50 < ema200 ? 15 : 0) +
+      (return5 <= -2 ? 12 : 0) +
+      (return20 <= -8 ? 18 : 0) +
+      (return60 <= -12 ? 18 : 0) +
+      (return120 <= -18 ? 15 : 0) +
+      (drawdown <= -20 ? 12 : 0),
   );
-  const target = quote.price * multiplier;
+  const expectedDownsidePercent = Math.min(
+    35,
+    Math.max(0, -return5) * 0.3 +
+      Math.max(0, -return20) * 0.35 +
+      Math.max(0, -return60) * 0.15 +
+      Math.max(0, -return120) * 0.1 +
+      Math.max(0, -drawdown) * 0.2,
+  );
+  const longTermPotentialPercent = Math.max(
+    0,
+    Math.min(
+      60,
+      Math.max(0, return120) * 0.25 +
+        Math.max(0, return60) * 0.3 +
+        Math.max(0, return20) * 0.3 +
+        Math.max(0, return5) * 0.15 +
+        (quote.price >= ema20 && ema20 >= ema50 && ema50 >= ema200 ? 8 : 0) -
+        Math.abs(Math.min(0, drawdown)) * 0.1,
+    ),
+  );
+  const isPersistentSell =
+    closes.length >= 180 &&
+    persistentDeclineScore >= 80 &&
+    expectedDownsidePercent >= 10 &&
+    return5 < 0 &&
+    return20 <= -8 &&
+    return60 <= -12 &&
+    return120 <= -18 &&
+    ema20 < ema50 &&
+    ema50 < ema200;
+  const isLongTermBuy =
+    closes.length >= 180 &&
+    longTermPotentialPercent >= 15 &&
+    return20 > 0 &&
+    return60 >= 5 &&
+    return120 >= 10 &&
+    ema20 >= ema50 &&
+    ema50 >= ema200;
+  const action = isPersistentSell
+    ? "Urgent Sell"
+    : isLongTermBuy
+      ? "Accumulate"
+      : "";
+  const potential = isPersistentSell
+    ? -expectedDownsidePercent
+    : longTermPotentialPercent;
 
   return {
     ...quote,
-    target,
-    upside: quote.price === 0 ? 0 : ((target - quote.price) / quote.price) * 100,
+    action,
+    persistentDeclineScore,
+    longTermPotentialPercent,
+    signalStrength: isPersistentSell
+      ? persistentDeclineScore
+      : longTermPotentialPercent,
+    target: quote.price * (1 + potential / 100),
+    upside: potential,
   };
+}
+
+function calculateEma(values, period) {
+  if (!values.length) return 0;
+  const multiplier = 2 / (period + 1);
+  const seed =
+    values.slice(0, period).reduce((sum, value) => sum + value, 0) /
+    Math.min(period, values.length);
+  return values.slice(period).reduce(
+    (ema, value) => (value - ema) * multiplier + ema,
+    seed,
+  );
+}
+
+function periodReturn(values, price, periods) {
+  const base = values.at(-(periods + 1)) ?? 0;
+  return base > 0 && price > 0 ? ((price - base) / base) * 100 : 0;
 }
 
 function buildVolumeShock(symbol, volume, changePercent) {

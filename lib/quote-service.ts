@@ -159,7 +159,7 @@ async function fetchYahooQuote(symbol: string) {
 
   try {
     const response = await fetch(
-      `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(symbol)}?range=3mo&interval=1d`,
+      `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(symbol)}?range=1y&interval=1d`,
       {
         headers: {
           "User-Agent": "Mozilla/5.0",

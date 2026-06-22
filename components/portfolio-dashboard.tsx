@@ -1298,6 +1298,12 @@ type DecisionRecommendationRow = {
   consensusBadge?: "Strong Buy" | "Buy" | "Watchlist";
 };
 
+type RecommendationViewTab =
+  | "portfolio"
+  | "long-term"
+  | "intraday"
+  | "expert";
+
 function SimplifiedPortfolioView({
   portfolio,
   history,
@@ -1318,10 +1324,56 @@ function SimplifiedPortfolioView({
   onPortfolioPinChanged: (pinHash: string, updatedAt: string) => void;
 }) {
   const [activePanel, setActivePanel] = useState<PortfolioActionPanel | null>(null);
+  const [activeRecommendationTab, setActiveRecommendationTab] =
+    useState<RecommendationViewTab>("portfolio");
   const sections = useMemo(
     () => buildSimplifiedPortfolioSections(portfolio, history, expertMatrix),
     [expertMatrix, history, portfolio],
   );
+  const recommendationTabs: Array<{
+    id: RecommendationViewTab;
+    label: string;
+    title: string;
+    subtitle: string;
+    rows: DecisionRecommendationRow[];
+    emptyText: string;
+  }> = [
+    {
+      id: "portfolio",
+      label: "Portfolio",
+      title: "Portfolio Recommendations",
+      subtitle: "Evidence-gated buy and persistent-decline sell signals for this portfolio.",
+      rows: sections.portfolio,
+      emptyText: "No portfolio recommendation currently clears the display threshold.",
+    },
+    {
+      id: "long-term",
+      label: "Long Term",
+      title: "Long Term Opportunities",
+      subtitle: "High-conviction opportunities supported by long-horizon trend evidence.",
+      rows: sections.longTerm,
+      emptyText: "No long-term opportunity currently clears the evidence threshold.",
+    },
+    {
+      id: "intraday",
+      label: "Intraday",
+      title: "Intraday Opportunities",
+      subtitle: "High-momentum opportunities with at least 10% modeled intraday potential.",
+      rows: sections.intraday,
+      emptyText: "No intraday opportunity currently clears the 10% potential threshold.",
+    },
+    {
+      id: "expert",
+      label: "Expert Recommendations",
+      title: "Expert Recommendations",
+      subtitle: "Highest-confidence consensus signals from the expert recommendation matrix.",
+      rows: sections.consensus,
+      emptyText: "Expert recommendations are loading.",
+    },
+  ];
+  const activeRecommendation =
+    recommendationTabs.find((tab) => tab.id === activeRecommendationTab) ??
+    recommendationTabs[0];
   const panelButtons: Array<{
     id: PortfolioActionPanel;
     title: string;
@@ -1440,34 +1492,42 @@ function SimplifiedPortfolioView({
         </div>
       </section>
 
-      <section className="grid gap-4 xl:grid-cols-2">
+      <section className="min-w-0 space-y-3">
+        <div
+          className="flex max-w-full gap-2 overflow-x-auto rounded-2xl border border-white/10 bg-[#101D30] p-2 shadow-xl [scrollbar-width:none] [&::-webkit-scrollbar]:hidden md:grid md:grid-cols-4"
+          role="tablist"
+          aria-label="Recommendation categories"
+        >
+          {recommendationTabs.map((tab) => {
+            const isActive = activeRecommendationTab === tab.id;
+            return (
+              <button
+                key={tab.id}
+                type="button"
+                role="tab"
+                aria-selected={isActive}
+                aria-controls={`recommendation-panel-${tab.id}`}
+                onClick={() => setActiveRecommendationTab(tab.id)}
+                className={cn(
+                  "min-h-11 shrink-0 rounded-xl border px-4 py-2.5 text-sm font-semibold transition md:w-full",
+                  isActive
+                    ? "border-cyan-200/50 bg-cyan-300 text-slate-950 shadow-lg shadow-cyan-950/20"
+                    : "border-white/10 bg-[#16263D] text-slate-300 hover:border-cyan-300/40 hover:text-white",
+                )}
+              >
+                {tab.label}
+              </button>
+            );
+          })}
+        </div>
+
         <DecisionRecommendationTable
-          className="xl:col-span-2"
-          title="Portfolio Recommendations"
-          subtitle="Best Buy or Sell Opportunities · 3–6 Months / 6–12 Months"
-          rows={sections.portfolio}
-          emptyText="No portfolio recommendation currently clears the display threshold."
-        />
-        <DecisionRecommendationTable
-          className="xl:col-span-2"
-          title="Long Term Opportunities"
-          subtitle="Mid-cap and small-cap opportunities prioritized for 3–12 month horizons."
-          rows={sections.longTerm}
-          emptyText="Long-term opportunities are loading."
-        />
-        <DecisionRecommendationTable
-          className="xl:col-span-2"
-          title="Expert Consensus Picks"
-          subtitle="Stocks receiving the highest number of positive mentions from trusted market experts, research houses and financial platforms."
-          rows={sections.consensus}
-          emptyText="Expert consensus picks are loading."
-        />
-        <DecisionRecommendationTable
-          className="xl:col-span-2"
-          title="Intraday Opportunities"
-          subtitle="High-momentum mid-cap and small-cap opportunities."
-          rows={sections.intraday}
-          emptyText="Intraday opportunities are loading."
+          key={activeRecommendation.id}
+          id={`recommendation-panel-${activeRecommendation.id}`}
+          title={activeRecommendation.title}
+          subtitle={activeRecommendation.subtitle}
+          rows={activeRecommendation.rows}
+          emptyText={activeRecommendation.emptyText}
         />
       </section>
 
@@ -1501,32 +1561,58 @@ function SimplifiedPortfolioView({
 
 function DecisionRecommendationTable({
   className,
+  id,
   title,
   subtitle,
   rows,
   emptyText,
 }: {
   className?: string;
+  id?: string;
   title: string;
   subtitle: string;
   rows: DecisionRecommendationRow[];
   emptyText: string;
 }) {
   return (
-    <section className={cn("min-w-0 space-y-3 rounded-2xl border border-white/10 bg-[#101D30] p-4 shadow-xl sm:p-5", className)}>
+    <section
+      id={id}
+      role="tabpanel"
+      className={cn("min-w-0 space-y-3 rounded-2xl border border-white/10 bg-[#101D30] p-3 shadow-xl sm:p-5", className)}
+    >
       <SectionTitle title={title} subtitle={subtitle} badge="CALCULATED" accent="blue" />
       <div className="space-y-3 md:hidden">
         {rows.map((row) => (
-          <article key={`${title}-mobile-${row.symbol}-${row.type}`} className="rounded-xl border border-white/10 bg-[#16263D] p-4">
-            <div className="flex items-start justify-between gap-3">
-              <RecommendationStockLabel row={row} />
-              <RecommendationActionBadge action={row.action} />
+          <article
+            key={`${title}-mobile-${row.symbol}-${row.type}`}
+            className="rounded-xl border border-white/10 bg-[#16263D] px-4 py-3.5 shadow-md"
+          >
+            <div className="flex items-start justify-between gap-4">
+              <div className="min-w-0">
+                <div className="truncate font-semibold text-white">
+                  {row.company || row.symbol}
+                </div>
+                <div className="mt-1 text-[11px] text-slate-400">
+                  {row.symbol} · {row.horizon}
+                </div>
+              </div>
+              <div className="shrink-0 text-right">
+                <div className="font-semibold text-white">
+                  {formatDecisionPrice(row.cmp)}
+                </div>
+                <div className="mt-1 text-[11px] text-slate-400">
+                  Target {formatDecisionPrice(row.target)}
+                </div>
+              </div>
             </div>
-            <div className="mt-3 grid grid-cols-2 gap-2">
-              <CompactMetric label="CMP" value={formatDecisionPrice(row.cmp)} />
-              <CompactMetric label="Target" value={formatDecisionPrice(row.target)} />
-              <CompactMetric label="Stop Loss" value={formatDecisionPrice(row.stopLoss)} />
-              <CompactMetric label="Horizon" value={row.horizon} />
+            <div className="mt-3 flex items-center justify-between gap-3 border-t border-white/10 pt-3">
+              <RecommendationActionBadge action={row.action} />
+              <div className="text-right text-[11px] text-slate-400">
+                <span>Confidence {row.confidence}%</span>
+                {row.stopLoss > 0 ? (
+                  <span className="ml-3">Stop {formatDecisionPrice(row.stopLoss)}</span>
+                ) : null}
+              </div>
             </div>
           </article>
         ))}

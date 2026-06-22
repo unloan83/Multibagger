@@ -2,7 +2,7 @@
   "title": "Multi-Factor Wealth Discovery Matrix",
   "verified": "NSE price trend, sector-relative strength, revenue and earnings growth, profitability, leverage, valuation, liquidity, news catalysts and risk",
   "source": "Expanded thematic NSE screening universe with Yahoo market/fundamental feeds and outcome-learning history",
-  "asOf": "2026-06-22T10:16:35.542Z",
+  "asOf": "2026-06-22T15:36:53.546Z",
   "refreshCycle": "Technical and catalyst signals refresh intraday; fundamental factors are cached for six hours.",
   "caveat": "Research screening only—not a guarantee of returns. Verify exchange filings, valuation, governance, liquidity, and position sizing before investing.",
   "universeSize": 500,
@@ -260,7 +260,6 @@
           "caveats": [
             "Model output is a screening signal, not financial advice. Validate fundamentals, news, liquidity, and risk before trading.",
             "Volume confirmation is weak, so breakout reliability is lower.",
-            "No verified company-specific news catalyst is included; review current exchange filings manually.",
             "Governance, promoter pledging, auditor qualifications, contingent liabilities and cash-flow quality require manual filing review."
           ],
           "metrics": {
@@ -324,7 +323,7 @@
           "dataQuality": 100,
           "fundamentalAsOf": "2026-03-31",
           "averageDailyTurnoverCr": 389.83387604112306,
-          "catalystSummary": "No verified company-specific catalyst is included in the score."
+          "catalystSummary": "Amid Rising Global Economic Pressures, New Report Spotlights the Greenbelt’s Key Role in Provincial Prosperity"
         },
         {
           "symbol": "CUMMINSIND",
@@ -588,6 +587,7 @@
             "Decision score is below the 70/100 regime-adjusted threshold.",
             "Model output is a screening signal, not financial advice. Validate fundamentals, news, liquidity, and risk before trading.",
             "Debt-to-equity is elevated at 355.",
+            "No verified company-specific news catalyst is included; review current exchange filings manually.",
             "Governance, promoter pledging, auditor qualifications, contingent liabilities and cash-flow quality require manual filing review."
           ],
           "metrics": {
@@ -650,7 +650,7 @@
           "dataQuality": 100,
           "fundamentalAsOf": "2026-03-31",
           "averageDailyTurnoverCr": 175.5781498227417,
-          "catalystSummary": "Form 8.5 (EPT/RI)- Gamma Communications Plc"
+          "catalystSummary": "No verified company-specific catalyst is included in the score."
         }
       ]
     },

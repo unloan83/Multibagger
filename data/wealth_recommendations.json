@@ -2,7 +2,7 @@
   "title": "Multi-Factor Wealth Discovery Matrix",
   "verified": "NSE price trend, sector-relative strength, revenue and earnings growth, profitability, leverage, valuation, liquidity, news catalysts and risk",
   "source": "Expanded thematic NSE screening universe with Yahoo market/fundamental feeds and outcome-learning history",
-  "asOf": "2026-06-22T15:36:53.546Z",
+  "asOf": "2026-06-22T16:59:27.070Z",
   "refreshCycle": "Technical and catalyst signals refresh intraday; fundamental factors are cached for six hours.",
   "caveat": "Research screening only—not a guarantee of returns. Verify exchange filings, valuation, governance, liquidity, and position sizing before investing.",
   "universeSize": 500,
@@ -63,6 +63,7 @@
   "methodology": [
     "Uniform benchmark-relative screening; no example stock receives a score adjustment or guaranteed inclusion.",
     "Mandatory gates cover data freshness, positive TTM earnings, revenue direction, ROE, leverage, valuation, liquidity, trend, price extension and market regime.",
+    "News sentiment, government policy, sector direction, expert consensus and learning feedback are capped context adjustments; they cannot bypass a failed safety gate.",
     "The engine abstains when evidence is incomplete or no stock clears every safety gate; non-selected names retain exclusion diagnostics."
   ],
   "exclusionDiagnostics": [
@@ -75,20 +76,32 @@
     {
       "symbol": "ANTHEM",
       "name": "ANTHEM BIOSCIENCES LTD",
+      "score": 79,
+      "reason": "Evidence-derived long-term potential is below the 15% entry hurdle."
+    },
+    {
+      "symbol": "RAINBOW",
+      "name": "Rainbow Children's Medicare Limited",
       "score": 77,
       "reason": "Evidence-derived long-term potential is below the 15% entry hurdle."
     },
     {
       "symbol": "INDHOTEL",
       "name": "The Indian Hotels Company Limited",
-      "score": 76,
+      "score": 77,
       "reason": "Evidence-derived long-term potential is below the 15% entry hurdle."
     },
     {
-      "symbol": "RAINBOW",
-      "name": "Rainbow Children's Medicare Limited",
-      "score": 75,
+      "symbol": "HAL",
+      "name": "Hindustan Aeronautics Limited",
+      "score": 77,
       "reason": "Evidence-derived long-term potential is below the 15% entry hurdle."
+    },
+    {
+      "symbol": "EICHERMOT",
+      "name": "Eicher Motors Limited",
+      "score": 75,
+      "reason": "Wealth score 75/100 ranked below stronger candidates in its market-cap group."
     },
     {
       "symbol": "AFFLE",
@@ -103,57 +116,47 @@
       "reason": "Evidence-derived long-term potential is below the 15% entry hurdle."
     },
     {
-      "symbol": "HAL",
-      "name": "Hindustan Aeronautics Limited",
-      "score": 75,
-      "reason": "Evidence-derived long-term potential is below the 15% entry hurdle."
-    },
-    {
-      "symbol": "EICHERMOT",
-      "name": "Eicher Motors Limited",
+      "symbol": "BELRISE",
+      "name": "BELRISE INDUSTRIES LTD",
       "score": 74,
       "reason": "Wealth score 74/100 ranked below stronger candidates in its market-cap group."
     },
     {
-      "symbol": "BELRISE",
-      "name": "BELRISE INDUSTRIES LTD",
-      "score": 73,
-      "reason": "Wealth score 73/100 ranked below stronger candidates in its market-cap group."
-    },
-    {
       "symbol": "MINDACORP",
       "name": "Minda Corporation Limited",
-      "score": 73,
-      "reason": "Wealth score 73/100 ranked below stronger candidates in its market-cap group."
-    },
-    {
-      "symbol": "EMCURE",
-      "name": "EMCURE PHARMACEUTICALS L",
-      "score": 72,
-      "reason": "Wealth score 72/100 ranked below stronger candidates in its market-cap group."
+      "score": 74,
+      "reason": "Wealth score 74/100 ranked below stronger candidates in its market-cap group."
     },
     {
       "symbol": "SYRMA",
       "name": "Syrma SGS Technology Limited",
-      "score": 72,
-      "reason": "Wealth score 72/100 ranked below stronger candidates in its market-cap group."
+      "score": 74,
+      "reason": "Wealth score 74/100 ranked below stronger candidates in its market-cap group."
+    },
+    {
+      "symbol": "FORTIS",
+      "name": "Fortis Healthcare Limited",
+      "score": 73,
+      "reason": "Wealth score 73/100 ranked below stronger candidates in its market-cap group."
     }
   ],
   "consecutivePicks": [
     {
-      "symbol": "CUMMINSIND",
-      "name": "CUMMINS INDIA LTD",
+      "symbol": "POLYCAB",
+      "name": "Polycab India Limited",
       "appearances": 2,
       "categories": [
-        "Mid-Cap Momentum"
+        "Mid-Cap Momentum",
+        "Large-Cap Quality Compounders"
       ]
     },
     {
-      "symbol": "POLYCAB",
-      "name": "POLYCAB INDIA LIMITED",
+      "symbol": "CUMMINSIND",
+      "name": "Cummins India Limited",
       "appearances": 2,
       "categories": [
-        "Mid-Cap Momentum"
+        "Mid-Cap Momentum",
+        "Large-Cap Quality Compounders"
       ]
     }
   ],
@@ -172,9 +175,9 @@
           "volumeShock": 0.59,
           "target": 0,
           "upside": 0,
-          "score": 81,
+          "score": 83,
           "action": "Accumulate",
-          "remark": "Score 91/100 | EMA20 9,611.29 vs EMA50 9,079.87 | VWAP gap +31.00% | ATR risk +2.12% | Volume shock 0.59x | daily review. Decision score 81/100 | Industry theme: Capital Goods. Latest annual revenue growth +28.3% and earnings growth +32.3%. ROE +22.3%, margin +9.5%, debt/equity 37. Evidence-derived long-term potential 40.2%; minimum hurdle 15%.",
+          "remark": "Score 91/100 | EMA20 9,611.29 vs EMA50 9,079.87 | VWAP gap +31.00% | ATR risk +2.12% | Volume shock 0.59x | daily review. Decision score 83/100 | Industry theme: Capital Goods. Latest annual revenue growth +28.3% and earnings growth +32.3%. ROE +22.3%, margin +9.5%, debt/equity 37. Evidence-derived long-term potential 40.2%; minimum hurdle 15%.",
           "caveats": [
             "Model output is a screening signal, not financial advice. Validate fundamentals, news, liquidity, and risk before trading.",
             "Volume confirmation is weak, so breakout reliability is lower.",
@@ -223,11 +226,16 @@
             "quality": 19,
             "sectorStrength": 10,
             "valuation": 4,
-            "catalyst": 0,
+            "catalyst": 5,
             "liquidity": 10,
             "dataQuality": 100,
             "risk": 10,
-            "total": 81
+            "portfolioFit": 2.5,
+            "newsSentiment": 4,
+            "governmentPolicy": 2.5,
+            "expertConsensus": 0,
+            "learningFeedback": 3.5,
+            "total": 83
           },
           "reasons": [
             "Industry theme: Capital Goods.",
@@ -236,13 +244,68 @@
             "Operating cash conversion 1.43x reported earnings; positive growth years 2/3 revenue and 2/3 earnings.",
             "Sector-relative return +28.9% with EMA20 above EMA50.",
             "Average daily traded value approximately INR 265.5 Cr.",
-            "Market regime: Risk-On."
+            "Market regime: Risk-On.",
+            "Strong Sector: Capital Goods scored 80/100.",
+            "News sentiment neutral (0/10).",
+            "Government policy impact neutral (0/10).",
+            "Expert focus count 0.",
+            "Learning adjustment +0.0 points."
           ],
           "marketCapCr": 151773.9955198,
           "dataQuality": 100,
           "fundamentalAsOf": "2026-03-31",
           "averageDailyTurnoverCr": 265.5413416925,
-          "catalystSummary": "No verified company-specific catalyst is included in the score."
+          "catalystSummary": "No verified company-specific catalyst is included in the score.",
+          "intelligence": {
+            "baseScore": 81,
+            "contextAdjustment": 2.4,
+            "finalScore": 83,
+            "sentimentScore": 0,
+            "sentiment": "Neutral",
+            "sectorPolicyScore": 0,
+            "sectorDirectionScore": 80,
+            "sectorDirectionLabel": "Strong Sector",
+            "sectorDirection": {
+              "sector": "Capital Goods",
+              "score": 80,
+              "return20Percent": 6.779744873629214,
+              "return60Percent": 28.224307085696555,
+              "trendBreadthPercent": 68.25396825396825,
+              "newsSentimentScore": 0,
+              "policyScore": 0,
+              "rank": 4,
+              "label": "Strong Sector"
+            },
+            "expertFocusCount": 0,
+            "learningAdjustment": 0,
+            "factorWeights": {
+              "technicalStrength": 25,
+              "fundamentalStrength": 30,
+              "portfolioFit": 5,
+              "sectorMomentum": 15,
+              "newsSentiment": 8,
+              "governmentPolicy": 5,
+              "expertConsensus": 5,
+              "learningFeedback": 7
+            },
+            "contributions": {
+              "technicalStrength": 20.8,
+              "fundamentalStrength": 22.8,
+              "portfolioFit": 2.5,
+              "sectorMomentum": 12,
+              "newsSentiment": 4,
+              "governmentPolicy": 2.5,
+              "expertConsensus": 0,
+              "learningFeedback": 3.5
+            },
+            "reasons": [
+              "Strong Sector: Capital Goods scored 80/100.",
+              "News sentiment neutral (0/10).",
+              "Government policy impact neutral (0/10).",
+              "Expert focus count 0.",
+              "Learning adjustment +0.0 points."
+            ]
+          }
         },
         {
           "symbol": "ADANIPORTS",
@@ -254,12 +317,13 @@
           "volumeShock": 0.7,
           "target": 0,
           "upside": 0,
-          "score": 79,
+          "score": 81,
           "action": "Accumulate",
-          "remark": "Score 94/100 | EMA20 1,806.75 vs EMA50 1,731.25 | VWAP gap +21.57% | ATR risk +2.03% | Volume shock 0.70x | daily review. Decision score 79/100 | Industry theme: Services. Latest annual revenue growth +27.1% and earnings growth +15.5%. ROE +13.3%, margin +33.1%, debt/equity 66. Evidence-derived long-term potential 34.6%; minimum hurdle 15%.",
+          "remark": "Score 94/100 | EMA20 1,806.75 vs EMA50 1,731.25 | VWAP gap +21.57% | ATR risk +2.03% | Volume shock 0.70x | daily review. Decision score 81/100 | Industry theme: Services. Latest annual revenue growth +27.1% and earnings growth +15.5%. ROE +13.3%, margin +33.1%, debt/equity 66. Evidence-derived long-term potential 34.6%; minimum hurdle 15%.",
           "caveats": [
             "Model output is a screening signal, not financial advice. Validate fundamentals, news, liquidity, and risk before trading.",
             "Volume confirmation is weak, so breakout reliability is lower.",
+            "No verified company-specific news catalyst is included; review current exchange filings manually.",
             "Governance, promoter pledging, auditor qualifications, contingent liabilities and cash-flow quality require manual filing review."
           ],
           "metrics": {
@@ -304,11 +368,16 @@
             "quality": 17,
             "sectorStrength": 10,
             "valuation": 8,
-            "catalyst": 0,
+            "catalyst": 5,
             "liquidity": 10,
             "dataQuality": 100,
             "risk": 10,
-            "total": 79
+            "portfolioFit": 2.5,
+            "newsSentiment": 4,
+            "governmentPolicy": 2.5,
+            "expertConsensus": 0,
+            "learningFeedback": 3.5,
+            "total": 81
           },
           "reasons": [
             "Industry theme: Services.",
@@ -317,13 +386,68 @@
             "Operating cash conversion 1.59x reported earnings; positive growth years 2/3 revenue and 2/3 earnings.",
             "Sector-relative return +21.4% with EMA20 above EMA50.",
             "Average daily traded value approximately INR 389.8 Cr.",
-            "Market regime: Risk-On."
+            "Market regime: Risk-On.",
+            "Strong Sector: Services scored 70/100.",
+            "News sentiment neutral (0/10).",
+            "Government policy impact neutral (0/10).",
+            "Expert focus count 0.",
+            "Learning adjustment +0.0 points."
           ],
           "marketCapCr": 422788.0142784,
           "dataQuality": 100,
           "fundamentalAsOf": "2026-03-31",
           "averageDailyTurnoverCr": 389.83387604112306,
-          "catalystSummary": "Amid Rising Global Economic Pressures, New Report Spotlights the Greenbelt’s Key Role in Provincial Prosperity"
+          "catalystSummary": "No verified company-specific catalyst is included in the score.",
+          "intelligence": {
+            "baseScore": 79,
+            "contextAdjustment": 1.6,
+            "finalScore": 81,
+            "sentimentScore": 0,
+            "sentiment": "Neutral",
+            "sectorPolicyScore": 0,
+            "sectorDirectionScore": 70,
+            "sectorDirectionLabel": "Strong Sector",
+            "sectorDirection": {
+              "sector": "Services",
+              "score": 70,
+              "return20Percent": 3.6179900660481477,
+              "return60Percent": 16.47884094979374,
+              "trendBreadthPercent": 71.42857142857143,
+              "newsSentimentScore": 0,
+              "policyScore": 0,
+              "rank": 6,
+              "label": "Strong Sector"
+            },
+            "expertFocusCount": 0,
+            "learningAdjustment": 0,
+            "factorWeights": {
+              "technicalStrength": 25,
+              "fundamentalStrength": 30,
+              "portfolioFit": 5,
+              "sectorMomentum": 15,
+              "newsSentiment": 8,
+              "governmentPolicy": 5,
+              "expertConsensus": 5,
+              "learningFeedback": 7
+            },
+            "contributions": {
+              "technicalStrength": 20.8,
+              "fundamentalStrength": 21.9,
+              "portfolioFit": 2.5,
+              "sectorMomentum": 10.5,
+              "newsSentiment": 4,
+              "governmentPolicy": 2.5,
+              "expertConsensus": 0,
+              "learningFeedback": 3.5
+            },
+            "reasons": [
+              "Strong Sector: Services scored 70/100.",
+              "News sentiment neutral (0/10).",
+              "Government policy impact neutral (0/10).",
+              "Expert focus count 0.",
+              "Learning adjustment +0.0 points."
+            ]
+          }
         },
         {
           "symbol": "CUMMINSIND",
@@ -335,9 +459,9 @@
           "volumeShock": 1.12,
           "target": 0,
           "upside": 0,
-          "score": 74,
+          "score": 76,
           "action": "Accumulate",
-          "remark": "Score 90/100 | EMA20 5,684.53 vs EMA50 5,442.72 | VWAP gap +30.36% | ATR risk +2.47% | Volume shock 1.12x | daily review. Decision score 74/100 | Industry theme: Capital Goods. Latest annual revenue growth +16.9% and earnings growth +18.1%. ROE +27.9%, margin +19.8%, debt/equity 0. Evidence-derived long-term potential 33.9%; minimum hurdle 15%.",
+          "remark": "Score 90/100 | EMA20 5,684.53 vs EMA50 5,442.72 | VWAP gap +30.36% | ATR risk +2.47% | Volume shock 1.12x | daily review. Decision score 76/100 | Industry theme: Capital Goods. Latest annual revenue growth +16.9% and earnings growth +18.1%. ROE +27.9%, margin +19.8%, debt/equity 0. Evidence-derived long-term potential 33.9%; minimum hurdle 15%.",
           "caveats": [
             "Model output is a screening signal, not financial advice. Validate fundamentals, news, liquidity, and risk before trading.",
             "Valuation is elevated at approximately 68.8x trailing earnings.",
@@ -385,11 +509,16 @@
             "quality": 20,
             "sectorStrength": 8,
             "valuation": 4,
-            "catalyst": 0,
+            "catalyst": 5,
             "liquidity": 10,
             "dataQuality": 100,
             "risk": 8,
-            "total": 74
+            "portfolioFit": 2.5,
+            "newsSentiment": 4,
+            "governmentPolicy": 2.5,
+            "expertConsensus": 0,
+            "learningFeedback": 3.5,
+            "total": 76
           },
           "reasons": [
             "Industry theme: Capital Goods.",
@@ -398,13 +527,208 @@
             "Operating cash conversion 0.73x reported earnings; positive growth years 2/3 revenue and 2/3 earnings.",
             "Sector-relative return +10.2% with EMA20 above EMA50.",
             "Average daily traded value approximately INR 306.7 Cr.",
-            "Market regime: Risk-On."
+            "Market regime: Risk-On.",
+            "Strong Sector: Capital Goods scored 80/100.",
+            "News sentiment neutral (0/10).",
+            "Government policy impact neutral (0/10).",
+            "Expert focus count 0.",
+            "Learning adjustment +0.0 points."
           ],
           "marketCapCr": 162435.042,
           "dataQuality": 100,
           "fundamentalAsOf": "2026-03-31",
           "averageDailyTurnoverCr": 306.6985735425,
-          "catalystSummary": "No verified company-specific catalyst is included in the score."
+          "catalystSummary": "No verified company-specific catalyst is included in the score.",
+          "intelligence": {
+            "baseScore": 74,
+            "contextAdjustment": 2.4,
+            "finalScore": 76,
+            "sentimentScore": 0,
+            "sentiment": "Neutral",
+            "sectorPolicyScore": 0,
+            "sectorDirectionScore": 80,
+            "sectorDirectionLabel": "Strong Sector",
+            "sectorDirection": {
+              "sector": "Capital Goods",
+              "score": 80,
+              "return20Percent": 6.779744873629214,
+              "return60Percent": 28.224307085696555,
+              "trendBreadthPercent": 68.25396825396825,
+              "newsSentimentScore": 0,
+              "policyScore": 0,
+              "rank": 4,
+              "label": "Strong Sector"
+            },
+            "expertFocusCount": 0,
+            "learningAdjustment": 0,
+            "factorWeights": {
+              "technicalStrength": 25,
+              "fundamentalStrength": 30,
+              "portfolioFit": 5,
+              "sectorMomentum": 15,
+              "newsSentiment": 8,
+              "governmentPolicy": 5,
+              "expertConsensus": 5,
+              "learningFeedback": 7
+            },
+            "contributions": {
+              "technicalStrength": 20,
+              "fundamentalStrength": 20.7,
+              "portfolioFit": 2.5,
+              "sectorMomentum": 12,
+              "newsSentiment": 4,
+              "governmentPolicy": 2.5,
+              "expertConsensus": 0,
+              "learningFeedback": 3.5
+            },
+            "reasons": [
+              "Strong Sector: Capital Goods scored 80/100.",
+              "News sentiment neutral (0/10).",
+              "Government policy impact neutral (0/10).",
+              "Expert focus count 0.",
+              "Learning adjustment +0.0 points."
+            ]
+          }
+        },
+        {
+          "symbol": "KEI",
+          "name": "KEI Industries Limited",
+          "price": 5660.5,
+          "previousClose": 5631,
+          "changePercent": 0.5238856331024685,
+          "volume": 210697,
+          "volumeShock": 0.86,
+          "target": 0,
+          "upside": 0,
+          "score": 76,
+          "action": "Accumulate",
+          "remark": "Score 97/100 | EMA20 5,380.38 vs EMA50 5,137.13 | VWAP gap +29.15% | ATR risk +2.91% | Volume shock 0.86x | daily review. Decision score 76/100 | Industry theme: Capital Goods. Latest annual revenue growth +20.7% and earnings growth +31.9%. ROE +13.8%, margin +7.8%, debt/equity 4. Evidence-derived long-term potential 39.8%; minimum hurdle 15%.",
+          "caveats": [
+            "Model output is a screening signal, not financial advice. Validate fundamentals, news, liquidity, and risk before trading.",
+            "No verified company-specific news catalyst is included; review current exchange filings manually.",
+            "Governance, promoter pledging, auditor qualifications, contingent liabilities and cash-flow quality require manual filing review."
+          ],
+          "metrics": {
+            "historyDays": 249,
+            "dayChangePercent": 0.5238856331024685,
+            "return5Percent": 3.6626682538229103,
+            "return20Percent": 7.175991669033419,
+            "return60Percent": 37.190984003877844,
+            "return120Percent": 29.608007660629205,
+            "drawdownFrom60DayHighPercent": -0.4484699261343651,
+            "volumeShock": 0.86,
+            "ema20": 5380.375011781804,
+            "ema50": 5137.12596230463,
+            "ema200": 4551.512336671128,
+            "vwap": 4382.959970561931,
+            "vwapDistancePercent": 29.147882664195947,
+            "atr": 164.67857142857142,
+            "atrPercent": 2.9092583946395445,
+            "trendScore": 30,
+            "momentumScore": 12.791085064819747,
+            "liquidityScore": 31.941962479151606,
+            "riskScore": 0,
+            "finalScore": 97,
+            "intradayPotentialPercent": 4.51,
+            "longTermPotentialPercent": 39.77,
+            "persistentDeclineScore": 0,
+            "expectedDownsidePercent": 0,
+            "target": 7911.68085,
+            "upsidePercent": 39.769999999999996,
+            "caveats": [
+              "Model output is a screening signal, not financial advice. Validate fundamentals, news, liquidity, and risk before trading.",
+              "Price is extended from VWAP; avoid chasing without confirmation."
+            ]
+          },
+          "theme": "Capital Goods",
+          "sector": "Capital Goods",
+          "factorScores": {
+            "fundamentals": 12,
+            "growth": 19,
+            "momentum": 9,
+            "quality": 12,
+            "sectorStrength": 10,
+            "valuation": 4,
+            "catalyst": 5,
+            "liquidity": 10,
+            "dataQuality": 100,
+            "risk": 10,
+            "portfolioFit": 2.5,
+            "newsSentiment": 4,
+            "governmentPolicy": 2.5,
+            "expertConsensus": 0,
+            "learningFeedback": 3.5,
+            "total": 76
+          },
+          "reasons": [
+            "Industry theme: Capital Goods.",
+            "Latest annual revenue growth +20.7% and earnings growth +31.9%.",
+            "ROE +13.8%, margin +7.8%, debt/equity 4.",
+            "Operating cash conversion 0.91x reported earnings; positive growth years 2/3 revenue and 2/3 earnings.",
+            "Sector-relative return +23.5% with EMA20 above EMA50.",
+            "Average daily traded value approximately INR 125.1 Cr.",
+            "Market regime: Risk-On.",
+            "Strong Sector: Capital Goods scored 80/100.",
+            "News sentiment neutral (0/10).",
+            "Government policy impact neutral (0/10).",
+            "Expert focus count 0.",
+            "Learning adjustment +0.0 points."
+          ],
+          "marketCapCr": 53840.821095,
+          "dataQuality": 100,
+          "fundamentalAsOf": "2026-03-31",
+          "averageDailyTurnoverCr": 125.1021155886621,
+          "catalystSummary": "No verified company-specific catalyst is included in the score.",
+          "intelligence": {
+            "baseScore": 74,
+            "contextAdjustment": 2.4,
+            "finalScore": 76,
+            "sentimentScore": 0,
+            "sentiment": "Neutral",
+            "sectorPolicyScore": 0,
+            "sectorDirectionScore": 80,
+            "sectorDirectionLabel": "Strong Sector",
+            "sectorDirection": {
+              "sector": "Capital Goods",
+              "score": 80,
+              "return20Percent": 6.779744873629214,
+              "return60Percent": 28.224307085696555,
+              "trendBreadthPercent": 68.25396825396825,
+              "newsSentimentScore": 0,
+              "policyScore": 0,
+              "rank": 4,
+              "label": "Strong Sector"
+            },
+            "expertFocusCount": 0,
+            "learningAdjustment": 0,
+            "factorWeights": {
+              "technicalStrength": 25,
+              "fundamentalStrength": 30,
+              "portfolioFit": 5,
+              "sectorMomentum": 15,
+              "newsSentiment": 8,
+              "governmentPolicy": 5,
+              "expertConsensus": 5,
+              "learningFeedback": 7
+            },
+            "contributions": {
+              "technicalStrength": 20.8,
+              "fundamentalStrength": 19.2,
+              "portfolioFit": 2.5,
+              "sectorMomentum": 12,
+              "newsSentiment": 4,
+              "governmentPolicy": 2.5,
+              "expertConsensus": 0,
+              "learningFeedback": 3.5
+            },
+            "reasons": [
+              "Strong Sector: Capital Goods scored 80/100.",
+              "News sentiment neutral (0/10).",
+              "Government policy impact neutral (0/10).",
+              "Expert focus count 0.",
+              "Learning adjustment +0.0 points."
+            ]
+          }
         },
         {
           "symbol": "OFSS",
@@ -464,10 +788,15 @@
             "quality": 20,
             "sectorStrength": 10,
             "valuation": 4,
-            "catalyst": 0,
+            "catalyst": 5,
             "liquidity": 10,
             "dataQuality": 100,
             "risk": 10,
+            "portfolioFit": 2.5,
+            "newsSentiment": 4,
+            "governmentPolicy": 2.5,
+            "expertConsensus": 0,
+            "learningFeedback": 3.5,
             "total": 75
           },
           "reasons": [
@@ -477,93 +806,68 @@
             "Operating cash conversion 1.00x reported earnings; positive growth years 2/3 revenue and 2/3 earnings.",
             "Sector-relative return +52.7% with EMA20 above EMA50.",
             "Average daily traded value approximately INR 257.8 Cr.",
-            "Market regime: Risk-On."
+            "Market regime: Risk-On.",
+            "Neutral Sector: Information Technology scored 52/100.",
+            "News sentiment neutral (0/10).",
+            "Government policy impact neutral (0/10).",
+            "Expert focus count 0.",
+            "Learning adjustment +0.0 points."
           ],
           "marketCapCr": 84023.3080529,
           "dataQuality": 100,
           "fundamentalAsOf": "2026-03-31",
           "averageDailyTurnoverCr": 257.8105452575,
-          "catalystSummary": "OFS Capital Corporation Announces First Quarter 2026 Financial Results"
-        },
-        {
-          "symbol": "KEI",
-          "name": "KEI Industries Limited",
-          "price": 5660.5,
-          "previousClose": 5631,
-          "changePercent": 0.5238856331024685,
-          "volume": 210697,
-          "volumeShock": 0.86,
-          "target": 0,
-          "upside": 0,
-          "score": 74,
-          "action": "Accumulate",
-          "remark": "Score 97/100 | EMA20 5,380.38 vs EMA50 5,137.13 | VWAP gap +29.15% | ATR risk +2.91% | Volume shock 0.86x | daily review. Decision score 74/100 | Industry theme: Capital Goods. Latest annual revenue growth +20.7% and earnings growth +31.9%. ROE +13.8%, margin +7.8%, debt/equity 4. Evidence-derived long-term potential 39.8%; minimum hurdle 15%.",
-          "caveats": [
-            "Model output is a screening signal, not financial advice. Validate fundamentals, news, liquidity, and risk before trading.",
-            "No verified company-specific news catalyst is included; review current exchange filings manually.",
-            "Governance, promoter pledging, auditor qualifications, contingent liabilities and cash-flow quality require manual filing review."
-          ],
-          "metrics": {
-            "historyDays": 249,
-            "dayChangePercent": 0.5238856331024685,
-            "return5Percent": 3.6626682538229103,
-            "return20Percent": 7.175991669033419,
-            "return60Percent": 37.190984003877844,
-            "return120Percent": 29.608007660629205,
-            "drawdownFrom60DayHighPercent": -0.4484699261343651,
-            "volumeShock": 0.86,
-            "ema20": 5380.375011781804,
-            "ema50": 5137.12596230463,
-            "ema200": 4551.512336671128,
-            "vwap": 4382.959970561931,
-            "vwapDistancePercent": 29.147882664195947,
-            "atr": 164.67857142857142,
-            "atrPercent": 2.9092583946395445,
-            "trendScore": 30,
-            "momentumScore": 12.791085064819747,
-            "liquidityScore": 31.941962479151606,
-            "riskScore": 0,
-            "finalScore": 97,
-            "intradayPotentialPercent": 4.51,
-            "longTermPotentialPercent": 39.77,
-            "persistentDeclineScore": 0,
-            "expectedDownsidePercent": 0,
-            "target": 7911.68085,
-            "upsidePercent": 39.769999999999996,
-            "caveats": [
-              "Model output is a screening signal, not financial advice. Validate fundamentals, news, liquidity, and risk before trading.",
-              "Price is extended from VWAP; avoid chasing without confirmation."
+          "catalystSummary": "OFS Capital Corporation Announces First Quarter 2026 Financial Results",
+          "intelligence": {
+            "baseScore": 75,
+            "contextAdjustment": 0.2,
+            "finalScore": 75,
+            "sentimentScore": 0,
+            "sentiment": "Neutral",
+            "sectorPolicyScore": 0,
+            "sectorDirectionScore": 52,
+            "sectorDirectionLabel": "Neutral Sector",
+            "sectorDirection": {
+              "sector": "Information Technology",
+              "score": 52,
+              "return20Percent": -0.11894886049151907,
+              "return60Percent": 8.520931779260863,
+              "trendBreadthPercent": 37.03703703703704,
+              "newsSentimentScore": 0,
+              "policyScore": 0,
+              "rank": 17,
+              "label": "Neutral Sector"
+            },
+            "expertFocusCount": 0,
+            "learningAdjustment": 0,
+            "factorWeights": {
+              "technicalStrength": 25,
+              "fundamentalStrength": 30,
+              "portfolioFit": 5,
+              "sectorMomentum": 15,
+              "newsSentiment": 8,
+              "governmentPolicy": 5,
+              "expertConsensus": 5,
+              "learningFeedback": 7
+            },
+            "contributions": {
+              "technicalStrength": 20.8,
+              "fundamentalStrength": 19.5,
+              "portfolioFit": 2.5,
+              "sectorMomentum": 7.8,
+              "newsSentiment": 4,
+              "governmentPolicy": 2.5,
+              "expertConsensus": 0,
+              "learningFeedback": 3.5
+            },
+            "reasons": [
+              "Neutral Sector: Information Technology scored 52/100.",
+              "News sentiment neutral (0/10).",
+              "Government policy impact neutral (0/10).",
+              "Expert focus count 0.",
+              "Learning adjustment +0.0 points."
             ]
-          },
-          "theme": "Capital Goods",
-          "sector": "Capital Goods",
-          "factorScores": {
-            "fundamentals": 12,
-            "growth": 19,
-            "momentum": 9,
-            "quality": 12,
-            "sectorStrength": 10,
-            "valuation": 4,
-            "catalyst": 0,
-            "liquidity": 10,
-            "dataQuality": 100,
-            "risk": 10,
-            "total": 74
-          },
-          "reasons": [
-            "Industry theme: Capital Goods.",
-            "Latest annual revenue growth +20.7% and earnings growth +31.9%.",
-            "ROE +13.8%, margin +7.8%, debt/equity 4.",
-            "Operating cash conversion 0.91x reported earnings; positive growth years 2/3 revenue and 2/3 earnings.",
-            "Sector-relative return +23.5% with EMA20 above EMA50.",
-            "Average daily traded value approximately INR 125.1 Cr.",
-            "Market regime: Risk-On."
-          ],
-          "marketCapCr": 53840.821095,
-          "dataQuality": 100,
-          "fundamentalAsOf": "2026-03-31",
-          "averageDailyTurnoverCr": 125.1021155886621,
-          "catalystSummary": "No verified company-specific catalyst is included in the score."
+          }
         }
       ],
       "intradayBreakouts": [
@@ -577,7 +881,7 @@
           "volumeShock": 2.99,
           "target": 2268.2823399999997,
           "upside": 10.02,
-          "score": 62,
+          "score": 64,
           "action": "Accumulate",
           "remark": "Not recommended: Earnings growth is not consistent across at least two of the last three years. TTM earnings deterioration exceeds 10%. Debt-to-equity exceeds the safety limit. Decision score is below the 70/100 regime-adjusted threshold. Evidence-derived intraday potential 10.0%; minimum hurdle 10%.",
           "caveats": [
@@ -631,11 +935,16 @@
             "quality": 14,
             "sectorStrength": 10,
             "valuation": 4,
-            "catalyst": 0,
+            "catalyst": 5,
             "liquidity": 10,
             "dataQuality": 100,
             "risk": 8,
-            "total": 62
+            "portfolioFit": 2.5,
+            "newsSentiment": 4,
+            "governmentPolicy": 2.5,
+            "expertConsensus": 0,
+            "learningFeedback": 3.5,
+            "total": 64
           },
           "reasons": [
             "Industry theme: Telecommunication.",
@@ -644,13 +953,68 @@
             "Operating cash conversion 4.47x reported earnings; positive growth years 2/3 revenue and 1/3 earnings.",
             "Sector-relative return +35.1% with EMA20 above EMA50.",
             "Average daily traded value approximately INR 175.6 Cr.",
-            "Market regime: Risk-On."
+            "Market regime: Risk-On.",
+            "Strong Sector: Telecommunication scored 81/100.",
+            "News sentiment neutral (0/10).",
+            "Government policy impact neutral (0/10).",
+            "Expert focus count 0.",
+            "Learning adjustment +0.0 points."
           ],
           "marketCapCr": 56749.6848933,
           "dataQuality": 100,
           "fundamentalAsOf": "2026-03-31",
           "averageDailyTurnoverCr": 175.5781498227417,
-          "catalystSummary": "No verified company-specific catalyst is included in the score."
+          "catalystSummary": "No verified company-specific catalyst is included in the score.",
+          "intelligence": {
+            "baseScore": 62,
+            "contextAdjustment": 2.5,
+            "finalScore": 64,
+            "sentimentScore": 0,
+            "sentiment": "Neutral",
+            "sectorPolicyScore": 0,
+            "sectorDirectionScore": 81,
+            "sectorDirectionLabel": "Strong Sector",
+            "sectorDirection": {
+              "sector": "Telecommunication",
+              "score": 81,
+              "return20Percent": 6.526776085215277,
+              "return60Percent": 41.345564575241454,
+              "trendBreadthPercent": 70,
+              "newsSentimentScore": 0,
+              "policyScore": 0,
+              "rank": 3,
+              "label": "Strong Sector"
+            },
+            "expertFocusCount": 0,
+            "learningAdjustment": 0,
+            "factorWeights": {
+              "technicalStrength": 25,
+              "fundamentalStrength": 30,
+              "portfolioFit": 5,
+              "sectorMomentum": 15,
+              "newsSentiment": 8,
+              "governmentPolicy": 5,
+              "expertConsensus": 5,
+              "learningFeedback": 7
+            },
+            "contributions": {
+              "technicalStrength": 20.8,
+              "fundamentalStrength": 12.6,
+              "portfolioFit": 2.5,
+              "sectorMomentum": 12.2,
+              "newsSentiment": 4,
+              "governmentPolicy": 2.5,
+              "expertConsensus": 0,
+              "learningFeedback": 3.5
+            },
+            "reasons": [
+              "Strong Sector: Telecommunication scored 81/100.",
+              "News sentiment neutral (0/10).",
+              "Government policy impact neutral (0/10).",
+              "Expert focus count 0.",
+              "Learning adjustment +0.0 points."
+            ]
+          }
         }
       ]
     },
@@ -668,9 +1032,9 @@
           "volumeShock": 1.13,
           "target": 0,
           "upside": 0,
-          "score": 82,
+          "score": 83,
           "action": "Accumulate",
-          "remark": "Score 100/100 | EMA20 7,209.78 vs EMA50 6,957.47 | VWAP gap +25.81% | ATR risk +2.77% | Volume shock 1.13x | daily review. Decision score 82/100 | Industry theme: Chemicals. Latest annual revenue growth +41.1% and earnings growth +129.9%. ROE +16.7%, margin +20.0%, debt/equity 32. Evidence-derived long-term potential 34.2%; minimum hurdle 15%.",
+          "remark": "Score 100/100 | EMA20 7,209.78 vs EMA50 6,957.47 | VWAP gap +25.81% | ATR risk +2.77% | Volume shock 1.13x | daily review. Decision score 83/100 | Industry theme: Chemicals. Latest annual revenue growth +41.1% and earnings growth +129.9%. ROE +16.7%, margin +20.0%, debt/equity 32. Evidence-derived long-term potential 34.2%; minimum hurdle 15%.",
           "caveats": [
             "Model output is a screening signal, not financial advice. Validate fundamentals, news, liquidity, and risk before trading.",
             "No verified company-specific news catalyst is included; review current exchange filings manually.",
@@ -717,11 +1081,16 @@
             "quality": 20,
             "sectorStrength": 8,
             "valuation": 4,
-            "catalyst": 0,
+            "catalyst": 5,
             "liquidity": 10,
             "dataQuality": 100,
             "risk": 10,
-            "total": 82
+            "portfolioFit": 2.5,
+            "newsSentiment": 4,
+            "governmentPolicy": 2.5,
+            "expertConsensus": 0,
+            "learningFeedback": 3.5,
+            "total": 83
           },
           "reasons": [
             "Industry theme: Chemicals.",
@@ -730,13 +1099,68 @@
             "Operating cash conversion 1.35x reported earnings; positive growth years 2/3 revenue and 2/3 earnings.",
             "Sector-relative return +14.7% with EMA20 above EMA50.",
             "Average daily traded value approximately INR 102.5 Cr.",
-            "Market regime: Risk-On."
+            "Market regime: Risk-On.",
+            "Strong Sector: Chemicals scored 65/100.",
+            "News sentiment neutral (0/10).",
+            "Government policy impact neutral (0/10).",
+            "Expert focus count 0.",
+            "Learning adjustment +0.0 points."
           ],
           "marketCapCr": 38495.7536849,
           "dataQuality": 100,
           "fundamentalAsOf": "2026-03-31",
           "averageDailyTurnoverCr": 102.5499620825,
-          "catalystSummary": "No verified company-specific catalyst is included in the score."
+          "catalystSummary": "No verified company-specific catalyst is included in the score.",
+          "intelligence": {
+            "baseScore": 82,
+            "contextAdjustment": 1.2,
+            "finalScore": 83,
+            "sentimentScore": 0,
+            "sentiment": "Neutral",
+            "sectorPolicyScore": 0,
+            "sectorDirectionScore": 65,
+            "sectorDirectionLabel": "Strong Sector",
+            "sectorDirection": {
+              "sector": "Chemicals",
+              "score": 65,
+              "return20Percent": 1.047861784766244,
+              "return60Percent": 14.631092416453223,
+              "trendBreadthPercent": 69.23076923076923,
+              "newsSentimentScore": 0,
+              "policyScore": 0,
+              "rank": 12,
+              "label": "Strong Sector"
+            },
+            "expertFocusCount": 0,
+            "learningAdjustment": 0,
+            "factorWeights": {
+              "technicalStrength": 25,
+              "fundamentalStrength": 30,
+              "portfolioFit": 5,
+              "sectorMomentum": 15,
+              "newsSentiment": 8,
+              "governmentPolicy": 5,
+              "expertConsensus": 5,
+              "learningFeedback": 7
+            },
+            "contributions": {
+              "technicalStrength": 21.5,
+              "fundamentalStrength": 24,
+              "portfolioFit": 2.5,
+              "sectorMomentum": 9.8,
+              "newsSentiment": 4,
+              "governmentPolicy": 2.5,
+              "expertConsensus": 0,
+              "learningFeedback": 3.5
+            },
+            "reasons": [
+              "Strong Sector: Chemicals scored 65/100.",
+              "News sentiment neutral (0/10).",
+              "Government policy impact neutral (0/10).",
+              "Expert focus count 0.",
+              "Learning adjustment +0.0 points."
+            ]
+          }
         },
         {
           "symbol": "PREMIERENE",
@@ -748,9 +1172,9 @@
           "volumeShock": 0.78,
           "target": 0,
           "upside": 0,
-          "score": 79,
+          "score": 81,
           "action": "Accumulate",
-          "remark": "Score 100/100 | EMA20 1,053.06 vs EMA50 1,013.59 | VWAP gap +14.77% | ATR risk +3.02% | Volume shock 0.78x | daily review. Decision score 79/100 | Industry theme: Capital Goods. Latest annual revenue growth +20.0% and earnings growth +61.1%. ROE +35.0%, margin +19.3%, debt/equity 86. Evidence-derived long-term potential 32.6%; minimum hurdle 15%.",
+          "remark": "Score 100/100 | EMA20 1,053.06 vs EMA50 1,013.59 | VWAP gap +14.77% | ATR risk +3.02% | Volume shock 0.78x | daily review. Decision score 81/100 | Industry theme: Capital Goods. Latest annual revenue growth +20.0% and earnings growth +61.1%. ROE +35.0%, margin +19.3%, debt/equity 86. Evidence-derived long-term potential 32.6%; minimum hurdle 15%.",
           "caveats": [
             "Model output is a screening signal, not financial advice. Validate fundamentals, news, liquidity, and risk before trading.",
             "Volume confirmation is weak, so breakout reliability is lower.",
@@ -799,11 +1223,16 @@
             "quality": 18,
             "sectorStrength": 6,
             "valuation": 12,
-            "catalyst": 0,
+            "catalyst": 5,
             "liquidity": 10,
             "dataQuality": 100,
             "risk": 8,
-            "total": 79
+            "portfolioFit": 2.5,
+            "newsSentiment": 4,
+            "governmentPolicy": 2.5,
+            "expertConsensus": 0,
+            "learningFeedback": 3.5,
+            "total": 81
           },
           "reasons": [
             "Industry theme: Capital Goods.",
@@ -812,13 +1241,68 @@
             "Operating cash conversion 0.84x reported earnings; positive growth years 2/3 revenue and 2/3 earnings.",
             "Sector-relative return +4.5% with EMA20 above EMA50.",
             "Average daily traded value approximately INR 175.3 Cr.",
-            "Market regime: Risk-On."
+            "Market regime: Risk-On.",
+            "Strong Sector: Capital Goods scored 80/100.",
+            "News sentiment neutral (0/10).",
+            "Government policy impact neutral (0/10).",
+            "Expert focus count 0.",
+            "Learning adjustment +0.0 points."
           ],
           "marketCapCr": 48721.9725151,
           "dataQuality": 100,
           "fundamentalAsOf": "2026-03-31",
           "averageDailyTurnoverCr": 175.3101911716748,
-          "catalystSummary": "No verified company-specific catalyst is included in the score."
+          "catalystSummary": "No verified company-specific catalyst is included in the score.",
+          "intelligence": {
+            "baseScore": 79,
+            "contextAdjustment": 2.4,
+            "finalScore": 81,
+            "sentimentScore": 0,
+            "sentiment": "Neutral",
+            "sectorPolicyScore": 0,
+            "sectorDirectionScore": 80,
+            "sectorDirectionLabel": "Strong Sector",
+            "sectorDirection": {
+              "sector": "Capital Goods",
+              "score": 80,
+              "return20Percent": 6.779744873629214,
+              "return60Percent": 28.224307085696555,
+              "trendBreadthPercent": 68.25396825396825,
+              "newsSentimentScore": 0,
+              "policyScore": 0,
+              "rank": 4,
+              "label": "Strong Sector"
+            },
+            "expertFocusCount": 0,
+            "learningAdjustment": 0,
+            "factorWeights": {
+              "technicalStrength": 25,
+              "fundamentalStrength": 30,
+              "portfolioFit": 5,
+              "sectorMomentum": 15,
+              "newsSentiment": 8,
+              "governmentPolicy": 5,
+              "expertConsensus": 5,
+              "learningFeedback": 7
+            },
+            "contributions": {
+              "technicalStrength": 17.3,
+              "fundamentalStrength": 26.7,
+              "portfolioFit": 2.5,
+              "sectorMomentum": 12,
+              "newsSentiment": 4,
+              "governmentPolicy": 2.5,
+              "expertConsensus": 0,
+              "learningFeedback": 3.5
+            },
+            "reasons": [
+              "Strong Sector: Capital Goods scored 80/100.",
+              "News sentiment neutral (0/10).",
+              "Government policy impact neutral (0/10).",
+              "Expert focus count 0.",
+              "Learning adjustment +0.0 points."
+            ]
+          }
         },
         {
           "symbol": "KPIL",
@@ -830,9 +1314,9 @@
           "volumeShock": 1.59,
           "target": 0,
           "upside": 0,
-          "score": 80,
+          "score": 81,
           "action": "Accumulate",
-          "remark": "Score 100/100 | EMA20 1,323.54 vs EMA50 1,273.01 | VWAP gap +18.27% | ATR risk +3.44% | Volume shock 1.59x | daily review. Decision score 80/100 | Industry theme: Construction. Latest annual revenue growth +21.6% and earnings growth +77.6%. ROE +13.4%, margin +3.8%, debt/equity 46. Evidence-derived long-term potential 40.7%; minimum hurdle 15%.",
+          "remark": "Score 100/100 | EMA20 1,323.54 vs EMA50 1,273.01 | VWAP gap +18.27% | ATR risk +3.44% | Volume shock 1.59x | daily review. Decision score 81/100 | Industry theme: Construction. Latest annual revenue growth +21.6% and earnings growth +77.6%. ROE +13.4%, margin +3.8%, debt/equity 46. Evidence-derived long-term potential 40.7%; minimum hurdle 15%.",
           "caveats": [
             "Model output is a screening signal, not financial advice. Validate fundamentals, news, liquidity, and risk before trading.",
             "No verified company-specific news catalyst is included; review current exchange filings manually.",
@@ -879,11 +1363,16 @@
             "quality": 12,
             "sectorStrength": 8,
             "valuation": 12,
-            "catalyst": 0,
+            "catalyst": 5,
             "liquidity": 8,
             "dataQuality": 100,
             "risk": 10,
-            "total": 80
+            "portfolioFit": 2.5,
+            "newsSentiment": 4,
+            "governmentPolicy": 2.5,
+            "expertConsensus": 0,
+            "learningFeedback": 3.5,
+            "total": 81
           },
           "reasons": [
             "Industry theme: Construction.",
@@ -892,13 +1381,68 @@
             "Operating cash conversion 1.48x reported earnings; positive growth years 2/3 revenue and 2/3 earnings.",
             "Sector-relative return +18.3% with EMA20 above EMA50.",
             "Average daily traded value approximately INR 44.4 Cr.",
-            "Market regime: Risk-On."
+            "Market regime: Risk-On.",
+            "Strong Sector: Construction scored 67/100.",
+            "News sentiment neutral (0/10).",
+            "Government policy impact neutral (0/10).",
+            "Expert focus count 0.",
+            "Learning adjustment +0.0 points."
           ],
           "marketCapCr": 23874.0019308,
           "dataQuality": 100,
           "fundamentalAsOf": "2026-03-31",
           "averageDailyTurnoverCr": 44.42212066163025,
-          "catalystSummary": "No verified company-specific catalyst is included in the score."
+          "catalystSummary": "No verified company-specific catalyst is included in the score.",
+          "intelligence": {
+            "baseScore": 80,
+            "contextAdjustment": 1.4,
+            "finalScore": 81,
+            "sentimentScore": 0,
+            "sentiment": "Neutral",
+            "sectorPolicyScore": 0,
+            "sectorDirectionScore": 67,
+            "sectorDirectionLabel": "Strong Sector",
+            "sectorDirection": {
+              "sector": "Construction",
+              "score": 67,
+              "return20Percent": 6.157199450532857,
+              "return60Percent": 21.526940729661217,
+              "trendBreadthPercent": 38.46153846153847,
+              "newsSentimentScore": 0,
+              "policyScore": 0,
+              "rank": 11,
+              "label": "Strong Sector"
+            },
+            "expertFocusCount": 0,
+            "learningAdjustment": 0,
+            "factorWeights": {
+              "technicalStrength": 25,
+              "fundamentalStrength": 30,
+              "portfolioFit": 5,
+              "sectorMomentum": 15,
+              "newsSentiment": 8,
+              "governmentPolicy": 5,
+              "expertConsensus": 5,
+              "learningFeedback": 7
+            },
+            "contributions": {
+              "technicalStrength": 20.8,
+              "fundamentalStrength": 23.4,
+              "portfolioFit": 2.5,
+              "sectorMomentum": 10.1,
+              "newsSentiment": 4,
+              "governmentPolicy": 2.5,
+              "expertConsensus": 0,
+              "learningFeedback": 3.5
+            },
+            "reasons": [
+              "Strong Sector: Construction scored 67/100.",
+              "News sentiment neutral (0/10).",
+              "Government policy impact neutral (0/10).",
+              "Expert focus count 0.",
+              "Learning adjustment +0.0 points."
+            ]
+          }
         },
         {
           "symbol": "ELGIEQUIP",
@@ -910,9 +1454,9 @@
           "volumeShock": 0.51,
           "target": 0,
           "upside": 0,
-          "score": 76,
+          "score": 78,
           "action": "Accumulate",
-          "remark": "Score 95/100 | EMA20 594.55 vs EMA50 568.06 | VWAP gap +17.94% | ATR risk +2.97% | Volume shock 0.51x | daily review. Decision score 76/100 | Industry theme: Capital Goods. Latest annual revenue growth +12.5% and earnings growth +22.8%. ROE +19.3%, margin +10.9%, debt/equity 24. Evidence-derived long-term potential 36.7%; minimum hurdle 15%.",
+          "remark": "Score 95/100 | EMA20 594.55 vs EMA50 568.06 | VWAP gap +17.94% | ATR risk +2.97% | Volume shock 0.51x | daily review. Decision score 78/100 | Industry theme: Capital Goods. Latest annual revenue growth +12.5% and earnings growth +22.8%. ROE +19.3%, margin +10.9%, debt/equity 24. Evidence-derived long-term potential 36.7%; minimum hurdle 15%.",
           "caveats": [
             "Model output is a screening signal, not financial advice. Validate fundamentals, news, liquidity, and risk before trading.",
             "Volume confirmation is weak, so breakout reliability is lower.",
@@ -961,11 +1505,16 @@
             "quality": 18,
             "sectorStrength": 8,
             "valuation": 8,
-            "catalyst": 0,
+            "catalyst": 5,
             "liquidity": 8,
             "dataQuality": 100,
             "risk": 10,
-            "total": 76
+            "portfolioFit": 2.5,
+            "newsSentiment": 4,
+            "governmentPolicy": 2.5,
+            "expertConsensus": 0,
+            "learningFeedback": 3.5,
+            "total": 78
           },
           "reasons": [
             "Industry theme: Capital Goods.",
@@ -974,13 +1523,68 @@
             "Operating cash conversion 1.05x reported earnings; positive growth years 2/3 revenue and 2/3 earnings.",
             "Sector-relative return +14.7% with EMA20 above EMA50.",
             "Average daily traded value approximately INR 49.1 Cr.",
-            "Market regime: Risk-On."
+            "Market regime: Risk-On.",
+            "Strong Sector: Capital Goods scored 80/100.",
+            "News sentiment neutral (0/10).",
+            "Government policy impact neutral (0/10).",
+            "Expert focus count 0.",
+            "Learning adjustment +0.0 points."
           ],
           "marketCapCr": 19310.1167348,
           "dataQuality": 100,
           "fundamentalAsOf": "2026-03-31",
           "averageDailyTurnoverCr": 49.05918510925781,
-          "catalystSummary": "No verified company-specific catalyst is included in the score."
+          "catalystSummary": "No verified company-specific catalyst is included in the score.",
+          "intelligence": {
+            "baseScore": 76,
+            "contextAdjustment": 2.4,
+            "finalScore": 78,
+            "sentimentScore": 0,
+            "sentiment": "Neutral",
+            "sectorPolicyScore": 0,
+            "sectorDirectionScore": 80,
+            "sectorDirectionLabel": "Strong Sector",
+            "sectorDirection": {
+              "sector": "Capital Goods",
+              "score": 80,
+              "return20Percent": 6.779744873629214,
+              "return60Percent": 28.224307085696555,
+              "trendBreadthPercent": 68.25396825396825,
+              "newsSentimentScore": 0,
+              "policyScore": 0,
+              "rank": 4,
+              "label": "Strong Sector"
+            },
+            "expertFocusCount": 0,
+            "learningAdjustment": 0,
+            "factorWeights": {
+              "technicalStrength": 25,
+              "fundamentalStrength": 30,
+              "portfolioFit": 5,
+              "sectorMomentum": 15,
+              "newsSentiment": 8,
+              "governmentPolicy": 5,
+              "expertConsensus": 5,
+              "learningFeedback": 7
+            },
+            "contributions": {
+              "technicalStrength": 18.5,
+              "fundamentalStrength": 22.8,
+              "portfolioFit": 2.5,
+              "sectorMomentum": 12,
+              "newsSentiment": 4,
+              "governmentPolicy": 2.5,
+              "expertConsensus": 0,
+              "learningFeedback": 3.5
+            },
+            "reasons": [
+              "Strong Sector: Capital Goods scored 80/100.",
+              "News sentiment neutral (0/10).",
+              "Government policy impact neutral (0/10).",
+              "Expert focus count 0.",
+              "Learning adjustment +0.0 points."
+            ]
+          }
         },
         {
           "symbol": "SAILIFE",
@@ -992,9 +1596,9 @@
           "volumeShock": 1.08,
           "target": 0,
           "upside": 0,
-          "score": 74,
+          "score": 76,
           "action": "Accumulate",
-          "remark": "Score 91/100 | EMA20 1,180.8 vs EMA50 1,122.77 | VWAP gap +31.85% | ATR risk +3.33% | Volume shock 1.08x | daily review. Decision score 74/100 | Industry theme: Healthcare. Latest annual revenue growth +29.4% and earnings growth +105.1%. ROE +14.0%, margin +15.9%, debt/equity 12. Evidence-derived long-term potential 31.9%; minimum hurdle 15%.",
+          "remark": "Score 91/100 | EMA20 1,180.8 vs EMA50 1,122.77 | VWAP gap +31.85% | ATR risk +3.33% | Volume shock 1.08x | daily review. Decision score 76/100 | Industry theme: Healthcare. Latest annual revenue growth +29.4% and earnings growth +105.1%. ROE +14.0%, margin +15.9%, debt/equity 12. Evidence-derived long-term potential 31.9%; minimum hurdle 15%.",
           "caveats": [
             "Model output is a screening signal, not financial advice. Validate fundamentals, news, liquidity, and risk before trading.",
             "Valuation is elevated at approximately 74.0x trailing earnings.",
@@ -1042,11 +1646,16 @@
             "quality": 17,
             "sectorStrength": 6,
             "valuation": 4,
-            "catalyst": 0,
+            "catalyst": 5,
             "liquidity": 10,
             "dataQuality": 100,
             "risk": 8,
-            "total": 74
+            "portfolioFit": 2.5,
+            "newsSentiment": 4,
+            "governmentPolicy": 2.5,
+            "expertConsensus": 0,
+            "learningFeedback": 3.5,
+            "total": 76
           },
           "reasons": [
             "Industry theme: Healthcare.",
@@ -1055,92 +1664,208 @@
             "Operating cash conversion 1.46x reported earnings; positive growth years 2/3 revenue and 2/3 earnings.",
             "Sector-relative return +6.4% with EMA20 above EMA50.",
             "Average daily traded value approximately INR 52.4 Cr.",
-            "Market regime: Risk-On."
+            "Market regime: Risk-On.",
+            "Strong Sector: Healthcare scored 72/100.",
+            "News sentiment neutral (0/10).",
+            "Government policy impact neutral (0/10).",
+            "Expert focus count 0.",
+            "Learning adjustment +0.0 points."
           ],
           "marketCapCr": 25801.7312446,
           "dataQuality": 100,
           "fundamentalAsOf": "2026-03-31",
           "averageDailyTurnoverCr": 52.43985876996643,
-          "catalystSummary": "No verified company-specific catalyst is included in the score."
+          "catalystSummary": "No verified company-specific catalyst is included in the score.",
+          "intelligence": {
+            "baseScore": 74,
+            "contextAdjustment": 1.8,
+            "finalScore": 76,
+            "sentimentScore": 0,
+            "sentiment": "Neutral",
+            "sectorPolicyScore": 0,
+            "sectorDirectionScore": 72,
+            "sectorDirectionLabel": "Strong Sector",
+            "sectorDirection": {
+              "sector": "Healthcare",
+              "score": 72,
+              "return20Percent": 1.8678221568479736,
+              "return60Percent": 18.262456822783733,
+              "trendBreadthPercent": 83.6734693877551,
+              "newsSentimentScore": 0,
+              "policyScore": 0,
+              "rank": 5,
+              "label": "Strong Sector"
+            },
+            "expertFocusCount": 0,
+            "learningAdjustment": 0,
+            "factorWeights": {
+              "technicalStrength": 25,
+              "fundamentalStrength": 30,
+              "portfolioFit": 5,
+              "sectorMomentum": 15,
+              "newsSentiment": 8,
+              "governmentPolicy": 5,
+              "expertConsensus": 5,
+              "learningFeedback": 7
+            },
+            "contributions": {
+              "technicalStrength": 20,
+              "fundamentalStrength": 21.9,
+              "portfolioFit": 2.5,
+              "sectorMomentum": 10.8,
+              "newsSentiment": 4,
+              "governmentPolicy": 2.5,
+              "expertConsensus": 0,
+              "learningFeedback": 3.5
+            },
+            "reasons": [
+              "Strong Sector: Healthcare scored 72/100.",
+              "News sentiment neutral (0/10).",
+              "Government policy impact neutral (0/10).",
+              "Expert focus count 0.",
+              "Learning adjustment +0.0 points."
+            ]
+          }
         },
         {
-          "symbol": "CCL",
-          "name": "CCL Products (India) Limited",
-          "price": 1148.7,
-          "previousClose": 1137.300048828125,
-          "changePercent": 1.0023697074155202,
-          "volume": 1249899,
-          "volumeShock": 1.7,
+          "symbol": "EMCURE",
+          "name": "EMCURE PHARMACEUTICALS L",
+          "price": 1791,
+          "previousClose": 1776,
+          "changePercent": 0.8445945945945946,
+          "volume": 235777,
+          "volumeShock": 1.29,
           "target": 0,
           "upside": 0,
-          "score": 72,
+          "score": 74,
           "action": "Accumulate",
-          "remark": "Score 100/100 | EMA20 1,120.8 vs EMA50 1,103.84 | VWAP gap +13.42% | ATR risk +4.46% | Volume shock 1.70x | daily review. Decision score 72/100 | Industry theme: Fast Moving Consumer Goods. Latest annual revenue growth +43.5% and earnings growth +25.1%. ROE +16.6%, margin +8.7%, debt/equity 56. Evidence-derived long-term potential 28.6%; minimum hurdle 15%.",
+          "remark": "Score 100/100 | EMA20 1,731.09 vs EMA50 1,686.45 | VWAP gap +21.46% | ATR risk +3.25% | Volume shock 1.29x | daily review. Decision score 74/100 | Industry theme: Healthcare. Latest annual revenue growth +16.6% and earnings growth +35.7%. ROE +18.7%, margin +10.0%, debt/equity 31. Evidence-derived long-term potential 31.9%; minimum hurdle 15%.",
           "caveats": [
             "Model output is a screening signal, not financial advice. Validate fundamentals, news, liquidity, and risk before trading.",
+            "No verified company-specific news catalyst is included; review current exchange filings manually.",
             "Governance, promoter pledging, auditor qualifications, contingent liabilities and cash-flow quality require manual filing review."
           ],
           "metrics": {
             "historyDays": 249,
-            "dayChangePercent": 1.0023697074155202,
-            "return5Percent": 1.3499184097730388,
-            "return20Percent": 8.470254957507088,
-            "return60Percent": 6.282378618089133,
-            "return120Percent": 21.787530230423894,
-            "drawdownFrom60DayHighPercent": -7.078139025076648,
-            "volumeShock": 1.7,
-            "ema20": 1120.7961099590464,
-            "ema50": 1103.8405565613573,
-            "ema200": 1008.2709577931458,
-            "vwap": 1012.819976234104,
-            "vwapDistancePercent": 13.416009454229858,
-            "atr": 51.28572300502232,
-            "atrPercent": 4.464675111432256,
+            "dayChangePercent": 0.8445945945945946,
+            "return5Percent": 5.007037150356688,
+            "return20Percent": 3.031694741503498,
+            "return60Percent": 16.321364993020815,
+            "return120Percent": 25.42016806722689,
+            "drawdownFrom60DayHighPercent": -2.1311475409836063,
+            "volumeShock": 1.29,
+            "ema20": 1731.0914743799865,
+            "ema50": 1686.4463930532484,
+            "ema200": 1528.2360750833848,
+            "vwap": 1474.522052833458,
+            "vwapDistancePercent": 21.463086737725927,
+            "atr": 58.29286411830357,
+            "atrPercent": 3.25476628242901,
             "trendScore": 30,
-            "momentumScore": 25.018957659324162,
-            "liquidityScore": 36.58125160835813,
-            "riskScore": 2.4899476894348354,
+            "momentumScore": 19.656756756756756,
+            "liquidityScore": 32.23501967670854,
+            "riskScore": 0.433102680129317,
             "finalScore": 100,
-            "intradayPotentialPercent": 5.24,
-            "longTermPotentialPercent": 28.62,
+            "intradayPotentialPercent": 4.91,
+            "longTermPotentialPercent": 31.95,
             "persistentDeclineScore": 0,
             "expectedDownsidePercent": 0,
-            "target": 1477.45794,
-            "upsidePercent": 28.619999999999994,
+            "target": 2363.2245000000003,
+            "upsidePercent": 31.950000000000017,
             "caveats": [
               "Model output is a screening signal, not financial advice. Validate fundamentals, news, liquidity, and risk before trading.",
               "Price is extended from VWAP; avoid chasing without confirmation."
             ]
           },
-          "theme": "Fast Moving Consumer Goods",
-          "sector": "Fast Moving Consumer Goods",
+          "theme": "Healthcare",
+          "sector": "Healthcare",
           "factorScores": {
             "fundamentals": 14,
-            "growth": 18,
-            "momentum": 7,
+            "growth": 17,
+            "momentum": 8,
             "quality": 17,
-            "sectorStrength": 2,
+            "sectorStrength": 4,
             "valuation": 8,
-            "catalyst": 0,
-            "liquidity": 10,
+            "catalyst": 5,
+            "liquidity": 8,
             "dataQuality": 100,
             "risk": 10,
-            "total": 72
+            "portfolioFit": 2.5,
+            "newsSentiment": 4,
+            "governmentPolicy": 2.5,
+            "expertConsensus": 0,
+            "learningFeedback": 3.5,
+            "total": 74
           },
           "reasons": [
-            "Industry theme: Fast Moving Consumer Goods.",
-            "Latest annual revenue growth +43.5% and earnings growth +25.1%.",
-            "ROE +16.6%, margin +8.7%, debt/equity 56.",
-            "Operating cash conversion 2.21x reported earnings; positive growth years 2/3 revenue and 2/3 earnings.",
-            "Sector-relative return -1.1% with EMA20 above EMA50.",
-            "Average daily traded value approximately INR 84.0 Cr.",
-            "Market regime: Risk-On."
+            "Industry theme: Healthcare.",
+            "Latest annual revenue growth +16.6% and earnings growth +35.7%.",
+            "ROE +18.7%, margin +10.0%, debt/equity 31.",
+            "Operating cash conversion 1.02x reported earnings; positive growth years 2/3 revenue and 2/3 earnings.",
+            "Sector-relative return +0.1% with EMA20 above EMA50.",
+            "Average daily traded value approximately INR 31.3 Cr.",
+            "Market regime: Risk-On.",
+            "Strong Sector: Healthcare scored 72/100.",
+            "News sentiment neutral (0/10).",
+            "Government policy impact neutral (0/10).",
+            "Expert focus count 0.",
+            "Learning adjustment +0.0 points."
           ],
-          "marketCapCr": 15145.9516304,
+          "marketCapCr": 33646.5519355,
           "dataQuality": 100,
           "fundamentalAsOf": "2026-03-31",
-          "averageDailyTurnoverCr": 83.99013243325744,
-          "catalystSummary": "Carnival (CCL) Reports Q2: Everything You Need To Know Ahead Of Earnings"
+          "averageDailyTurnoverCr": 31.2918172254248,
+          "catalystSummary": "No verified company-specific catalyst is included in the score.",
+          "intelligence": {
+            "baseScore": 72,
+            "contextAdjustment": 1.8,
+            "finalScore": 74,
+            "sentimentScore": 0,
+            "sentiment": "Neutral",
+            "sectorPolicyScore": 0,
+            "sectorDirectionScore": 72,
+            "sectorDirectionLabel": "Strong Sector",
+            "sectorDirection": {
+              "sector": "Healthcare",
+              "score": 72,
+              "return20Percent": 1.8678221568479736,
+              "return60Percent": 18.262456822783733,
+              "trendBreadthPercent": 83.6734693877551,
+              "newsSentimentScore": 0,
+              "policyScore": 0,
+              "rank": 5,
+              "label": "Strong Sector"
+            },
+            "expertFocusCount": 0,
+            "learningAdjustment": 0,
+            "factorWeights": {
+              "technicalStrength": 25,
+              "fundamentalStrength": 30,
+              "portfolioFit": 5,
+              "sectorMomentum": 15,
+              "newsSentiment": 8,
+              "governmentPolicy": 5,
+              "expertConsensus": 5,
+              "learningFeedback": 7
+            },
+            "contributions": {
+              "technicalStrength": 18.5,
+              "fundamentalStrength": 22.8,
+              "portfolioFit": 2.5,
+              "sectorMomentum": 10.8,
+              "newsSentiment": 4,
+              "governmentPolicy": 2.5,
+              "expertConsensus": 0,
+              "learningFeedback": 3.5
+            },
+            "reasons": [
+              "Strong Sector: Healthcare scored 72/100.",
+              "News sentiment neutral (0/10).",
+              "Government policy impact neutral (0/10).",
+              "Expert focus count 0.",
+              "Learning adjustment +0.0 points."
+            ]
+          }
         }
       ],
       "intradayBreakouts": [
@@ -1154,7 +1879,7 @@
           "volumeShock": 2.39,
           "target": 356.79084,
           "upside": 10.53,
-          "score": 87,
+          "score": 90,
           "action": "Accumulate",
           "remark": "Not recommended: Latest annual revenue growth is below the 5% floor. Evidence-derived intraday potential 10.5%; minimum hurdle 10%.",
           "caveats": [
@@ -1203,11 +1928,16 @@
             "quality": 17,
             "sectorStrength": 10,
             "valuation": 15,
-            "catalyst": 0,
+            "catalyst": 8,
             "liquidity": 10,
             "dataQuality": 100,
             "risk": 10,
-            "total": 87
+            "portfolioFit": 2.5,
+            "newsSentiment": 6.4,
+            "governmentPolicy": 2.5,
+            "expertConsensus": 0,
+            "learningFeedback": 3.5,
+            "total": 90
           },
           "reasons": [
             "Industry theme: Services.",
@@ -1216,13 +1946,68 @@
             "Operating cash conversion 0.99x reported earnings; positive growth years 2/3 revenue and 2/3 earnings.",
             "Sector-relative return +26.9% with EMA20 above EMA50.",
             "Average daily traded value approximately INR 205.4 Cr.",
-            "Market regime: Risk-On."
+            "Market regime: Risk-On.",
+            "Strong Sector: Services scored 70/100.",
+            "News sentiment positive (6/10).",
+            "Government policy impact neutral (0/10).",
+            "Expert focus count 0.",
+            "Learning adjustment +0.0 points."
           ],
           "marketCapCr": 14535.258107,
           "dataQuality": 100,
           "fundamentalAsOf": "2026-03-31",
           "averageDailyTurnoverCr": 205.40090890505067,
-          "catalystSummary": "What Does SCI’s Expanded US$600 Million Buyback Reveal About Its Long-Term Capital Allocation Priorities?"
+          "catalystSummary": "What Does SCI’s Expanded US$600 Million Buyback Reveal About Its Long-Term Capital Allocation Priorities?",
+          "intelligence": {
+            "baseScore": 87,
+            "contextAdjustment": 3.4,
+            "finalScore": 90,
+            "sentimentScore": 6,
+            "sentiment": "Positive",
+            "sectorPolicyScore": 0,
+            "sectorDirectionScore": 70,
+            "sectorDirectionLabel": "Strong Sector",
+            "sectorDirection": {
+              "sector": "Services",
+              "score": 70,
+              "return20Percent": 3.6179900660481477,
+              "return60Percent": 16.47884094979374,
+              "trendBreadthPercent": 71.42857142857143,
+              "newsSentimentScore": 0,
+              "policyScore": 0,
+              "rank": 6,
+              "label": "Strong Sector"
+            },
+            "expertFocusCount": 0,
+            "learningAdjustment": 0,
+            "factorWeights": {
+              "technicalStrength": 25,
+              "fundamentalStrength": 30,
+              "portfolioFit": 5,
+              "sectorMomentum": 15,
+              "newsSentiment": 8,
+              "governmentPolicy": 5,
+              "expertConsensus": 5,
+              "learningFeedback": 7
+            },
+            "contributions": {
+              "technicalStrength": 22.3,
+              "fundamentalStrength": 25.2,
+              "portfolioFit": 2.5,
+              "sectorMomentum": 10.5,
+              "newsSentiment": 6.4,
+              "governmentPolicy": 2.5,
+              "expertConsensus": 0,
+              "learningFeedback": 3.5
+            },
+            "reasons": [
+              "Strong Sector: Services scored 70/100.",
+              "News sentiment positive (6/10).",
+              "Government policy impact neutral (0/10).",
+              "Expert focus count 0.",
+              "Learning adjustment +0.0 points."
+            ]
+          }
         }
       ]
     },
@@ -1232,5 +2017,264 @@
       "longTermUpsides": [],
       "intradayBreakouts": []
     }
-  ]
+  ],
+  "intelligenceReview": {
+    "recommendationQualityScore": 0,
+    "confidenceAccuracy": 0,
+    "reviewWindows": [
+      {
+        "days": 7,
+        "hits": 0,
+        "misses": 0,
+        "active": 0,
+        "expired": 0,
+        "sampleSize": 0,
+        "hitRate": 0,
+        "missRate": 0
+      },
+      {
+        "days": 30,
+        "hits": 0,
+        "misses": 0,
+        "active": 0,
+        "expired": 0,
+        "sampleSize": 0,
+        "hitRate": 0,
+        "missRate": 0
+      },
+      {
+        "days": 90,
+        "hits": 0,
+        "misses": 0,
+        "active": 0,
+        "expired": 0,
+        "sampleSize": 0,
+        "hitRate": 0,
+        "missRate": 0
+      }
+    ],
+    "sectorAccuracy": {},
+    "sectorDirections": [
+      {
+        "sector": "Textiles",
+        "score": 87,
+        "return20Percent": 11.476604180945191,
+        "return60Percent": 26.103364979903965,
+        "trendBreadthPercent": 80,
+        "newsSentimentScore": 0,
+        "policyScore": 0,
+        "rank": 1,
+        "label": "Top Sector"
+      },
+      {
+        "sector": "Media Entertainment & Publication",
+        "score": 83,
+        "return20Percent": 16.975252227281686,
+        "return60Percent": 21.23740802697145,
+        "trendBreadthPercent": 50,
+        "newsSentimentScore": 0,
+        "policyScore": 0,
+        "rank": 2,
+        "label": "Strong Sector"
+      },
+      {
+        "sector": "Telecommunication",
+        "score": 81,
+        "return20Percent": 6.526776085215277,
+        "return60Percent": 41.345564575241454,
+        "trendBreadthPercent": 70,
+        "newsSentimentScore": 0,
+        "policyScore": 0,
+        "rank": 3,
+        "label": "Strong Sector"
+      },
+      {
+        "sector": "Capital Goods",
+        "score": 80,
+        "return20Percent": 6.779744873629214,
+        "return60Percent": 28.224307085696555,
+        "trendBreadthPercent": 68.25396825396825,
+        "newsSentimentScore": 0,
+        "policyScore": 0,
+        "rank": 4,
+        "label": "Strong Sector"
+      },
+      {
+        "sector": "Healthcare",
+        "score": 72,
+        "return20Percent": 1.8678221568479736,
+        "return60Percent": 18.262456822783733,
+        "trendBreadthPercent": 83.6734693877551,
+        "newsSentimentScore": 0,
+        "policyScore": 0,
+        "rank": 5,
+        "label": "Strong Sector"
+      },
+      {
+        "sector": "Services",
+        "score": 70,
+        "return20Percent": 3.6179900660481477,
+        "return60Percent": 16.47884094979374,
+        "trendBreadthPercent": 71.42857142857143,
+        "newsSentimentScore": 0,
+        "policyScore": 0,
+        "rank": 6,
+        "label": "Strong Sector"
+      },
+      {
+        "sector": "Realty",
+        "score": 70,
+        "return20Percent": 3.428540078922935,
+        "return60Percent": 16.539251881852035,
+        "trendBreadthPercent": 72.72727272727273,
+        "newsSentimentScore": 0,
+        "policyScore": 0,
+        "rank": 7,
+        "label": "Strong Sector"
+      },
+      {
+        "sector": "Automobile and Auto Components",
+        "score": 68,
+        "return20Percent": 4.278375071287425,
+        "return60Percent": 15.599286279429556,
+        "trendBreadthPercent": 63.1578947368421,
+        "newsSentimentScore": 0,
+        "policyScore": 0,
+        "rank": 8,
+        "label": "Strong Sector"
+      },
+      {
+        "sector": "Oil Gas & Consumable Fuels",
+        "score": 68,
+        "return20Percent": 4.467222198481493,
+        "return60Percent": 14.53286458805168,
+        "trendBreadthPercent": 64.70588235294117,
+        "newsSentimentScore": 0,
+        "policyScore": 0,
+        "rank": 9,
+        "label": "Strong Sector"
+      },
+      {
+        "sector": "Construction",
+        "score": 67,
+        "return20Percent": 6.157199450532857,
+        "return60Percent": 21.526940729661217,
+        "trendBreadthPercent": 38.46153846153847,
+        "newsSentimentScore": 0,
+        "policyScore": 0,
+        "rank": 10,
+        "label": "Strong Sector"
+      },
+      {
+        "sector": "Financial Services",
+        "score": 67,
+        "return20Percent": 4.609680236824284,
+        "return60Percent": 14.146349301068806,
+        "trendBreadthPercent": 62.37623762376238,
+        "newsSentimentScore": 0,
+        "policyScore": 0,
+        "rank": 11,
+        "label": "Strong Sector"
+      },
+      {
+        "sector": "Chemicals",
+        "score": 65,
+        "return20Percent": 1.047861784766244,
+        "return60Percent": 14.631092416453223,
+        "trendBreadthPercent": 69.23076923076923,
+        "newsSentimentScore": 0,
+        "policyScore": 0,
+        "rank": 12,
+        "label": "Strong Sector"
+      },
+      {
+        "sector": "Consumer Durables",
+        "score": 65,
+        "return20Percent": 5.4091170059164915,
+        "return60Percent": 9.540776055666445,
+        "trendBreadthPercent": 62.5,
+        "newsSentimentScore": 0,
+        "policyScore": 0,
+        "rank": 13,
+        "label": "Strong Sector"
+      },
+      {
+        "sector": "Consumer Services",
+        "score": 63,
+        "return20Percent": 6.014722726932481,
+        "return60Percent": 13.674228671205698,
+        "trendBreadthPercent": 41.37931034482759,
+        "newsSentimentScore": 0,
+        "policyScore": 0,
+        "rank": 14,
+        "label": "Strong Sector"
+      },
+      {
+        "sector": "Power",
+        "score": 60,
+        "return20Percent": -0.26242430336860934,
+        "return60Percent": 20.144972508357487,
+        "trendBreadthPercent": 41.17647058823529,
+        "newsSentimentScore": 0,
+        "policyScore": 0,
+        "rank": 15,
+        "label": "Neutral Sector"
+      },
+      {
+        "sector": "Information Technology",
+        "score": 52,
+        "return20Percent": -0.11894886049151907,
+        "return60Percent": 8.520931779260863,
+        "trendBreadthPercent": 37.03703703703704,
+        "newsSentimentScore": 0,
+        "policyScore": 0,
+        "rank": 16,
+        "label": "Neutral Sector"
+      },
+      {
+        "sector": "Fast Moving Consumer Goods",
+        "score": 52,
+        "return20Percent": 0.14404974503985415,
+        "return60Percent": 7.673798661520912,
+        "trendBreadthPercent": 39.285714285714285,
+        "newsSentimentScore": 0,
+        "policyScore": 0,
+        "rank": 17,
+        "label": "Neutral Sector"
+      },
+      {
+        "sector": "Diversified",
+        "score": 51,
+        "return20Percent": -1.8874453417725328,
+        "return60Percent": 12.29629195852243,
+        "trendBreadthPercent": 33.33333333333333,
+        "newsSentimentScore": 0,
+        "policyScore": 0,
+        "rank": 18,
+        "label": "Neutral Sector"
+      },
+      {
+        "sector": "Metals & Mining",
+        "score": 48,
+        "return20Percent": -5.083354854741314,
+        "return60Percent": 9.174815175007716,
+        "trendBreadthPercent": 44.44444444444444,
+        "newsSentimentScore": 0,
+        "policyScore": 0,
+        "rank": 19,
+        "label": "Neutral Sector"
+      },
+      {
+        "sector": "Construction Materials",
+        "score": 41,
+        "return20Percent": -2.2928689970982843,
+        "return60Percent": 3.476451273451059,
+        "trendBreadthPercent": 18.181818181818183,
+        "newsSentimentScore": 0,
+        "policyScore": 0,
+        "rank": 20,
+        "label": "Neutral Sector"
+      }
+    ]
+  }
 }

@@ -5,6 +5,17 @@ import {
   type PriceBar,
   type StockSignalMetrics,
 } from "@/lib/analysis";
+import {
+  applyRecommendationIntelligence,
+  classifyNewsSentiment,
+  fetchHeadlineIntelligence,
+  filterSectorHeadlines,
+  rankSectorDirections,
+  scoreGovernmentPolicy,
+  type LearningFeedback,
+  type RecommendationIntelligence,
+  type SectorDirection,
+} from "@/lib/recommendation-intelligence";
 
 export type MarketCapBucket = "large" | "mid" | "small";
 export type ScreeningRegime =
@@ -35,6 +46,11 @@ export type FactorScores = {
   liquidity: number;
   dataQuality: number;
   risk: number;
+  portfolioFit: number;
+  newsSentiment: number;
+  governmentPolicy: number;
+  expertConsensus: number;
+  learningFeedback: number;
   total: number;
 };
 
@@ -73,6 +89,7 @@ export type ScreenedStock = {
   relativeStrengthPercent: number;
   averageDailyTurnoverCr: number;
   catalystSummary: string;
+  intelligence: RecommendationIntelligence;
 };
 
 type YahooChartResult = {
@@ -127,6 +144,11 @@ export type TechnicalCandidate = {
   metrics: StockSignalMetrics;
 };
 
+export type WealthScreeningOptions = {
+  expertConsensusCounts?: Record<string, number>;
+  learning?: LearningFeedback;
+};
+
 const severeRiskTerms = [
   "fraud",
   "default",
@@ -144,6 +166,7 @@ export function getMarketUniverse() {
 
 export async function screenWealthUniverse(
   regime: ScreeningRegime = "Consolidation",
+  options: WealthScreeningOptions = {},
 ): Promise<ScreenedStock[]> {
   const universe = getMarketUniverse();
   const benchmarkReturns = await fetchBenchmarkReturns(
@@ -156,6 +179,46 @@ export async function screenWealthUniverse(
   const shortlist = technicalRows
     .sort((a, b) => b.metrics.finalScore - a.metrics.finalScore)
     .filter((row) => row.bars.length >= 80 && row.price > 0);
+  const sectors = [...new Set(shortlist.map((row) => row.stock.theme))];
+  const [rawMarketHeadlines, policyHeadlines, sectorHeadlinePairs] =
+    await Promise.all([
+      fetchHeadlineIntelligence("India stock market economy", 10),
+      fetchHeadlineIntelligence(
+        "India government policy budget PLI infrastructure defence energy regulation",
+        15,
+      ),
+      Promise.all(
+        sectors.map(async (sector) => [
+          sector,
+          await fetchHeadlineIntelligence(`India ${sector} sector`, 8),
+        ] as const),
+      ),
+    ]);
+  const marketHeadlines = rawMarketHeadlines.filter((headline) => {
+    const normalized = headline.toLowerCase();
+    return ["india", "nifty", "sensex", "rupee", "rbi", "sebi"].some(
+      (term) => normalized.includes(term),
+    );
+  });
+  const sectorNews = Object.fromEntries(
+    sectorHeadlinePairs.map(([sector, headlines]) => [
+      sector,
+      filterSectorHeadlines(sector, headlines),
+    ]),
+  );
+  const sectorDirections = rankSectorDirections(
+    shortlist.map((row) => ({
+      sector: row.stock.theme,
+      return20Percent: periodReturn(row.bars, 20),
+      return60Percent: periodReturn(row.bars, 60),
+      trendAligned: row.metrics.ema20 >= row.metrics.ema50,
+    })),
+    sectorNews,
+    policyHeadlines,
+  );
+  const sectorDirectionMap = Object.fromEntries(
+    sectorDirections.map((sector) => [sector.sector, sector]),
+  );
 
   const enriched = await mapWithConcurrency(shortlist, 10, async (row) => {
     const [fundamentals, headlines] = await Promise.all([
@@ -168,6 +231,15 @@ export async function screenWealthUniverse(
       headlines,
       benchmarkReturn: benchmarkReturns[row.stock.benchmark] ?? 0,
       regime,
+      sectorHeadlines: sectorNews[row.stock.theme] ?? [],
+      marketHeadlines,
+      policyHeadlines,
+      sectorDirection:
+        sectorDirectionMap[row.stock.theme] ??
+        neutralSectorDirection(row.stock.theme),
+      expertFocusCount:
+        options.expertConsensusCounts?.[row.stock.symbol] ?? 0,
+      learning: options.learning,
     });
   });
 
@@ -222,12 +294,24 @@ function scoreCandidate({
   headlines,
   benchmarkReturn,
   regime,
+  sectorHeadlines,
+  marketHeadlines,
+  policyHeadlines,
+  sectorDirection,
+  expertFocusCount,
+  learning,
 }: {
   row: TechnicalCandidate;
   fundamentals: FundamentalProfile;
   headlines: string[];
   benchmarkReturn: number;
   regime: ScreeningRegime;
+  sectorHeadlines: string[];
+  marketHeadlines: string[];
+  policyHeadlines: string[];
+  sectorDirection: SectorDirection;
+  expertFocusCount: number;
+  learning?: LearningFeedback;
 }): ScreenedStock {
   const marketCapCr = fundamentals.marketCap / 10_000_000;
   const capBucket = bucketMarketCap(marketCapCr, row.stock.capHint);
@@ -241,9 +325,19 @@ function scoreCandidate({
   const sectorStrength = scoreRelativeStrength(relativeStrengthPercent);
   const liquidity = scoreLiquidity(row.averageDailyTurnoverCr, capBucket);
   const risk = scoreSafety(row.metrics, fundamentals, regime);
-  const catalyst = 0; // News is a risk flag only until source relevance is independently verified.
+  const newsSentiment = classifyNewsSentiment(
+    headlines,
+    sectorHeadlines,
+    marketHeadlines,
+  );
+  const policy = scoreGovernmentPolicy(
+    row.stock.theme,
+    sectorHeadlines,
+    policyHeadlines,
+  );
+  const catalyst = clamp(Math.round((newsSentiment.score + 10) / 2), 0, 10);
   const fundamentalsScore = Math.round((growth + quality + valuation) / 3);
-  const total = clamp(
+  const baseTotal = clamp(
     growth +
       quality +
       valuation +
@@ -254,13 +348,36 @@ function scoreCandidate({
     0,
     100,
   );
+  const learningAdjustment =
+    (learning?.sectorAdjustments[row.stock.theme] ?? 0) +
+    (learning?.typeAdjustments["1-3 Yr Plan"] ?? 0) +
+    (learning?.adjustment ?? 0);
+  const intelligence = applyRecommendationIntelligence({
+    baseScore: baseTotal,
+    technicalStrength: clamp(
+      Math.round(((momentum + liquidity + risk) / 35) * 100),
+      0,
+      100,
+    ),
+    fundamentalStrength: clamp(
+      Math.round(((growth + quality + valuation) / 55) * 100),
+      0,
+      100,
+    ),
+    sectorDirection,
+    newsSentiment,
+    policy,
+    expertFocusCount,
+    learningAdjustment,
+  });
+  const total = intelligence.finalScore;
   const gateFailures = evaluateSafetyGates({
     row,
     fundamentals,
     headlines,
     capBucket,
     dataQuality,
-    total,
+    total: baseTotal,
     regime,
     relativeStrengthPercent,
   });
@@ -273,6 +390,7 @@ function scoreCandidate({
     averageDailyTurnoverCr: row.averageDailyTurnoverCr,
     regime,
   });
+  reasons.push(...intelligence.reasons);
   const caveats = buildScreeningCaveats(
     row.metrics,
     fundamentals,
@@ -321,6 +439,11 @@ function scoreCandidate({
       liquidity,
       dataQuality,
       risk,
+      portfolioFit: intelligence.contributions.portfolioFit,
+      newsSentiment: intelligence.contributions.newsSentiment,
+      governmentPolicy: intelligence.contributions.governmentPolicy,
+      expertConsensus: intelligence.contributions.expertConsensus,
+      learningFeedback: intelligence.contributions.learningFeedback,
       total,
     },
     reasons,
@@ -336,6 +459,7 @@ function scoreCandidate({
     catalystSummary:
       headlines[0] ??
       "No verified company-specific catalyst is included in the score.",
+    intelligence,
   };
 }
 
@@ -881,6 +1005,20 @@ function periodReturn(bars: PriceBar[], periods: number) {
   const start = sample[0]?.close ?? 0;
   const end = sample.at(-1)?.close ?? 0;
   return start > 0 && end > 0 ? ((end - start) / start) * 100 : 0;
+}
+
+function neutralSectorDirection(sector: string): SectorDirection {
+  return {
+    sector,
+    rank: 0,
+    score: 50,
+    label: "Neutral Sector",
+    return20Percent: 0,
+    return60Percent: 0,
+    trendBreadthPercent: 50,
+    newsSentimentScore: 0,
+    policyScore: 0,
+  };
 }
 
 function sumLast(

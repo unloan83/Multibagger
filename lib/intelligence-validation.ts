@@ -1,4 +1,5 @@
 import type { Recommendation } from "@/lib/portfolio";
+import { buildLearningFeedback } from "@/lib/recommendation-intelligence";
 
 export type OutcomeStatus = "Active" | "Hit" | "Miss" | "Expired";
 export type QualityStatus = "PASS" | "FAIL";
@@ -192,6 +193,8 @@ export function buildIntelligenceSummary(records: ValidationRecord[], portfolioI
     .sort((a, b) => Date.parse(b.timestamp) - Date.parse(a.timestamp))
     .slice(0, 20);
 
+  const review = buildLearningFeedback(scoped);
+
   return {
     total: scoped.length,
     quality: {
@@ -202,6 +205,11 @@ export function buildIntelligenceSummary(records: ValidationRecord[], portfolioI
     outcomes: summarizeOutcomes(scoped),
     last7Days: summarizeOutcomes(filterDays(scoped, 7)),
     last30Days: summarizeOutcomes(filterDays(scoped, 30)),
+    last90Days: summarizeOutcomes(filterDays(scoped, 90)),
+    recommendationQualityScore: review.recommendationQualityScore,
+    sectorAccuracy: review.sectorAccuracy,
+    confidenceAccuracy: review.confidenceAccuracy,
+    reviewWindows: review.windows,
     confidenceCalibration: buildLearningRows(scoped).filter(
       (row) => row.dimension === "Confidence",
     ),

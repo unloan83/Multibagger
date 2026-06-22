@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { canAccessPortfolio, isRequestAuthenticated } from "@/lib/auth";
 import { buildIntelligenceSummary } from "@/lib/intelligence-validation";
+import { buildExpertActionMatrix } from "@/lib/expert-insights";
 import {
   isGoogleSheetsConfigured,
   readValidationRecords,
@@ -49,9 +50,32 @@ export async function GET(request: Request) {
     });
   }
 
+  const matrix = await buildExpertActionMatrix();
+
   return NextResponse.json({
     role: "admin",
     portfolioId: portfolioId || null,
     summary,
+    recommendationIntelligence: {
+      review: matrix.intelligenceReview ?? null,
+      recommendations: matrix.categories.flatMap((category) =>
+        [...category.longTermUpsides, ...category.intradayBreakouts].map(
+          (quote) => ({
+            symbol: quote.symbol,
+            category: category.title,
+            action: quote.action,
+            score: quote.score,
+            explanation: quote.intelligence?.reasons ?? quote.reasons,
+            factorWeights: quote.intelligence?.factorWeights ?? null,
+            factorContributions: quote.intelligence?.contributions ?? null,
+            sectorScore: quote.intelligence?.sectorDirectionScore ?? null,
+            sectorPolicyScore: quote.intelligence?.sectorPolicyScore ?? null,
+            learningAdjustment: quote.intelligence?.learningAdjustment ?? null,
+            sentimentScore: quote.intelligence?.sentimentScore ?? null,
+            expertFocusCount: quote.intelligence?.expertFocusCount ?? 0,
+          }),
+        ),
+      ),
+    },
   });
 }

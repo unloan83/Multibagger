@@ -11,7 +11,7 @@
     "csv:morning": "node scripts/update_daily_recommendations.mjs --slot morning",
     "universe:sync": "node scripts/sync_nifty500_universe.mjs",
     "wealth:snapshot": "node --import tsx scripts/generate_wealth_snapshot.ts",
-    "test:wealth": "node --import tsx --test lib/wealth-screening.test.ts"
+    "test:wealth": "node --import tsx --test lib/wealth-screening.test.ts lib/recommendation-intelligence.test.ts"
   },
   "dependencies": {
     "@radix-ui/react-slot": "^1.1.0",

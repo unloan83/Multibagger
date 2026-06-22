@@ -2,11 +2,22 @@ import fs from "node:fs/promises";
 import path from "node:path";
 import { buildMarketOverview } from "@/lib/market-overview";
 import {
+  isGoogleSheetsConfigured,
+  readValidationRecords,
+} from "@/lib/google-sheets";
+import {
   MIN_INTRADAY_POTENTIAL_PERCENT,
   MIN_LONG_TERM_POTENTIAL_PERCENT,
   qualifiesForHighPotentialIntraday,
   qualifiesForLongTermAccumulation,
 } from "@/lib/analysis";
+import {
+  buildLearningFeedback,
+  readExpertConsensusCounts,
+  type LearningFeedback,
+  type ReviewWindow,
+  type SectorDirection,
+} from "@/lib/recommendation-intelligence";
 import {
   getMarketUniverse,
   screenWealthUniverse,
@@ -41,6 +52,7 @@ export type ExpertQuote = {
   fundamentalAsOf: string;
   averageDailyTurnoverCr: number;
   catalystSummary: string;
+  intelligence: ScreenedStock["intelligence"];
 };
 
 export type ExpertCategory = {
@@ -81,6 +93,13 @@ export type ExpertActionMatrix = {
   exclusionDiagnostics: ExclusionDiagnostic[];
   consecutivePicks: ConsecutivePick[];
   categories: ExpertCategory[];
+  intelligenceReview?: {
+    recommendationQualityScore: number;
+    confidenceAccuracy: number;
+    reviewWindows: ReviewWindow[];
+    sectorAccuracy: Record<string, number>;
+    sectorDirections: SectorDirection[];
+  };
 };
 
 const categoryMeta: Record<
@@ -114,7 +133,15 @@ export async function generateExpertActionMatrix(): Promise<ExpertActionMatrix> 
     market.sentiment,
     market.averageMove,
   );
-  const screened = await screenWealthUniverse(marketRegime);
+  const [validationRecords, expertConsensusCounts] = await Promise.all([
+    loadValidationRecords(),
+    readExpertConsensusCounts(),
+  ]);
+  const learning = buildLearningFeedback(validationRecords);
+  const screened = await screenWealthUniverse(marketRegime, {
+    expertConsensusCounts,
+    learning,
+  });
   const categories = (Object.keys(categoryMeta) as MarketCapBucket[]).map(
     (bucket) => buildCategory(bucket, screened, marketRegime),
   );
@@ -171,11 +198,13 @@ export async function generateExpertActionMatrix(): Promise<ExpertActionMatrix> 
     methodology: [
       "Uniform benchmark-relative screening; no example stock receives a score adjustment or guaranteed inclusion.",
       "Mandatory gates cover data freshness, positive TTM earnings, revenue direction, ROE, leverage, valuation, liquidity, trend, price extension and market regime.",
+      "News sentiment, government policy, sector direction, expert consensus and learning feedback are capped context adjustments; they cannot bypass a failed safety gate.",
       "The engine abstains when evidence is incomplete or no stock clears every safety gate; non-selected names retain exclusion diagnostics.",
     ],
     exclusionDiagnostics,
     consecutivePicks,
     categories,
+    intelligenceReview: buildMatrixIntelligenceReview(screened, learning),
   };
 }
 
@@ -297,6 +326,7 @@ function toExpertQuote(
     fundamentalAsOf: stock.fundamentalAsOf,
     averageDailyTurnoverCr: stock.averageDailyTurnoverCr,
     catalystSummary: stock.catalystSummary,
+    intelligence: stock.intelligence,
   };
 }
 
@@ -385,6 +415,50 @@ function unavailableMatrix(reason: string): ExpertActionMatrix {
       longTermUpsides: [],
       intradayBreakouts: [],
     })),
+    intelligenceReview: {
+      recommendationQualityScore: 0,
+      confidenceAccuracy: 0,
+      reviewWindows: [],
+      sectorAccuracy: {},
+      sectorDirections: [],
+    },
+  };
+}
+
+async function loadValidationRecords() {
+  if (!isGoogleSheetsConfigured()) return [];
+  try {
+    return await readValidationRecords();
+  } catch {
+    return [];
+  }
+}
+
+function buildMatrixIntelligenceReview(
+  screened: ScreenedStock[],
+  learning: LearningFeedback,
+) {
+  const sectors = Object.values(
+    screened.reduce<Record<string, SectorDirection>>((acc, stock) => {
+      const current = acc[stock.sector];
+      if (
+        !current ||
+        stock.intelligence.sectorDirectionScore > current.score
+      ) {
+        acc[stock.sector] = stock.intelligence.sectorDirection;
+      }
+      return acc;
+    }, {}),
+  )
+    .sort((a, b) => b.score - a.score)
+    .map((sector, index) => ({ ...sector, rank: index + 1 }));
+
+  return {
+    recommendationQualityScore: learning.recommendationQualityScore,
+    confidenceAccuracy: learning.confidenceAccuracy,
+    reviewWindows: learning.windows,
+    sectorAccuracy: learning.sectorAccuracy,
+    sectorDirections: sectors,
   };
 }
 
@@ -392,15 +466,33 @@ async function getConsecutiveExpertPicks(
   categories: ExpertCategory[],
 ): Promise<ConsecutivePick[]> {
   const csvPicks = await readConsecutivePicksFromCsv();
-  const liveSymbols = new Set(
-    categories.flatMap((category) =>
-      [...category.longTermUpsides, ...category.intradayBreakouts].map(
-        (quote) => quote.symbol,
-      ),
+  const liveQuotes = categories.flatMap((category) =>
+    [...category.longTermUpsides, ...category.intradayBreakouts].map(
+      (quote) => ({ category: category.title, quote }),
     ),
   );
+  const historical = Object.fromEntries(
+    csvPicks.map((pick) => [pick.symbol, pick]),
+  );
 
-  return csvPicks.filter((pick) => liveSymbols.has(pick.symbol));
+  return liveQuotes
+    .map(({ category, quote }) => {
+      const prior = historical[quote.symbol];
+      return {
+        symbol: quote.symbol,
+        name: quote.name,
+        appearances: Math.max(
+          prior?.appearances ?? 0,
+          quote.intelligence.expertFocusCount,
+        ),
+        categories: [
+          ...new Set([...(prior?.categories ?? []), category]),
+        ],
+      };
+    })
+    .filter((pick) => pick.appearances > 0)
+    .sort((a, b) => b.appearances - a.appearances)
+    .slice(0, 12);
 }
 
 async function readConsecutivePicksFromCsv(): Promise<ConsecutivePick[]> {

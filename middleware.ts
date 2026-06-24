@@ -21,7 +21,7 @@ export async function middleware(request: NextRequest) {
   // 2. Check for token transition in URL query params
   const token = request.nextUrl.searchParams.get("token");
   if (token) {
-    const isValid = await verifyTransitionToken(token, secret);
+    const isValid = await verifyTransitionToken(token, secret, 5 * 60 * 1000);
     if (isValid) {
       // Redirect to the clean requested URL (removing 'token' query param)
       const url = new URL(pathname, request.url);
@@ -45,7 +45,7 @@ export async function middleware(request: NextRequest) {
 
   // 3. Verify session cookie
   const cookieValue = request.cookies.get(sessionCookieName)?.value;
-  const isAuthenticated = cookieValue ? await verifyTransitionToken(cookieValue, secret) : false;
+  const isAuthenticated = cookieValue ? await verifyTransitionToken(cookieValue, secret, 24 * 60 * 60 * 1000) : false;
 
   if (isAuthenticated) {
     return NextResponse.next();
@@ -66,16 +66,16 @@ function redirectToLogin(request: NextRequest) {
   return NextResponse.redirect(`${loginUrl}/?error=unauthorized`);
 }
 
-async function verifyTransitionToken(value: string, secret: string) {
+async function verifyTransitionToken(value: string, secret: string, maxAgeMs: number = 5 * 60 * 1000) {
   const parts = value.split(":");
   if (parts.length !== 3) {
     return false;
   }
   const [username, timestamp, signature] = parts;
   
-  // Verify timestamp is within 5 minutes (300000ms)
+  // Verify timestamp is within maxAgeMs
   const age = Date.now() - Number(timestamp);
-  if (!Number.isFinite(age) || Math.abs(age) > 5 * 60 * 1000) {
+  if (!Number.isFinite(age) || Math.abs(age) > maxAgeMs) {
     return false;
   }
 

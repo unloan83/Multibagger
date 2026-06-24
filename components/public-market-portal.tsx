@@ -45,15 +45,12 @@ type ExpertMatrixQuote = {
 type ExpertActionMatrix = {
   asOf: string;
   universeSize?: number;
-<<<<<<< Updated upstream
   evaluatedSize?: number;
   eligibleSize?: number;
   abstained?: boolean;
   marketRegime?: string;
   rejectionSummary?: Array<{ reason: string; count: number }>;
   caveat?: string;
-=======
->>>>>>> Stashed changes
   methodology?: string[];
   categories: Array<{
     title: string;
@@ -1049,7 +1046,6 @@ function MarketOpportunitiesSection({
             )}
             className="hidden sm:block"
           />
-<<<<<<< Updated upstream
           <Metric
             label="Eligible"
             value={String(matrix?.eligibleSize ?? picks.length)}
@@ -1067,10 +1063,6 @@ function MarketOpportunitiesSection({
           ))}
         </div>
       ) : null}
-=======
-        </div>
-      </div>
->>>>>>> Stashed changes
       {matrix?.methodology?.length ? (
         <p className="text-xs leading-5 text-slate-400">
           {matrix.methodology[1]}

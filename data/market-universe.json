@@ -1,5 +1,4 @@
 [
-<<<<<<< Updated upstream
   {
     "symbol": "360ONE",
     "company": "360 ONE WAM Ltd.",
@@ -4000,56 +3999,4 @@
     "benchmark": "^CNXINFRA",
     "source": "NIFTY 500"
   }
-=======
-  { "symbol": "RELIANCE", "theme": "Energy & Consumer Platforms", "capHint": "large", "benchmark": "^CNXENERGY" },
-  { "symbol": "HDFCBANK", "theme": "Financial Services", "capHint": "large", "benchmark": "^NSEBANK" },
-  { "symbol": "ICICIBANK", "theme": "Financial Services", "capHint": "large", "benchmark": "^NSEBANK" },
-  { "symbol": "BHARTIARTL", "theme": "Digital Infrastructure", "capHint": "large", "benchmark": "^CNXIT" },
-  { "symbol": "NTPC", "theme": "Power & Energy Transition", "capHint": "large", "benchmark": "^CNXENERGY" },
-  { "symbol": "POWERGRID", "theme": "Power Infrastructure", "capHint": "large", "benchmark": "^CNXENERGY" },
-  { "symbol": "SUNPHARMA", "theme": "Healthcare", "capHint": "large", "benchmark": "^CNXPHARMA" },
-  { "symbol": "TATAMOTORS", "theme": "EV & Auto", "capHint": "large", "benchmark": "^CNXAUTO" },
-  { "symbol": "BEL", "theme": "Defence Electronics", "capHint": "large", "benchmark": "^CNXINFRA" },
-  { "symbol": "HAL", "theme": "Defence Aerospace", "capHint": "large", "benchmark": "^CNXINFRA" },
-  { "symbol": "TRENT", "theme": "Consumer Growth", "capHint": "large", "benchmark": "^CNXCONSUM" },
-  { "symbol": "VBL", "theme": "Consumer Growth", "capHint": "large", "benchmark": "^CNXCONSUM" },
-
-  { "symbol": "OLECTRA", "theme": "Electric Mobility", "capHint": "mid", "benchmark": "^CNXAUTO" },
-  { "symbol": "KPITTECH", "theme": "EV Software", "capHint": "mid", "benchmark": "^CNXIT" },
-  { "symbol": "ASHOKLEY", "theme": "Commercial Vehicles", "capHint": "mid", "benchmark": "^CNXAUTO" },
-  { "symbol": "BEML", "theme": "Defence & Mobility", "capHint": "mid", "benchmark": "^CNXINFRA" },
-  { "symbol": "MAZDOCK", "theme": "Defence Shipbuilding", "capHint": "mid", "benchmark": "^CNXINFRA" },
-  { "symbol": "COCHINSHIP", "theme": "Defence Shipbuilding", "capHint": "mid", "benchmark": "^CNXINFRA" },
-  { "symbol": "DIXON", "theme": "Electronics Manufacturing", "capHint": "mid", "benchmark": "^CNXIT" },
-  { "symbol": "KAYNES", "theme": "Electronics Manufacturing", "capHint": "mid", "benchmark": "^CNXIT" },
-  { "symbol": "POLYCAB", "theme": "Electrification", "capHint": "mid", "benchmark": "^CNXINFRA" },
-  { "symbol": "CUMMINSIND", "theme": "Industrial Manufacturing", "capHint": "mid", "benchmark": "^CNXINFRA" },
-  { "symbol": "CGPOWER", "theme": "Power Equipment", "capHint": "mid", "benchmark": "^CNXENERGY" },
-  { "symbol": "PERSISTENT", "theme": "Digital Engineering", "capHint": "mid", "benchmark": "^CNXIT" },
-  { "symbol": "COFORGE", "theme": "Digital Engineering", "capHint": "mid", "benchmark": "^CNXIT" },
-  { "symbol": "MAXHEALTH", "theme": "Healthcare", "capHint": "mid", "benchmark": "^CNXPHARMA" },
-  { "symbol": "KIMS", "theme": "Healthcare", "capHint": "mid", "benchmark": "^CNXPHARMA" },
-  { "symbol": "JSWENERGY", "theme": "Renewable Power", "capHint": "mid", "benchmark": "^CNXENERGY" },
-  { "symbol": "TATAPOWER", "theme": "Power & Energy Transition", "capHint": "mid", "benchmark": "^CNXENERGY" },
-  { "symbol": "NTPCGREEN", "theme": "Renewable Power", "capHint": "mid", "benchmark": "^CNXENERGY" },
-  { "symbol": "RVNL", "theme": "Rail Infrastructure", "capHint": "mid", "benchmark": "^CNXINFRA" },
-  { "symbol": "RAILTEL", "theme": "Rail Digital Infrastructure", "capHint": "mid", "benchmark": "^CNXINFRA" },
-
-  { "symbol": "IREDA", "theme": "Renewable Finance", "capHint": "small", "benchmark": "^CNXENERGY" },
-  { "symbol": "SUZLON", "theme": "Wind Energy", "capHint": "small", "benchmark": "^CNXENERGY" },
-  { "symbol": "WAAREEENER", "theme": "Solar Manufacturing", "capHint": "small", "benchmark": "^CNXENERGY" },
-  { "symbol": "KPEL", "theme": "Renewable Power", "capHint": "small", "benchmark": "^CNXENERGY" },
-  { "symbol": "JWL", "theme": "Rail Manufacturing", "capHint": "small", "benchmark": "^CNXINFRA" },
-  { "symbol": "HBLPOWER", "theme": "Battery & Rail Systems", "capHint": "small", "benchmark": "^CNXINFRA" },
-  { "symbol": "TEXRAIL", "theme": "Rail Manufacturing", "capHint": "small", "benchmark": "^CNXINFRA" },
-  { "symbol": "IRCON", "theme": "Rail Infrastructure", "capHint": "small", "benchmark": "^CNXINFRA" },
-  { "symbol": "MTARTECH", "theme": "Precision Engineering", "capHint": "small", "benchmark": "^CNXINFRA" },
-  { "symbol": "DATAPATTNS", "theme": "Defence Electronics", "capHint": "small", "benchmark": "^CNXINFRA" },
-  { "symbol": "NUCLEUS", "theme": "Financial Software", "capHint": "small", "benchmark": "^CNXIT" },
-  { "symbol": "NEWGEN", "theme": "Enterprise Software", "capHint": "small", "benchmark": "^CNXIT" },
-  { "symbol": "MOREPENLAB", "theme": "Healthcare", "capHint": "small", "benchmark": "^CNXPHARMA" },
-  { "symbol": "LAURUSLABS", "theme": "Healthcare", "capHint": "small", "benchmark": "^CNXPHARMA" },
-  { "symbol": "SENCO", "theme": "Consumer Growth", "capHint": "small", "benchmark": "^CNXCONSUM" },
-  { "symbol": "AHLUCONT", "theme": "Urban Infrastructure", "capHint": "small", "benchmark": "^CNXINFRA" }
->>>>>>> Stashed changes
 ]

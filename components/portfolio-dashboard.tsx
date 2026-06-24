@@ -127,12 +127,9 @@ type ExpertMatrixQuote = {
   reasons?: string[];
   catalystSummary?: string;
   marketCapCr?: number;
-<<<<<<< Updated upstream
   dataQuality?: number;
   fundamentalAsOf?: string;
   averageDailyTurnoverCr?: number;
-=======
->>>>>>> Stashed changes
   factorScores?: {
     fundamentals: number;
     growth: number;
@@ -141,11 +138,8 @@ type ExpertMatrixQuote = {
     sectorStrength: number;
     valuation: number;
     catalyst: number;
-<<<<<<< Updated upstream
     liquidity: number;
     dataQuality: number;
-=======
->>>>>>> Stashed changes
     risk: number;
     total: number;
   };
@@ -5172,23 +5166,16 @@ function buildDecisionRowFromQuote(
     fundamentalFactors: [
       ...(quote.reasons?.slice(0, 3) ?? []),
       quote.factorScores
-<<<<<<< Updated upstream
         ? `Growth ${quote.factorScores.growth}/20 · Quality ${quote.factorScores.quality}/20 · Valuation ${quote.factorScores.valuation}/15.`
-=======
-        ? `Growth ${quote.factorScores.growth}/15 · Quality ${quote.factorScores.quality}/15 · Valuation ${quote.factorScores.valuation}/10.`
->>>>>>> Stashed changes
         : quote.upside > 0
           ? `Risk-adjusted model upside: ${formatPercent(quote.upside)}.`
           : "Fundamental validation required before position sizing.",
       quote.marketCapCr
         ? `Approximate market cap: INR ${quote.marketCapCr.toFixed(0)} Cr.`
         : `${type} classification from ${categoryTitle}.`,
-<<<<<<< Updated upstream
       quote.fundamentalAsOf
         ? `Latest fundamental period: ${quote.fundamentalAsOf}; data quality ${quote.dataQuality ?? 0}/100.`
         : "Fundamental reporting date unavailable.",
-=======
->>>>>>> Stashed changes
     ],
     reason: quote.remark || `${quote.symbol} is ranked by market-wide expert signals.`,
     riskFactors: quote.caveats?.length
@@ -5208,11 +5195,7 @@ function buildDecisionRowFromQuote(
     technicalFactors: [
       `Volume shock: ${quote.volumeShock.toFixed(2)}x.`,
       quote.factorScores
-<<<<<<< Updated upstream
         ? `Momentum ${quote.factorScores.momentum}/15 · Liquidity ${quote.factorScores.liquidity}/10 · Risk quality ${quote.factorScores.risk}/10.`
-=======
-        ? `Momentum ${quote.factorScores.momentum}/20 · Catalyst ${quote.factorScores.catalyst}/10 · Risk quality ${quote.factorScores.risk}/10.`
->>>>>>> Stashed changes
         : "Screened through the market matrix ranking.",
     ],
     type,

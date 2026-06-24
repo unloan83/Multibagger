@@ -5,7 +5,6 @@ import {
   type PriceBar,
   type StockSignalMetrics,
 } from "@/lib/analysis";
-<<<<<<< Updated upstream
 import {
   applyRecommendationIntelligence,
   classifyNewsSentiment,
@@ -34,16 +33,6 @@ export type UniverseStock = {
   capHint: MarketCapBucket;
   benchmark: string;
   source?: string;
-=======
-
-export type MarketCapBucket = "large" | "mid" | "small";
-
-export type UniverseStock = {
-  symbol: string;
-  theme: string;
-  capHint: MarketCapBucket;
-  benchmark: string;
->>>>>>> Stashed changes
 };
 
 export type FactorScores = {
@@ -54,7 +43,6 @@ export type FactorScores = {
   sectorStrength: number;
   valuation: number;
   catalyst: number;
-<<<<<<< Updated upstream
   liquidity: number;
   dataQuality: number;
   risk: number;
@@ -63,9 +51,6 @@ export type FactorScores = {
   governmentPolicy: number;
   expertConsensus: number;
   learningFeedback: number;
-=======
-  risk: number;
->>>>>>> Stashed changes
   total: number;
 };
 
@@ -85,13 +70,10 @@ export type ScreenedStock = {
   upside: number;
   score: number;
   action: "Accumulate";
-<<<<<<< Updated upstream
   eligible: boolean;
   gateFailures: string[];
   dataQuality: number;
   fundamentalAsOf: string;
-=======
->>>>>>> Stashed changes
   remark: string;
   caveats: string[];
   metrics: StockSignalMetrics;
@@ -105,13 +87,9 @@ export type ScreenedStock = {
   profitMarginPercent: number;
   trailingPe: number;
   relativeStrengthPercent: number;
-<<<<<<< Updated upstream
   averageDailyTurnoverCr: number;
   catalystSummary: string;
   intelligence: RecommendationIntelligence;
-=======
-  catalystSummary: string;
->>>>>>> Stashed changes
 };
 
 type YahooChartResult = {
@@ -133,13 +111,7 @@ type YahooChartResult = {
   };
 };
 
-<<<<<<< Updated upstream
 export type FundamentalProfile = {
-=======
-type FundamentalProfile = {
-  sector: string;
-  industry: string;
->>>>>>> Stashed changes
   marketCap: number;
   revenueGrowth: number;
   earningsGrowth: number;
@@ -147,7 +119,6 @@ type FundamentalProfile = {
   debtToEquity: number;
   profitMargins: number;
   trailingPe: number;
-<<<<<<< Updated upstream
   ttmRevenue: number;
   ttmNetIncome: number;
   operatingCashFlow: number;
@@ -187,61 +158,22 @@ const severeRiskTerms = [
   "auditor resign",
   "sebi order",
   "enforcement directorate",
-=======
-};
-
-const catalystPositive = [
-  "order",
-  "contract",
-  "capacity",
-  "expansion",
-  "approval",
-  "launch",
-  "profit",
-  "revenue",
-  "growth",
-  "partnership",
-  "acquisition",
-  "investment",
-  "award",
-  "wins",
-  "record",
-];
-
-const catalystNegative = [
-  "cancel",
-  "default",
-  "fraud",
-  "probe",
-  "penalty",
-  "downgrade",
-  "loss",
-  "decline",
-  "delay",
-  "lawsuit",
-  "warning",
->>>>>>> Stashed changes
 ];
 
 export function getMarketUniverse() {
   return marketUniverse as UniverseStock[];
 }
 
-<<<<<<< Updated upstream
 export async function screenWealthUniverse(
   regime: ScreeningRegime = "Consolidation",
   options: WealthScreeningOptions = {},
 ): Promise<ScreenedStock[]> {
-=======
-export async function screenWealthUniverse(): Promise<ScreenedStock[]> {
->>>>>>> Stashed changes
   const universe = getMarketUniverse();
   const benchmarkReturns = await fetchBenchmarkReturns(
     [...new Set(universe.map((stock) => stock.benchmark))],
   );
   const technicalRows = (
     await mapWithConcurrency(universe, 10, fetchTechnicalCandidate)
-<<<<<<< Updated upstream
   ).filter((row): row is TechnicalCandidate => Boolean(row));
 
   const shortlist = technicalRows
@@ -289,19 +221,10 @@ export async function screenWealthUniverse(): Promise<ScreenedStock[]> {
   );
 
   const enriched = await mapWithConcurrency(shortlist, 10, async (row) => {
-=======
-  ).filter((row): row is NonNullable<typeof row> => Boolean(row));
-  const shortlist = technicalRows
-    .sort((a, b) => b.metrics.finalScore - a.metrics.finalScore)
-    .filter((row) => row.metrics.finalScore >= 42 && row.metrics.riskScore <= 24)
-    .slice(0, 36);
-  const enriched = await mapWithConcurrency(shortlist, 6, async (row) => {
->>>>>>> Stashed changes
     const [fundamentals, headlines] = await Promise.all([
       fetchFundamentals(`${row.stock.symbol}.NS`),
       fetchHeadlines(row.stock.symbol, row.name),
     ]);
-<<<<<<< Updated upstream
     return scoreCandidate({
       row,
       fundamentals,
@@ -332,26 +255,6 @@ async function fetchTechnicalCandidate(
   const chart = await fetchChart(`${stock.symbol}.NS`);
   const meta = chart?.meta;
   const price = meta?.regularMarketPrice ?? 0;
-=======
-    return scoreCandidate(
-      row,
-      fundamentals,
-      headlines,
-      benchmarkReturns[row.stock.benchmark] ?? 0,
-    );
-  });
-
-  return enriched
-    .filter((row) => row.price > 0)
-    .sort((a, b) => b.score - a.score);
-}
-
-async function fetchTechnicalCandidate(stock: UniverseStock) {
-  const chart = await fetchChart(`${stock.symbol}.NS`);
-  const meta = chart?.meta;
-  const price = meta?.regularMarketPrice ?? 0;
-
->>>>>>> Stashed changes
   if (!chart || price <= 0) return null;
 
   const volume = meta?.regularMarketVolume ?? 0;
@@ -380,15 +283,11 @@ async function fetchTechnicalCandidate(stock: UniverseStock) {
     previousClose,
     volume,
     bars,
-<<<<<<< Updated upstream
     averageDailyTurnoverCr: calculateAverageTurnoverCr(bars),
-=======
->>>>>>> Stashed changes
     metrics,
   };
 }
 
-<<<<<<< Updated upstream
 function scoreCandidate({
   row,
   fundamentals,
@@ -498,65 +397,13 @@ function scoreCandidate({
     headlines,
     gateFailures,
   );
-=======
-function scoreCandidate(
-  row: NonNullable<Awaited<ReturnType<typeof fetchTechnicalCandidate>>>,
-  fundamentals: FundamentalProfile,
-  headlines: string[],
-  benchmarkReturn: number,
-): ScreenedStock {
-  const stockReturn = periodReturn(row.bars, 60);
-  const relativeStrengthPercent = stockReturn - benchmarkReturn;
-  const growth = scoreGrowth(fundamentals);
-  const quality = scoreQuality(fundamentals);
-  const valuation = scoreValuation(fundamentals);
-  const momentum = clamp(Math.round(row.metrics.finalScore * 0.2), 0, 20);
-  const sectorStrength = clamp(Math.round(8 + relativeStrengthPercent * 0.35), 0, 15);
-  const catalyst = scoreCatalysts(headlines);
-  const risk = clamp(Math.round(10 - row.metrics.riskScore * 0.35), 0, 10);
-  const fundamentalsScore = [
-    fundamentals.marketCap,
-    fundamentals.revenueGrowth,
-    fundamentals.earningsGrowth,
-    fundamentals.returnOnEquity,
-    fundamentals.profitMargins,
-  ].filter((value) => value !== 0).length;
-  const total = clamp(
-    fundamentalsScore + growth + quality + valuation + momentum + sectorStrength + catalyst + risk,
-    0,
-    100,
-  );
-  const targetMultiplier = clamp(
-    1.08 + Math.max(0, total - 55) / 180 + Math.max(0, relativeStrengthPercent) / 500,
-    1.06,
-    row.stock.capHint === "small" ? 1.42 : row.stock.capHint === "mid" ? 1.32 : 1.25,
-  );
-  const target = row.price * targetMultiplier;
-  const reasons = buildReasons({
-    fundamentals,
-    headlines,
-    relativeStrengthPercent,
-    metrics: row.metrics,
-    theme: row.stock.theme,
-  });
-  const caveats = buildScreeningCaveats(row.metrics, fundamentals, headlines);
-  const marketCapCr = fundamentals.marketCap / 10_000_000;
-  const capBucket = bucketMarketCap(marketCapCr, row.stock.capHint);
-  const catalystSummary =
-    headlines[0] ?? "No fresh company-specific catalyst was available from the news feed.";
->>>>>>> Stashed changes
 
   return {
     symbol: row.stock.symbol,
     name: row.name,
     theme: row.stock.theme,
-<<<<<<< Updated upstream
     sector: row.stock.theme,
     industry: row.stock.theme,
-=======
-    sector: fundamentals.sector || row.stock.theme,
-    industry: fundamentals.industry,
->>>>>>> Stashed changes
     capBucket,
     price: row.price,
     previousClose: row.previousClose,
@@ -566,7 +413,6 @@ function scoreCandidate(
         : 0,
     volume: row.volume,
     volumeShock: row.metrics.volumeShock,
-<<<<<<< Updated upstream
     // No invented fair-value target. A target remains pending until a
     // defensible valuation model using audited cash flows is available.
     target: 0,
@@ -580,13 +426,6 @@ function scoreCandidate(
     remark: eligible
       ? `${buildSignalRemark(row.metrics, "long-term")} Decision score ${total}/100 | ${reasons.slice(0, 3).join(" ")}`
       : `Not recommended: ${gateFailures.join(" ")}`,
-=======
-    target,
-    upside: ((target - row.price) / row.price) * 100,
-    score: total,
-    action: "Accumulate",
-    remark: `${buildSignalRemark(row.metrics, "long-term")} Wealth score ${total}/100 | ${reasons.slice(0, 3).join(" ")}`,
->>>>>>> Stashed changes
     caveats,
     metrics: row.metrics,
     factorScores: {
@@ -597,7 +436,6 @@ function scoreCandidate(
       sectorStrength,
       valuation,
       catalyst,
-<<<<<<< Updated upstream
       liquidity,
       dataQuality,
       risk,
@@ -606,9 +444,6 @@ function scoreCandidate(
       governmentPolicy: intelligence.contributions.governmentPolicy,
       expertConsensus: intelligence.contributions.expertConsensus,
       learningFeedback: intelligence.contributions.learningFeedback,
-=======
-      risk,
->>>>>>> Stashed changes
       total,
     },
     reasons,
@@ -620,7 +455,6 @@ function scoreCandidate(
     profitMarginPercent: fundamentals.profitMargins * 100,
     trailingPe: fundamentals.trailingPe,
     relativeStrengthPercent,
-<<<<<<< Updated upstream
     averageDailyTurnoverCr: row.averageDailyTurnoverCr,
     catalystSummary:
       headlines[0] ??
@@ -744,16 +578,6 @@ async function fetchChart(symbol: string): Promise<YahooChartResult | null> {
   try {
     const response = await fetch(
       `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(symbol)}?range=1y&interval=1d`,
-=======
-    catalystSummary,
-  };
-}
-
-async function fetchChart(symbol: string): Promise<YahooChartResult | null> {
-  try {
-    const response = await fetch(
-      `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(symbol)}?range=6mo&interval=1d`,
->>>>>>> Stashed changes
       {
         headers: { "User-Agent": "Mozilla/5.0" },
         next: { revalidate: 900 },
@@ -771,11 +595,6 @@ async function fetchChart(symbol: string): Promise<YahooChartResult | null> {
 
 async function fetchFundamentals(symbol: string): Promise<FundamentalProfile> {
   const fallback: FundamentalProfile = {
-<<<<<<< Updated upstream
-=======
-    sector: "",
-    industry: "",
->>>>>>> Stashed changes
     marketCap: 0,
     revenueGrowth: 0,
     earningsGrowth: 0,
@@ -783,7 +602,6 @@ async function fetchFundamentals(symbol: string): Promise<FundamentalProfile> {
     debtToEquity: 0,
     profitMargins: 0,
     trailingPe: 0,
-<<<<<<< Updated upstream
     ttmRevenue: 0,
     ttmNetIncome: 0,
     operatingCashFlow: 0,
@@ -796,31 +614,22 @@ async function fetchFundamentals(symbol: string): Promise<FundamentalProfile> {
     revenueYears: 0,
     incomeYears: 0,
     latestReportDate: "",
-=======
->>>>>>> Stashed changes
   };
 
   try {
     const now = Math.floor(Date.now() / 1000);
-<<<<<<< Updated upstream
     const period1 = now - 60 * 60 * 24 * 1_100;
-=======
-    const period1 = now - 60 * 60 * 24 * 730;
->>>>>>> Stashed changes
     const types = [
       "quarterlyTotalRevenue",
       "quarterlyNetIncome",
       "quarterlyStockholdersEquity",
       "quarterlyTotalDebt",
-<<<<<<< Updated upstream
       "annualTotalRevenue",
       "annualNetIncome",
       "trailingTotalRevenue",
       "trailingNetIncome",
       "annualOperatingCashFlow",
       "trailingOperatingCashFlow",
-=======
->>>>>>> Stashed changes
       "trailingMarketCap",
       "trailingPeRatio",
     ].join(",");
@@ -838,10 +647,7 @@ async function fetchFundamentals(symbol: string): Promise<FundamentalProfile> {
           Record<
             string,
             | Array<{
-<<<<<<< Updated upstream
                 asOfDate?: string;
-=======
->>>>>>> Stashed changes
                 reportedValue?: { raw?: number };
               }>
             | { type?: string[] }
@@ -851,16 +657,11 @@ async function fetchFundamentals(symbol: string): Promise<FundamentalProfile> {
       };
     };
     const rows = data.timeseries?.result ?? [];
-<<<<<<< Updated upstream
     const series = (type: string) => {
-=======
-    const values = (type: string) => {
->>>>>>> Stashed changes
       const row = rows.find(
         (item) =>
           (item.meta as { type?: string[] } | undefined)?.type?.[0] === type,
       );
-<<<<<<< Updated upstream
       return (
         (row?.[type] as
           | Array<{ asOfDate?: string; reportedValue?: { raw?: number } }>
@@ -920,37 +721,6 @@ async function fetchFundamentals(symbol: string): Promise<FundamentalProfile> {
           .filter(Boolean)
           .sort()
           .at(-1) ?? "",
-=======
-      const series = row?.[type] as
-        | Array<{ reportedValue?: { raw?: number } }>
-        | undefined;
-      return (series ?? [])
-        .map((item) => item.reportedValue?.raw ?? 0)
-        .filter((value) => Number.isFinite(value) && value !== 0);
-    };
-    const latest = (type: string) => values(type).at(-1) ?? 0;
-    const yearOverYearGrowth = (type: string) => {
-      const series = values(type);
-      const current = series.at(-1) ?? 0;
-      const prior = series.at(-5) ?? series[0] ?? 0;
-      return prior !== 0 ? (current - prior) / Math.abs(prior) : 0;
-    };
-    const revenue = latest("quarterlyTotalRevenue");
-    const netIncome = latest("quarterlyNetIncome");
-    const equity = latest("quarterlyStockholdersEquity");
-    const debt = latest("quarterlyTotalDebt");
-
-    return {
-      sector: "",
-      industry: "",
-      marketCap: latest("trailingMarketCap"),
-      revenueGrowth: yearOverYearGrowth("quarterlyTotalRevenue"),
-      earningsGrowth: yearOverYearGrowth("quarterlyNetIncome"),
-      returnOnEquity: equity > 0 ? (netIncome * 4) / equity : 0,
-      debtToEquity: equity > 0 ? (debt / equity) * 100 : 0,
-      profitMargins: revenue > 0 ? netIncome / revenue : 0,
-      trailingPe: latest("trailingPeRatio"),
->>>>>>> Stashed changes
     };
   } catch {
     return fallback;
@@ -960,11 +730,7 @@ async function fetchFundamentals(symbol: string): Promise<FundamentalProfile> {
 async function fetchHeadlines(symbol: string, companyName: string) {
   try {
     const response = await fetch(
-<<<<<<< Updated upstream
       `https://query1.finance.yahoo.com/v1/finance/search?q=${encodeURIComponent(symbol)}&quotesCount=1&newsCount=8`,
-=======
-      `https://query1.finance.yahoo.com/v1/finance/search?q=${encodeURIComponent(symbol)}&quotesCount=1&newsCount=5`,
->>>>>>> Stashed changes
       {
         headers: { "User-Agent": "Mozilla/5.0" },
         next: { revalidate: 1800 },
@@ -993,11 +759,7 @@ async function fetchHeadlines(symbol: string, companyName: string) {
         const normalized = title.toLowerCase();
         return identityTokens.some((token) => normalized.includes(token));
       })
-<<<<<<< Updated upstream
       .slice(0, 8);
-=======
-      .slice(0, 5);
->>>>>>> Stashed changes
   } catch {
     return [];
   }
@@ -1012,7 +774,6 @@ async function fetchBenchmarkReturns(symbols: string[]) {
   return Object.fromEntries(rows);
 }
 
-<<<<<<< Updated upstream
 function scoreDataQuality(fundamentals: FundamentalProfile, bars: PriceBar[]) {
   let score = 0;
   if (bars.length >= 200) score += 20;
@@ -1137,45 +898,10 @@ function scoreSafety(
   if (fundamentals.trailingPe > 60) score -= 2;
   if (["Correction", "Risk-Off"].includes(regime)) score -= 2;
   return clamp(score, 0, 10);
-=======
-function scoreGrowth(fundamentals: FundamentalProfile) {
-  return clamp(
-    Math.round(
-      Math.max(0, fundamentals.revenueGrowth * 30) +
-        Math.max(0, fundamentals.earningsGrowth * 24),
-    ),
-    0,
-    15,
-  );
-}
-
-function scoreQuality(fundamentals: FundamentalProfile) {
-  const margin = Math.max(0, fundamentals.profitMargins) * 35;
-  const roe = Math.max(0, fundamentals.returnOnEquity) * 30;
-  const debtPenalty = fundamentals.debtToEquity > 150 ? 5 : fundamentals.debtToEquity > 80 ? 2 : 0;
-  return clamp(Math.round(margin + roe - debtPenalty), 0, 15);
-}
-
-function scoreValuation(fundamentals: FundamentalProfile) {
-  if (!fundamentals.trailingPe) return 4;
-  if (fundamentals.trailingPe <= 15) return 10;
-  if (fundamentals.trailingPe <= 30) return 8;
-  if (fundamentals.trailingPe <= 50) return 6;
-  if (fundamentals.trailingPe <= 80) return 3;
-  return 1;
-}
-
-function scoreCatalysts(headlines: string[]) {
-  const text = headlines.join(" ").toLowerCase();
-  const positive = catalystPositive.filter((word) => text.includes(word)).length;
-  const negative = catalystNegative.filter((word) => text.includes(word)).length;
-  return clamp(5 + positive * 2 - negative * 3, 0, 10);
->>>>>>> Stashed changes
 }
 
 function buildReasons({
   fundamentals,
-<<<<<<< Updated upstream
   relativeStrengthPercent,
   metrics,
   theme,
@@ -1206,38 +932,6 @@ function buildReasons({
     `Average daily traded value approximately INR ${averageDailyTurnoverCr.toFixed(1)} Cr.`,
   );
   reasons.push(`Market regime: ${regime}.`);
-=======
-  headlines,
-  relativeStrengthPercent,
-  metrics,
-  theme,
-}: {
-  fundamentals: FundamentalProfile;
-  headlines: string[];
-  relativeStrengthPercent: number;
-  metrics: StockSignalMetrics;
-  theme: string;
-}) {
-  const reasons = [`Theme: ${theme}.`];
-  if (fundamentals.revenueGrowth > 0.08) {
-    reasons.push(`Revenue growth ${formatPercent(fundamentals.revenueGrowth * 100)}.`);
-  }
-  if (fundamentals.earningsGrowth > 0.08) {
-    reasons.push(`Earnings growth ${formatPercent(fundamentals.earningsGrowth * 100)}.`);
-  }
-  if (fundamentals.returnOnEquity > 0.12) {
-    reasons.push(`ROE ${formatPercent(fundamentals.returnOnEquity * 100)}.`);
-  }
-  if (relativeStrengthPercent > 3) {
-    reasons.push(`Outperforming sector benchmark by ${formatPercent(relativeStrengthPercent)} over roughly three months.`);
-  }
-  if (metrics.ema20 >= metrics.ema50 && metrics.finalScore >= 55) {
-    reasons.push("Trend and momentum confirmation are positive.");
-  }
-  if (headlines.length) {
-    reasons.push(`Catalyst watch: ${headlines[0]}`);
-  }
->>>>>>> Stashed changes
   return reasons;
 }
 
@@ -1245,7 +939,6 @@ function buildScreeningCaveats(
   metrics: StockSignalMetrics,
   fundamentals: FundamentalProfile,
   headlines: string[],
-<<<<<<< Updated upstream
   gateFailures: string[],
 ) {
   const caveats = [
@@ -1277,26 +970,6 @@ function bucketMarketCap(
   marketCapCr: number,
   hint: MarketCapBucket,
 ): MarketCapBucket {
-=======
-) {
-  const caveats = [...metrics.caveats];
-  if (!fundamentals.marketCap) {
-    caveats.push("Fundamental feed was incomplete; verify exchange filings before acting.");
-  }
-  if (fundamentals.trailingPe > 60) {
-    caveats.push(`Valuation is elevated at approximately ${fundamentals.trailingPe.toFixed(1)}x trailing earnings.`);
-  }
-  if (fundamentals.debtToEquity > 100) {
-    caveats.push(`Debt-to-equity is elevated at ${fundamentals.debtToEquity.toFixed(0)}.`);
-  }
-  if (!headlines.length) {
-    caveats.push("No fresh company-specific headline catalyst was available.");
-  }
-  return [...new Set(caveats)].slice(0, 5);
-}
-
-function bucketMarketCap(marketCapCr: number, hint: MarketCapBucket): MarketCapBucket {
->>>>>>> Stashed changes
   if (!marketCapCr) return hint;
   if (marketCapCr >= 50_000) return "large";
   if (marketCapCr >= 10_000) return "mid";
@@ -1319,7 +992,6 @@ function buildPriceBars(quote?: {
     .filter((bar) => bar.close > 0 && bar.high > 0 && bar.low > 0);
 }
 
-<<<<<<< Updated upstream
 function calculateAverageTurnoverCr(bars: PriceBar[]) {
   const sample = bars.slice(-20);
   const average =
@@ -1328,8 +1000,6 @@ function calculateAverageTurnoverCr(bars: PriceBar[]) {
   return average / 10_000_000;
 }
 
-=======
->>>>>>> Stashed changes
 function periodReturn(bars: PriceBar[], periods: number) {
   const sample = bars.slice(-periods);
   const start = sample[0]?.close ?? 0;
@@ -1337,7 +1007,6 @@ function periodReturn(bars: PriceBar[], periods: number) {
   return start > 0 && end > 0 ? ((end - start) / start) * 100 : 0;
 }
 
-<<<<<<< Updated upstream
 function neutralSectorDirection(sector: string): SectorDirection {
   return {
     sector,
@@ -1396,8 +1065,6 @@ function hasSevereRiskHeadline(headlines: string[]) {
   return severeRiskTerms.some((term) => normalized.includes(term));
 }
 
-=======
->>>>>>> Stashed changes
 async function mapWithConcurrency<T, R>(
   items: T[],
   concurrency: number,

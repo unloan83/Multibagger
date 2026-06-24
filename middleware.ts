@@ -1,88 +1,85 @@
 import { NextRequest, NextResponse } from "next/server";
 
 const sessionCookieName = "unloan_dashboard_session";
-const oneWeekInMs = 60 * 60 * 24 * 7 * 1000;
 
 export async function middleware(request: NextRequest) {
-  if (!isAuthConfigured()) {
-    return NextResponse.next();
-  }
-
   const { pathname } = request.nextUrl;
-  const isLoginPage = pathname === "/login";
-  const isAdminRoute = pathname === "/admin" || pathname.startsWith("/admin/");
-  const isPublicPortfolioCreate =
-    pathname === "/api/portfolios" && request.method === "POST";
-  const isProtectedApi =
-    (pathname.startsWith("/api/portfolios") &&
-      request.method !== "GET" &&
-      !isPublicPortfolioCreate) ||
-    pathname.startsWith("/api/storage");
+
+  // 1. Exclude public assets and specific Next.js internals
   const isPublicAsset =
     pathname.startsWith("/_next") ||
     pathname.startsWith("/favicon") ||
+    pathname.startsWith("/api/health") ||
     pathname.match(/\.(?:png|jpg|jpeg|gif|webp|svg|ico|css|js)$/u);
-  const isAuthApi = pathname.startsWith("/api/auth");
-  const isSnapshotApi = pathname.startsWith("/api/snapshots");
-  const isAuthenticated = await verifySessionValue(
-    request.cookies.get(sessionCookieName)?.value,
-  );
 
-  if (isPublicAsset || isAuthApi || isSnapshotApi) {
+  if (isPublicAsset) {
     return NextResponse.next();
   }
 
-  if (!isAdminRoute && !isProtectedApi && !isLoginPage) {
+  const secret = process.env.SHARED_SESSION_SECRET || "fallback_secret_for_local_dev";
+
+  // 2. Check for token transition in URL query params
+  const token = request.nextUrl.searchParams.get("token");
+  if (token) {
+    const isValid = await verifyTransitionToken(token, secret);
+    if (isValid) {
+      // Redirect to the clean requested URL (removing 'token' query param)
+      const url = new URL(pathname, request.url);
+      request.nextUrl.searchParams.delete("token");
+      url.search = request.nextUrl.searchParams.toString();
+      
+      const response = NextResponse.redirect(url);
+      response.cookies.set(sessionCookieName, token, {
+        path: "/",
+        maxAge: 60 * 60 * 24, // 1 day
+        httpOnly: true,
+        secure: request.url.startsWith("https:"),
+        sameSite: "lax",
+      });
+      return response;
+    } else {
+      // Invalid token, redirect to login
+      return redirectToLogin(request);
+    }
+  }
+
+  // 3. Verify session cookie
+  const cookieValue = request.cookies.get(sessionCookieName)?.value;
+  const isAuthenticated = cookieValue ? await verifyTransitionToken(cookieValue, secret) : false;
+
+  if (isAuthenticated) {
     return NextResponse.next();
   }
 
-  if (isLoginPage && isAuthenticated) {
-    return NextResponse.redirect(new URL("/admin", request.url));
-  }
-
-  if ((isAdminRoute || isProtectedApi) && !isAuthenticated) {
-    const loginUrl = new URL("/login", request.url);
-    loginUrl.searchParams.set("next", pathname);
-    return NextResponse.redirect(loginUrl);
-  }
-
-  return NextResponse.next();
+  // 4. Fallback: If not authenticated, redirect to liveunloan login portal
+  return redirectToLogin(request);
 }
 
 export const config = {
   matcher: ["/((?!_next/static|_next/image).*)"],
 };
 
-function isAuthConfigured() {
-  return Boolean(
-    process.env.DASHBOARD_USERNAME &&
-      process.env.DASHBOARD_PASSWORD &&
-      (process.env.DASHBOARD_SESSION_SECRET || process.env.DASHBOARD_PASSWORD),
-  );
+function redirectToLogin(request: NextRequest) {
+  const host = request.headers.get("host") || "";
+  const isDev = host.includes("localhost") || host.includes("127.0.0.1");
+  const loginUrl = isDev ? "http://localhost:5173" : "https://liveunloan.vercel.app";
+  return NextResponse.redirect(`${loginUrl}/?error=unauthorized`);
 }
 
-async function verifySessionValue(value?: string) {
-  if (!value || !isAuthConfigured()) {
+async function verifyTransitionToken(value: string, secret: string) {
+  const parts = value.split(":");
+  if (parts.length !== 3) {
+    return false;
+  }
+  const [username, timestamp, signature] = parts;
+  
+  // Verify timestamp is within 5 minutes (300000ms)
+  const age = Date.now() - Number(timestamp);
+  if (!Number.isFinite(age) || Math.abs(age) > 5 * 60 * 1000) {
     return false;
   }
 
-  const [username, issuedAt, signature] = value.split(":");
-  const expectedUsername = process.env.DASHBOARD_USERNAME;
-  const secret =
-    process.env.DASHBOARD_SESSION_SECRET ?? process.env.DASHBOARD_PASSWORD ?? "";
-
-  if (!username || !issuedAt || !signature || username !== expectedUsername) {
-    return false;
-  }
-
-  const age = Date.now() - Number(issuedAt);
-
-  if (!Number.isFinite(age) || age < 0 || age > oneWeekInMs) {
-    return false;
-  }
-
-  const expected = await sign(`${username}:${issuedAt}`, secret);
-
+  const expected = await sign(`${username}:${timestamp}`, secret);
   return signature === expected;
 }
 

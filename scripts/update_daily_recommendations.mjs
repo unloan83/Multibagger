@@ -4,7 +4,12 @@ import path from "node:path";
 const repoRoot = process.cwd();
 const outputPath = path.join(repoRoot, "data", "daily_recommendations.csv");
 const portfolioCsvPath = path.join(repoRoot, "public", "portfolio.csv");
+<<<<<<< Updated upstream
 const wealthSnapshotPath = path.join(repoRoot, "data", "wealth_recommendations.json");
+=======
+const universePath = path.join(repoRoot, "data", "market-universe.json");
+const discoveryUniverse = JSON.parse(await fs.readFile(universePath, "utf8"));
+>>>>>>> Stashed changes
 
 const headers = [
   "date",
@@ -87,6 +92,21 @@ const marketMoverGroups = {
   ],
 };
 
+<<<<<<< Updated upstream
+=======
+const expertGroups = {
+  "Large-Cap Quality Compounders": discoveryUniverse
+    .filter((row) => row.capHint === "large")
+    .map((row) => row.symbol),
+  "Mid-Cap Growth Leaders": discoveryUniverse
+    .filter((row) => row.capHint === "mid")
+    .map((row) => row.symbol),
+  "Small-Cap Wealth Candidates": discoveryUniverse
+    .filter((row) => row.capHint === "small")
+    .map((row) => row.symbol),
+};
+
+>>>>>>> Stashed changes
 const slot = getArgValue("--slot") ?? "all";
 const now = new Date();
 const date = new Intl.DateTimeFormat("en-CA", {
@@ -172,12 +192,18 @@ async function buildExpertRows() {
           runSlot: "morning",
           category: "expert-long-term",
           source: "expert-action-matrix",
+<<<<<<< Updated upstream
           segment: category.title,
           action: quote.action,
           notes: `Safety-gated long-term candidate | ${quote.reasons.join(" ")}`,
           decisionScore: quote.score,
           dataQuality: quote.dataQuality,
           factorSummary: formatFactorSummary(quote.factorScores),
+=======
+          segment,
+          action: "Accumulate",
+          notes: "Expanded thematic universe long-term candidate; live page applies full multi-factor scoring",
+>>>>>>> Stashed changes
         }),
       ),
       ...category.intradayBreakouts.map((quote) =>
@@ -185,12 +211,18 @@ async function buildExpertRows() {
           runSlot: "morning",
           category: "expert-intraday",
           source: "expert-action-matrix",
+<<<<<<< Updated upstream
           segment: category.title,
           action: quote.action === "Accumulate" ? "Track Breakout" : "Watchlist",
           notes: `Safety-gated momentum candidate | ${quote.reasons.join(" ")}`,
           decisionScore: quote.score,
           dataQuality: quote.dataQuality,
           factorSummary: formatFactorSummary(quote.factorScores),
+=======
+          segment,
+          action: "Track Breakout",
+          notes: "Expanded thematic universe momentum candidate; live page applies full multi-factor scoring",
+>>>>>>> Stashed changes
         }),
       ),
     ]);
@@ -328,6 +360,7 @@ function emptyQuote(symbol, fallbackName) {
   };
 }
 
+<<<<<<< Updated upstream
 function classifyLongTermPortfolioQuote(quote) {
   const closes = quote.bars.map((bar) => bar.close);
   const ema20 = calculateEma(closes, 20) || quote.price;
@@ -349,6 +382,18 @@ function classifyLongTermPortfolioQuote(quote) {
       (return60 <= -12 ? 18 : 0) +
       (return120 <= -18 ? 15 : 0) +
       (drawdown <= -20 ? 12 : 0),
+=======
+function addTarget(quote, segment) {
+  const [floor, ceiling] =
+    segment.includes("Small-Cap")
+      ? [1.15, 2.35]
+      : segment.includes("Mid-Cap")
+          ? [1.12, 1.32]
+          : [1.15, 1.45];
+  const multiplier = Math.min(
+    ceiling,
+    floor + quote.volumeShock * 0.08 + Math.max(quote.changePercent, 0) / 100,
+>>>>>>> Stashed changes
   );
   const expectedDownsidePercent = Math.min(
     35,

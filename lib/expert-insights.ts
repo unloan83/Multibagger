@@ -2,6 +2,7 @@ import fs from "node:fs/promises";
 import path from "node:path";
 import { buildMarketOverview } from "@/lib/market-overview";
 import {
+<<<<<<< Updated upstream
   isGoogleSheetsConfigured,
   readValidationRecords,
 } from "@/lib/google-sheets";
@@ -19,11 +20,16 @@ import {
   type SectorDirection,
 } from "@/lib/recommendation-intelligence";
 import {
+=======
+>>>>>>> Stashed changes
   getMarketUniverse,
   screenWealthUniverse,
   type FactorScores,
   type MarketCapBucket,
+<<<<<<< Updated upstream
   type ScreeningRegime,
+=======
+>>>>>>> Stashed changes
   type ScreenedStock,
 } from "@/lib/wealth-screening";
 import type { StockSignalMetrics } from "@/lib/analysis";
@@ -48,11 +54,15 @@ export type ExpertQuote = {
   factorScores: FactorScores;
   reasons: string[];
   marketCapCr: number;
+<<<<<<< Updated upstream
   dataQuality: number;
   fundamentalAsOf: string;
   averageDailyTurnoverCr: number;
   catalystSummary: string;
   intelligence: ScreenedStock["intelligence"];
+=======
+  catalystSummary: string;
+>>>>>>> Stashed changes
 };
 
 export type ExpertCategory = {
@@ -84,11 +94,14 @@ export type ExpertActionMatrix = {
   refreshCycle: string;
   caveat: string;
   universeSize: number;
+<<<<<<< Updated upstream
   evaluatedSize: number;
   eligibleSize: number;
   abstained: boolean;
   marketRegime: ScreeningRegime;
   rejectionSummary: Array<{ reason: string; count: number }>;
+=======
+>>>>>>> Stashed changes
   methodology: string[];
   exclusionDiagnostics: ExclusionDiagnostic[];
   consecutivePicks: ConsecutivePick[];
@@ -112,6 +125,7 @@ const categoryMeta: Record<
 };
 
 export async function buildExpertActionMatrix(): Promise<ExpertActionMatrix> {
+<<<<<<< Updated upstream
   const snapshot = await readSnapshot();
 
   if (snapshot) {
@@ -147,6 +161,161 @@ export async function generateExpertActionMatrix(): Promise<ExpertActionMatrix> 
   );
   const consecutivePicks = await getConsecutiveExpertPicks(categories);
   const selectedSymbols = new Set(
+=======
+  const screened = await screenWealthUniverse();
+  const categories = (Object.keys(categoryMeta) as MarketCapBucket[]).map(
+    (bucket) => buildCategory(bucket, screened),
+  );
+  const consecutivePicks = await getConsecutiveExpertPicks(categories);
+  const selectedSymbols = new Set(
+    categories.flatMap((category) =>
+      [...category.longTermUpsides, ...category.intradayBreakouts].map(
+        (quote) => quote.symbol,
+      ),
+    ),
+  );
+  const exclusionDiagnostics = screened
+    .filter((stock) => !selectedSymbols.has(stock.symbol))
+    .slice(0, 12)
+    .map((stock) => ({
+      symbol: stock.symbol,
+      name: stock.name,
+      score: stock.score,
+      reason: getExclusionReason(stock),
+    }));
+
+  return {
+    title: "Multi-Factor Wealth Discovery Matrix",
+    verified:
+      "NSE price trend, sector-relative strength, revenue and earnings growth, profitability, leverage, valuation, liquidity, news catalysts and risk",
+    source:
+      "Expanded thematic NSE screening universe with Yahoo market/fundamental feeds and outcome-learning history",
+    asOf: new Date().toISOString(),
+    refreshCycle:
+      "Technical and catalyst signals refresh intraday; fundamental factors are cached for six hours.",
+    caveat:
+      "Research screening only—not a guarantee of returns. Verify exchange filings, valuation, governance, liquidity, and position sizing before investing.",
+    universeSize: getMarketUniverse().length,
+    methodology: [
+      "Broad thematic NSE universe spanning EV, defence, rail, renewables, manufacturing, digital, healthcare and consumer growth.",
+      "Two-stage screening: liquidity/trend/risk first, then fundamental, valuation, sector-relative and catalyst enrichment.",
+      "Selection requires a minimum wealth score plus trend and risk confirmation; non-selected names retain exclusion diagnostics.",
+    ],
+    exclusionDiagnostics,
+    consecutivePicks,
+    categories,
+  };
+}
+
+function buildCategory(
+  bucket: MarketCapBucket,
+  screened: ScreenedStock[],
+): ExpertCategory {
+  const meta = categoryMeta[bucket];
+  const candidates = screened.filter((stock) => stock.capBucket === bucket);
+  const longTermUpsides = candidates
+    .filter(isLongTermCandidate)
+    .sort(
+      (a, b) =>
+        b.score + b.factorScores.growth + b.factorScores.quality -
+        (a.score + a.factorScores.growth + a.factorScores.quality),
+    )
+    .slice(0, 6)
+    .map(toExpertQuote);
+  const intradayBreakouts = candidates
+    .filter(isMomentumCandidate)
+    .sort(
+      (a, b) =>
+        b.factorScores.momentum +
+        b.factorScores.sectorStrength +
+        b.volumeShock * 3 -
+        (a.factorScores.momentum +
+          a.factorScores.sectorStrength +
+          a.volumeShock * 3),
+    )
+    .slice(0, 5)
+    .map(toExpertQuote);
+
+  return {
+    key: meta.key,
+    title: meta.title,
+    longTermUpsides,
+    intradayBreakouts,
+  };
+}
+
+function isLongTermCandidate(stock: ScreenedStock) {
+  const threshold =
+    stock.capBucket === "small" ? 58 : stock.capBucket === "mid" ? 60 : 62;
+
+  return (
+    stock.score >= threshold &&
+    stock.factorScores.growth + stock.factorScores.quality >= 10 &&
+    stock.metrics.ema20 >= stock.metrics.ema50 * 0.97 &&
+    stock.metrics.riskScore <= 22 &&
+    stock.upside >= 8
+  );
+}
+
+function isMomentumCandidate(stock: ScreenedStock) {
+  return (
+    stock.score >= 54 &&
+    stock.metrics.finalScore >= 52 &&
+    stock.metrics.ema20 >= stock.metrics.ema50 * 0.985 &&
+    stock.metrics.riskScore <= 18 &&
+    Math.abs(stock.changePercent) <= 8 &&
+    Math.abs(stock.metrics.vwapDistancePercent) <= 8 &&
+    stock.volumeShock >= 0.75
+  );
+}
+
+function toExpertQuote(stock: ScreenedStock): ExpertQuote {
+  return {
+    symbol: stock.symbol,
+    name: stock.name,
+    price: stock.price,
+    previousClose: stock.previousClose,
+    changePercent: stock.changePercent,
+    volume: stock.volume,
+    volumeShock: stock.volumeShock,
+    target: stock.target,
+    upside: stock.upside,
+    score: stock.score,
+    action: "Accumulate",
+    remark: stock.remark,
+    caveats: stock.caveats,
+    metrics: stock.metrics,
+    theme: stock.theme,
+    sector: stock.sector,
+    factorScores: stock.factorScores,
+    reasons: stock.reasons,
+    marketCapCr: stock.marketCapCr,
+    catalystSummary: stock.catalystSummary,
+  };
+}
+
+function getExclusionReason(stock: ScreenedStock) {
+  if (stock.metrics.riskScore > 22) {
+    return `Risk score ${stock.metrics.riskScore.toFixed(1)} is above the long-term limit.`;
+  }
+  if (stock.metrics.ema20 < stock.metrics.ema50 * 0.97) {
+    return "Trend confirmation is weak because EMA20 remains below EMA50.";
+  }
+  if (stock.factorScores.growth + stock.factorScores.quality < 10) {
+    return "Growth and business-quality evidence is not strong enough for the current shortlist.";
+  }
+  if (stock.upside < 8) {
+    return "Risk-adjusted target upside is below the minimum entry hurdle.";
+  }
+  return `Wealth score ${stock.score}/100 ranked below stronger candidates in its market-cap group.`;
+}
+
+async function getConsecutiveExpertPicks(
+  categories: ExpertCategory[],
+): Promise<ConsecutivePick[]> {
+  const csvPicks = await readConsecutivePicksFromCsv();
+  const liveSymbols = new Set(
+>>>>>>> Stashed changes
     categories.flatMap((category) =>
       [...category.longTermUpsides, ...category.intradayBreakouts].map(
         (quote) => quote.symbol,

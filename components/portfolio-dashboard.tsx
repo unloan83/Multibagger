@@ -63,6 +63,7 @@ import {
   samplePortfolio,
 } from "@/lib/portfolio";
 import { cn } from "@/lib/utils";
+import { isActivePortfolioName, normalizePortfolioName } from "@/lib/users";
 import {
   useCallback,
   useEffect,
@@ -305,9 +306,11 @@ const requestTypes = [
 ];
 
 export function PortfolioDashboard({
+  accountMode = false,
   adminMode = false,
   initialPortfolioId,
 }: {
+  accountMode?: boolean;
   adminMode?: boolean;
   initialPortfolioId?: string;
 }) {
@@ -330,7 +333,9 @@ export function PortfolioDashboard({
   const [expertMatrix, setExpertMatrix] = useState<ExpertActionMatrix | null>(null);
   const [, setIsExpertLoading] = useState(false);
   const [isPortfolioDashboardOpen, setIsPortfolioDashboardOpen] = useState(true);
-  const [routeUnlocked, setRouteUnlocked] = useState(!initialPortfolioId || adminMode);
+  const [routeUnlocked, setRouteUnlocked] = useState(
+    !initialPortfolioId || adminMode || accountMode,
+  );
   const [selectedPortfolioId, setSelectedPortfolioId] = useState(
     initialPortfolioId ?? samplePortfolio.id,
   );
@@ -548,6 +553,15 @@ export function PortfolioDashboard({
     }
 
     if (!hydrated && initialPortfolioId) {
+      return;
+    }
+
+    const matchedInitialPortfolio = initialPortfolioId
+      ? portfolios.find((portfolio) => matchesPortfolioRoute(portfolio, initialPortfolioId))
+      : undefined;
+
+    if (matchedInitialPortfolio && matchedInitialPortfolio.id !== selectedPortfolioId) {
+      setSelectedPortfolioId(matchedInitialPortfolio.id);
       return;
     }
 
@@ -1020,6 +1034,9 @@ export function PortfolioDashboard({
 
   const selectedPortfolio =
     portfolios.find((portfolio) => portfolio.id === selectedPortfolioId) ??
+    (initialPortfolioId
+      ? portfolios.find((portfolio) => matchesPortfolioRoute(portfolio, initialPortfolioId))
+      : undefined) ??
     (!initialPortfolioId ? portfolios[0] : undefined);
   const decisionIntelligence = useMemo(
     () => {
@@ -1093,7 +1110,7 @@ export function PortfolioDashboard({
           onRefresh={refreshMarketOverview}
         />
 
-        {adminMode || !initialPortfolioId ? (
+        {adminMode ? (
           <PortfolioHub
             portfolios={portfolios}
             selectedPortfolioId={selectedPortfolio?.id}
@@ -1197,7 +1214,7 @@ export function PortfolioDashboard({
                 </div>
               </div>
               <div className="flex items-center gap-2 self-end lg:self-auto">
-                {initialPortfolioId && !adminMode ? (
+                {initialPortfolioId && !adminMode && !accountMode ? (
                   <Button asChild variant="outline">
                     <Link href="/">Back To Portfolios</Link>
                   </Button>
@@ -4889,7 +4906,8 @@ function filterHomepagePortfolios(portfolios: ManagedPortfolio[]) {
       (portfolio) =>
         !portfolio.isMarketPortfolio &&
         portfolio.id !== "market-recommendations" &&
-        portfolio.name.toLowerCase() !== "market recommendation",
+        portfolio.name.toLowerCase() !== "market recommendation" &&
+        isActivePortfolioName(portfolio.name),
     )
     .sort((a, b) => {
       const aIsSuchi = a.name.toLowerCase().includes("suchi icici");
@@ -4901,6 +4919,13 @@ function filterHomepagePortfolios(portfolios: ManagedPortfolio[]) {
 
       return a.name.localeCompare(b.name);
     });
+}
+
+function matchesPortfolioRoute(portfolio: ManagedPortfolio, routeKey: string) {
+  return (
+    portfolio.id === routeKey ||
+    normalizePortfolioName(portfolio.name) === normalizePortfolioName(routeKey)
+  );
 }
 
 function getCsvValue(row: CsvRow, keys: string[]) {

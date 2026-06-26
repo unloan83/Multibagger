@@ -4,7 +4,7 @@ import {
   isGoogleSheetsConfigured,
   savePortfolioToSheets,
 } from "@/lib/google-sheets";
-import { isRequestAuthenticated } from "@/lib/auth";
+import { isAdminRequest } from "@/lib/auth";
 import type { ManagedPortfolio } from "@/lib/portfolio";
 
 export const runtime = "nodejs";
@@ -13,7 +13,7 @@ export async function PUT(
   request: Request,
   { params }: { params: Promise<{ id: string }> },
 ) {
-  if (!(await isRequestAuthenticated())) {
+  if (!(await isAdminRequest())) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
@@ -39,7 +39,7 @@ export async function DELETE(
   _request: Request,
   { params }: { params: Promise<{ id: string }> },
 ) {
-  if (!(await isRequestAuthenticated())) {
+  if (!(await isAdminRequest())) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 

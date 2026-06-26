@@ -20,6 +20,7 @@ const privateKey = process.env.GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY?.replace(/\\n/
 const portfoliosSheet = "Portfolios";
 const holdingsSheet = "Holdings";
 const portfolioPinsSheet = "Portfolio PINs";
+const authUsersSheet = "Auth Users";
 const communicationSettingsSheet = "Communication Settings";
 const userRequestsSheet = "User Requests";
 const requestMessagesSheet = "Request Messages";
@@ -116,6 +117,15 @@ export type RequestMessageRow = {
   createdAt: string;
   sender: "User" | "Admin";
   message: string;
+};
+
+export type AuthUserOverrideRow = {
+  seedEmail: string;
+  email: string;
+  displayName: string;
+  passwordHash: string;
+  salt: string;
+  updatedAt: string;
 };
 
 export type NotificationHistoryRow = {
@@ -226,6 +236,44 @@ export async function savePortfolioToSheets(portfolio: ManagedPortfolio) {
   ];
 
   await writePortfolios(nextPortfolios);
+}
+
+export async function readAuthUserOverridesFromSheets() {
+  if (!isGoogleSheetsConfigured()) {
+    return [];
+  }
+
+  const sheets = await getSheetsClient();
+  await ensureSheets();
+  const response = await sheets.spreadsheets.values.get({
+    spreadsheetId,
+    range: `${authUsersSheet}!A2:F`,
+  });
+
+  return (response.data.values ?? [])
+    .map((row): AuthUserOverrideRow => ({
+      seedEmail: String(row[0] ?? "").trim().toLowerCase(),
+      email: String(row[1] ?? "").trim().toLowerCase(),
+      displayName: String(row[2] ?? "").trim(),
+      passwordHash: String(row[3] ?? "").trim(),
+      salt: String(row[4] ?? "").trim(),
+      updatedAt: String(row[5] ?? "").trim(),
+    }))
+    .filter((row) => row.seedEmail && row.email && row.displayName && row.passwordHash && row.salt);
+}
+
+export async function saveAuthUserOverrideToSheets(row: AuthUserOverrideRow) {
+  if (!isGoogleSheetsConfigured()) {
+    throw new Error("Google Sheets is not configured.");
+  }
+
+  const existing = await readAuthUserOverridesFromSheets();
+  const next = [
+    ...existing.filter((item) => item.seedEmail !== row.seedEmail),
+    { ...row, updatedAt: new Date().toISOString() },
+  ];
+
+  await writeAuthUserOverrides(next);
 }
 
 export async function readPortfolioPinHashesFromSheets() {
@@ -653,6 +701,33 @@ export async function deletePortfolioFromSheets(id: string) {
   await writePortfolioPinHashes(nextPinHashes);
 }
 
+async function writeAuthUserOverrides(rows: AuthUserOverrideRow[]) {
+  const sheets = await getSheetsClient();
+  await ensureSheets();
+  const values = rows.map((row) => [
+    row.seedEmail,
+    row.email,
+    row.displayName,
+    row.passwordHash,
+    row.salt,
+    row.updatedAt,
+  ]);
+
+  await sheets.spreadsheets.values.batchClear({
+    spreadsheetId,
+    requestBody: { ranges: [rangeFor(authUsersSheet, "A2:F")] },
+  });
+
+  if (values.length > 0) {
+    await sheets.spreadsheets.values.update({
+      spreadsheetId,
+      range: rangeFor(authUsersSheet, "A2:F"),
+      valueInputOption: "USER_ENTERED",
+      requestBody: { values },
+    });
+  }
+}
+
 async function writePortfolioPinHashes(
   pinHashes: Record<string, { hash: string; updatedAt: string }>,
 ) {
@@ -819,6 +894,7 @@ async function ensureSheets(additionalTitles: string[] = []) {
     portfoliosSheet,
     holdingsSheet,
     portfolioPinsSheet,
+    authUsersSheet,
     communicationSettingsSheet,
     userRequestsSheet,
     requestMessagesSheet,
@@ -859,6 +935,10 @@ async function ensureSheets(additionalTitles: string[] = []) {
         {
           range: rangeFor(portfolioPinsSheet, "A1:C1"),
           values: [["portfolio_id", "pin_hash", "updated_at"]],
+        },
+        {
+          range: rangeFor(authUsersSheet, "A1:F1"),
+          values: [["seed_email", "email", "display_name", "password_hash", "salt", "updated_at"]],
         },
         {
           range: rangeFor(communicationSettingsSheet, "A1:K1"),

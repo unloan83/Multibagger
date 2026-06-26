@@ -8,7 +8,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
 export function LoginForm() {
   const searchParams = useSearchParams();
-  const [username, setUsername] = useState("");
+  const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [isLoading, setIsLoading] = useState(false);
@@ -20,8 +20,9 @@ export function LoginForm() {
     const response = await fetch("/api/auth/login", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ username, password }),
+      body: JSON.stringify({ email, password }),
     });
+    const payload = (await response.json().catch(() => ({}))) as { redirectTo?: string };
 
     if (!response.ok) {
       setError("Invalid login details.");
@@ -29,7 +30,7 @@ export function LoginForm() {
       return;
     }
 
-    window.location.href = searchParams.get("next") || "/admin";
+    window.location.href = searchParams.get("next") || payload.redirectTo || "/";
   }
 
   return (
@@ -43,9 +44,10 @@ export function LoginForm() {
         </CardHeader>
         <CardContent className="space-y-3">
           <input
-            value={username}
-            onChange={(event) => setUsername(event.target.value)}
-            placeholder="Login ID"
+            value={email}
+            onChange={(event) => setEmail(event.target.value)}
+            placeholder="Email"
+            type="email"
             className="h-10 w-full rounded-md border bg-background px-3 text-sm outline-none focus:ring-2 focus:ring-ring"
           />
           <input

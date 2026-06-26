@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { isRequestAuthenticated } from "@/lib/auth";
+import { isAdminRequest } from "@/lib/auth";
 import {
   isGoogleSheetsConfigured,
   readPortfolioPinHashesFromSheets,
@@ -9,7 +9,7 @@ import {
 export const runtime = "nodejs";
 
 export async function GET() {
-  if (!(await isRequestAuthenticated())) {
+  if (!(await isAdminRequest())) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
@@ -23,7 +23,7 @@ export async function GET() {
 }
 
 export async function PUT(request: Request) {
-  if (!(await isRequestAuthenticated())) {
+  if (!(await isAdminRequest())) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
@@ -54,6 +54,10 @@ export async function PUT(request: Request) {
 }
 
 export async function POST(request: Request) {
+  if (!(await isAdminRequest())) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
   if (!isGoogleSheetsConfigured()) {
     return NextResponse.json(
       { error: "Google Sheets is not configured." },

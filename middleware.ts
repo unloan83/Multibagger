@@ -10,18 +10,23 @@ export async function middleware(request: NextRequest) {
     pathname.startsWith("/_next") ||
     pathname.startsWith("/favicon") ||
     pathname.startsWith("/api/health") ||
+    pathname.startsWith("/api/auth") ||
+    pathname === "/login" ||
     pathname.match(/\.(?:png|jpg|jpeg|gif|webp|svg|ico|css|js)$/u);
 
   if (isPublicAsset) {
     return NextResponse.next();
   }
 
-  const secret = process.env.SHARED_SESSION_SECRET || "fallback_secret_for_local_dev";
+  const transitionSecret = process.env.SHARED_SESSION_SECRET;
+  const appSecret = process.env.DASHBOARD_SESSION_SECRET ?? process.env.SHARED_SESSION_SECRET;
 
   // 2. Check for token transition in URL query params
   const token = request.nextUrl.searchParams.get("token");
   if (token) {
-    const isValid = await verifyTransitionToken(token, secret, 5 * 60 * 1000);
+    const isValid = transitionSecret
+      ? await verifyTransitionToken(token, transitionSecret, 5 * 60 * 1000)
+      : false;
     if (isValid) {
       // Redirect to the clean requested URL (removing 'token' query param)
       const url = new URL(pathname, request.url);
@@ -45,7 +50,10 @@ export async function middleware(request: NextRequest) {
 
   // 3. Verify session cookie
   const cookieValue = request.cookies.get(sessionCookieName)?.value;
-  const isAuthenticated = cookieValue ? await verifyTransitionToken(cookieValue, secret, 24 * 60 * 60 * 1000) : false;
+  const isAuthenticated = cookieValue
+    ? (appSecret ? await verifyAppSession(cookieValue, appSecret) : false) ||
+      (transitionSecret ? await verifyTransitionToken(cookieValue, transitionSecret, 24 * 60 * 60 * 1000) : false)
+    : false;
 
   if (isAuthenticated) {
     return NextResponse.next();
@@ -81,6 +89,28 @@ async function verifyTransitionToken(value: string, secret: string, maxAgeMs: nu
 
   const expected = await sign(`${username}:${timestamp}`, secret);
   return signature === expected;
+}
+
+async function verifyAppSession(value: string, secret: string) {
+  const [encodedPayload, signature] = value.split(".");
+  if (!encodedPayload || !signature) return false;
+
+  const expected = await sign(encodedPayload, secret);
+  if (signature !== expected) return false;
+
+  try {
+    const payload = JSON.parse(base64UrlDecode(encodedPayload)) as { issuedAt?: number };
+    const age = Date.now() - Number(payload.issuedAt);
+    return Number.isFinite(age) && age >= 0 && age <= 7 * 24 * 60 * 60 * 1000;
+  } catch {
+    return false;
+  }
+}
+
+function base64UrlDecode(value: string) {
+  const normalized = value.replace(/-/gu, "+").replace(/_/gu, "/");
+  const padded = normalized.padEnd(Math.ceil(normalized.length / 4) * 4, "=");
+  return atob(padded);
 }
 
 async function sign(payload: string, secret: string) {

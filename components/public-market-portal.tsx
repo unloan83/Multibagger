@@ -1,7 +1,7 @@
 "use client";
 
 import Papa from "papaparse";
-import { BookOpen, FileUp, Lock, LockKeyhole, Map, Plus, Shield, Sparkles, Trash2, TrendingUp, X } from "lucide-react";
+import { BookOpen, FileUp, LockKeyhole, Map, Plus, Shield, Sparkles, Trash2, TrendingUp, X } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -10,20 +10,14 @@ import {
   useMemo,
   useRef,
   useState,
-  type ClipboardEvent,
-  type FormEvent,
-  type KeyboardEvent,
   type RefObject,
 } from "react";
 import { MarketOverviewCollapsible } from "@/components/market-overview-collapsible";
-import { PortfolioHub } from "@/components/portfolio-hub";
 import { Button } from "@/components/ui/button";
 import type { MarketOverview } from "@/lib/decision-intelligence";
 import {
   hashPortfolioPin,
-  masterRecoveryPin,
   normalizePinInput,
-  validatePortfolioPin,
 } from "@/lib/portfolio-pin";
 import {
   buildPortfolioInputRow,
@@ -34,6 +28,7 @@ import {
   samplePortfolio,
 } from "@/lib/portfolio";
 import { cn } from "@/lib/utils";
+import { isActivePortfolioName } from "@/lib/users";
 
 type ExpertMatrixQuote = {
   symbol: string;
@@ -77,9 +72,15 @@ type PublicPortfolioCsvRow = {
   purchasePrice?: string;
 };
 
+type SessionUser = {
+  displayName: string;
+  email: string;
+  role: "admin" | "user";
+  portfolioName?: string;
+};
+
 const portfoliosStorageKey = "multibagger-portfolios";
 const pinStorageKey = "unloan-portfolio-pin-hashes";
-const unlockedPortfolioStorageKey = "unloan-unlocked-portfolio";
 const publicPortfolioContactStorageKey = "unloan-public-portfolio-contact";
 
 const roadmapItems = [
@@ -111,16 +112,19 @@ export function PublicMarketPortal() {
   const [expertMatrix, setExpertMatrix] = useState<ExpertActionMatrix | null>(null);
   const [portfolios, setPortfolios] = useState<ManagedPortfolio[]>([samplePortfolio]);
   const [pinHashes, setPinHashes] = useState<Record<string, string>>({});
-  const [pinChallengePortfolio, setPinChallengePortfolio] =
-    useState<ManagedPortfolio | null>(null);
-  const [pinInput, setPinInput] = useState("");
-  const [pinError, setPinError] = useState<string | null>(null);
   const [isMarketLoading, setIsMarketLoading] = useState(false);
   const [isAdminLoginOpen, setIsAdminLoginOpen] = useState(false);
   const [adminUsername, setAdminUsername] = useState("");
   const [adminPassword, setAdminPassword] = useState("");
   const [adminError, setAdminError] = useState("");
   const [isAdminLoading, setIsAdminLoading] = useState(false);
+  const [sessionUser, setSessionUser] = useState<SessionUser | null>(null);
+  const [isProfileOpen, setIsProfileOpen] = useState(false);
+  const [profileName, setProfileName] = useState("");
+  const [profileEmail, setProfileEmail] = useState("");
+  const [profilePassword, setProfilePassword] = useState("");
+  const [profileError, setProfileError] = useState("");
+  const [isProfileSaving, setIsProfileSaving] = useState(false);
   const [isAddPortfolioOpen, setIsAddPortfolioOpen] = useState(false);
   const [isCreatingPortfolio, setIsCreatingPortfolio] = useState(false);
   const [addPortfolioError, setAddPortfolioError] = useState<string | null>(null);
@@ -150,12 +154,28 @@ export function PublicMarketPortal() {
 
   useEffect(() => {
     refreshMarket();
+    hydrateSessionUser();
     hydratePortfolios();
     fetch("/api/expert-action-matrix")
       .then((response) => (response.ok ? response.json() : null))
       .then((payload) => setExpertMatrix(payload as ExpertActionMatrix | null))
       .catch(() => setExpertMatrix(null));
   }, []);
+
+  async function hydrateSessionUser() {
+    try {
+      const response = await fetch("/api/auth/me");
+      if (!response.ok) return;
+      const payload = (await response.json()) as { user?: SessionUser };
+      if (payload.user) {
+        setSessionUser(payload.user);
+        setProfileName(payload.user.displayName);
+        setProfileEmail(payload.user.email);
+      }
+    } catch {
+      setSessionUser(null);
+    }
+  }
 
   async function hydratePortfolios() {
     const savedPins = window.localStorage.getItem(pinStorageKey);
@@ -184,78 +204,6 @@ export function PublicMarketPortal() {
     if (savedPortfolios) {
       setPortfolios(filterHomepagePortfolios(JSON.parse(savedPortfolios) as ManagedPortfolio[]));
     }
-  }
-
-  async function unlockPortfolio() {
-    if (!pinChallengePortfolio) {
-      return;
-    }
-
-    const normalizedPin = normalizePinInput(pinInput);
-    const savedHash = pinHashes[pinChallengePortfolio.id];
-    const serverResult = await validatePortfolioPinWithServer(
-      pinChallengePortfolio.id,
-      pinInput,
-    );
-    const portfolioPinResult =
-      serverResult ??
-      (await validatePortfolioPin({
-        enteredPin: pinInput,
-        portfolioId: pinChallengePortfolio.id,
-        portfolioName: pinChallengePortfolio.name,
-        storedHash: savedHash,
-      }));
-    const enteredMasterPin = normalizedPin === masterRecoveryPin;
-    const enteredPortfolioPin = portfolioPinResult.pinMatch;
-
-    console.log("[PIN DEBUG] Public Mobile Fallback", {
-      portfolioId: pinChallengePortfolio.id,
-      portfolioName: pinChallengePortfolio.name,
-      hasStoredHash: "hasStoredHash" in portfolioPinResult ? portfolioPinResult.hasStoredHash : Boolean(savedHash),
-      normalizedPin,
-      masterPinMatch: enteredMasterPin,
-      portfolioPinMatch: portfolioPinResult.pinMatch,
-      authenticationResult: enteredPortfolioPin,
-    });
-
-    if (!enteredPortfolioPin) {
-      setPinError("Access denied. Enter the portfolio PIN.");
-      return;
-    }
-
-    window.sessionStorage.setItem(
-      unlockedPortfolioStorageKey,
-      pinChallengePortfolio.id,
-    );
-    router.push(`/portfolio/${encodeURIComponent(pinChallengePortfolio.id)}`);
-  }
-
-  async function validatePortfolioPinWithServer(portfolioId: string, pin: string) {
-    try {
-      const response = await fetch("/api/portfolio-pins/validate", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ portfolioId, pin }),
-      });
-      const payload = (await response.json()) as {
-        ok?: boolean;
-        pinMatch?: boolean;
-        hasStoredHash?: boolean;
-        usedMasterPin?: boolean;
-      };
-
-      if (response.ok) {
-        return {
-          hasStoredHash: Boolean(payload.hasStoredHash),
-          pinMatch: Boolean(payload.ok && payload.pinMatch),
-          usedMasterPin: Boolean(payload.usedMasterPin),
-        };
-      }
-    } catch {
-      // Fall back to local hash validation below.
-    }
-
-    return null;
   }
 
   function updateDraftRow(index: number, nextRow: Partial<PortfolioInputRow>) {
@@ -416,18 +364,58 @@ export function PublicMarketPortal() {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        username: adminUsername,
+        email: adminUsername,
         password: adminPassword,
       }),
     });
+    const payload = (await response.json().catch(() => ({}))) as {
+      redirectTo?: string;
+      user?: SessionUser;
+    };
 
     if (!response.ok) {
-      setAdminError("Invalid username or password.");
+      setAdminError("Invalid email or password.");
       setIsAdminLoading(false);
       return;
     }
 
-    router.push("/admin");
+    if (payload.user) setSessionUser(payload.user);
+    router.push(payload.redirectTo ?? "/admin");
+  }
+
+  async function saveProfile() {
+    setIsProfileSaving(true);
+    setProfileError("");
+
+    const response = await fetch("/api/auth/me", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        displayName: profileName,
+        email: profileEmail,
+        password: profilePassword,
+      }),
+    });
+    const payload = (await response.json().catch(() => ({}))) as {
+      error?: string;
+      user?: SessionUser;
+    };
+
+    if (!response.ok || !payload.user) {
+      setProfileError(payload.error ?? "Unable to update profile.");
+      setIsProfileSaving(false);
+      return;
+    }
+
+    setSessionUser(payload.user);
+    setProfilePassword("");
+    setIsProfileOpen(false);
+    setIsProfileSaving(false);
+  }
+
+  async function logout() {
+    await fetch("/api/auth/logout", { method: "POST" });
+    window.location.href = "/login";
   }
 
   return (
@@ -448,10 +436,20 @@ export function PublicMarketPortal() {
           </div>
           <nav className="flex flex-wrap items-center gap-2">
             <HeaderLink href="/">Home</HeaderLink>
+            {sessionUser ? (
+              <Button type="button" variant="outline" onClick={() => setIsProfileOpen(true)}>
+                Edit Profile
+              </Button>
+            ) : null}
             <Button type="button" variant="outline" onClick={() => setIsAdminLoginOpen(true)}>
               <Shield className="h-4 w-4" aria-hidden="true" />
-              Admin
+              {sessionUser ? "Switch User" : "Login"}
             </Button>
+            {sessionUser ? (
+              <Button type="button" variant="outline" onClick={logout}>
+                Logout
+              </Button>
+            ) : null}
             <HeaderLink href="#roadmap">Roadmap</HeaderLink>
             <HeaderLink href="#glossary">Glossary</HeaderLink>
           </nav>
@@ -463,16 +461,10 @@ export function PublicMarketPortal() {
           onRefresh={refreshMarket}
         />
 
-        <PortfolioHub
-          portfolios={portfolios}
-          selectedPortfolioId={undefined}
-          pinProtectedIds={Object.keys(pinHashes)}
-          onAddPortfolio={() => setIsAddPortfolioOpen(true)}
-          onOpenPortfolio={(portfolio) => {
-            setPinChallengePortfolio(portfolio);
-            setPinInput("");
-            setPinError(null);
-          }}
+        <AccountAccessPanel
+          user={sessionUser}
+          onLogin={() => setIsAdminLoginOpen(true)}
+          onEditProfile={() => setIsProfileOpen(true)}
         />
 
         {isAddPortfolioOpen ? (
@@ -505,17 +497,6 @@ export function PublicMarketPortal() {
           />
         ) : null}
 
-        {pinChallengePortfolio ? (
-          <PortfolioPinModal
-            error={pinError}
-            pin={pinInput}
-            portfolioName={pinChallengePortfolio.name}
-            setPin={setPinInput}
-            onClose={() => setPinChallengePortfolio(null)}
-            onUnlock={unlockPortfolio}
-          />
-        ) : null}
-
         {isAdminLoginOpen ? (
           <AdminLoginModal
             error={adminError}
@@ -530,6 +511,25 @@ export function PublicMarketPortal() {
               setAdminPassword("");
             }}
             onLogin={loginAdmin}
+          />
+        ) : null}
+
+        {isProfileOpen ? (
+          <EditProfileModal
+            email={profileEmail}
+            error={profileError}
+            isLoading={isProfileSaving}
+            password={profilePassword}
+            setEmail={setProfileEmail}
+            setName={setProfileName}
+            setPassword={setProfilePassword}
+            name={profileName}
+            onCancel={() => {
+              setIsProfileOpen(false);
+              setProfileError("");
+              setProfilePassword("");
+            }}
+            onSave={saveProfile}
           />
         ) : null}
 
@@ -569,10 +569,10 @@ function AdminLoginModal({
           <div>
             <h2 className="flex items-center gap-2 text-lg font-semibold text-white">
               <LockKeyhole className="h-4 w-4 text-cyan-300" aria-hidden="true" />
-              Admin Login
+              Stock Planner Login
             </h2>
             <p className="mt-1 text-sm text-slate-400">
-              Enter admin credentials to continue.
+              Sign in to open your mapped portfolio or admin dashboard.
             </p>
           </div>
           <Button type="button" variant="outline" size="icon" onClick={onCancel}>
@@ -584,7 +584,8 @@ function AdminLoginModal({
           <input
             value={username}
             onChange={(event) => setUsername(event.target.value)}
-            placeholder="Username"
+            placeholder="Email"
+            type="email"
             autoComplete="username"
             className="h-11 w-full rounded-md border border-white/10 bg-[#08121F] px-3 text-sm text-white outline-none focus:ring-2 focus:ring-cyan-300"
           />
@@ -620,81 +621,127 @@ function AdminLoginModal({
   );
 }
 
-function PortfolioPinModal({
-  error,
-  pin,
-  portfolioName,
-  setPin,
-  onClose,
-  onUnlock,
+function AccountAccessPanel({
+  user,
+  onEditProfile,
+  onLogin,
 }: {
-  error: string | null;
-  pin: string;
-  portfolioName: string;
-  setPin: (pin: string) => void;
-  onClose: () => void;
-  onUnlock: () => void;
+  user: SessionUser | null;
+  onEditProfile: () => void;
+  onLogin: () => void;
 }) {
-  function submitUnlock(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    onUnlock();
-  }
+  return (
+    <section className="rounded-2xl border border-cyan-300/20 bg-[#0F1B2D] p-5 shadow-xl">
+      <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+        <div>
+          <h2 className="text-xl font-semibold text-white">Stock Planner Access</h2>
+          <p className="mt-1 text-sm leading-6 text-slate-400">
+            Login decides which portfolio opens. Users no longer need to select a profile manually.
+          </p>
+          {user ? (
+            <p className="mt-3 text-sm text-cyan-100">
+              Signed in as <span className="font-semibold">{user.displayName}</span>
+              {user.portfolioName ? ` · ${user.portfolioName} portfolio` : " · Admin access"}
+            </p>
+          ) : null}
+        </div>
+        <div className="flex flex-col gap-2 sm:flex-row">
+          {user ? (
+            <>
+              <Button asChild>
+                <Link href={user.role === "admin" ? "/admin" : `/portfolio/${encodeURIComponent(user.portfolioName ?? "")}`}>
+                  {user.role === "admin" ? "Open Admin Dashboard" : "Open My Portfolio"}
+                </Link>
+              </Button>
+              <Button type="button" variant="outline" onClick={onEditProfile}>
+                Edit Profile
+              </Button>
+            </>
+          ) : (
+            <Button type="button" onClick={onLogin}>
+              Login To Stock Planner
+            </Button>
+          )}
+        </div>
+      </div>
+    </section>
+  );
+}
 
-  function handlePinKey(event: KeyboardEvent<HTMLInputElement>) {
-    if (["Enter", "Go", "Done", "Submit", "Return"].includes(event.key)) {
-      event.preventDefault();
-      onUnlock();
-    }
-  }
-
-  function handlePinPaste(event: ClipboardEvent<HTMLInputElement>) {
-    event.preventDefault();
-    setPin(normalizePinInput(event.clipboardData.getData("text")));
-  }
-
+function EditProfileModal({
+  email,
+  error,
+  isLoading,
+  name,
+  password,
+  setEmail,
+  setName,
+  setPassword,
+  onCancel,
+  onSave,
+}: {
+  email: string;
+  error: string;
+  isLoading: boolean;
+  name: string;
+  password: string;
+  setEmail: (value: string) => void;
+  setName: (value: string) => void;
+  setPassword: (value: string) => void;
+  onCancel: () => void;
+  onSave: () => void;
+}) {
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 px-4 backdrop-blur-sm">
       <section className="w-full max-w-md rounded-2xl border border-cyan-300/20 bg-[#0F1B2D] p-5 text-slate-100 shadow-2xl">
         <div className="flex items-start justify-between gap-3">
           <div>
-            <h2 className="flex items-center gap-2 text-lg font-semibold text-white">
-              <Lock className="h-4 w-4 text-cyan-300" aria-hidden="true" />
-              Unlock {portfolioName}
-            </h2>
-            <p className="mt-1 text-sm text-slate-400">Enter the portfolio PIN.</p>
+            <h2 className="text-lg font-semibold text-white">Edit Profile</h2>
+            <p className="mt-1 text-sm text-slate-400">
+              Update your display name, email, or password for this signed-in profile.
+            </p>
           </div>
-          <Button type="button" variant="outline" size="icon" onClick={onClose}>
+          <Button type="button" variant="outline" size="icon" onClick={onCancel}>
             <X className="h-4 w-4" aria-hidden="true" />
-            <span className="sr-only">Close</span>
+            <span className="sr-only">Cancel</span>
           </Button>
         </div>
-        {error ? (
-          <div className="mt-4 rounded-md border border-rose-300/30 bg-rose-300/10 px-3 py-2 text-sm text-rose-100">
-            {error}
-          </div>
-        ) : null}
-        <form onSubmit={submitUnlock}>
+        <div className="mt-4 space-y-3">
           <input
-            value={pin}
-            onChange={(event) => setPin(normalizePinInput(event.target.value))}
-            onKeyDown={handlePinKey}
-            onPaste={handlePinPaste}
-            placeholder="4 digit PIN"
-            type="text"
-            inputMode="numeric"
-            pattern="[0-9]*"
-            maxLength={4}
-            autoComplete="off"
-            autoCorrect="off"
-            autoCapitalize="off"
-            spellCheck={false}
-            name="portfolio-pin-mobile"
-            className="mt-4 h-11 w-full rounded-md border border-white/10 bg-[#08121F] px-3 text-center text-lg tracking-[0.35em] text-white outline-none focus:ring-2 focus:ring-cyan-300"
+            value={name}
+            onChange={(event) => setName(event.target.value)}
+            placeholder="Display name"
+            className="h-11 w-full rounded-md border border-white/10 bg-[#08121F] px-3 text-sm text-white outline-none focus:ring-2 focus:ring-cyan-300"
           />
-          <Button type="submit" className="mt-4 w-full">
-            Open Portfolio
-          </Button>
-        </form>
+          <input
+            value={email}
+            onChange={(event) => setEmail(event.target.value)}
+            placeholder="Email"
+            type="email"
+            className="h-11 w-full rounded-md border border-white/10 bg-[#08121F] px-3 text-sm text-white outline-none focus:ring-2 focus:ring-cyan-300"
+          />
+          <input
+            value={password}
+            onChange={(event) => setPassword(event.target.value)}
+            placeholder="New password (optional)"
+            type="password"
+            autoComplete="new-password"
+            className="h-11 w-full rounded-md border border-white/10 bg-[#08121F] px-3 text-sm text-white outline-none focus:ring-2 focus:ring-cyan-300"
+          />
+          {error ? (
+            <div className="rounded-md border border-rose-300/30 bg-rose-300/10 px-3 py-2 text-sm text-rose-100">
+              {error}
+            </div>
+          ) : null}
+          <div className="grid gap-2 sm:grid-cols-2">
+            <Button type="button" onClick={onSave} disabled={isLoading}>
+              {isLoading ? "Saving" : "Save Profile"}
+            </Button>
+            <Button type="button" variant="outline" onClick={onCancel}>
+              Cancel
+            </Button>
+          </div>
+        </div>
       </section>
     </div>
   );
@@ -1275,7 +1322,8 @@ function filterHomepagePortfolios(portfolios: ManagedPortfolio[]) {
       (portfolio) =>
         !portfolio.isMarketPortfolio &&
         portfolio.id !== "market-recommendations" &&
-        portfolio.name.toLowerCase() !== "market recommendation",
+        portfolio.name.toLowerCase() !== "market recommendation" &&
+        isActivePortfolioName(portfolio.name),
     )
     .map((portfolio) => ({
       ...portfolio,

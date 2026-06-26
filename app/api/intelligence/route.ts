@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { canAccessPortfolio, isRequestAuthenticated } from "@/lib/auth";
+import { canAccessPortfolio, isAdminRequest } from "@/lib/auth";
 import { buildIntelligenceSummary } from "@/lib/intelligence-validation";
 import { buildExpertActionMatrix } from "@/lib/expert-insights";
 import {
@@ -17,7 +17,7 @@ export async function GET(request: Request) {
 
   const url = new URL(request.url);
   const portfolioId = url.searchParams.get("portfolioId")?.trim() ?? "";
-  const isAdmin = await isRequestAuthenticated();
+  const isAdmin = await isAdminRequest();
 
   if (!isAdmin) {
     if (!portfolioId || !(await canAccessPortfolio(portfolioId))) {

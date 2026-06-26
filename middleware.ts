@@ -4,8 +4,6 @@ const sessionCookieName = "unloan_dashboard_session";
 
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
-
-  // 1. Exclude public assets and specific Next.js internals
   const isPublicAsset =
     pathname.startsWith("/_next") ||
     pathname.startsWith("/favicon") ||
@@ -14,52 +12,43 @@ export async function middleware(request: NextRequest) {
     pathname === "/login" ||
     pathname.match(/\.(?:png|jpg|jpeg|gif|webp|svg|ico|css|js)$/u);
 
-  if (isPublicAsset) {
-    return NextResponse.next();
-  }
+  if (isPublicAsset) return NextResponse.next();
 
   const transitionSecret = process.env.SHARED_SESSION_SECRET;
   const appSecret = process.env.DASHBOARD_SESSION_SECRET ?? process.env.SHARED_SESSION_SECRET;
-
-  // 2. Check for token transition in URL query params
   const token = request.nextUrl.searchParams.get("token");
+
   if (token) {
     const isValid = transitionSecret
       ? await verifyTransitionToken(token, transitionSecret, 5 * 60 * 1000)
       : false;
+
     if (isValid) {
-      // Redirect to the clean requested URL (removing 'token' query param)
       const url = new URL(pathname, request.url);
       request.nextUrl.searchParams.delete("token");
       url.search = request.nextUrl.searchParams.toString();
-      
+
       const response = NextResponse.redirect(url);
       response.cookies.set(sessionCookieName, token, {
         path: "/",
-        maxAge: 60 * 60 * 24, // 1 day
+        maxAge: 60 * 60 * 24,
         httpOnly: true,
         secure: request.url.startsWith("https:"),
         sameSite: "lax",
       });
       return response;
-    } else {
-      // Invalid token, redirect to login
-      return redirectToLogin(request);
     }
+
+    return redirectToLogin(request);
   }
 
-  // 3. Verify session cookie
   const cookieValue = request.cookies.get(sessionCookieName)?.value;
   const isAuthenticated = cookieValue
     ? (appSecret ? await verifyAppSession(cookieValue, appSecret) : false) ||
       (transitionSecret ? await verifyTransitionToken(cookieValue, transitionSecret, 24 * 60 * 60 * 1000) : false)
     : false;
 
-  if (isAuthenticated) {
-    return NextResponse.next();
-  }
-
-  // 4. Fallback: If not authenticated, redirect to liveunloan login portal
+  if (isAuthenticated) return NextResponse.next();
   return redirectToLogin(request);
 }
 
@@ -70,22 +59,36 @@ export const config = {
 function redirectToLogin(request: NextRequest) {
   const host = request.headers.get("host") || "";
   const isDev = host.includes("localhost") || host.includes("127.0.0.1");
-  const loginUrl = isDev ? "http://localhost:5173" : "https://liveunloan.vercel.app";
+  const loginUrl = isDev ? "http://localhost:3001" : process.env.LIVEUNLOAN_URL ?? "https://liveunloan.vercel.app";
   return NextResponse.redirect(`${loginUrl}/?error=unauthorized`);
 }
 
-async function verifyTransitionToken(value: string, secret: string, maxAgeMs: number = 5 * 60 * 1000) {
+async function verifyTransitionToken(value: string, secret: string, maxAgeMs: number) {
+  return verifyPortalToken(value, secret, maxAgeMs) || verifyLegacyToken(value, secret, maxAgeMs);
+}
+
+async function verifyPortalToken(value: string, secret: string, maxAgeMs: number) {
+  const [version, encodedPayload, signature] = value.split(".");
+  if (version !== "v1" || !encodedPayload || !signature) return false;
+
+  const expected = await sign(encodedPayload, secret);
+  if (signature !== expected) return false;
+
+  try {
+    const payload = JSON.parse(base64UrlDecode(encodedPayload)) as { issuedAt?: number };
+    const age = Date.now() - Number(payload.issuedAt);
+    return Number.isFinite(age) && age >= 0 && age <= maxAgeMs;
+  } catch {
+    return false;
+  }
+}
+
+async function verifyLegacyToken(value: string, secret: string, maxAgeMs: number) {
   const parts = value.split(":");
-  if (parts.length !== 3) {
-    return false;
-  }
+  if (parts.length !== 3) return false;
   const [username, timestamp, signature] = parts;
-  
-  // Verify timestamp is within maxAgeMs
   const age = Date.now() - Number(timestamp);
-  if (!Number.isFinite(age) || Math.abs(age) > maxAgeMs) {
-    return false;
-  }
+  if (!username || !Number.isFinite(age) || Math.abs(age) > maxAgeMs) return false;
 
   const expected = await sign(`${username}:${timestamp}`, secret);
   return signature === expected;
@@ -109,8 +112,7 @@ async function verifyAppSession(value: string, secret: string) {
 
 function base64UrlDecode(value: string) {
   const normalized = value.replace(/-/gu, "+").replace(/_/gu, "/");
-  const padded = normalized.padEnd(Math.ceil(normalized.length / 4) * 4, "=");
-  return atob(padded);
+  return atob(normalized.padEnd(Math.ceil(normalized.length / 4) * 4, "="));
 }
 
 async function sign(payload: string, secret: string) {

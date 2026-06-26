@@ -1,10 +1,5 @@
-import { LoginForm } from "@/components/login-form";
-import { Suspense } from "react";
+import { redirect } from "next/navigation";
 
 export default function LoginPage() {
-  return (
-    <Suspense>
-      <LoginForm />
-    </Suspense>
-  );
+  redirect(process.env.LIVEUNLOAN_URL ?? "https://liveunloan.vercel.app");
 }

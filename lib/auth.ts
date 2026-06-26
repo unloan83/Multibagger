@@ -196,6 +196,9 @@ function verifyAppSessionValue(value: string): AccountProfile | null {
 }
 
 function verifyTransitionSessionValue(value: string): AccountProfile | null {
+  const portalProfile = verifyPortalHandoffValue(value);
+  if (portalProfile) return portalProfile;
+
   const [username, timestamp, signature] = value.split(":");
   const transitionSecret = getAuthConfig().transitionSecret;
   if (!username || !timestamp || !signature || !transitionSecret) return null;
@@ -208,6 +211,27 @@ function verifyTransitionSessionValue(value: string): AccountProfile | null {
     displayName: username,
     email: normalizeEmail(username),
     role: "user",
+  };
+}
+
+function verifyPortalHandoffValue(value: string): AccountProfile | null {
+  const [version, encodedPayload, signature] = value.split(".");
+  const transitionSecret = getAuthConfig().transitionSecret;
+  if (version !== "v1" || !encodedPayload || !signature || !transitionSecret) return null;
+  if (!safeEqual(signature, sign(encodedPayload, transitionSecret))) return null;
+
+  const payload = decodePayload(encodedPayload);
+  if (!payload) return null;
+
+  const age = Date.now() - Number(payload.issuedAt);
+  if (!Number.isFinite(age) || age < 0 || age > 24 * 60 * 60 * 1000) return null;
+
+  return {
+    displayName: payload.displayName,
+    email: normalizeEmail(payload.email),
+    portfolioName: payload.portfolioName,
+    role: payload.role,
+    seedEmail: normalizeEmail(payload.seedEmail ?? payload.email),
   };
 }
 

@@ -8,7 +8,6 @@ import {
   Lock,
   Plus,
   RefreshCw,
-  Shield,
   Sparkles,
   Trash2,
   X,
@@ -1088,10 +1087,6 @@ export function PortfolioDashboard({
           </div>
           <nav className="flex flex-wrap items-center gap-2">
             <HeaderLink href="/">Home</HeaderLink>
-            <HeaderLink href="/admin">
-              <Shield className="h-4 w-4" aria-hidden="true" />
-              Admin
-            </HeaderLink>
             <HeaderLink href="/#roadmap">Roadmap</HeaderLink>
             <HeaderLink href="/#glossary">Glossary</HeaderLink>
           </nav>

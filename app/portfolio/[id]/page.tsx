@@ -18,8 +18,8 @@ export default async function PortfolioPage({
     redirect("/login");
   }
 
-  if (user.role !== "admin" && !(await isMappedPortfolio(decodedId, user.portfolioName))) {
-    redirect(user.portfolioName ? `/portfolio/${encodeURIComponent(user.portfolioName)}` : "/login");
+  if (!(await isMappedPortfolio(decodedId, user.portfolioName))) {
+    redirect(user.portfolioName ? `/portfolio/${encodeURIComponent(user.portfolioName)}` : "/");
   }
 
   return <PortfolioDashboard initialPortfolioId={decodedId} accountMode />;

@@ -1,3 +1,5 @@
+export {};
+
 await loadEnvFile(".env");
 await loadEnvFile(".env.local");
 

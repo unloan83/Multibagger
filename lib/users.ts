@@ -1,5 +1,5 @@
 import { pbkdf2Sync, randomBytes, timingSafeEqual } from "node:crypto";
-import { normalizeEmail, normalizePortfolioName } from "@/lib/account-utils";
+import { normalizeEmail } from "@/lib/account-utils";
 export { isActivePortfolioName, isAmolPortfolioName, normalizeEmail, normalizePortfolioName } from "@/lib/account-utils";
 
 export type AccountRole = "admin" | "user";

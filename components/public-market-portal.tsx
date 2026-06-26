@@ -28,7 +28,7 @@ import {
   samplePortfolio,
 } from "@/lib/portfolio";
 import { cn } from "@/lib/utils";
-import { isActivePortfolioName } from "@/lib/users";
+import { isActivePortfolioName } from "@/lib/account-utils";
 
 type ExpertMatrixQuote = {
   symbol: string;

@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { setSessionCookie, validateCredentials } from "@/lib/auth";
 import { isGoogleSheetsConfigured, readPortfoliosFromSheets } from "@/lib/google-sheets";
 import { readPortfoliosFromCsvBackup, shouldUsePortfolioCsvBackup } from "@/lib/portfolio-backup";
-import { normalizePortfolioName } from "@/lib/users";
+import { normalizePortfolioName } from "@/lib/account-utils";
 
 export const runtime = "nodejs";
 

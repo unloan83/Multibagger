@@ -2,7 +2,7 @@ import { PortfolioDashboard } from "@/components/portfolio-dashboard";
 import { getCurrentSessionUser } from "@/lib/auth";
 import { isGoogleSheetsConfigured, readPortfoliosFromSheets } from "@/lib/google-sheets";
 import { readPortfoliosFromCsvBackup, shouldUsePortfolioCsvBackup } from "@/lib/portfolio-backup";
-import { normalizePortfolioName } from "@/lib/users";
+import { normalizePortfolioName } from "@/lib/account-utils";
 import { redirect } from "next/navigation";
 
 export default async function PortfolioPage({

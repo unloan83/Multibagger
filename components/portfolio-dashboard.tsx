@@ -63,7 +63,7 @@ import {
   samplePortfolio,
 } from "@/lib/portfolio";
 import { cn } from "@/lib/utils";
-import { isActivePortfolioName, normalizePortfolioName } from "@/lib/users";
+import { isActivePortfolioName, normalizePortfolioName } from "@/lib/account-utils";
 import {
   useCallback,
   useEffect,

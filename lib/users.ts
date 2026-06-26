@@ -1,4 +1,6 @@
 import { pbkdf2Sync, randomBytes, timingSafeEqual } from "node:crypto";
+import { normalizeEmail, normalizePortfolioName } from "@/lib/account-utils";
+export { isActivePortfolioName, isAmolPortfolioName, normalizeEmail, normalizePortfolioName } from "@/lib/account-utils";
 
 export type AccountRole = "admin" | "user";
 
@@ -76,27 +78,6 @@ export const seedAccounts: SeedAccount[] = [
     passwordHash: "acc8a2734702f5322cdfb7a96e172853dcc5c5f4b33cbc0e02fee94a23d7dde7",
   },
 ];
-
-export function normalizeEmail(email: string) {
-  return email.trim().toLowerCase();
-}
-
-export function normalizePortfolioName(value: string) {
-  return value
-    .trim()
-    .toLowerCase()
-    .replace(/[_\s-]+/gu, " ")
-    .replace(/[^a-z0-9 ]+/gu, "")
-    .replace(/\s+/gu, " ");
-}
-
-export function isAmolPortfolioName(value: string) {
-  return normalizePortfolioName(value).includes("amol");
-}
-
-export function isActivePortfolioName(value: string) {
-  return !isAmolPortfolioName(value);
-}
 
 export function findSeedAccount(email: string) {
   const normalized = normalizeEmail(email);

@@ -7,7 +7,7 @@ import {
 } from "@/lib/google-sheets";
 import { isAdminRequest } from "@/lib/auth";
 import { readPortfoliosFromCsvBackup, shouldUsePortfolioCsvBackup } from "@/lib/portfolio-backup";
-import { isActivePortfolioName } from "@/lib/users";
+import { isActivePortfolioName } from "@/lib/account-utils";
 import type { ManagedPortfolio } from "@/lib/portfolio";
 
 export const runtime = "nodejs";

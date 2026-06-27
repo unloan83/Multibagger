@@ -13,6 +13,23 @@ A Vercel-ready portfolio dashboard built with Next.js 15, TypeScript, Tailwind C
 - Sector allocation pie chart.
 - Portfolio heatmap sized by portfolio weight and colored by return.
 - Automatic symbol and sector identification for common Indian stocks.
+- Controlled Stock Intelligence Agent with multi-source news, policy, sector, and sentiment validation.
+- Auditable AI recommendation logs and later hit/miss tracking in Google Sheets.
+
+## Stock Intelligence Agent
+
+The agent validates the existing recommendation engine; it does not independently pick stocks. By default, the final score weights existing logic at 60%, news/sentiment at 25%, and sector/macro/policy context at 15%. Buy and Sell require at least two independent medium/high-credibility sources. Stale, conflicting, or low-credibility-only evidence is held at Watch or Hold.
+
+Optional configuration:
+
+```bash
+NEWS_API_KEY=
+STOCK_INTELLIGENCE_EXISTING_WEIGHT=60
+STOCK_INTELLIGENCE_NEWS_WEIGHT=25
+STOCK_INTELLIGENCE_MACRO_WEIGHT=15
+```
+
+Yahoo Finance and GDELT are used as public context feeds; `NEWS_API_KEY` adds NewsAPI as another provider. Recommendation audit rows are written to the automatically created `AI Recommendation Log` tab when the existing Google Sheets service-account environment variables are configured.
 
 ## CSV Format
 
@@ -58,4 +75,4 @@ npm run build
 
 5. Use the default output settings and deploy.
 
-No environment variables are required for the dashboard.
+The dashboard can run without optional context or storage variables. Missing or weak context makes the agent abstain from aggressive calls instead of failing the portfolio page.

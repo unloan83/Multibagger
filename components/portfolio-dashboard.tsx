@@ -20,6 +20,7 @@ import { MarketOverviewCollapsible } from "@/components/market-overview-collapsi
 import { PortfolioCoach } from "@/components/portfolio-coach";
 import { PortfolioHub } from "@/components/portfolio-hub";
 import { RecommendationReliability } from "@/components/todays-action-center";
+import { AiMarketIntelligence } from "@/components/ai-market-intelligence";
 import {
   Card,
   CardContent,
@@ -62,6 +63,7 @@ import {
   samplePortfolio,
 } from "@/lib/portfolio";
 import { cn } from "@/lib/utils";
+import type { ExistingRecommendationSignal } from "@/lib/stock-intelligence/types";
 import { isActivePortfolioName, normalizePortfolioName } from "@/lib/account-utils";
 import {
   useCallback,
@@ -1317,6 +1319,14 @@ type RecommendationViewTab =
   | "intraday"
   | "expert";
 
+function toAgentTimeframe(horizon: string): ExistingRecommendationSignal["timeframe"] {
+  const value = horizon.toLowerCase();
+  if (value.includes("intraday")) return "Intraday";
+  if (value.includes("short") || value.includes("day") || value.includes("week")) return "Short term";
+  if (value.includes("3") && value.includes("6")) return "3–6 months";
+  return "6–12 months";
+}
+
 function SimplifiedPortfolioView({
   portfolio,
   history,
@@ -1343,6 +1353,27 @@ function SimplifiedPortfolioView({
     () => buildSimplifiedPortfolioSections(portfolio, history, expertMatrix),
     [expertMatrix, history, portfolio],
   );
+  const intelligenceSignals = useMemo<ExistingRecommendationSignal[]>(() => {
+    const portfolioSymbols = new Set(portfolio.positions.map((position) => position.symbol));
+    return sections.all.slice(0, 12).map((row) => {
+      const position = portfolio.positions.find((item) => item.symbol === row.symbol);
+      return {
+        symbol: row.symbol,
+        company: row.company || row.symbol,
+        sector: position?.sector || "Unclassified",
+        source: portfolioSymbols.has(row.symbol) ? "portfolio" : "opportunity",
+        action: row.action,
+        score: row.confidence,
+        confidence: row.confidence,
+        timeframe: toAgentTimeframe(row.horizon),
+        reason: row.reason,
+        currentPrice: row.cmp,
+        target: row.target,
+        stopLoss: row.stopLoss,
+        priceVolumeContext: row.technicalFactors.slice(0, 3),
+      };
+    });
+  }, [portfolio.positions, sections.all]);
   const recommendationTabs: Array<{
     id: RecommendationViewTab;
     label: string;
@@ -1504,6 +1535,8 @@ function SimplifiedPortfolioView({
           </div>
         </div>
       </section>
+
+      <AiMarketIntelligence portfolioId={portfolio.id} signals={intelligenceSignals} />
 
       <section className="min-w-0 space-y-3">
         <div

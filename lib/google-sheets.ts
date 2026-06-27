@@ -12,6 +12,7 @@ import type {
   QualityStatus,
   ValidationRecord,
 } from "@/lib/intelligence-validation";
+import type { StockIntelligenceLogRow } from "@/lib/stock-intelligence/types";
 
 const spreadsheetId = process.env.GOOGLE_SHEETS_SPREADSHEET_ID;
 const clientEmail = process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL;
@@ -28,6 +29,7 @@ const notificationHistorySheet = "Notification History";
 const validationSheet = "Validation";
 const learningSheet = "Learning";
 const marketMoversSheet = "Market Movers";
+const stockIntelligenceLogSheet = "AI Recommendation Log";
 
 export type ValidationSource =
   | "expert-insight"
@@ -688,6 +690,89 @@ export async function appendMarketMoverRows(rows: MarketMoverRow[]) {
   });
 }
 
+export async function appendStockIntelligenceLogs(rows: StockIntelligenceLogRow[]) {
+  if (!isGoogleSheetsConfigured() || rows.length === 0) return;
+  const sheets = await getSheetsClient();
+  await ensureSheets();
+  await sheets.spreadsheets.values.append({
+    spreadsheetId,
+    range: rangeFor(stockIntelligenceLogSheet, "A:R"),
+    valueInputOption: "USER_ENTERED",
+    insertDataOption: "INSERT_ROWS",
+    requestBody: {
+      values: rows.map((row) => [
+        row.timestamp,
+        row.portfolioId,
+        row.portfolioName,
+        row.symbol,
+        row.action,
+        row.timeframe,
+        row.confidence,
+        row.newsImpactScore,
+        row.sectorMacroImpactScore,
+        row.existingLogicScore,
+        row.finalScore,
+        JSON.stringify(row.sources),
+        row.finalReason,
+        row.entryPrice,
+        row.target,
+        row.stopLoss,
+        row.performanceStatus,
+        row.evaluatedAt,
+      ]),
+    },
+  });
+}
+
+export async function readStockIntelligenceLogs(): Promise<StockIntelligenceLogRow[]> {
+  if (!isGoogleSheetsConfigured()) return [];
+  const sheets = await getSheetsClient();
+  await ensureSheets();
+  const response = await sheets.spreadsheets.values.get({
+    spreadsheetId,
+    range: rangeFor(stockIntelligenceLogSheet, "A2:R"),
+  });
+  return (response.data.values ?? []).map((row, index) => ({
+    timestamp: String(row[0] ?? ""),
+    portfolioId: String(row[1] ?? ""),
+    portfolioName: String(row[2] ?? ""),
+    symbol: String(row[3] ?? ""),
+    action: normalizeIntelligenceAction(row[4]),
+    timeframe: String(row[5] ?? ""),
+    confidence: Number(row[6] ?? 0),
+    newsImpactScore: Number(row[7] ?? 0),
+    sectorMacroImpactScore: Number(row[8] ?? 0),
+    existingLogicScore: Number(row[9] ?? 0),
+    finalScore: Number(row[10] ?? 0),
+    sources: parseStringArray(row[11]),
+    finalReason: String(row[12] ?? ""),
+    entryPrice: Number(row[13] ?? 0),
+    target: Number(row[14] ?? 0),
+    stopLoss: Number(row[15] ?? 0),
+    performanceStatus: normalizePerformanceStatus(row[16]),
+    evaluatedAt: String(row[17] ?? ""),
+    sheetRow: index + 2,
+  }));
+}
+
+export async function updateStockIntelligenceOutcomes(
+  updates: Array<{ sheetRow: number; status: "hit" | "miss"; evaluatedAt: string }>,
+) {
+  if (!isGoogleSheetsConfigured() || updates.length === 0) return;
+  const sheets = await getSheetsClient();
+  await ensureSheets();
+  await sheets.spreadsheets.values.batchUpdate({
+    spreadsheetId,
+    requestBody: {
+      valueInputOption: "USER_ENTERED",
+      data: updates.map((update) => ({
+        range: rangeFor(stockIntelligenceLogSheet, `Q${update.sheetRow}:R${update.sheetRow}`),
+        values: [[update.status, update.evaluatedAt]],
+      })),
+    },
+  });
+}
+
 export async function deletePortfolioFromSheets(id: string) {
   if (!isGoogleSheetsConfigured()) {
     throw new Error("Google Sheets is not configured.");
@@ -902,6 +987,7 @@ async function ensureSheets(additionalTitles: string[] = []) {
     validationSheet,
     learningSheet,
     marketMoversSheet,
+    stockIntelligenceLogSheet,
     ...additionalTitles,
   ]
     .filter((title, index, titles) => titles.indexOf(title) === index)
@@ -1031,9 +1117,37 @@ async function ensureSheets(additionalTitles: string[] = []) {
             "actual_price",
           ]],
         },
+        {
+          range: rangeFor(stockIntelligenceLogSheet, "A1:R1"),
+          values: [[
+            "timestamp", "portfolio_id", "portfolio_name", "stock", "action", "timeframe",
+            "confidence", "news_impact_score", "sector_macro_impact_score", "existing_logic_score",
+            "final_score", "sources_used", "final_reason", "entry_price", "target", "stop_loss",
+            "performance_status", "evaluated_at",
+          ]],
+        },
       ],
     },
   });
+}
+
+function parseStringArray(value: unknown) {
+  try {
+    const parsed = JSON.parse(String(value ?? "[]")) as unknown;
+    return Array.isArray(parsed) ? parsed.map(String) : [];
+  } catch {
+    return [];
+  }
+}
+
+function normalizeIntelligenceAction(value: unknown): StockIntelligenceLogRow["action"] {
+  const action = String(value ?? "");
+  return action === "Buy" || action === "Sell" || action === "Hold" ? action : "Watch";
+}
+
+function normalizePerformanceStatus(value: unknown): StockIntelligenceLogRow["performanceStatus"] {
+  const status = String(value ?? "").toLowerCase();
+  return status === "hit" || status === "miss" ? status : "pending";
 }
 
 function parseValidationRecord(row: unknown[]): ValidationRecord {

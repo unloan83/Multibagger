@@ -76,6 +76,7 @@ import {
   type RefObject,
 } from "react";
 
+const liveUnloanHomeUrl = process.env.NEXT_PUBLIC_LIVEUNLOAN_URL ?? "https://liveunloan.vercel.app";
 const portfoliosStorageKey = "multibagger-portfolios";
 const historyStorageKey = "multibagger-recommendation-history";
 const pinStorageKey = "unloan-portfolio-pin-hashes";
@@ -1086,7 +1087,7 @@ export function PortfolioDashboard({
             </div>
           </div>
           <nav className="flex flex-wrap items-center gap-2">
-            <HeaderLink href="/">Home</HeaderLink>
+            <HeaderLink href={liveUnloanHomeUrl}>Home</HeaderLink>
             <HeaderLink href="/#roadmap">Roadmap</HeaderLink>
             <HeaderLink href="/#glossary">Glossary</HeaderLink>
           </nav>
@@ -1211,7 +1212,7 @@ export function PortfolioDashboard({
               <div className="flex items-center gap-2 self-end lg:self-auto">
                 {initialPortfolioId && !adminMode && !accountMode ? (
                   <Button asChild variant="outline">
-                    <Link href="/">Back To Portfolios</Link>
+                    <Link href={liveUnloanHomeUrl}>Home</Link>
                   </Button>
                 ) : null}
                 <button

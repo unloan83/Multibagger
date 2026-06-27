@@ -30,6 +30,8 @@ import {
 import { cn } from "@/lib/utils";
 import { isActivePortfolioName } from "@/lib/account-utils";
 
+const liveUnloanHomeUrl = process.env.NEXT_PUBLIC_LIVEUNLOAN_URL ?? "https://liveunloan.vercel.app";
+
 type ExpertMatrixQuote = {
   symbol: string;
   name: string;
@@ -435,7 +437,7 @@ export function PublicMarketPortal() {
             </div>
           </div>
           <nav className="flex flex-wrap items-center gap-2">
-            <HeaderLink href="/">Home</HeaderLink>
+            <HeaderLink href={liveUnloanHomeUrl}>Home</HeaderLink>
             {sessionUser ? (
               <Button type="button" variant="outline" onClick={() => setIsProfileOpen(true)}>
                 Edit Profile

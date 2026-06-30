@@ -14,6 +14,7 @@ import {
 } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
+import { AdminAgentValidationDashboard } from "@/components/admin-agent-validation-dashboard";
 import { Button } from "@/components/ui/button";
 import { ChangeDetection } from "@/components/change-detection";
 import { MarketOverviewCollapsible } from "@/components/market-overview-collapsible";
@@ -2288,6 +2289,9 @@ function AdminControlPanel({
       {activeTab === "validation" ? (
         <IntelligenceValidationTab summary={validationSummary} />
       ) : null}
+      {activeTab === "agent-validation" ? (
+        <AdminAgentValidationDashboard portfolios={portfolios} />
+      ) : null}
       {activeTab === "export" ? (
         <DataExportTab
           intelligence={intelligence}
@@ -2318,13 +2322,14 @@ function AdminControlPanel({
   );
 }
 
-type AdminTab = "portfolio" | "monitor" | "performance" | "validation" | "export" | "pin-diagnostics" | "requests";
+type AdminTab = "portfolio" | "monitor" | "performance" | "validation" | "agent-validation" | "export" | "pin-diagnostics" | "requests";
 
 const adminTabs: Array<{ id: AdminTab; label: string }> = [
   { id: "portfolio", label: "Portfolio Administration" },
   { id: "monitor", label: "Intelligence Monitor" },
   { id: "performance", label: "Performance Analytics" },
   { id: "validation", label: "Intelligence Validation" },
+  { id: "agent-validation", label: "Agent Shadow Validation" },
   { id: "export", label: "Data Export" },
   { id: "pin-diagnostics", label: "PIN Diagnostics" },
   { id: "requests", label: "User Requests" },

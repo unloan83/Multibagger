@@ -6,7 +6,7 @@ import {
   appendAgentValidationReport,
   readRecentAgentValidationReports,
 } from "@/lib/agents/validationLogStore";
-import { isAuthConfigured, isRequestAuthenticated } from "@/lib/auth";
+import { isAdminRequest, isAuthConfigured } from "@/lib/auth";
 import {
   isGoogleSheetsConfigured,
   readPortfoliosFromSheets,
@@ -19,15 +19,15 @@ export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
 
 export async function GET() {
-  if (!(await isRequestAuthenticated())) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  if (!(await isAdminRequest())) {
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
   const checks = [
     {
       id: "admin-auth",
       label: "Admin authentication",
       configured: isAuthConfigured(),
-      requiredAccess: "DASHBOARD_USERNAME, DASHBOARD_PASSWORD, and DASHBOARD_SESSION_SECRET",
+      requiredAccess: "A LiveUnloan admin session and the shared session secret",
       impact: "Admin-only shadow controls are not protected in a deployed environment.",
     },
     {
@@ -56,8 +56,8 @@ export async function GET() {
 }
 
 export async function POST(request: Request) {
-  if (!(await isRequestAuthenticated())) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  if (!(await isAdminRequest())) {
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
   if (!isGoogleSheetsConfigured()) {
     return NextResponse.json({ error: "Persistent validation storage is not configured." }, { status: 503 });

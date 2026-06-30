@@ -22,7 +22,7 @@ export const portfolioAccessCookieName = "unloan_portfolio_access";
 
 const oneWeekInSeconds = 60 * 60 * 24 * 7;
 
-type SessionPayload = AccountProfile & { issuedAt: number };
+type SessionPayload = AccountProfile & { appId?: string; issuedAt: number };
 
 export function getAuthConfig() {
   const secret = process.env.DASHBOARD_SESSION_SECRET ?? process.env.SHARED_SESSION_SECRET ?? "";
@@ -222,6 +222,7 @@ function verifyPortalHandoffValue(value: string): AccountProfile | null {
 
   const payload = decodePayload(encodedPayload);
   if (!payload) return null;
+  if (payload.appId !== "stock-planner") return null;
 
   const age = Date.now() - Number(payload.issuedAt);
   if (!Number.isFinite(age) || age < 0 || age > 24 * 60 * 60 * 1000) return null;

@@ -75,9 +75,17 @@ async function verifyPortalToken(value: string, secret: string, maxAgeMs: number
   if (signature !== expected) return false;
 
   try {
-    const payload = JSON.parse(base64UrlDecode(encodedPayload)) as { issuedAt?: number };
+    const payload = JSON.parse(base64UrlDecode(encodedPayload)) as {
+      appId?: string;
+      issuedAt?: number;
+    };
     const age = Date.now() - Number(payload.issuedAt);
-    return Number.isFinite(age) && age >= 0 && age <= maxAgeMs;
+    return (
+      payload.appId === "stock-planner" &&
+      Number.isFinite(age) &&
+      age >= 0 &&
+      age <= maxAgeMs
+    );
   } catch {
     return false;
   }

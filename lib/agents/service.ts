@@ -20,6 +20,7 @@ import {
 import type { MarketOverview } from "@/lib/decision-intelligence";
 import type { ValidationRecord } from "@/lib/intelligence-validation";
 import { generateRecommendations, type ManagedPortfolio, type Recommendation } from "@/lib/portfolio";
+import { collectAttributedMarketIntelligence } from "@/lib/agents/marketIntelligence";
 
 export async function runMultiAgentRecommendationSystem({
   portfolio,
@@ -147,7 +148,10 @@ async function collectIntelligenceEvents(portfolio: ManagedPortfolio): Promise<R
       },
     })),
   );
-  const feedEvents = await readPortfolioAgnosticFeed();
+  const [feedEvents, attributedEvents] = await Promise.all([
+    readPortfolioAgnosticFeed(),
+    collectAttributedMarketIntelligence(portfolio),
+  ]);
   const symbols = new Set(portfolio.positions.map((position) => normalize(position.symbol)));
   const sectors = new Set(portfolio.positions.map((position) => position.sector.toLowerCase()));
   const relevant = feedEvents.filter((event) => {
@@ -157,7 +161,9 @@ async function collectIntelligenceEvents(portfolio: ManagedPortfolio): Promise<R
     return isMarketWide || eventSymbols.some((symbol) => symbols.has(symbol)) || eventSectors.some((sector) => sectors.has(sector));
   });
   const unique = new Map<string, RawIntelligenceEvent>();
-  [...embedded, ...relevant].forEach((event) => unique.set(event.summary.trim().toLowerCase(), event));
+  [...embedded, ...attributedEvents, ...relevant].forEach((event) =>
+    unique.set(event.source.url?.trim().toLowerCase() || event.summary.trim().toLowerCase(), event),
+  );
   return [...unique.values()];
 }
 

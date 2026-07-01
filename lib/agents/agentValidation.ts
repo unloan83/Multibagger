@@ -212,7 +212,9 @@ function buildAgentHealth(
     ["Orchestrator", average(output.recommendations.map((item) => actionScore(item.action, item.score))), average(output.recommendations.map((item) => item.confidence)), `${output.recommendations.length} shadow decisions produced.`, missing],
   ];
   return metrics.map(([agent, signal, confidence, reason, missingInformation]) => {
-    const confidencePenalty = coverage.reduce((sum, item) => sum + item.confidenceImpact, 0);
+    const confidencePenalty = coverage
+      .filter((item) => missingInformation.includes(item.area))
+      .reduce((sum, item) => sum + item.confidenceImpact, 0);
     const adjustedConfidence = Math.round(clamp(confidence - confidencePenalty, 0, 100));
     return {
       agent,

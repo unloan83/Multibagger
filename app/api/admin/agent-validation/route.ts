@@ -45,9 +45,12 @@ export async function GET(request: Request) {
     {
       id: "intelligence-feed",
       label: "Trusted market intelligence feed",
-      configured: Boolean(process.env.MARKET_INTELLIGENCE_FEED_URL?.trim()),
-      requiredAccess: "MARKET_INTELLIGENCE_FEED_URL pointing to a trusted portfolio-agnostic feed",
-      impact: "Official filings, policy, macro, and attributed sentiment coverage will remain incomplete.",
+      configured: Boolean(
+        process.env.MARKET_INTELLIGENCE_FEED_URL?.trim() ||
+        process.env.NEWS_API_KEY?.trim(),
+      ),
+      requiredAccess: "NEWS_API_KEY and/or MARKET_INTELLIGENCE_FEED_URL",
+      impact: "Only attributed public Yahoo news is available; official filings and broader policy coverage remain incomplete.",
     },
   ];
   return NextResponse.json({

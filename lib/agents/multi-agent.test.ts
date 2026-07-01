@@ -12,6 +12,7 @@ import {
   buildAgentValidationReport,
   toRecommendationLogs,
 } from "@/lib/agents";
+import { toEvent } from "@/lib/agents/marketIntelligence";
 import type { ManagedPortfolio, Recommendation } from "@/lib/portfolio";
 
 const portfolio: ManagedPortfolio = {
@@ -146,4 +147,25 @@ test("validation report blocks promotion when official source coverage is missin
     "missing",
   );
   assert(report.accessGaps.some((gap) => gap.requiredAccess.includes("NSE/BSE")));
+});
+
+test("market intelligence classifies official and attributed sources", () => {
+  const filing = toEvent({
+    title: "TEST files dividend corporate announcement",
+    url: "https://www.nseindia.com/companies-listing/corporate-filings-announcements",
+    publishedAt: "2026-07-01T08:00:00.000Z",
+    publisher: "NSE",
+  }, portfolio);
+  const macro = toEvent({
+    title: "India inflation and rupee outlook shifts after crude oil move",
+    url: "https://www.reuters.com/markets/asia/",
+    publishedAt: "2026-07-01T08:00:00.000Z",
+    publisher: "Reuters",
+  }, portfolio);
+
+  assert.equal(filing.source.kind, "exchange_filing");
+  assert.equal(filing.source.credibility, "high");
+  assert.ok(filing.affectedStocks?.includes("TEST"));
+  assert.equal(macro.source.kind, "macro");
+  assert.equal(macro.source.credibility, "high");
 });

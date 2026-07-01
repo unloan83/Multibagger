@@ -43,7 +43,7 @@ export async function runMultiAgentRecommendationSystem({
   );
   const reconciledLogs = reconcileRecommendationLogs(allLogs, history, currentPrices);
   const portfolioLogs = reconciledLogs.filter((log) => log.portfolioId === portfolio.id);
-  if (persist && reconciledLogs.some((log, index) => log.status !== allLogs[index]?.status)) {
+  if (persist && recommendationLogsChanged(allLogs, reconciledLogs)) {
     await writeAgentRecommendationLogs(reconciledLogs);
   }
   const recommendationGroups = generateRecommendations(
@@ -116,6 +116,22 @@ export async function runMultiAgentRecommendationSystem({
     );
   }
   return output;
+}
+
+function recommendationLogsChanged(
+  previous: Awaited<ReturnType<typeof readAgentRecommendationLogs>>,
+  next: Awaited<ReturnType<typeof readAgentRecommendationLogs>>,
+) {
+  if (previous.length !== next.length) return true;
+  return next.some((log, index) => {
+    const prior = previous[index];
+    return (
+      !prior ||
+      log.status !== prior.status ||
+      log.outcomeReason !== prior.outcomeReason ||
+      JSON.stringify(log.outcomes) !== JSON.stringify(prior.outcomes)
+    );
+  });
 }
 
 async function collectIntelligenceEvents(portfolio: ManagedPortfolio): Promise<RawIntelligenceEvent[]> {

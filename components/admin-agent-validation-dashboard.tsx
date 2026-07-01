@@ -26,6 +26,8 @@ type ValidationPreflight = {
     requiredAccess: string;
     impact: string;
   }>;
+  report?: AgentValidationReport | null;
+  recentReports?: AgentValidationReport[];
 };
 
 export function AdminAgentValidationDashboard({
@@ -46,11 +48,16 @@ export function AdminAgentValidationDashboard({
   const portfolio = candidates.find((item) => item.id === portfolioId) ?? candidates[0];
 
   useEffect(() => {
-    fetch("/api/admin/agent-validation", { cache: "no-store" })
+    if (!portfolio?.id) return;
+    fetch(`/api/admin/agent-validation?portfolioId=${encodeURIComponent(portfolio.id)}`, { cache: "no-store" })
       .then(async (response) => response.ok ? await response.json() as ValidationPreflight : null)
-      .then(setPreflight)
+      .then((payload) => {
+        setPreflight(payload);
+        setReport(payload?.report ?? null);
+        setRecentReports(payload?.recentReports ?? []);
+      })
       .catch(() => setPreflight(null));
-  }, []);
+  }, [portfolio?.id]);
 
   async function runShadowValidation() {
     if (!portfolio) return;
@@ -161,7 +168,7 @@ export function AdminAgentValidationDashboard({
 
       {!report ? (
         <div className="rounded-xl border border-white/10 bg-[#16263D] p-5 text-sm text-slate-400">
-          Run validation to inspect agent health, access gaps, source coverage, and shadow performance.
+          No saved shadow run exists for this portfolio yet. Use Run Shadow Validation now, or wait for the weekday scheduled run at 10:45 AM IST.
         </div>
       ) : (
         <>

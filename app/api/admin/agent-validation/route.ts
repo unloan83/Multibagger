@@ -18,10 +18,15 @@ import { identifySector, type PortfolioPosition } from "@/lib/portfolio";
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
 
-export async function GET() {
+export async function GET(request: Request) {
   if (!(await isAdminRequest())) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
+  const portfolioId = new URL(request.url).searchParams.get("portfolioId")?.trim() ?? "";
+  const storedReports = await readRecentAgentValidationReports(50);
+  const recentReports = portfolioId
+    ? storedReports.filter((report) => report.portfolioId === portfolioId).slice(0, 10)
+    : storedReports.slice(0, 10);
   const checks = [
     {
       id: "admin-auth",
@@ -50,6 +55,8 @@ export async function GET() {
     readyForPromotionEvidence: checks.every((check) => check.configured),
     mode: "shadow",
     checks,
+    report: recentReports[0] ?? null,
+    recentReports,
   }, {
     headers: { "Cache-Control": "private, no-store" },
   });

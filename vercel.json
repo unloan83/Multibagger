@@ -11,6 +11,10 @@
     {
       "path": "/api/validation/run",
       "schedule": "45 11 * * 1-5"
+    },
+    {
+      "path": "/api/agents/shadow/run",
+      "schedule": "15 5 * * 1-5"
     }
   ]
 }

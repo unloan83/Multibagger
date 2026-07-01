@@ -3871,7 +3871,7 @@ function PortfolioCommunicationCenter({
   const loadCommunication = useCallback(async () => {
     try {
       const [settingsResponse, historyResponse] = await Promise.all([
-        fetch("/api/communication/settings"),
+        fetch(`/api/communication/settings?portfolioId=${encodeURIComponent(portfolio.id)}`),
         fetch(`/api/communication/notification-history?portfolioId=${encodeURIComponent(portfolio.id)}`),
       ]);
       const settingsPayload = (await settingsResponse.json()) as {
@@ -3903,26 +3903,27 @@ function PortfolioCommunicationCenter({
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ settings: nextSettings }),
     });
-    setStatus(response.ok ? "Notification settings saved." : "Unable to save notification settings.");
+    const payload = (await response.json().catch(() => ({}))) as { error?: string };
+    setStatus(response.ok ? "Notification settings saved. Test the connection next." : payload.error ?? "Unable to save notification settings.");
+    return response.ok;
   }
 
   async function testTelegramConnection() {
+    if (!settings.telegramUserId.trim() || !settings.securePasskey.trim()) {
+      setStatus("Enter the numeric Telegram chat ID and connection passkey, then save settings before testing.");
+      return;
+    }
     const response = await fetch("/api/communication/test-telegram", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        telegramUserId: settings.telegramUserId,
+        portfolioId: portfolio.id,
         securePasskey: settings.securePasskey,
       }),
     });
     const payload = (await response.json()) as { ok?: boolean; status?: string };
-    const nextSettings = {
-      ...settings,
-      telegramConnected: Boolean(payload.ok),
-      connectionStatus: payload.status ?? (payload.ok ? "Connected" : "Failed"),
-    };
-    setSettings(nextSettings);
-    await saveSettings(nextSettings);
+    await loadCommunication();
+    setStatus(payload.status ?? (payload.ok ? "Connected" : "Telegram connection failed."));
   }
 
   async function submitRequest() {
@@ -4040,13 +4041,13 @@ function PortfolioCommunicationCenter({
             <input
               value={settings.telegramUserId}
               onChange={(event) => setSettings((item) => ({ ...item, telegramUserId: event.target.value }))}
-              placeholder="Telegram User ID"
+              placeholder="Numeric Telegram Chat ID"
               className="h-10 rounded-md border border-white/10 bg-[#08121F] px-3 text-sm text-white outline-none"
             />
             <input
               value={settings.securePasskey}
               onChange={(event) => setSettings((item) => ({ ...item, securePasskey: event.target.value }))}
-              placeholder="Secure Passkey"
+              placeholder="Connection Passkey (8+ characters)"
               type="password"
               className="h-10 rounded-md border border-white/10 bg-[#08121F] px-3 text-sm text-white outline-none"
             />
@@ -4076,6 +4077,9 @@ function PortfolioCommunicationCenter({
             <Button type="button" onClick={() => saveSettings()}>Save Settings</Button>
             <Button type="button" variant="outline" onClick={testTelegramConnection}>Test Connection</Button>
           </div>
+          <p className="mt-3 text-xs leading-5 text-slate-400">
+            Start the UNLOAN Telegram bot first, then enter its numeric chat ID and a private connection passkey. The bot token stays secured on the server. Weekday digests are sent at 10:15 AM IST.
+          </p>
           <div className="mt-3 text-xs text-slate-400">
             Connection: {settings.connectionStatus} | Last Delivery: {settings.lastSuccessfulDelivery || "None"}
           </div>

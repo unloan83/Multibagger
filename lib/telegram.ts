@@ -1,4 +1,7 @@
 import {
+  createCipheriv,
+  createDecipheriv,
+  createHash,
   randomBytes,
   scryptSync,
   timingSafeEqual,
@@ -9,6 +12,67 @@ const passkeyPrefix = "scrypt";
 
 export function getTelegramBotToken() {
   return process.env.TELEGRAM_TOKEN?.trim() || process.env.TELEGRAM_BOT_TOKEN?.trim() || "";
+}
+
+export function isValidTelegramBotToken(value: string) {
+  return /^\d{6,20}:[A-Za-z0-9_-]{20,}$/u.test(value.trim());
+}
+
+export function protectTelegramBotToken(token: string) {
+  const value = token.trim();
+  if (!isValidTelegramBotToken(value)) {
+    throw new Error("Enter a valid Telegram bot token from BotFather.");
+  }
+  if (value.startsWith("enc$") || value.startsWith("plain$")) return value;
+
+  const secret = getTokenEncryptionSecret();
+  if (!secret) {
+    return `plain$${Buffer.from(value, "utf8").toString("base64url")}`;
+  }
+
+  const iv = randomBytes(12);
+  const cipher = createCipheriv("aes-256-gcm", encryptionKey(secret), iv);
+  const encrypted = Buffer.concat([cipher.update(value, "utf8"), cipher.final()]);
+  const tag = cipher.getAuthTag();
+  return [
+    "enc",
+    iv.toString("base64url"),
+    tag.toString("base64url"),
+    encrypted.toString("base64url"),
+  ].join("$");
+}
+
+export function revealTelegramBotToken(stored: string) {
+  const value = stored.trim();
+  if (!value) return "";
+  if (isValidTelegramBotToken(value)) return value;
+  if (value.startsWith("plain$")) {
+    return Buffer.from(value.slice("plain$".length), "base64url").toString("utf8");
+  }
+  if (!value.startsWith("enc$")) return "";
+
+  const [, ivValue, tagValue, encryptedValue] = value.split("$");
+  const secret = getTokenEncryptionSecret();
+  if (!secret || !ivValue || !tagValue || !encryptedValue) return "";
+
+  try {
+    const decipher = createDecipheriv(
+      "aes-256-gcm",
+      encryptionKey(secret),
+      Buffer.from(ivValue, "base64url"),
+    );
+    decipher.setAuthTag(Buffer.from(tagValue, "base64url"));
+    return Buffer.concat([
+      decipher.update(Buffer.from(encryptedValue, "base64url")),
+      decipher.final(),
+    ]).toString("utf8");
+  } catch {
+    return "";
+  }
+}
+
+export function resolveTelegramBotToken(stored?: string) {
+  return revealTelegramBotToken(stored ?? "") || getTelegramBotToken();
 }
 
 export function isValidTelegramChatId(value: string) {
@@ -34,11 +98,13 @@ export function verifyTelegramPasskey(passkey: string, stored: string) {
 export async function sendTelegramMessage({
   chatId,
   text,
+  botToken: suppliedBotToken,
 }: {
   chatId: string;
   text: string;
+  botToken?: string;
 }) {
-  const botToken = getTelegramBotToken();
+  const botToken = suppliedBotToken?.trim() || getTelegramBotToken();
   if (!botToken) throw new Error("Telegram bot token is not configured.");
   if (!isValidTelegramChatId(chatId)) throw new Error("Telegram chat ID is invalid.");
 
@@ -59,6 +125,17 @@ export async function sendTelegramMessage({
   if (!response.ok || payload.ok === false) {
     throw new Error(payload.description || `Telegram returned HTTP ${response.status}.`);
   }
+}
+
+function getTokenEncryptionSecret() {
+  return process.env.TELEGRAM_ENCRYPTION_SECRET?.trim() ||
+    process.env.DASHBOARD_SESSION_SECRET?.trim() ||
+    process.env.SHARED_SESSION_SECRET?.trim() ||
+    "";
+}
+
+function encryptionKey(secret: string) {
+  return createHash("sha256").update(secret).digest();
 }
 
 export function buildDailyTelegramDigest({

@@ -8,9 +8,9 @@ import {
   saveCommunicationSettingsToSheets,
 } from "@/lib/google-sheets";
 import {
-  getTelegramBotToken,
+  protectTelegramBotToken,
+  resolveTelegramBotToken,
   sendTelegramMessage,
-  verifyTelegramPasskey,
 } from "@/lib/telegram";
 
 export const runtime = "nodejs";
@@ -21,9 +21,9 @@ export async function POST(request: Request) {
     securePasskey?: string;
   };
   const portfolioId = String(body.portfolioId ?? "").trim();
-  if (!portfolioId || !body.securePasskey) {
+  if (!portfolioId) {
     return NextResponse.json(
-      { ok: false, status: "Save settings, then enter the connection passkey to test." },
+      { ok: false, status: "Save settings before testing Telegram." },
       { status: 400 },
     );
   }
@@ -36,24 +36,36 @@ export async function POST(request: Request) {
       { status: 503 },
     );
   }
-  if (!getTelegramBotToken()) {
-    return NextResponse.json(
-      { ok: false, status: "TELEGRAM_TOKEN is not configured in Multibagger production." },
-      { status: 503 },
-    );
-  }
-
-  const settings = (await readCommunicationSettingsFromSheets())[portfolioId];
-  if (!settings?.telegramUserId || !settings.securePasskey) {
+  const allSettings = await readCommunicationSettingsFromSheets();
+  let settings = allSettings[portfolioId];
+  if (!settings?.telegramUserId) {
     return NextResponse.json(
       { ok: false, status: "Telegram settings must be saved before testing." },
       { status: 400 },
     );
   }
-  if (!verifyTelegramPasskey(body.securePasskey, settings.securePasskey)) {
+  const suppliedToken = String(body.securePasskey ?? "").trim();
+  if (suppliedToken) {
+    try {
+      settings = {
+        ...settings,
+        securePasskey: protectTelegramBotToken(suppliedToken),
+        telegramConnected: false,
+        connectionStatus: "Testing connection",
+      };
+      await saveCommunicationSettingsToSheets(settings);
+    } catch (error) {
+      return NextResponse.json(
+        { ok: false, status: error instanceof Error ? error.message : "Invalid Telegram bot token." },
+        { status: 400 },
+      );
+    }
+  }
+  const botToken = resolveTelegramBotToken(settings.securePasskey);
+  if (!botToken) {
     return NextResponse.json(
-      { ok: false, status: "Connection passkey is incorrect. Save a new passkey and retry." },
-      { status: 403 },
+      { ok: false, status: "Enter and save a Telegram bot token, or configure TELEGRAM_TOKEN in production." },
+      { status: 400 },
     );
   }
 
@@ -63,6 +75,7 @@ export async function POST(request: Request) {
   try {
     await sendTelegramMessage({
       chatId: settings.telegramUserId,
+      botToken,
       text: [
         "UNLOAN Stock Planner alerts are connected.",
         "Your weekday portfolio digest is scheduled for 10:15 AM IST.",

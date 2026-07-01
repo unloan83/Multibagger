@@ -3904,15 +3904,17 @@ function PortfolioCommunicationCenter({
       body: JSON.stringify({ settings: nextSettings }),
     });
     const payload = (await response.json().catch(() => ({}))) as { error?: string };
-    setStatus(response.ok ? "Notification settings saved. Test the connection next." : payload.error ?? "Unable to save notification settings.");
+    setStatus(response.ok ? "Notification settings saved. Test the Telegram connection next." : payload.error ?? "Unable to save notification settings.");
     return response.ok;
   }
 
   async function testTelegramConnection() {
-    if (!settings.telegramUserId.trim() || !settings.securePasskey.trim()) {
-      setStatus("Enter the numeric Telegram chat ID and connection passkey, then save settings before testing.");
+    if (!settings.telegramUserId.trim()) {
+      setStatus("Enter the numeric Telegram chat ID before testing.");
       return;
     }
+    const saved = await saveSettings();
+    if (!saved) return;
     const response = await fetch("/api/communication/test-telegram", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -4047,7 +4049,7 @@ function PortfolioCommunicationCenter({
             <input
               value={settings.securePasskey}
               onChange={(event) => setSettings((item) => ({ ...item, securePasskey: event.target.value }))}
-              placeholder="Connection Passkey (8+ characters)"
+              placeholder="Telegram Bot Token"
               type="password"
               className="h-10 rounded-md border border-white/10 bg-[#08121F] px-3 text-sm text-white outline-none"
             />
@@ -4078,7 +4080,7 @@ function PortfolioCommunicationCenter({
             <Button type="button" variant="outline" onClick={testTelegramConnection}>Test Connection</Button>
           </div>
           <p className="mt-3 text-xs leading-5 text-slate-400">
-            Start the UNLOAN Telegram bot first, then enter its numeric chat ID and a private connection passkey. The bot token stays secured on the server. Weekday digests are sent at 10:15 AM IST.
+            Add your numeric Telegram chat ID and BotFather token, then use Test Connection. Saved tokens are hidden after refresh. Weekday digests are sent at 10:15 AM IST.
           </p>
           <div className="mt-3 text-xs text-slate-400">
             Connection: {settings.connectionStatus} | Last Delivery: {settings.lastSuccessfulDelivery || "None"}

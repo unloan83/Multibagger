@@ -10,7 +10,7 @@ import {
 } from "@/lib/google-sheets";
 import {
   buildDailyTelegramDigest,
-  getTelegramBotToken,
+  resolveTelegramBotToken,
   sendTelegramMessage,
 } from "@/lib/telegram";
 
@@ -25,10 +25,6 @@ export async function GET(request: Request) {
   if (!isGoogleSheetsConfigured()) {
     return NextResponse.json({ error: "Google Sheets is not configured." }, { status: 503 });
   }
-  if (!getTelegramBotToken()) {
-    return NextResponse.json({ error: "TELEGRAM_TOKEN is not configured." }, { status: 503 });
-  }
-
   const [settingsByPortfolio, portfolios, validation] = await Promise.all([
     readCommunicationSettingsFromSheets(),
     readPortfoliosFromSheets(),
@@ -59,8 +55,11 @@ export async function GET(request: Request) {
     let status: "delivered" | "failed" = "delivered";
     let detail = "Daily portfolio digest delivered.";
     try {
+      const botToken = resolveTelegramBotToken(settings.securePasskey);
+      if (!botToken) throw new Error("Telegram bot token is not configured for this portfolio.");
       await sendTelegramMessage({
         chatId: settings.telegramUserId,
+        botToken,
         text: buildDailyTelegramDigest({
           portfolioName: portfolio?.name ?? settings.portfolioId,
           records,

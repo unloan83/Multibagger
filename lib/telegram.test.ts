@@ -2,17 +2,27 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import {
   buildDailyTelegramDigest,
-  hashTelegramPasskey,
+  isValidTelegramBotToken,
   isValidTelegramChatId,
-  verifyTelegramPasskey,
+  protectTelegramBotToken,
+  revealTelegramBotToken,
 } from "@/lib/telegram";
 import type { ValidationRecord } from "@/lib/intelligence-validation";
 
-test("Telegram connection passkeys are hashed and verified", () => {
-  const stored = hashTelegramPasskey("strong-passkey");
-  assert.notEqual(stored, "strong-passkey");
-  assert.equal(verifyTelegramPasskey("strong-passkey", stored), true);
-  assert.equal(verifyTelegramPasskey("wrong-passkey", stored), false);
+test("Telegram bot tokens are validated, protected, and recoverable for delivery", () => {
+  const previousSecret = process.env.TELEGRAM_ENCRYPTION_SECRET;
+  process.env.TELEGRAM_ENCRYPTION_SECRET = "test-secret";
+  const token = "123456789:abcdefghijklmnopqrstuvwxyzABCDE";
+  const stored = protectTelegramBotToken(token);
+  assert.equal(isValidTelegramBotToken(token), true);
+  assert.equal(isValidTelegramBotToken("not-a-token"), false);
+  assert.notEqual(stored, token);
+  assert.equal(revealTelegramBotToken(stored), token);
+  if (previousSecret === undefined) {
+    delete process.env.TELEGRAM_ENCRYPTION_SECRET;
+  } else {
+    process.env.TELEGRAM_ENCRYPTION_SECRET = previousSecret;
+  }
 });
 
 test("Telegram chat IDs and daily digest are constrained", () => {

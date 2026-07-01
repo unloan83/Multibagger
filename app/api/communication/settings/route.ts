@@ -8,8 +8,8 @@ import {
 } from "@/lib/google-sheets";
 import { canAccessPortfolio } from "@/lib/auth";
 import {
-  hashTelegramPasskey,
   isValidTelegramChatId,
+  protectTelegramBotToken,
 } from "@/lib/telegram";
 
 export const runtime = "nodejs";
@@ -44,6 +44,7 @@ export async function GET(request: Request) {
         ...stored,
         securePasskey: "",
         hasSecurePasskey: Boolean(stored.securePasskey),
+        hasTelegramBotToken: Boolean(stored.securePasskey),
       },
     },
   }, {
@@ -79,13 +80,11 @@ export async function PUT(request: Request) {
   let securePasskey = existing?.securePasskey ?? "";
   try {
     if (suppliedPasskey) {
-      securePasskey = hashTelegramPasskey(suppliedPasskey);
-    } else if (securePasskey && !securePasskey.startsWith("scrypt$")) {
-      securePasskey = hashTelegramPasskey(securePasskey);
+      securePasskey = protectTelegramBotToken(suppliedPasskey);
     }
   } catch (error) {
     return NextResponse.json(
-      { error: error instanceof Error ? error.message : "Invalid connection passkey." },
+      { error: error instanceof Error ? error.message : "Invalid Telegram bot token." },
       { status: 400 },
     );
   }
@@ -118,6 +117,7 @@ export async function PUT(request: Request) {
       ...settings,
       securePasskey: "",
       hasSecurePasskey: Boolean(settings.securePasskey),
+      hasTelegramBotToken: Boolean(settings.securePasskey),
     },
   });
 }

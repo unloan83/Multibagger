@@ -10,6 +10,7 @@ import {
   agentRiskValidation,
   agentSentiment,
   buildAgentValidationReport,
+  reconcileRecommendationLogs,
   toRecommendationLogs,
 } from "@/lib/agents";
 import { toEvent } from "@/lib/agents/marketIntelligence";
@@ -111,6 +112,50 @@ test("performance logs retain every agent score and contribution direction", () 
   assert.equal(logs[0].status, "pending");
   assert.equal(logs[0].shadowMode, true);
   assert.equal(logs[0].outcomes.length, 3);
+});
+
+test("performance uses trading-day windows and meaningful return thresholds", () => {
+  const timestamp = "2026-07-03T10:00:00.000Z"; // Friday
+  const scores = {
+    existingLogic: 2,
+    info: 1,
+    macroPolicy: 1,
+    sentiment: 1,
+    portfolio: 1,
+    riskValidation: 1,
+  };
+  const logs = toRecommendationLogs([{
+    symbol: "TEST",
+    company: "Test Ltd",
+    action: "Buy",
+    timeframe: "Intraday",
+    confidence: 70,
+    score: 2,
+    reason: "Threshold test.",
+    whatChangedRecently: [],
+    positiveTriggers: [],
+    negativeConcerns: [],
+    sourceSummary: [],
+    portfolioImpact: "Suitable for validation only.",
+    agentScores: scores,
+    agentReasons: {},
+  }], portfolio.id, timestamp, { entryPrices: { TEST: 100 } });
+
+  assert.equal(logs[0].outcomes[0].dueAt, "2026-07-06T10:00:00.000Z");
+  const weakMove = reconcileRecommendationLogs(
+    logs,
+    [],
+    { TEST: 100.2 },
+    new Date("2026-07-06T10:01:00.000Z"),
+  );
+  assert.equal(weakMove[0].outcomes[0].status, "miss");
+  const qualifiedMove = reconcileRecommendationLogs(
+    logs,
+    [],
+    { TEST: 100.6 },
+    new Date("2026-07-06T10:01:00.000Z"),
+  );
+  assert.equal(qualifiedMove[0].outcomes[0].status, "hit");
 });
 
 test("validation report blocks promotion when official source coverage is missing", () => {

@@ -1,10 +1,11 @@
 import { google } from "googleapis";
 import type { AgentValidationReport } from "@/lib/agents/validationTypes";
+import { normalizeGooglePrivateKey } from "@/lib/google-credentials";
 
 const sheetName = "Agent Validation Runs";
 const spreadsheetId = process.env.GOOGLE_SHEETS_SPREADSHEET_ID;
 const clientEmail = process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL;
-const privateKey = process.env.GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY?.replace(/\\n/gu, "\n");
+const privateKey = normalizeGooglePrivateKey(process.env.GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY);
 
 export async function appendAgentValidationReport(report: AgentValidationReport) {
   if (!configured()) return false;

@@ -169,14 +169,14 @@ export function reconcileRecommendationLogs(
 }
 
 function buildPendingOutcomes(timestamp: string): AgentRecommendationLog["outcomes"] {
-  const start = Date.parse(timestamp);
+  const start = new Date(timestamp);
   return [
     { horizon: "1 day", days: 1 },
-    { horizon: "1 week", days: 7 },
-    { horizon: "1 month", days: 30 },
+    { horizon: "1 week", days: 5 },
+    { horizon: "1 month", days: 21 },
   ].map(({ horizon, days }) => ({
     horizon: horizon as "1 day" | "1 week" | "1 month",
-    dueAt: new Date(start + days * 86_400_000).toISOString(),
+    dueAt: addTradingDays(start, days).toISOString(),
     evaluatedAt: null,
     price: null,
     returnPercent: null,
@@ -196,22 +196,40 @@ function evaluateHorizonOutcomes(
       return outcome;
     }
     const returnPercent = ((price - log.entryPrice) / log.entryPrice) * 100;
+    const requiredMove = requiredReturnPercent(outcome.horizon);
     const hit = log.finalAction === "Buy"
-      ? returnPercent > 0
+      ? returnPercent >= requiredMove
       : log.finalAction === "Sell"
-        ? returnPercent < 0
+        ? returnPercent <= -requiredMove
         : log.finalAction === "Hold"
-          ? returnPercent >= -3
-          : Math.abs(returnPercent) <= 5;
+          ? returnPercent >= -requiredMove
+          : Math.abs(returnPercent) <= requiredMove;
     return {
       ...outcome,
       evaluatedAt: now.toISOString(),
       price,
       returnPercent: Math.round(returnPercent * 100) / 100,
       status: hit ? "hit" as const : "miss" as const,
-      reason: `${log.finalAction} shadow decision returned ${returnPercent.toFixed(2)}% by ${outcome.horizon}.`,
+      reason: `${log.finalAction} shadow decision returned ${returnPercent.toFixed(2)}% by ${outcome.horizon}; threshold ${requiredMove.toFixed(1)}%.`,
     };
   });
+}
+
+function requiredReturnPercent(horizon: "1 day" | "1 week" | "1 month") {
+  if (horizon === "1 day") return 0.5;
+  if (horizon === "1 week") return 1.5;
+  return 3;
+}
+
+function addTradingDays(start: Date, tradingDays: number) {
+  const date = new Date(start);
+  let remaining = tradingDays;
+  while (remaining > 0) {
+    date.setUTCDate(date.getUTCDate() + 1);
+    const day = date.getUTCDay();
+    if (day !== 0 && day !== 6) remaining -= 1;
+  }
+  return date;
 }
 
 export async function readRecommendationLogs(): Promise<AgentRecommendationLog[]> {

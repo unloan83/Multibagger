@@ -1,0 +1,64 @@
+name: Agent Shadow and Performance
+
+on:
+  schedule:
+    - cron: "10 4 * * 1-5"
+    - cron: "35 11 * * 1-5"
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: Agent lifecycle stage
+        required: true
+        default: full
+        type: choice
+        options:
+          - full
+          - morning
+          - close
+
+permissions:
+  contents: read
+
+concurrency:
+  group: agent-shadow-performance
+  cancel-in-progress: false
+
+jobs:
+  lifecycle:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      GOOGLE_SHEETS_SPREADSHEET_ID: ${{ secrets.GOOGLE_SHEETS_SPREADSHEET_ID }}
+      GOOGLE_SERVICE_ACCOUNT_EMAIL: ${{ secrets.GOOGLE_SERVICE_ACCOUNT_EMAIL }}
+      GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY: ${{ secrets.GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY }}
+      NEWS_API_KEY: ${{ secrets.NEWS_API_KEY }}
+      MARKET_INTELLIGENCE_FEED_URL: ${{ secrets.MARKET_INTELLIGENCE_FEED_URL }}
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Refresh recommendation evidence
+        if: github.event.schedule == '10 4 * * 1-5' || inputs.mode == 'morning' || inputs.mode == 'full'
+        run: npx tsx scripts/run_recommendation_snapshot.ts
+
+      - name: Run morning shadow agents
+        if: github.event.schedule == '10 4 * * 1-5' || inputs.mode == 'morning' || inputs.mode == 'full'
+        run: npx tsx scripts/run_agent_shadow.ts
+
+      - name: Evaluate recommendation outcomes
+        if: github.event.schedule == '35 11 * * 1-5' || inputs.mode == 'close' || inputs.mode == 'full'
+        run: npx tsx scripts/run_recommendation_validation.ts
+
+      - name: Reconcile agent performance
+        if: github.event.schedule == '35 11 * * 1-5' || inputs.mode == 'close' || inputs.mode == 'full'
+        run: npx tsx scripts/run_agent_shadow.ts

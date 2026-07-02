@@ -97,9 +97,11 @@ export async function GET(request: Request) {
 }
 
 async function canRunShadowCron(request: Request) {
-  if (await isAdminRequest()) return true;
   const cronSecret = process.env.CRON_SECRET;
   const authorization = request.headers.get("authorization") ?? "";
-  if (cronSecret) return authorization === `Bearer ${cronSecret}`;
-  return (request.headers.get("user-agent") ?? "").toLowerCase().includes("vercel-cron");
+  if (cronSecret && authorization === `Bearer ${cronSecret}`) return true;
+  if (!cronSecret && (request.headers.get("user-agent") ?? "").toLowerCase().includes("vercel-cron")) {
+    return true;
+  }
+  return isAdminRequest();
 }

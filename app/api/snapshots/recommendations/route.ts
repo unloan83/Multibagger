@@ -207,18 +207,14 @@ function expertQualityFactors(
 }
 
 async function canRunSnapshot(request: Request) {
-  if (await isRequestAuthenticated()) {
-    return true;
-  }
-
   const cronSecret = process.env.CRON_SECRET;
   const authorization = request.headers.get("authorization") ?? "";
 
-  if (cronSecret) {
-    return authorization === `Bearer ${cronSecret}`;
+  if (cronSecret && authorization === `Bearer ${cronSecret}`) return true;
+  if (!cronSecret && (request.headers.get("user-agent") ?? "").toLowerCase().includes("vercel-cron")) {
+    return true;
   }
-
-  return (request.headers.get("user-agent") ?? "").toLowerCase().includes("vercel-cron");
+  return isRequestAuthenticated();
 }
 
 function generateRecommendationList(

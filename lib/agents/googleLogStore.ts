@@ -1,10 +1,11 @@
 import { google } from "googleapis";
 import type { AgentRecommendationLog } from "@/lib/agents/types";
+import { normalizeGooglePrivateKey } from "@/lib/google-credentials";
 
 const sheetName = "Agent Recommendation Logs";
 const spreadsheetId = process.env.GOOGLE_SHEETS_SPREADSHEET_ID;
 const clientEmail = process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL;
-const privateKey = process.env.GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY?.replace(/\\n/gu, "\n");
+const privateKey = normalizeGooglePrivateKey(process.env.GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY);
 
 export async function readAgentRecommendationLogs(): Promise<AgentRecommendationLog[]> {
   if (!configured()) return [];

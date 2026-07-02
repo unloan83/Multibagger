@@ -13,7 +13,7 @@ import {
   resolveTelegramBotToken,
   sendTelegramMessage,
   shouldAttemptDailyTelegram,
-  wasTelegramDeliveredOnIstDate,
+  wasTelegramDeliveredInCurrentIstSlot,
 } from "@/lib/telegram";
 
 export const dynamic = "force-dynamic";
@@ -41,7 +41,7 @@ export async function GET(request: Request) {
   }).format(now);
   const configured = Object.values(settingsByPortfolio).filter(shouldAttemptDailyTelegram);
   const enabled = configured.filter(
-    (settings) => !wasTelegramDeliveredOnIstDate(settings.lastSuccessfulDelivery, now),
+    (settings) => !wasTelegramDeliveredInCurrentIstSlot(settings.lastSuccessfulDelivery, now),
   );
   const results: Array<{ portfolioId: string; status: "delivered" | "failed"; detail: string }> = [];
 

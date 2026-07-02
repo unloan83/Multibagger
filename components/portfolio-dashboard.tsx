@@ -4080,7 +4080,7 @@ function PortfolioCommunicationCenter({
             <Button type="button" variant="outline" onClick={testTelegramConnection}>Test Connection</Button>
           </div>
           <p className="mt-3 text-xs leading-5 text-slate-400">
-            Add your numeric Telegram chat ID and BotFather token, then use Test Connection. Saved tokens are hidden after refresh. Weekday digests are sent at 10:15 AM IST.
+            Add your numeric Telegram chat ID and BotFather token, then use Test Connection. Saved tokens are hidden after refresh. Weekday digests are sent at 10:15 AM and 2:30 PM IST.
           </p>
           <div className="mt-3 text-xs text-slate-400">
             Connection: {settings.connectionStatus} | Last Delivery: {settings.lastSuccessfulDelivery || "None"}

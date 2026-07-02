@@ -78,7 +78,7 @@ export async function POST(request: Request) {
       botToken,
       text: [
         "UNLOAN Stock Planner alerts are connected.",
-        "Your weekday portfolio digest is scheduled for 10:15 AM IST.",
+        "Your weekday portfolio digests are scheduled for 10:15 AM and 2:30 PM IST.",
         "",
         "AI-assisted market analysis, not certified investment advice. Please verify before acting.",
       ].join("\n"),

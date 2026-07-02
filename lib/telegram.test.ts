@@ -7,7 +7,7 @@ import {
   protectTelegramBotToken,
   revealTelegramBotToken,
   shouldAttemptDailyTelegram,
-  wasTelegramDeliveredOnIstDate,
+  wasTelegramDeliveredInCurrentIstSlot,
 } from "@/lib/telegram";
 import type { ValidationRecord } from "@/lib/intelligence-validation";
 
@@ -56,8 +56,11 @@ test("daily delivery retries a configured account after a previous connection fa
   }), true);
 });
 
-test("daily delivery is idempotent within an IST calendar day", () => {
-  const now = new Date("2026-07-02T05:00:00.000Z");
-  assert.equal(wasTelegramDeliveredOnIstDate("2026-07-02T04:45:00.000Z", now), true);
-  assert.equal(wasTelegramDeliveredOnIstDate("2026-07-01T04:45:00.000Z", now), false);
+test("daily delivery is idempotent per morning and pre-close IST slot", () => {
+  const morning = new Date("2026-07-02T05:00:00.000Z");
+  const preClose = new Date("2026-07-02T09:05:00.000Z");
+  assert.equal(wasTelegramDeliveredInCurrentIstSlot("2026-07-02T04:45:00.000Z", morning), true);
+  assert.equal(wasTelegramDeliveredInCurrentIstSlot("2026-07-02T04:45:00.000Z", preClose), false);
+  assert.equal(wasTelegramDeliveredInCurrentIstSlot("2026-07-02T09:00:00.000Z", preClose), true);
+  assert.equal(wasTelegramDeliveredInCurrentIstSlot("2026-07-01T09:00:00.000Z", preClose), false);
 });

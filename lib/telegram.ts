@@ -87,11 +87,12 @@ export function shouldAttemptDailyTelegram(settings: {
   );
 }
 
-export function wasTelegramDeliveredOnIstDate(lastSuccessfulDelivery: string, now = new Date()) {
+export function wasTelegramDeliveredInCurrentIstSlot(lastSuccessfulDelivery: string, now = new Date()) {
   if (!lastSuccessfulDelivery) return false;
   const deliveredAt = new Date(lastSuccessfulDelivery);
   if (Number.isNaN(deliveredAt.getTime())) return false;
-  return istDateKey(deliveredAt) === istDateKey(now);
+  return istDateKey(deliveredAt) === istDateKey(now) &&
+    istDeliverySlot(deliveredAt) === istDeliverySlot(now);
 }
 
 export function isValidTelegramChatId(value: string) {
@@ -164,6 +165,15 @@ function istDateKey(date: Date) {
     month: "2-digit",
     day: "2-digit",
   }).format(date);
+}
+
+function istDeliverySlot(date: Date) {
+  const hour = Number(new Intl.DateTimeFormat("en-GB", {
+    timeZone: "Asia/Kolkata",
+    hour: "2-digit",
+    hourCycle: "h23",
+  }).format(date));
+  return hour < 12 ? "morning" : "pre-close";
 }
 
 export function buildDailyTelegramDigest({

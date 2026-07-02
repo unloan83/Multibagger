@@ -50,14 +50,14 @@ main().catch((error) => {
   process.exitCode = 1;
 });
 
-function redactSecrets(message: string) {
+function redactSecrets(message: string): string {
   return [
     process.env.GOOGLE_SHEETS_SPREADSHEET_ID,
     process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL,
     process.env.GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY,
     process.env.TELEGRAM_TOKEN,
-  ].filter(Boolean).reduce(
-    (safe, secret) => safe.replaceAll(secret as string, "[redacted]"),
+  ].filter((secret): secret is string => Boolean(secret)).reduce<string>(
+    (safe, secret) => safe.replaceAll(secret, "[redacted]"),
     message,
   );
 }

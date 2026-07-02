@@ -13,10 +13,11 @@ import type {
   ValidationRecord,
 } from "@/lib/intelligence-validation";
 import type { StockIntelligenceLogRow } from "@/lib/stock-intelligence/types";
+import { normalizeGooglePrivateKey } from "@/lib/google-credentials";
 
 const spreadsheetId = process.env.GOOGLE_SHEETS_SPREADSHEET_ID;
 const clientEmail = process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL;
-const privateKey = process.env.GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY?.replace(/\\n/gu, "\n");
+const privateKey = normalizeGooglePrivateKey(process.env.GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY);
 
 const portfoliosSheet = "Portfolios";
 const holdingsSheet = "Holdings";

@@ -21,7 +21,7 @@
       "schedule": "45 4 * * 1-5"
     },
     {
-      "path": "/api/communication/telegram/daily",
+      "path": "/api/communication/telegram/pre-close",
       "schedule": "0 9 * * 1-5"
     }
   ]

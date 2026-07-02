@@ -47,9 +47,15 @@ export async function GET(request: Request) {
 
   for (const settings of enabled) {
     const portfolio = portfolios.find((item) => item.id === settings.portfolioId);
-    const records = validation.filter(
+    const portfolioRecords = validation.filter(
       (record) =>
         record.portfolioId === settings.portfolioId &&
+        record.source === "portfolio-recommendation" &&
+        record.date === date,
+    );
+    const marketRecords = validation.filter(
+      (record) =>
+        ["expert-insight", "market-recommendation"].includes(record.source) &&
         record.date === date,
     );
     let status: "delivered" | "failed" = "delivered";
@@ -62,7 +68,8 @@ export async function GET(request: Request) {
         botToken,
         text: buildDailyTelegramDigest({
           portfolioName: portfolio?.name ?? settings.portfolioId,
-          records,
+          portfolioRecords,
+          marketRecords,
           dateLabel,
         }),
       });

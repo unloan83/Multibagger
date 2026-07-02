@@ -178,34 +178,77 @@ function istDeliverySlot(date: Date) {
 
 export function buildDailyTelegramDigest({
   portfolioName,
-  records,
+  portfolioRecords,
+  marketRecords,
   dateLabel,
 }: {
   portfolioName: string;
-  records: ValidationRecord[];
+  portfolioRecords: ValidationRecord[];
+  marketRecords: ValidationRecord[];
   dateLabel: string;
 }) {
-  const latestBySymbol = new Map<string, ValidationRecord>();
-  [...records]
-    .sort((a, b) => b.timestamp.localeCompare(a.timestamp))
-    .forEach((record) => {
-      if (!latestBySymbol.has(record.symbol)) latestBySymbol.set(record.symbol, record);
-    });
-  const recommendations = [...latestBySymbol.values()]
+  const portfolioActions = latestBySymbol(portfolioRecords)
+    .sort((a, b) => b.confidence - a.confidence)
+    .slice(0, 12);
+  const marketBuys = latestBySymbol(marketRecords.filter(isBuyRecommendation));
+  const intradayBuys = marketBuys
+    .filter(isIntradayRecommendation)
     .sort((a, b) => b.confidence - a.confidence)
     .slice(0, 5);
-  const lines = recommendations.length
-    ? recommendations.map((record) =>
-      `• ${record.symbol}: ${record.action} | ${record.horizon} | confidence ${Math.round(record.confidence)}%`,
-    )
-    : ["• No new qualified portfolio action was published today."];
+  const longTermBuys = marketBuys
+    .filter((record) => !isIntradayRecommendation(record))
+    .sort((a, b) => b.confidence - a.confidence)
+    .slice(0, 5);
 
   return [
     `UNLOAN Stock Planner — ${dateLabel}`,
     `Portfolio: ${portfolioName}`,
     "",
-    ...lines,
+    "1. PORTFOLIO RECOMMENDED STOCK ACTIONS",
+    ...formatRecommendationLines(
+      portfolioActions,
+      "• No new portfolio stock action is available today.",
+    ),
+    "",
+    "2. MARKET RECOMMENDED STOCK ACTIONS",
+    "Intraday Buy — Top 5",
+    ...formatRecommendationLines(
+      intradayBuys,
+      "• No qualified intraday Buy is available today.",
+    ),
+    "",
+    "Long-term Buy — Top 5",
+    ...formatRecommendationLines(
+      longTermBuys,
+      "• No qualified long-term Buy is available today.",
+    ),
     "",
     "AI-assisted market analysis, not certified investment advice. Please verify before acting.",
   ].join("\n");
+}
+
+function latestBySymbol(records: ValidationRecord[]) {
+  const latest = new Map<string, ValidationRecord>();
+  [...records]
+    .sort((a, b) => b.timestamp.localeCompare(a.timestamp))
+    .forEach((record) => {
+      const symbol = record.symbol.trim().toUpperCase();
+      if (symbol && !latest.has(symbol)) latest.set(symbol, record);
+    });
+  return [...latest.values()];
+}
+
+function isBuyRecommendation(record: ValidationRecord) {
+  return /^(buy|accumulate)$/iu.test(record.action.trim());
+}
+
+function isIntradayRecommendation(record: ValidationRecord) {
+  return /intraday|today|minute|hour/iu.test(`${record.section} ${record.horizon}`);
+}
+
+function formatRecommendationLines(records: ValidationRecord[], emptyMessage: string) {
+  if (records.length === 0) return [emptyMessage];
+  return records.map((record) =>
+    `• ${record.symbol}: ${record.action} | ${record.horizon} | ${Math.round(record.confidence)}% confidence`,
+  );
 }

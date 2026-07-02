@@ -40,10 +40,20 @@ test("Telegram chat IDs and daily digest are constrained", () => {
   } as ValidationRecord;
   const digest = buildDailyTelegramDigest({
     portfolioName: "Private",
-    records: [record],
+    portfolioRecords: [record],
+    marketRecords: [
+      { ...record, symbol: "FAST", action: "Buy", section: "Intraday", horizon: "Today" },
+      { ...record, symbol: "LONG", action: "Accumulate", section: "Long-Term Upsides", horizon: "6-12 months" },
+      { ...record, symbol: "HOLD", action: "Hold", section: "Intraday", horizon: "Today", confidence: 99 },
+    ],
     dateLabel: "1 Jul 2026",
   });
   assert.match(digest, /TEST: Accumulate/u);
+  assert.match(digest, /FAST: Buy/u);
+  assert.match(digest, /LONG: Accumulate/u);
+  assert.doesNotMatch(digest, /HOLD: Hold/u);
+  assert.match(digest, /1\. PORTFOLIO RECOMMENDED STOCK ACTIONS/u);
+  assert.match(digest, /2\. MARKET RECOMMENDED STOCK ACTIONS/u);
   assert.match(digest, /not certified investment advice/u);
 });
 

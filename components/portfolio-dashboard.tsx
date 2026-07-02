@@ -284,21 +284,6 @@ type IntelligenceSummary = {
   recent: IntelligenceRecord[];
 };
 
-const notificationModes: NotificationMode[] = [
-  "Immediate Alerts",
-  "Daily Summary",
-  "Weekly Summary",
-  "Critical Alerts Only",
-];
-
-const alertTypes = [
-  "Today's Recommended Action",
-  "New Opportunity",
-  "Risk Alert",
-  "Portfolio Score Change",
-  "High Priority Sell Signal",
-];
-
 const requestTypes = [
   "Recommendation Query",
   "PIN Reset Request",
@@ -4006,15 +3991,6 @@ function PortfolioCommunicationCenter({
     }
   }
 
-  function toggleAlertType(alertType: string) {
-    setSettings((item) => ({
-      ...item,
-      alertTypes: item.alertTypes.includes(alertType)
-        ? item.alertTypes.filter((value) => value !== alertType)
-        : [...item.alertTypes, alertType],
-    }));
-  }
-
   return (
     <section className="space-y-4 rounded-2xl border border-cyan-300/20 bg-[#0F1B2D] p-5 shadow-xl">
       <SectionTitle
@@ -4053,27 +4029,9 @@ function PortfolioCommunicationCenter({
               type="password"
               className="h-10 rounded-md border border-white/10 bg-[#08121F] px-3 text-sm text-white outline-none"
             />
-            <select
-              value={settings.notificationMode}
-              onChange={(event) => setSettings((item) => ({ ...item, notificationMode: event.target.value as NotificationMode }))}
-              className="h-10 rounded-md border border-white/10 bg-[#08121F] px-3 text-sm text-white outline-none sm:col-span-2"
-            >
-              {notificationModes.map((mode) => (
-                <option key={mode} value={mode}>{mode}</option>
-              ))}
-            </select>
           </div>
-          <div className="mt-3 grid gap-2 sm:grid-cols-2">
-            {alertTypes.map((alertType) => (
-              <label key={alertType} className="flex items-center gap-2 text-xs text-slate-300">
-                <input
-                  checked={settings.alertTypes.includes(alertType)}
-                  onChange={() => toggleAlertType(alertType)}
-                  type="checkbox"
-                />
-                {alertType}
-              </label>
-            ))}
+          <div className="mt-3 rounded-lg border border-cyan-300/15 bg-cyan-300/5 px-3 py-2 text-xs leading-5 text-slate-300">
+            Scheduled messages contain only: portfolio recommended stock actions, plus the market&apos;s top 5 intraday Buy and top 5 long-term Buy ideas.
           </div>
           <div className="mt-3 flex flex-wrap gap-2">
             <Button type="button" onClick={() => saveSettings()}>Save Settings</Button>

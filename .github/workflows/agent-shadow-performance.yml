@@ -56,9 +56,9 @@ jobs:
         run: npx tsx scripts/run_agent_shadow.ts
 
       - name: Evaluate recommendation outcomes
-        if: github.event.schedule == '35 11 * * 1-5' || inputs.mode == 'close' || inputs.mode == 'full'
+        if: always() && (github.event.schedule == '35 11 * * 1-5' || inputs.mode == 'close' || inputs.mode == 'full')
         run: npx tsx scripts/run_recommendation_validation.ts
 
       - name: Reconcile agent performance
-        if: github.event.schedule == '35 11 * * 1-5' || inputs.mode == 'close' || inputs.mode == 'full'
+        if: always() && (github.event.schedule == '35 11 * * 1-5' || inputs.mode == 'close' || inputs.mode == 'full')
         run: npx tsx scripts/run_agent_shadow.ts

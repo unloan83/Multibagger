@@ -28,11 +28,39 @@ export async function appendAgentValidationReport(report: AgentValidationReport)
         report.sourceCoverage.filter((item) => item.status === "missing").length,
         report.performance.agentLogic.accuracy ?? "",
         report.promotionGate.status,
-        JSON.stringify(report),
+        serializeReport(report),
       ]],
     },
   });
   return true;
+}
+
+function serializeReport(report: AgentValidationReport) {
+  const compact = compactReport(report, 25);
+  const serialized = JSON.stringify(compact, truncateLongStrings);
+  if (serialized.length <= 45_000) return serialized;
+  return JSON.stringify(compactReport(report, 10), truncateLongStrings);
+}
+
+function compactReport(report: AgentValidationReport, detailLimit: number): AgentValidationReport {
+  return {
+    ...report,
+    missingSourceAlerts: report.missingSourceAlerts.slice(0, 20),
+    staleDataAlerts: report.staleDataAlerts.slice(0, 20),
+    accessGaps: report.accessGaps.slice(0, 20),
+    orchestratorValidation: report.orchestratorValidation.slice(0, detailLimit),
+    shadowComparison: report.shadowComparison.slice(0, detailLimit),
+    performance: {
+      ...report.performance,
+      recentOutcomes: report.performance.recentOutcomes.slice(0, detailLimit),
+    },
+  };
+}
+
+function truncateLongStrings(_key: string, value: unknown) {
+  return typeof value === "string" && value.length > 1_000
+    ? `${value.slice(0, 997)}...`
+    : value;
 }
 
 export async function readRecentAgentValidationReports(limit = 20): Promise<AgentValidationReport[]> {

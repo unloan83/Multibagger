@@ -23,6 +23,10 @@
     {
       "path": "/api/communication/telegram/pre-close",
       "schedule": "0 9 * * 1-5"
+    },
+    {
+      "path": "/api/communication/telegram/test-delivery",
+      "schedule": "10 10 * * 1-5"
     }
   ]
 }

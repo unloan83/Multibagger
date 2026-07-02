@@ -64,29 +64,7 @@ export async function appendAgentRecommendationLogs(logs: AgentRecommendationLog
     valueInputOption: "USER_ENTERED",
     insertDataOption: "INSERT_ROWS",
     requestBody: {
-      values: additions.map((log) => [
-        log.id,
-        log.timestamp,
-        log.portfolioId,
-        log.stock,
-        JSON.stringify(log.agentScores),
-        log.finalAction,
-        log.timeframe,
-        log.target ?? "",
-        log.stopLoss ?? "",
-        log.confidence,
-        log.reason,
-        log.status,
-        JSON.stringify(log.positiveContributors),
-        JSON.stringify(log.negativeContributors),
-        log.entryPrice,
-        log.currentLogicAction,
-        log.currentLogicConfidence,
-        JSON.stringify(log.sourceTypes),
-        JSON.stringify(log.outcomes),
-        log.outcomeReason,
-        "TRUE",
-      ]),
+      values: additions.map(toSheetRow),
     },
   });
   return additions.length;
@@ -101,31 +79,43 @@ export async function writeAgentRecommendationLogs(logs: AgentRecommendationLog[
     range: `'${sheetName}'!A2:U${logs.length + 1}`,
     valueInputOption: "USER_ENTERED",
     requestBody: {
-      values: logs.map((log) => [
-        log.id,
-        log.timestamp,
-        log.portfolioId,
-        log.stock,
-        JSON.stringify(log.agentScores),
-        log.finalAction,
-        log.timeframe,
-        log.target ?? "",
-        log.stopLoss ?? "",
-        log.confidence,
-        log.reason,
-        log.status,
-        JSON.stringify(log.positiveContributors),
-        JSON.stringify(log.negativeContributors),
-        log.entryPrice,
-        log.currentLogicAction,
-        log.currentLogicConfidence,
-        JSON.stringify(log.sourceTypes),
-        JSON.stringify(log.outcomes),
-        log.outcomeReason,
-        "TRUE",
-      ]),
+      values: logs.map(toSheetRow),
     },
   });
+}
+
+function toSheetRow(log: AgentRecommendationLog) {
+  return [
+    safeText(log.id),
+    log.timestamp,
+    safeText(log.portfolioId),
+    safeText(log.stock),
+    safeJson(log.agentScores),
+    log.finalAction,
+    log.timeframe,
+    log.target ?? "",
+    log.stopLoss ?? "",
+    log.confidence,
+    safeText(log.reason, 5_000),
+    log.status,
+    safeJson(log.positiveContributors),
+    safeJson(log.negativeContributors),
+    log.entryPrice,
+    log.currentLogicAction,
+    log.currentLogicConfidence,
+    safeJson(log.sourceTypes),
+    safeJson(log.outcomes, 10_000),
+    safeText(log.outcomeReason, 5_000),
+    "TRUE",
+  ];
+}
+
+function safeJson(value: unknown, limit = 5_000) {
+  return safeText(JSON.stringify(value), limit);
+}
+
+function safeText(value: string, limit = 1_000) {
+  return value.length > limit ? `${value.slice(0, limit - 3)}...` : value;
 }
 
 async function ensureSheet(sheets: Awaited<ReturnType<typeof client>>) {

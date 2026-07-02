@@ -1,6 +1,17 @@
 import { GET as runTelegramDigest } from "@/app/api/communication/telegram/daily/route";
 
 async function main() {
+  const requiredEnvironment = [
+    "GOOGLE_SHEETS_SPREADSHEET_ID",
+    "GOOGLE_SERVICE_ACCOUNT_EMAIL",
+    "GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY",
+    "TELEGRAM_TOKEN",
+  ] as const;
+  const missing = requiredEnvironment.filter((name) => !process.env[name]?.trim());
+  if (missing.length > 0) {
+    throw new Error(`Missing GitHub Actions secrets: ${missing.join(", ")}.`);
+  }
+
   const response = await runTelegramDigest(new Request(
     "http://github-actions.local/api/communication/telegram/daily",
     { headers: { "user-agent": "vercel-cron/1.0" } },
@@ -12,6 +23,7 @@ async function main() {
     delivered?: number;
     failed?: number;
     error?: string;
+    results?: Array<{ detail?: string }>;
   };
 
   console.log(JSON.stringify({
@@ -23,11 +35,36 @@ async function main() {
   }));
 
   if (!response.ok || payload.error || (payload.failed ?? 0) > 0) {
-    throw new Error(payload.error ?? "One or more Telegram digests failed.");
+    const reasons = [...new Set(
+      (payload.results ?? []).map((result) => result.detail?.trim()).filter(Boolean),
+    )];
+    throw new Error(payload.error || reasons.join("; ") || "One or more Telegram digests failed.");
   }
 }
 
 main().catch((error) => {
-  console.error(error instanceof Error ? error.message : "Telegram digest job failed.");
+  const message = redactSecrets(
+    error instanceof Error ? error.message : "Telegram digest job failed.",
+  );
+  console.error(`::error title=Telegram digest job failed::${escapeWorkflowCommand(message)}`);
   process.exitCode = 1;
 });
+
+function redactSecrets(message: string) {
+  return [
+    process.env.GOOGLE_SHEETS_SPREADSHEET_ID,
+    process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL,
+    process.env.GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY,
+    process.env.TELEGRAM_TOKEN,
+  ].filter(Boolean).reduce(
+    (safe, secret) => safe.replaceAll(secret as string, "[redacted]"),
+    message,
+  );
+}
+
+function escapeWorkflowCommand(message: string) {
+  return message
+    .replaceAll("%", "%25")
+    .replaceAll("\r", "%0D")
+    .replaceAll("\n", "%0A");
+}

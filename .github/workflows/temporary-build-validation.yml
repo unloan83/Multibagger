@@ -5,6 +5,7 @@ on:
     branches: [main]
     paths:
       - ".github/workflows/temporary-build-validation.yml"
+      - "scripts/send_telegram_digests.ts"
 
 permissions:
   contents: read

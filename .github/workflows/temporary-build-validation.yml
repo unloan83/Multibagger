@@ -20,4 +20,13 @@ jobs:
           node-version: "24"
           cache: npm
       - run: npm ci
-      - run: npm run build
+      - name: Run production build
+        shell: bash
+        run: |
+          set -o pipefail
+          npm run build 2>&1 | tee build-output.log
+
+      - name: Publish build failure
+        if: failure()
+        run: |
+          node -e "const fs=require('fs');const text=fs.existsSync('build-output.log')?fs.readFileSync('build-output.log','utf8'):'Build failed without output.';const lines=text.split(/\r?\n/);const start=Math.max(0,lines.findIndex(line=>/Failed to compile|Type error|Build error/i.test(line)));const excerpt=lines.slice(start,start+18).join(' ').replace(/%/g,'%25').replace(/\r/g,'%0D').replace(/\n/g,'%0A');console.error('::error title=Production build failed::'+excerpt.slice(0,2000));"

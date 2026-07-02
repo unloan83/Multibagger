@@ -12,6 +12,8 @@ import {
   buildDailyTelegramDigest,
   resolveTelegramBotToken,
   sendTelegramMessage,
+  shouldAttemptDailyTelegram,
+  wasTelegramDeliveredOnIstDate,
 } from "@/lib/telegram";
 
 export const dynamic = "force-dynamic";
@@ -30,12 +32,6 @@ export async function GET(request: Request) {
     readPortfoliosFromSheets(),
     readValidationRecords(),
   ]);
-  const enabled = Object.values(settingsByPortfolio).filter(
-    (settings) =>
-      settings.telegramEnabled &&
-      settings.telegramConnected &&
-      settings.telegramUserId,
-  );
   const now = new Date();
   const timestamp = now.toISOString();
   const date = istDateKey(now);
@@ -43,6 +39,10 @@ export async function GET(request: Request) {
     dateStyle: "medium",
     timeZone: "Asia/Kolkata",
   }).format(now);
+  const configured = Object.values(settingsByPortfolio).filter(shouldAttemptDailyTelegram);
+  const enabled = configured.filter(
+    (settings) => !wasTelegramDeliveredOnIstDate(settings.lastSuccessfulDelivery, now),
+  );
   const results: Array<{ portfolioId: string; status: "delivered" | "failed"; detail: string }> = [];
 
   for (const settings of enabled) {
@@ -72,6 +72,7 @@ export async function GET(request: Request) {
     }
     await saveCommunicationSettingsToSheets({
       ...settings,
+      telegramConnected: status === "delivered",
       connectionStatus: status === "delivered" ? "Connected" : `Delivery failed: ${detail}`,
       lastNotification: timestamp,
       lastSuccessfulDelivery:
@@ -92,6 +93,8 @@ export async function GET(request: Request) {
   return NextResponse.json({
     ok: results.every((result) => result.status === "delivered"),
     date,
+    configured: configured.length,
+    alreadyDelivered: configured.length - enabled.length,
     attempted: enabled.length,
     delivered: results.filter((result) => result.status === "delivered").length,
     failed: results.filter((result) => result.status === "failed").length,

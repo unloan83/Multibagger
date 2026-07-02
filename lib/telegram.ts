@@ -75,6 +75,25 @@ export function resolveTelegramBotToken(stored?: string) {
   return revealTelegramBotToken(stored ?? "") || getTelegramBotToken();
 }
 
+export function shouldAttemptDailyTelegram(settings: {
+  telegramEnabled: boolean;
+  telegramUserId: string;
+  securePasskey?: string;
+}) {
+  return Boolean(
+    settings.telegramEnabled &&
+    settings.telegramUserId.trim() &&
+    resolveTelegramBotToken(settings.securePasskey),
+  );
+}
+
+export function wasTelegramDeliveredOnIstDate(lastSuccessfulDelivery: string, now = new Date()) {
+  if (!lastSuccessfulDelivery) return false;
+  const deliveredAt = new Date(lastSuccessfulDelivery);
+  if (Number.isNaN(deliveredAt.getTime())) return false;
+  return istDateKey(deliveredAt) === istDateKey(now);
+}
+
 export function isValidTelegramChatId(value: string) {
   return /^-?\d{5,20}$/u.test(value.trim());
 }
@@ -136,6 +155,15 @@ function getTokenEncryptionSecret() {
 
 function encryptionKey(secret: string) {
   return createHash("sha256").update(secret).digest();
+}
+
+function istDateKey(date: Date) {
+  return new Intl.DateTimeFormat("en-CA", {
+    timeZone: "Asia/Kolkata",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).format(date);
 }
 
 export function buildDailyTelegramDigest({

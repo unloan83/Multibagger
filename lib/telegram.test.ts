@@ -6,6 +6,8 @@ import {
   isValidTelegramChatId,
   protectTelegramBotToken,
   revealTelegramBotToken,
+  shouldAttemptDailyTelegram,
+  wasTelegramDeliveredOnIstDate,
 } from "@/lib/telegram";
 import type { ValidationRecord } from "@/lib/intelligence-validation";
 
@@ -43,4 +45,19 @@ test("Telegram chat IDs and daily digest are constrained", () => {
   });
   assert.match(digest, /TEST: Accumulate/u);
   assert.match(digest, /not certified investment advice/u);
+});
+
+test("daily delivery retries a configured account after a previous connection failure", () => {
+  const token = "123456789:abcdefghijklmnopqrstuvwxyzABCDE";
+  assert.equal(shouldAttemptDailyTelegram({
+    telegramEnabled: true,
+    telegramUserId: "123456789",
+    securePasskey: protectTelegramBotToken(token),
+  }), true);
+});
+
+test("daily delivery is idempotent within an IST calendar day", () => {
+  const now = new Date("2026-07-02T05:00:00.000Z");
+  assert.equal(wasTelegramDeliveredOnIstDate("2026-07-02T04:45:00.000Z", now), true);
+  assert.equal(wasTelegramDeliveredOnIstDate("2026-07-01T04:45:00.000Z", now), false);
 });

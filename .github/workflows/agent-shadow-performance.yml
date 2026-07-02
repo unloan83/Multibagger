@@ -55,9 +55,17 @@ jobs:
         if: github.event.schedule == '10 4 * * 1-5' || inputs.mode == 'morning' || inputs.mode == 'full'
         run: npx tsx scripts/run_agent_shadow.ts
 
+      - name: Space Google Sheets operations before validation
+        if: always() && inputs.mode == 'full'
+        run: sleep 70
+
       - name: Evaluate recommendation outcomes
         if: always() && (github.event.schedule == '35 11 * * 1-5' || inputs.mode == 'close' || inputs.mode == 'full')
         run: npx tsx scripts/run_recommendation_validation.ts
+
+      - name: Space Google Sheets operations before reconciliation
+        if: always() && (github.event.schedule == '35 11 * * 1-5' || inputs.mode == 'close' || inputs.mode == 'full')
+        run: sleep 70
 
       - name: Reconcile agent performance
         if: always() && (github.event.schedule == '35 11 * * 1-5' || inputs.mode == 'close' || inputs.mode == 'full')

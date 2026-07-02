@@ -39,7 +39,25 @@ function serializeReport(report: AgentValidationReport) {
   const compact = compactReport(report, 25);
   const serialized = JSON.stringify(compact, truncateLongStrings);
   if (serialized.length <= 45_000) return serialized;
-  return JSON.stringify(compactReport(report, 10), truncateLongStrings);
+  const reduced = JSON.stringify(compactReport(report, 10), truncateLongStrings);
+  if (reduced.length <= 45_000) return reduced;
+  return JSON.stringify({
+    ...report,
+    agentHealth: report.agentHealth.slice(0, 8),
+    sourceCoverage: report.sourceCoverage.slice(0, 8),
+    missingSourceAlerts: report.missingSourceAlerts.slice(0, 8),
+    staleDataAlerts: report.staleDataAlerts.slice(0, 8),
+    accessGaps: report.accessGaps.slice(0, 8),
+    orchestratorValidation: [],
+    shadowComparison: [],
+    performance: {
+      ...report.performance,
+      agentContribution: report.performance.agentContribution.slice(0, 8),
+      sourceReliability: report.performance.sourceReliability.slice(0, 8),
+      horizonAccuracy: report.performance.horizonAccuracy.slice(0, 3),
+      recentOutcomes: [],
+    },
+  }, truncateLongStrings);
 }
 
 function compactReport(report: AgentValidationReport, detailLimit: number): AgentValidationReport {
@@ -58,8 +76,8 @@ function compactReport(report: AgentValidationReport, detailLimit: number): Agen
 }
 
 function truncateLongStrings(_key: string, value: unknown) {
-  return typeof value === "string" && value.length > 1_000
-    ? `${value.slice(0, 997)}...`
+  return typeof value === "string" && value.length > 500
+    ? `${value.slice(0, 497)}...`
     : value;
 }
 

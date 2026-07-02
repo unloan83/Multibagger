@@ -17,9 +17,12 @@ async function main() {
     failed: payload.failures?.length ?? 0,
   }));
 
-  if (!response.ok || !payload.ok) {
+  if ((payload.portfoliosCompleted ?? 0) === 0) {
     const reasons = [...new Set((payload.failures ?? []).map((item) => item.error).filter(Boolean))];
     throw new Error(payload.error || reasons.join("; ") || "Agent shadow run failed.");
+  }
+  if (!payload.ok) {
+    console.warn("Shadow run completed partially; failed portfolios remain visible in the workflow counts.");
   }
 }
 

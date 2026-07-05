@@ -22,7 +22,7 @@ export async function agentFundamental(
       const quote = await yf.quote(symbol);
       const stats = await yf.quoteSummary(symbol, {
         modules: ["defaultKeyStatistics", "financialData", "balanceSheetHistory"],
-      });
+      }) as Record<string, unknown>;
       const metrics = extractMetrics(quote, stats);
       const score = scoreFundamentals(metrics);
       const confidence = confidenceFromMetrics(metrics);
@@ -60,19 +60,19 @@ export async function agentFundamental(
 
 function extractMetrics(
   quote: Awaited<ReturnType<typeof yf.quote>>,
-  stats: Awaited<ReturnType<typeof yf.quoteSummary>>,
+  stats: Record<string, unknown>,
 ): FundamentalMetrics {
-  const dk = stats?.defaultKeyStatistics;
-  const fd = stats?.financialData;
+  const dk = stats?.defaultKeyStatistics as Record<string, unknown> | undefined;
+  const fd = stats?.financialData as Record<string, unknown> | undefined;
   return {
-    peRatio: quote.trailingPE ?? fd?.peRatio ?? null,
-    pbRatio: dk?.priceToBook ?? null,
-    debtEquity: dk?.debtToEquity ?? null,
-    returnOnEquity: dk?.returnOnEquity ?? null,
-    revenueGrowth: fd?.revenueGrowth ?? null,
-    profitMargin: fd?.profitMargins ?? null,
-    marketCap: quote.marketCap ?? null,
-    dividendYield: dk?.dividendYield ?? null,
+    peRatio: (quote.trailingPE as number | undefined) ?? (fd?.peRatio as number | undefined) ?? null,
+    pbRatio: (dk?.priceToBook as number | undefined) ?? null,
+    debtEquity: (dk?.debtToEquity as number | undefined) ?? null,
+    returnOnEquity: (dk?.returnOnEquity as number | undefined) ?? null,
+    revenueGrowth: (fd?.revenueGrowth as number | undefined) ?? null,
+    profitMargin: (fd?.profitMargins as number | undefined) ?? null,
+    marketCap: (quote.marketCap as number | undefined) ?? null,
+    dividendYield: (dk?.dividendYield as number | undefined) ?? null,
   };
 }
 

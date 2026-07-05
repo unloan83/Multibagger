@@ -182,6 +182,8 @@ function buildCoverage(output: AgentOrchestratorOutput, portfolio: ManagedPortfo
     { area: "quarterly results", count: countKinds(events, ["quarterly_result"]), missing: "quarterly results", access: "Exchange results feed or company investor-relations source", impact: 10 },
     { area: "analyst/blog sentiment", count: countKinds(events, ["analyst", "blog", "social"]), missing: "analyst and blog sentiment", access: "Attributed analyst/news commentary feed; social remains low confidence", impact: 4 },
     { area: "volume/price context", count: portfolio.positions.filter((position) => position.currentPrice > 0 && (position.volume ?? 0) > 0).length, missing: "current price and volume context", access: "Reliable exchange quote and historical-bars provider", impact: 15 },
+    { area: "fundamental metrics", count: Object.values(output.fundamental.byStock).filter((item) => item.metrics.peRatio !== null).length, missing: "PE, PB, ROE, debt/equity, margins", access: "Yahoo Finance fundamentals API", impact: 10 },
+    { area: "technical indicators", count: Object.values(output.technical.byStock).filter((item) => item.metrics.rsi14 !== null).length, missing: "RSI, moving averages, volume trend", access: "Yahoo Finance historical data API", impact: 10 },
   ];
   return definitions.map((item) => ({
     area: item.area,
@@ -201,6 +203,8 @@ function buildAgentHealth(
   const sourceCredibility = Math.round(average(sources.map((source) => source.credibilityScore)));
   const freshness = Math.round(average(sources.map((source) => source.freshnessScore)));
   const missing = coverage.filter((item) => item.status !== "covered").map((item) => item.area);
+  const fundamentalScores = Object.values(output.fundamental.byStock);
+  const technicalScores = Object.values(output.technical.byStock);
   const metrics: Array<[ValidationAgentName, number, number, string, string[]]> = [
     ["Info", average(Object.values(output.info.byStock).map((item) => item.score)), average(output.info.events.map((item) => item.confidence)), `${output.info.events.length} intelligence events scored.`, missing],
     ["Macro & Policy", output.macroPolicy.marketScore, output.macroPolicy.confidence, output.macroPolicy.reasons.join(" "), missing.filter((item) => item.includes("policy") || item.includes("macro") || item.includes("sector"))],
@@ -210,6 +214,8 @@ function buildAgentHealth(
     ["Risk & Validation", average(output.riskValidation.decisions.map((item) => item.score)), average(output.riskValidation.decisions.map((item) => item.confidence)), `${output.riskValidation.decisions.filter((item) => item.downgradeTo).length} actions downgraded.`, missing],
     ["Performance", output.performance.hitRate === null ? 0 : clamp((output.performance.hitRate - 50) / 10, -5, 5), output.performance.total ? Math.min(100, output.performance.total * 3) : 0, output.performance.summary, output.performance.total ? [] : ["completed recommendation outcomes"]],
     ["Orchestrator", average(output.recommendations.map((item) => actionScore(item.action, item.score))), average(output.recommendations.map((item) => item.confidence)), `${output.recommendations.length} shadow decisions produced.`, missing],
+    ["Fundamental", average(fundamentalScores.map((item) => item.score)), average(fundamentalScores.map((item) => item.confidence)), output.fundamental.summary, missing.filter((item) => item.includes("quarterly") || item.includes("filing"))],
+    ["Technical", average(technicalScores.map((item) => item.score)), average(technicalScores.map((item) => item.confidence)), output.technical.summary, missing.filter((item) => item.includes("volume") || item.includes("price"))],
   ];
   return metrics.map(([agent, signal, confidence, reason, missingInformation]) => {
     const confidencePenalty = coverage
@@ -353,5 +359,7 @@ function accessGapAgent(area: CoverageArea): ValidationAgentName {
   if (area.includes("policy") || area.includes("macro") || area.includes("sector")) return "Macro & Policy";
   if (area.includes("sentiment")) return "Sentiment";
   if (area.includes("volume")) return "Portfolio";
+  if (area.includes("fundamental")) return "Fundamental";
+  if (area.includes("technical")) return "Technical";
   return "Info";
 }

@@ -13,7 +13,9 @@ export type ValidationAgentName =
   | "Growth"
   | "Risk & Validation"
   | "Performance"
-  | "Orchestrator";
+  | "Orchestrator"
+  | "Fundamental"
+  | "Technical";
 
 export type ValidationSourceType =
   | "exchange filing"
@@ -47,7 +49,9 @@ export type CoverageArea =
   | "macro/global news"
   | "quarterly results"
   | "analyst/blog sentiment"
-  | "volume/price context";
+  | "volume/price context"
+  | "fundamental metrics"
+  | "technical indicators";
 
 export type CoverageValidation = {
   area: CoverageArea;

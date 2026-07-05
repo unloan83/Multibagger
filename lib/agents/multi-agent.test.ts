@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import {
+  agentFundamental,
   agentGrowth,
   agentInfo,
   agentMacroPolicy,
@@ -9,11 +10,13 @@ import {
   agentPortfolio,
   agentRiskValidation,
   agentSentiment,
+  agentTechnical,
   buildAgentValidationReport,
   reconcileRecommendationLogs,
   toRecommendationLogs,
 } from "@/lib/agents";
 import { toEvent } from "@/lib/agents/marketIntelligence";
+import type { AgentFundamentalOutput, AgentTechnicalOutput } from "@/lib/agents/types";
 import type { ManagedPortfolio, Recommendation } from "@/lib/portfolio";
 
 const portfolio: ManagedPortfolio = {
@@ -34,6 +37,20 @@ const portfolio: ManagedPortfolio = {
     currency: "INR",
   }],
 };
+
+const emptyFundamental = (): AgentFundamentalOutput => ({
+  agent: "Fundamental",
+  generatedAt: new Date().toISOString(),
+  byStock: {},
+  summary: "No fundamental data available.",
+});
+
+const emptyTechnical = (): AgentTechnicalOutput => ({
+  agent: "Technical",
+  generatedAt: new Date().toISOString(),
+  byStock: {},
+  summary: "No technical data available.",
+});
 
 test("social input is explicitly capped at low confidence", () => {
   const output = agentInfo([{
@@ -77,6 +94,8 @@ test("risk validation downgrades a low-confidence Buy and orchestrator cannot re
     growth,
     riskValidation: risk,
     performance,
+    fundamental: emptyFundamental(),
+    technical: emptyTechnical(),
     now,
   });
 
@@ -101,13 +120,15 @@ test("performance logs retain every agent score and contribution direction", () 
     growth,
     riskValidation: risk,
     performance: agentPerformance({ history: [], now }),
+    fundamental: emptyFundamental(),
+    technical: emptyTechnical(),
     now,
   });
   const logs = toRecommendationLogs(output.recommendations, portfolio.id, now.toISOString());
 
   assert.equal(logs.length, 1);
   assert.deepEqual(Object.keys(logs[0].agentScores).sort(), [
-    "existingLogic", "info", "macroPolicy", "portfolio", "riskValidation", "sentiment",
+    "existingLogic", "fundamental", "info", "macroPolicy", "portfolio", "riskValidation", "sentiment", "technical",
   ].sort());
   assert.equal(logs[0].status, "pending");
   assert.equal(logs[0].shadowMode, true);
@@ -123,6 +144,8 @@ test("performance uses trading-day windows and meaningful return thresholds", ()
     sentiment: 1,
     portfolio: 1,
     riskValidation: 1,
+    fundamental: 1,
+    technical: 1,
   };
   const logs = toRecommendationLogs([{
     symbol: "TEST",
@@ -174,6 +197,8 @@ test("validation report blocks promotion when official source coverage is missin
     growth,
     riskValidation: risk,
     performance: agentPerformance({ history: [], now }),
+    fundamental: emptyFundamental(),
+    technical: emptyTechnical(),
     now,
   });
   const report = buildAgentValidationReport({
@@ -185,7 +210,7 @@ test("validation report blocks promotion when official source coverage is missin
   });
 
   assert.equal(report.mode, "shadow");
-  assert.equal(report.agentHealth.length, 8);
+  assert.equal(report.agentHealth.length, 10);
   assert.equal(report.promotionGate.status, "SHADOW_ONLY");
   assert.equal(
     report.sourceCoverage.find((item) => item.area === "exchange filings")?.status,

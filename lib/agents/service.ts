@@ -1,4 +1,5 @@
 import {
+  agentFundamental,
   agentGrowth,
   agentInfo,
   agentMacroPolicy,
@@ -7,6 +8,7 @@ import {
   agentPortfolio,
   agentRiskValidation,
   agentSentiment,
+  agentTechnical,
   reconcileRecommendationLogs,
   toRecommendationLogs,
   type AgentOrchestratorOutput,
@@ -78,6 +80,10 @@ export async function runMultiAgentRecommendationSystem({
     portfolio: portfolioOutput,
     now,
   });
+  const [fundamental, technical] = await Promise.all([
+    agentFundamental(portfolio, now),
+    agentTechnical(portfolio, now),
+  ]);
   const performance = agentPerformance({ history: portfolioHistory, logs: portfolioLogs, now });
   const output = agentOrchestrator({
     info,
@@ -87,6 +93,8 @@ export async function runMultiAgentRecommendationSystem({
     growth,
     riskValidation,
     performance,
+    fundamental,
+    technical,
     now,
   });
 

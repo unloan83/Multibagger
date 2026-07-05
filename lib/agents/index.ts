@@ -14,4 +14,6 @@ export {
 } from "@/lib/agents/agentPerformance";
 export { agentOrchestrator, defaultOrchestratorWeights } from "@/lib/agents/agentOrchestrator";
 export { buildAgentValidationReport } from "@/lib/agents/agentValidation";
+export { agentFundamental } from "@/lib/agents/agentFundamental";
+export { agentTechnical } from "@/lib/agents/agentTechnical";
 export type * from "@/lib/agents/validationTypes";

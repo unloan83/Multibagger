@@ -1,11 +1,13 @@
 import type { ManagedPortfolio, Recommendation } from "@/lib/portfolio";
 import { calculateStopLoss } from "@/lib/intelligence-validation";
 import type {
+  AgentFundamentalOutput,
   AgentGrowthOutput,
   AgentInfoOutput,
   AgentMacroPolicyOutput,
   AgentPortfolioOutput,
   AgentSentimentOutput,
+  AgentTechnicalOutput,
   AgentTimeframe,
   GrowthCandidate,
 } from "@/lib/agents/types";
@@ -101,7 +103,7 @@ function toCandidate(recommendation: Recommendation, portfolio: ManagedPortfolio
     proposedAction,
     timeframe: mapTimeframe(recommendation),
     existingLogicScore: Math.round(score),
-    supportingScores: { info: 0, macroPolicy: 0, sentiment: 0, portfolio: 0 },
+    supportingScores: { info: 0, macroPolicy: 0, sentiment: 0, portfolio: 0, fundamental: 0, technical: 0 },
     confidence: recommendation.confidence,
     reason: recommendation.rationale,
     positiveTriggers: proposedAction === "Buy" ? [recommendation.rationale] : [],
@@ -123,6 +125,8 @@ function supportScores(
   macroPolicy?: AgentMacroPolicyOutput,
   sentiment?: AgentSentimentOutput,
   portfolio?: AgentPortfolioOutput,
+  fundamental?: AgentFundamentalOutput,
+  technical?: AgentTechnicalOutput,
 ) {
   return {
     info: info?.byStock[symbol]?.score ?? 0,
@@ -131,6 +135,8 @@ function supportScores(
       (macroPolicy?.marketScore ?? 0) * 0.5,
     sentiment: sentiment?.byStock[symbol]?.score ?? (sentiment?.market.score ?? 0) * 0.4,
     portfolio: portfolio?.stocks.find((item) => item.symbol === symbol)?.score ?? 0,
+    fundamental: fundamental?.byStock[symbol]?.score ?? 0,
+    technical: technical?.byStock[symbol]?.score ?? 0,
   };
 }
 

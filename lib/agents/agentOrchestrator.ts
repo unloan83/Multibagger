@@ -1,5 +1,6 @@
 import type {
   AgentAction,
+  AgentFundamentalOutput,
   AgentGrowthOutput,
   AgentInfoOutput,
   AgentMacroPolicyOutput,
@@ -8,6 +9,7 @@ import type {
   AgentPortfolioOutput,
   AgentRiskValidationOutput,
   AgentSentimentOutput,
+  AgentTechnicalOutput,
   FinalRecommendation,
   OrchestratorWeights,
 } from "@/lib/agents/types";
@@ -20,6 +22,8 @@ export const defaultOrchestratorWeights: OrchestratorWeights = {
   sentiment: 10,
   portfolio: 10,
   riskValidation: 10,
+  fundamental: 10,
+  technical: 5,
 };
 
 export function agentOrchestrator({
@@ -30,6 +34,8 @@ export function agentOrchestrator({
   growth,
   riskValidation,
   performance,
+  fundamental,
+  technical,
   weights = defaultOrchestratorWeights,
   now = new Date(),
 }: {
@@ -40,6 +46,8 @@ export function agentOrchestrator({
   growth: AgentGrowthOutput;
   riskValidation: AgentRiskValidationOutput;
   performance: AgentPerformanceOutput;
+  fundamental: AgentFundamentalOutput;
+  technical: AgentTechnicalOutput;
   weights?: OrchestratorWeights;
   now?: Date;
 }): AgentOrchestratorOutput {
@@ -55,6 +63,8 @@ export function agentOrchestrator({
       : candidate.proposedAction === "Sell"
         ? -clamp(candidate.confidence / 20, 0.5, 5)
         : 0;
+    const fundamentalSignal = fundamental.byStock[candidate.symbol];
+    const technicalSignal = technical.byStock[candidate.symbol];
     const agentScores = {
       existingLogic: roundScore(existingLogic + performance.scoreAdjustments.existingLogic),
       info: roundScore((infoSignal?.score ?? 0) + performance.scoreAdjustments.info),
@@ -62,6 +72,8 @@ export function agentOrchestrator({
       sentiment: roundScore((sentimentSignal?.score ?? sentiment.market.score * 0.4) + performance.scoreAdjustments.sentiment),
       portfolio: roundScore((portfolioSignal?.score ?? 0) + performance.scoreAdjustments.portfolio),
       riskValidation: roundScore((risk?.score ?? 0) + performance.scoreAdjustments.riskValidation),
+      fundamental: roundScore((fundamentalSignal?.score ?? 0) + performance.scoreAdjustments.fundamental),
+      technical: roundScore((technicalSignal?.score ?? 0) + performance.scoreAdjustments.technical),
     };
     const totalWeight = Object.values(weights).reduce((sum, value) => sum + value, 0);
     const score = Math.round(Object.entries(weights).reduce((sum, [key, weight]) =>
@@ -83,6 +95,8 @@ export function agentOrchestrator({
       sentimentSignal?.confidence ?? sentiment.market.confidence,
       portfolioSignal?.confidence ?? 40,
       risk?.confidence ?? 50,
+      fundamentalSignal?.confidence ?? 30,
+      technicalSignal?.confidence ?? 30,
     ];
     const conflictPenalty = risk?.checks.conflictingSignals ? 12 : 0;
     const calibration = performance.confidenceCalibration ?? 55;
@@ -131,6 +145,8 @@ export function agentOrchestrator({
         sentiment: sentimentSignal?.reasons ?? sentiment.market.reasons,
         portfolio: portfolioSignal?.reasons ?? ["Not a current holding."],
         riskValidation: riskReasons,
+        fundamental: fundamentalSignal?.reasons ?? ["No fundamental data."],
+        technical: technicalSignal?.reasons ?? ["No technical data."],
       },
     };
   }).sort((a, b) => b.score - a.score);
@@ -147,6 +163,8 @@ export function agentOrchestrator({
     growth,
     riskValidation,
     performance,
+    fundamental,
+    technical,
     disclaimer: "AI-assisted market analysis, not certified investment advice. Please verify before acting.",
   };
 }

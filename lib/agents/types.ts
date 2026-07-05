@@ -117,6 +117,8 @@ export type GrowthCandidate = {
     macroPolicy: number;
     sentiment: number;
     portfolio: number;
+    fundamental: number;
+    technical: number;
   };
   confidence: number;
   reason: string;
@@ -190,6 +192,8 @@ export type OrchestratorWeights = {
   sentiment: number;
   portfolio: number;
   riskValidation: number;
+  fundamental: number;
+  technical: number;
 };
 
 export type FinalRecommendation = {
@@ -243,6 +247,53 @@ export type AgentRecommendationLog = {
   negativeContributors: string[];
 };
 
+export type FundamentalMetrics = {
+  peRatio: number | null;
+  pbRatio: number | null;
+  debtEquity: number | null;
+  returnOnEquity: number | null;
+  revenueGrowth: number | null;
+  profitMargin: number | null;
+  marketCap: number | null;
+  dividendYield: number | null;
+};
+
+export type TechnicalMetrics = {
+  rsi14: number | null;
+  sma20: number | null;
+  sma50: number | null;
+  volumeAvg20: number | null;
+  volumeToday: number | null;
+  priceChange1d: number | null;
+  priceChange1w: number | null;
+  priceChange1m: number | null;
+  atr14: number | null;
+};
+
+export type AgentFundamentalOutput = {
+  agent: "Fundamental";
+  generatedAt: string;
+  byStock: Record<string, {
+    metrics: FundamentalMetrics;
+    score: number;
+    confidence: number;
+    reasons: string[];
+  }>;
+  summary: string;
+};
+
+export type AgentTechnicalOutput = {
+  agent: "Technical";
+  generatedAt: string;
+  byStock: Record<string, {
+    metrics: TechnicalMetrics;
+    score: number;
+    confidence: number;
+    reasons: string[];
+  }>;
+  summary: string;
+};
+
 export type AgentOrchestratorOutput = {
   agent: "Orchestrator";
   generatedAt: string;
@@ -255,6 +306,8 @@ export type AgentOrchestratorOutput = {
   growth: AgentGrowthOutput;
   riskValidation: AgentRiskValidationOutput;
   performance: AgentPerformanceOutput;
+  fundamental: AgentFundamentalOutput;
+  technical: AgentTechnicalOutput;
   disclaimer: "AI-assisted market analysis, not certified investment advice. Please verify before acting.";
 };
 
@@ -267,4 +320,6 @@ export type MultiAgentInput = {
     sentiment: "Positive" | "Negative" | "Neutral";
     averageMove: number;
   } | null;
+  fundamentalOverrides?: Record<string, { score: number; confidence: number }>;
+  technicalOverrides?: Record<string, { score: number; confidence: number }>;
 };

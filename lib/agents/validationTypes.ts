@@ -15,7 +15,11 @@ export type ValidationAgentName =
   | "Performance"
   | "Orchestrator"
   | "Fundamental"
-  | "Technical";
+  | "Technical"
+  | "Intraday"
+  | "Swing"
+  | "LongTerm"
+  | "Risk Management";
 
 export type ValidationSourceType =
   | "exchange filing"
@@ -51,7 +55,10 @@ export type CoverageArea =
   | "analyst/blog sentiment"
   | "volume/price context"
   | "fundamental metrics"
-  | "technical indicators";
+  | "technical indicators"
+  | "intraday signals"
+  | "swing signals"
+  | "long-term fundamentals";
 
 export type CoverageValidation = {
   area: CoverageArea;

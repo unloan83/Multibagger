@@ -32,7 +32,7 @@ export function agentPerformance({
     ? Math.round(clamp(100 - average(completedHistory.map((record) =>
       Math.abs(record.confidence - (record.validationStatus === "Hit" ? 100 : 0)))), 0, 100))
     : null;
-  const agents = ["existingLogic", "info", "macroPolicy", "sentiment", "portfolio", "riskValidation", "fundamental", "technical"];
+  const agents = ["existingLogic", "info", "macroPolicy", "sentiment", "portfolio", "riskValidation", "fundamental", "technical", "intraday", "swing", "longTerm"];
   const contributions = agents.map((agent) => {
     const completedLogs = logs.filter((log) =>
       log.status !== "pending" &&

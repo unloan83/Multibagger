@@ -16,4 +16,9 @@ export { agentOrchestrator, defaultOrchestratorWeights } from "@/lib/agents/agen
 export { buildAgentValidationReport } from "@/lib/agents/agentValidation";
 export { agentFundamental } from "@/lib/agents/agentFundamental";
 export { agentTechnical } from "@/lib/agents/agentTechnical";
+export { agentIntraday } from "@/lib/agents/agentIntraday";
+export { agentSwing } from "@/lib/agents/agentSwing";
+export { agentLongTerm } from "@/lib/agents/agentLongTerm";
+export { buildRAGContext, enrichRecommendationWithRAG } from "@/lib/agents/ragEngine";
+export { applyRiskManagement } from "@/lib/agents/riskManager";
 export type * from "@/lib/agents/validationTypes";

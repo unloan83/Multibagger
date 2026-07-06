@@ -2,12 +2,15 @@ import {
   agentFundamental,
   agentGrowth,
   agentInfo,
+  agentIntraday,
+  agentLongTerm,
   agentMacroPolicy,
   agentOrchestrator,
   agentPerformance,
   agentPortfolio,
   agentRiskValidation,
   agentSentiment,
+  agentSwing,
   agentTechnical,
   reconcileRecommendationLogs,
   toRecommendationLogs,
@@ -80,11 +83,22 @@ export async function runMultiAgentRecommendationSystem({
     portfolio: portfolioOutput,
     now,
   });
-  const [fundamental, technical] = await Promise.all([
+  const performance = agentPerformance({ history: portfolioHistory, logs: portfolioLogs, now });
+  const [fundamental, technical, intraday, swing] = await Promise.all([
     agentFundamental(portfolio, now),
     agentTechnical(portfolio, now),
+    agentIntraday(portfolio, info, now),
+    agentSwing(portfolio, info, macroPolicy, now),
   ]);
-  const performance = agentPerformance({ history: portfolioHistory, logs: portfolioLogs, now });
+  const longTerm = agentLongTerm({
+    portfolio,
+    info,
+    macroPolicy,
+    fundamental,
+    portfolioOutput,
+    performance,
+    now,
+  });
   const output = agentOrchestrator({
     info,
     macroPolicy,
@@ -95,6 +109,10 @@ export async function runMultiAgentRecommendationSystem({
     performance,
     fundamental,
     technical,
+    intraday,
+    swing,
+    longTerm,
+    portfolioInput: portfolio,
     now,
   });
 
@@ -104,9 +122,10 @@ export async function runMultiAgentRecommendationSystem({
       { action: candidate.proposedAction, confidence: candidate.confidence },
     ]));
     const sourceTypesBySymbol = Object.fromEntries(output.recommendations.map((recommendation) => {
-      const sector = output.growth.candidates.find(
+      const candidate = output.growth.candidates.find(
         (candidate) => candidate.symbol === recommendation.symbol,
       )?.sector;
+      const sector = candidate;
       const sourceTypes = output.info.events
         .filter((event) =>
           event.affectedStocks?.some((symbol) => normalize(symbol) === recommendation.symbol) ||

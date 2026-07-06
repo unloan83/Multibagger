@@ -184,6 +184,9 @@ function buildCoverage(output: AgentOrchestratorOutput, portfolio: ManagedPortfo
     { area: "volume/price context", count: portfolio.positions.filter((position) => position.currentPrice > 0 && (position.volume ?? 0) > 0).length, missing: "current price and volume context", access: "Reliable exchange quote and historical-bars provider", impact: 15 },
     { area: "fundamental metrics", count: Object.values(output.fundamental.byStock).filter((item) => item.metrics.peRatio !== null).length, missing: "PE, PB, ROE, debt/equity, margins", access: "Yahoo Finance fundamentals API", impact: 10 },
     { area: "technical indicators", count: Object.values(output.technical.byStock).filter((item) => item.metrics.rsi14 !== null).length, missing: "RSI, moving averages, volume trend", access: "Yahoo Finance historical data API", impact: 10 },
+    { area: "intraday signals", count: Object.values(output.intraday.byStock).filter((item) => item.metrics.rsi14 !== null).length, missing: "intraday price/volume data at 15-min intervals", access: "Yahoo Finance chart API (15m)", impact: 8 },
+    { area: "swing signals", count: Object.values(output.swing.byStock).filter((item) => item.metrics.rsi14 !== null).length, missing: "swing trading indicators (MACD, SMA crossover)", access: "Yahoo Finance historical data API", impact: 8 },
+    { area: "long-term fundamentals", count: Object.values(output.longTerm.byStock).filter((item) => item.metrics.peRatio !== null).length, missing: "long-term metrics (PEG, CAGR projection, FCF yield)", access: "Yahoo Finance fundamentals API plus valuation modeling", impact: 10 },
   ];
   return definitions.map((item) => ({
     area: item.area,
@@ -205,6 +208,9 @@ function buildAgentHealth(
   const missing = coverage.filter((item) => item.status !== "covered").map((item) => item.area);
   const fundamentalScores = Object.values(output.fundamental.byStock);
   const technicalScores = Object.values(output.technical.byStock);
+  const intradayScores = Object.values(output.intraday.byStock);
+  const swingScores = Object.values(output.swing.byStock);
+  const longTermScores = Object.values(output.longTerm.byStock);
   const metrics: Array<[ValidationAgentName, number, number, string, string[]]> = [
     ["Info", average(Object.values(output.info.byStock).map((item) => item.score)), average(output.info.events.map((item) => item.confidence)), `${output.info.events.length} intelligence events scored.`, missing],
     ["Macro & Policy", output.macroPolicy.marketScore, output.macroPolicy.confidence, output.macroPolicy.reasons.join(" "), missing.filter((item) => item.includes("policy") || item.includes("macro") || item.includes("sector"))],
@@ -216,6 +222,10 @@ function buildAgentHealth(
     ["Orchestrator", average(output.recommendations.map((item) => actionScore(item.action, item.score))), average(output.recommendations.map((item) => item.confidence)), `${output.recommendations.length} shadow decisions produced.`, missing],
     ["Fundamental", average(fundamentalScores.map((item) => item.score)), average(fundamentalScores.map((item) => item.confidence)), output.fundamental.summary, missing.filter((item) => item.includes("quarterly") || item.includes("filing"))],
     ["Technical", average(technicalScores.map((item) => item.score)), average(technicalScores.map((item) => item.confidence)), output.technical.summary, missing.filter((item) => item.includes("volume") || item.includes("price"))],
+    ["Intraday", average(intradayScores.map((item) => item.score)), average(intradayScores.map((item) => item.confidence)), output.intraday.summary, missing.filter((item) => item.includes("intraday"))],
+    ["Swing", average(swingScores.map((item) => item.score)), average(swingScores.map((item) => item.confidence)), output.swing.summary, missing.filter((item) => item.includes("swing"))],
+    ["LongTerm", average(longTermScores.map((item) => item.score)), average(longTermScores.map((item) => item.confidence)), output.longTerm.summary, missing.filter((item) => item.includes("long-term"))],
+    ["Risk Management", 0, output.riskManagement.rules.length ? 70 : 0, `${output.riskManagement.blockedCount} blocked, ${output.riskManagement.passedCount} passed.`, output.riskManagement.rules.filter((r) => r.action !== "pass").length ? ["risk rules triggered"] : []],
   ];
   return metrics.map(([agent, signal, confidence, reason, missingInformation]) => {
     const confidencePenalty = coverage
@@ -359,7 +369,9 @@ function accessGapAgent(area: CoverageArea): ValidationAgentName {
   if (area.includes("policy") || area.includes("macro") || area.includes("sector")) return "Macro & Policy";
   if (area.includes("sentiment")) return "Sentiment";
   if (area.includes("volume")) return "Portfolio";
-  if (area.includes("fundamental")) return "Fundamental";
+  if (area.includes("fundamental") || area.includes("long-term")) return "Fundamental";
   if (area.includes("technical")) return "Technical";
+  if (area.includes("intraday")) return "Intraday";
+  if (area.includes("swing")) return "Swing";
   return "Info";
 }

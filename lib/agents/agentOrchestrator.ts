@@ -3,27 +3,37 @@ import type {
   AgentFundamentalOutput,
   AgentGrowthOutput,
   AgentInfoOutput,
+  AgentIntradayOutput,
+  AgentLongTermOutput,
   AgentMacroPolicyOutput,
   AgentOrchestratorOutput,
   AgentPerformanceOutput,
   AgentPortfolioOutput,
+  AgentRiskManagementOutput,
   AgentRiskValidationOutput,
   AgentSentimentOutput,
+  AgentSwingOutput,
   AgentTechnicalOutput,
   FinalRecommendation,
   OrchestratorWeights,
 } from "@/lib/agents/types";
+import { buildRAGContext, enrichRecommendationWithRAG } from "@/lib/agents/ragEngine";
+import { applyRiskManagement } from "@/lib/agents/riskManager";
 import { clamp, normalizeSymbol, scoreToPercent } from "@/lib/agents/utils";
+import type { ManagedPortfolio } from "@/lib/portfolio";
 
 export const defaultOrchestratorWeights: OrchestratorWeights = {
-  existingLogic: 35,
-  info: 20,
-  macroPolicy: 15,
-  sentiment: 10,
-  portfolio: 10,
-  riskValidation: 10,
-  fundamental: 10,
-  technical: 5,
+  existingLogic: 30,
+  info: 15,
+  macroPolicy: 10,
+  sentiment: 5,
+  portfolio: 8,
+  riskValidation: 8,
+  fundamental: 8,
+  technical: 4,
+  intraday: 4,
+  swing: 4,
+  longTerm: 4,
 };
 
 export function agentOrchestrator({
@@ -36,6 +46,10 @@ export function agentOrchestrator({
   performance,
   fundamental,
   technical,
+  intraday,
+  swing,
+  longTerm,
+  portfolioInput,
   weights = defaultOrchestratorWeights,
   now = new Date(),
 }: {
@@ -48,6 +62,10 @@ export function agentOrchestrator({
   performance: AgentPerformanceOutput;
   fundamental: AgentFundamentalOutput;
   technical: AgentTechnicalOutput;
+  intraday: AgentIntradayOutput;
+  swing: AgentSwingOutput;
+  longTerm: AgentLongTermOutput;
+  portfolioInput: ManagedPortfolio;
   weights?: OrchestratorWeights;
   now?: Date;
 }): AgentOrchestratorOutput {
@@ -65,6 +83,10 @@ export function agentOrchestrator({
         : 0;
     const fundamentalSignal = fundamental.byStock[candidate.symbol];
     const technicalSignal = technical.byStock[candidate.symbol];
+    const intradaySignal = intraday.byStock[candidate.symbol];
+    const swingSignal = swing.byStock[candidate.symbol];
+    const longTermSignal = longTerm.byStock[candidate.symbol];
+
     const agentScores = {
       existingLogic: roundScore(existingLogic + performance.scoreAdjustments.existingLogic),
       info: roundScore((infoSignal?.score ?? 0) + performance.scoreAdjustments.info),
@@ -74,6 +96,9 @@ export function agentOrchestrator({
       riskValidation: roundScore((risk?.score ?? 0) + performance.scoreAdjustments.riskValidation),
       fundamental: roundScore((fundamentalSignal?.score ?? 0) + performance.scoreAdjustments.fundamental),
       technical: roundScore((technicalSignal?.score ?? 0) + performance.scoreAdjustments.technical),
+      intraday: roundScore((intradaySignal?.score ?? 0) + performance.scoreAdjustments.intraday),
+      swing: roundScore((swingSignal?.score ?? 0) + performance.scoreAdjustments.swing),
+      longTerm: roundScore((longTermSignal?.score ?? 0) + performance.scoreAdjustments.longTerm),
     };
     const totalWeight = Object.values(weights).reduce((sum, value) => sum + value, 0);
     const score = Math.round(Object.entries(weights).reduce((sum, [key, weight]) =>
@@ -97,6 +122,9 @@ export function agentOrchestrator({
       risk?.confidence ?? 50,
       fundamentalSignal?.confidence ?? 30,
       technicalSignal?.confidence ?? 30,
+      intradaySignal?.confidence ?? 25,
+      swingSignal?.confidence ?? 30,
+      longTermSignal?.confidence ?? 35,
     ];
     const conflictPenalty = risk?.checks.conflictingSignals ? 12 : 0;
     const calibration = performance.confidenceCalibration ?? 55;
@@ -135,8 +163,11 @@ export function agentOrchestrator({
       portfolioImpact: portfolioSignal
         ? `${portfolioSignal.action}: ${portfolioSignal.reasons.join(" ")}`
         : "Stock is not a current holding; no holding-level portfolio impact.",
-      target: ["Buy", "Sell"].includes(action) ? candidate.target : undefined,
-      stopLoss: ["Buy", "Sell"].includes(action) ? candidate.stopLoss : undefined,
+      target: longTermSignal?.target ?? (["Buy", "Sell"].includes(action) ? candidate.target : undefined),
+      stopLoss: longTermSignal?.stopLoss ?? (["Buy", "Sell"].includes(action) ? candidate.stopLoss : undefined),
+      expectedMove: intradaySignal?.metrics?.targetDistance ?? undefined,
+      expectedCagr: longTermSignal?.cagr ?? null,
+      riskLevel: longTermSignal?.riskLevel ?? (intradaySignal?.metrics?.intradayVolatility !== null && intradaySignal.metrics.intradayVolatility > 3 ? "high" : "medium"),
       agentScores,
       agentReasons: {
         existingLogic: [candidate.reason],
@@ -147,15 +178,26 @@ export function agentOrchestrator({
         riskValidation: riskReasons,
         fundamental: fundamentalSignal?.reasons ?? ["No fundamental data."],
         technical: technicalSignal?.reasons ?? ["No technical data."],
+        intraday: intradaySignal?.reasons ?? ["No intraday data."],
+        swing: swingSignal?.reasons ?? ["No swing data."],
+        longTerm: longTermSignal?.reasons ?? ["No long-term data."],
       },
     };
   }).sort((a, b) => b.score - a.score);
+
+  const rag = buildRAGContextForTop(recommendations.slice(0, 5), info, fundamental, technical, intraday, swing, longTerm);
+  const enriched = recommendations.map((rec) => {
+    const ctx = rag[rec.symbol];
+    return ctx ? enrichRecommendationWithRAG(rec, ctx) : rec;
+  });
+
+  const riskManagement = applyRiskManagement(enriched, portfolioInput, portfolio, performance);
 
   return {
     agent: "Orchestrator",
     generatedAt: now.toISOString(),
     weights,
-    recommendations,
+    recommendations: enriched,
     info,
     macroPolicy,
     sentiment,
@@ -165,8 +207,28 @@ export function agentOrchestrator({
     performance,
     fundamental,
     technical,
+    intraday,
+    swing,
+    longTerm,
+    riskManagement,
     disclaimer: "AI-assisted market analysis, not certified investment advice. Please verify before acting.",
   };
+}
+
+function buildRAGContextForTop(
+  top: FinalRecommendation[],
+  info: AgentInfoOutput,
+  fundamental: AgentFundamentalOutput,
+  technical: AgentTechnicalOutput,
+  intraday: AgentIntradayOutput,
+  swing: AgentSwingOutput,
+  longTerm: AgentLongTermOutput,
+): Record<string, ReturnType<typeof buildRAGContext>> {
+  const result: Record<string, ReturnType<typeof buildRAGContext>> = {};
+  for (const rec of top) {
+    result[rec.symbol] = buildRAGContext(rec.symbol, info, fundamental, technical, intraday, swing, longTerm);
+  }
+  return result;
 }
 
 function chooseAction(proposed: AgentAction, score: number, isHolding: boolean): AgentAction {

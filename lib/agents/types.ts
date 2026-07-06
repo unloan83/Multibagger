@@ -194,6 +194,9 @@ export type OrchestratorWeights = {
   riskValidation: number;
   fundamental: number;
   technical: number;
+  intraday: number;
+  swing: number;
+  longTerm: number;
 };
 
 export type FinalRecommendation = {
@@ -211,6 +214,9 @@ export type FinalRecommendation = {
   portfolioImpact: string;
   target?: number;
   stopLoss?: number;
+  expectedMove?: number;
+  expectedCagr?: number | null;
+  riskLevel?: "low" | "medium" | "high";
   agentScores: Record<keyof OrchestratorWeights, number>;
   agentReasons: Record<string, string[]>;
 };
@@ -220,7 +226,7 @@ export type AgentRecommendationLog = {
   timestamp: string;
   portfolioId: string;
   stock: string;
-  agentScores: FinalRecommendation["agentScores"];
+  agentScores: Record<string, number>;
   finalAction: AgentAction;
   timeframe: AgentTimeframe;
   target?: number;
@@ -270,6 +276,49 @@ export type TechnicalMetrics = {
   atr14: number | null;
 };
 
+export type IntradayMetrics = {
+  rsi14: number | null;
+  shortSMA: number | null;
+  atr14: number | null;
+  volumeSurge: number | null;
+  priceChange1h: number | null;
+  priceChangeOpen: number | null;
+  intradayVolatility: number | null;
+  lastPrice: number | null;
+  stopLossDistance: number | null;
+  targetDistance: number | null;
+};
+
+export type SwingMetrics = {
+  sma20: number | null;
+  sma50: number | null;
+  rsi14: number | null;
+  macdLine: number | null;
+  signalLine: number | null;
+  atr14: number | null;
+  volumeRatio: number | null;
+  priceChange1w: number | null;
+  priceChange1m: number | null;
+  atrPercent: number | null;
+  stopLossPct: number | null;
+  lastPrice: number | null;
+};
+
+export type LongTermMetrics = {
+  peRatio: number | null;
+  pbRatio: number | null;
+  debtEquity: number | null;
+  returnOnEquity: number | null;
+  revenueGrowth: number | null;
+  profitMargin: number | null;
+  marketCap: number | null;
+  dividendYield: number | null;
+  pegRatio: number | null;
+  freeCashFlowYield: number | null;
+  earningsGrowth5y: number | null;
+  macroScore: number | null;
+};
+
 export type AgentFundamentalOutput = {
   agent: "Fundamental";
   generatedAt: string;
@@ -294,6 +343,81 @@ export type AgentTechnicalOutput = {
   summary: string;
 };
 
+export type AgentIntradayOutput = {
+  agent: "Intraday";
+  generatedAt: string;
+  byStock: Record<string, {
+    metrics: IntradayMetrics;
+    score: number;
+    confidence: number;
+    reasons: string[];
+  }>;
+  summary: string;
+};
+
+export type AgentSwingOutput = {
+  agent: "Swing";
+  generatedAt: string;
+  byStock: Record<string, {
+    metrics: SwingMetrics;
+    score: number;
+    confidence: number;
+    reasons: string[];
+  }>;
+  summary: string;
+};
+
+export type AgentLongTermOutput = {
+  agent: "LongTerm";
+  generatedAt: string;
+  byStock: Record<string, {
+    metrics: LongTermMetrics;
+    score: number;
+    confidence: number;
+    reasons: string[];
+    cagr: number | null;
+    riskLevel: "low" | "medium" | "high";
+    target?: number;
+    stopLoss?: number;
+  }>;
+  summary: string;
+};
+
+export type RAGDocument = {
+  source: string;
+  content: string;
+  relevance: "high" | "medium" | "low";
+  publishedAt: string;
+  url?: string;
+};
+
+export type RAGContext = {
+  documents: RAGDocument[];
+};
+
+export type RiskRule = (
+  recommendations: FinalRecommendation[],
+  portfolio: ManagedPortfolio,
+  portfolioOutput: AgentPortfolioOutput,
+  performance: AgentPerformanceOutput,
+) => RiskRuleResult;
+
+export type RiskRuleResult = {
+  rule: string;
+  action: "pass" | "warn" | "block";
+  symbols?: string[];
+  reasons: string[];
+};
+
+export type AgentRiskManagementOutput = {
+  agent: "Risk Management";
+  generatedAt: string;
+  rules: RiskRuleResult[];
+  blockedCount: number;
+  passedCount: number;
+  reasons: string[];
+};
+
 export type AgentOrchestratorOutput = {
   agent: "Orchestrator";
   generatedAt: string;
@@ -308,6 +432,10 @@ export type AgentOrchestratorOutput = {
   performance: AgentPerformanceOutput;
   fundamental: AgentFundamentalOutput;
   technical: AgentTechnicalOutput;
+  intraday: AgentIntradayOutput;
+  swing: AgentSwingOutput;
+  longTerm: AgentLongTermOutput;
+  riskManagement: AgentRiskManagementOutput;
   disclaimer: "AI-assisted market analysis, not certified investment advice. Please verify before acting.";
 };
 

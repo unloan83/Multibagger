@@ -51,12 +51,13 @@ const positionSizingRule: RiskRule = (recommendations, portfolio) => {
   const reasons: string[] = [];
   let action: RiskRuleResult["action"] = "pass";
   const blockedSymbols: string[] = [];
+  const totalValue = portfolio.positions.reduce((sum, p) => sum + p.currentPrice * p.quantity, 0);
 
   for (const rec of recommendations) {
     if (rec.action !== "Buy") continue;
     const position = portfolio.positions.find((p) => normalizeSymbol(p.symbol) === rec.symbol);
     if (!position) continue;
-    const currentWeight = position.portfolioWeight ?? 0;
+    const currentWeight = totalValue > 0 ? ((position.currentPrice * position.quantity) / totalValue) * 100 : 0;
     const maxWeight = 25;
     if (currentWeight >= maxWeight) {
       blockedSymbols.push(rec.symbol);

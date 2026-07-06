@@ -15,6 +15,31 @@ export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
 export const maxDuration = 120;
 
+const responseCache = new Map<string, { json: unknown; expiresAt: number }>();
+const CACHE_TTL_MS = 60_000;
+
+function cacheKey(body: RequestBody, userEmail: string): string {
+  const stable = { portfolioId: body.portfolioId, signalCount: body.signals?.length ?? 0 };
+  return `${userEmail}::${JSON.stringify(stable)}`;
+}
+
+function getCached(key: string): unknown | null {
+  const entry = responseCache.get(key);
+  if (entry && entry.expiresAt > Date.now()) return entry.json;
+  responseCache.delete(key);
+  return null;
+}
+
+function setCached(key: string, json: unknown): void {
+  responseCache.set(key, { json, expiresAt: Date.now() + CACHE_TTL_MS });
+  if (responseCache.size > 50) {
+    const now = Date.now();
+    for (const [k, v] of responseCache) {
+      if (v.expiresAt < now) responseCache.delete(k);
+    }
+  }
+}
+
 type RequestBody = {
   portfolioId?: string;
   signals?: Array<Partial<ExistingRecommendationSignal>>;
@@ -25,6 +50,9 @@ export async function POST(request: Request) {
   if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const body = (await request.json().catch(() => ({}))) as RequestBody;
+  const cacheKeyStr = cacheKey(body, user.email);
+  const cached = getCached(cacheKeyStr);
+  if (cached) return NextResponse.json(cached);
   const portfolios = await loadPortfolios();
   const portfolio = resolvePortfolio(portfolios, body.portfolioId, user);
   if (!portfolio) {
@@ -152,6 +180,7 @@ export async function POST(request: Request) {
     console.error("Agent enrichment failed (non-fatal):", error);
   }
 
+  setCached(cacheKeyStr, report);
   return NextResponse.json(report);
 }
 

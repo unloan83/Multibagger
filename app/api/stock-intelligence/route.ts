@@ -133,6 +133,8 @@ export async function POST(request: Request) {
           intradayScore: agent.agentScores.intraday,
           swingScore: agent.agentScores.swing,
           longTermScore: agent.agentScores.longTerm,
+          earningsQualityScore: agent.agentScores.earningsQuality,
+          rebalanceScore: agent.agentScores.rebalance,
           expectedMove: agent.expectedMove,
           expectedCagr: agent.expectedCagr,
           riskLevel: agent.riskLevel,
@@ -140,6 +142,8 @@ export async function POST(request: Request) {
             intraday: agent.agentReasons.intraday,
             swing: agent.agentReasons.swing,
             longTerm: agent.agentReasons.longTerm,
+            earningsQuality: agent.agentReasons.earningsQuality,
+            rebalance: agent.agentReasons.rebalance,
           },
         };
       });

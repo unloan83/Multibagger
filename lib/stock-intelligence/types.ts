@@ -79,6 +79,8 @@ export type StockIntelligenceRecommendation = {
   intradayScore?: number;
   swingScore?: number;
   longTermScore?: number;
+  earningsQualityScore?: number;
+  rebalanceScore?: number;
   expectedMove?: number;
   expectedCagr?: number | null;
   riskLevel?: "low" | "medium" | "high";
@@ -86,6 +88,8 @@ export type StockIntelligenceRecommendation = {
     intraday?: string[];
     swing?: string[];
     longTerm?: string[];
+    earningsQuality?: string[];
+    rebalance?: string[];
   };
 };
 

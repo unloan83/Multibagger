@@ -121,11 +121,13 @@ export function AiMarketIntelligence({
                   <Metric label="Final score" value={`${item.finalScore}/100`} />
                   <Metric label="Risk" value={item.riskLevel ?? (item.confidence >= 70 ? "low" : "medium")} />
                 </div>
-                {item.intradayScore !== undefined || item.longTermScore !== undefined ? (
-                  <div className="mt-3 grid grid-cols-3 gap-2 text-center text-xs">
+                {item.intradayScore !== undefined || item.earningsQualityScore !== undefined ? (
+                  <div className="mt-3 grid grid-cols-5 gap-2 text-center text-xs">
                     {item.intradayScore !== undefined ? <Metric label="Intraday" value={`${signed(item.intradayScore)}`} /> : null}
                     {item.swingScore !== undefined ? <Metric label="Swing" value={`${signed(item.swingScore)}`} /> : null}
                     {item.longTermScore !== undefined ? <Metric label="Long-Term" value={`${signed(item.longTermScore)}`} /> : null}
+                    {item.earningsQualityScore !== undefined ? <Metric label="Earnings Q" value={`${signed(item.earningsQualityScore)}`} /> : null}
+                    {item.rebalanceScore !== undefined ? <Metric label="Rebalance" value={`${signed(item.rebalanceScore)}`} /> : null}
                   </div>
                 ) : null}
                 {item.expectedCagr != null ? (
@@ -151,6 +153,12 @@ export function AiMarketIntelligence({
                           ) : null}
                           {item.agentReasons.longTerm?.length ? (
                             <li><span className="font-medium text-cyan-200">Long-term:</span> {item.agentReasons.longTerm.slice(0, 2).join("; ")}</li>
+                          ) : null}
+                          {item.agentReasons.earningsQuality?.length ? (
+                            <li><span className="font-medium text-cyan-200">Earnings Quality:</span> {item.agentReasons.earningsQuality.slice(0, 2).join("; ")}</li>
+                          ) : null}
+                          {item.agentReasons.rebalance?.length ? (
+                            <li><span className="font-medium text-cyan-200">Rebalance:</span> {item.agentReasons.rebalance.slice(0, 2).join("; ")}</li>
                           ) : null}
                         </ul>
                       </div>

@@ -19,6 +19,8 @@ export { agentTechnical } from "@/lib/agents/agentTechnical";
 export { agentIntraday } from "@/lib/agents/agentIntraday";
 export { agentSwing } from "@/lib/agents/agentSwing";
 export { agentLongTerm } from "@/lib/agents/agentLongTerm";
+export { agentEarningsQuality } from "@/lib/agents/agentEarningsQuality";
+export { agentRebalance } from "@/lib/agents/agentRebalance";
 export { buildRAGContext, enrichRecommendationWithRAG } from "@/lib/agents/ragEngine";
 export { applyRiskManagement } from "@/lib/agents/riskManager";
 export type * from "@/lib/agents/validationTypes";

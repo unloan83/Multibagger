@@ -19,6 +19,8 @@ export type ValidationAgentName =
   | "Intraday"
   | "Swing"
   | "LongTerm"
+  | "EarningsQuality"
+  | "Rebalance"
   | "Risk Management";
 
 export type ValidationSourceType =
@@ -58,7 +60,9 @@ export type CoverageArea =
   | "technical indicators"
   | "intraday signals"
   | "swing signals"
-  | "long-term fundamentals";
+  | "long-term fundamentals"
+  | "earnings quality"
+  | "portfolio rebalancing";
 
 export type CoverageValidation = {
   area: CoverageArea;

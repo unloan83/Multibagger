@@ -187,6 +187,8 @@ function buildCoverage(output: AgentOrchestratorOutput, portfolio: ManagedPortfo
     { area: "intraday signals", count: Object.values(output.intraday.byStock).filter((item) => item.metrics.rsi14 !== null).length, missing: "intraday price/volume data at 15-min intervals", access: "Yahoo Finance chart API (15m)", impact: 8 },
     { area: "swing signals", count: Object.values(output.swing.byStock).filter((item) => item.metrics.rsi14 !== null).length, missing: "swing trading indicators (MACD, SMA crossover)", access: "Yahoo Finance historical data API", impact: 8 },
     { area: "long-term fundamentals", count: Object.values(output.longTerm.byStock).filter((item) => item.metrics.peRatio !== null).length, missing: "long-term metrics (PEG, CAGR projection, FCF yield)", access: "Yahoo Finance fundamentals API plus valuation modeling", impact: 10 },
+    { area: "earnings quality", count: Object.values(output.earningsQuality.byStock).filter((item) => item.metrics.revenueGrowth !== null).length, missing: "earnings quality indicators (accruals, cash flow vs earnings, gross margin trend)", access: "Yahoo Finance income statement and cash flow statement APIs", impact: 8 },
+    { area: "portfolio rebalancing", count: Object.values(output.rebalance.byStock).length, missing: "rebalance signals (position weight, sector deviation, concentration risk)", access: "Portfolio position data", impact: 6 },
   ];
   return definitions.map((item) => ({
     area: item.area,
@@ -211,6 +213,8 @@ function buildAgentHealth(
   const intradayScores = Object.values(output.intraday.byStock);
   const swingScores = Object.values(output.swing.byStock);
   const longTermScores = Object.values(output.longTerm.byStock);
+  const earningsQualityScores = Object.values(output.earningsQuality.byStock);
+  const rebalanceScores = Object.values(output.rebalance.byStock);
   const metrics: Array<[ValidationAgentName, number, number, string, string[]]> = [
     ["Info", average(Object.values(output.info.byStock).map((item) => item.score)), average(output.info.events.map((item) => item.confidence)), `${output.info.events.length} intelligence events scored.`, missing],
     ["Macro & Policy", output.macroPolicy.marketScore, output.macroPolicy.confidence, output.macroPolicy.reasons.join(" "), missing.filter((item) => item.includes("policy") || item.includes("macro") || item.includes("sector"))],
@@ -225,6 +229,8 @@ function buildAgentHealth(
     ["Intraday", average(intradayScores.map((item) => item.score)), average(intradayScores.map((item) => item.confidence)), output.intraday.summary, missing.filter((item) => item.includes("intraday"))],
     ["Swing", average(swingScores.map((item) => item.score)), average(swingScores.map((item) => item.confidence)), output.swing.summary, missing.filter((item) => item.includes("swing"))],
     ["LongTerm", average(longTermScores.map((item) => item.score)), average(longTermScores.map((item) => item.confidence)), output.longTerm.summary, missing.filter((item) => item.includes("long-term"))],
+    ["EarningsQuality", average(earningsQualityScores.map((item) => item.score)), average(earningsQualityScores.map((item) => item.confidence)), output.earningsQuality.summary, missing.filter((item) => item.includes("earnings quality"))],
+    ["Rebalance", average(rebalanceScores.map((item) => item.score)), average(rebalanceScores.map((item) => item.confidence)), output.rebalance.summary, missing.filter((item) => item.includes("rebalancing"))],
     ["Risk Management", 0, output.riskManagement.rules.length ? 70 : 0, `${output.riskManagement.blockedCount} blocked, ${output.riskManagement.passedCount} passed.`, output.riskManagement.rules.filter((r) => r.action !== "pass").length ? ["risk rules triggered"] : []],
   ];
   return metrics.map(([agent, signal, confidence, reason, missingInformation]) => {

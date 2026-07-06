@@ -197,6 +197,8 @@ export type OrchestratorWeights = {
   intraday: number;
   swing: number;
   longTerm: number;
+  earningsQuality: number;
+  rebalance: number;
 };
 
 export type FinalRecommendation = {
@@ -319,6 +321,54 @@ export type LongTermMetrics = {
   macroScore: number | null;
 };
 
+export type EarningsQualityMetrics = {
+  revenueGrowth: number | null;
+  earningsGrowth: number | null;
+  operatingCashFlow: number | null;
+  netIncome: number | null;
+  freeCashFlow: number | null;
+  capex: number | null;
+  grossMargin: number | null;
+  prevGrossMargin: number | null;
+  accrualsRatio: number | null;
+  cashFlowToNetIncome: number | null;
+  freeCashFlowYield: number | null;
+};
+
+export type AgentEarningsQualityOutput = {
+  agent: "EarningsQuality";
+  generatedAt: string;
+  byStock: Record<string, {
+    metrics: EarningsQualityMetrics;
+    score: number;
+    confidence: number;
+    reasons: string[];
+  }>;
+  summary: string;
+};
+
+export type RebalanceMetrics = {
+  positionWeight: number;
+  sectorWeight: number;
+  sectorDeviation: number | null;
+  maxPositionWeight: number;
+  maxSectorWeight: number;
+  concentrationRisk: "low" | "medium" | "high";
+  rebalanceUrgency: "low" | "medium" | "high";
+};
+
+export type AgentRebalanceOutput = {
+  agent: "Rebalance";
+  generatedAt: string;
+  byStock: Record<string, {
+    metrics: RebalanceMetrics;
+    score: number;
+    confidence: number;
+    reasons: string[];
+  }>;
+  summary: string;
+};
+
 export type AgentFundamentalOutput = {
   agent: "Fundamental";
   generatedAt: string;
@@ -435,6 +485,8 @@ export type AgentOrchestratorOutput = {
   intraday: AgentIntradayOutput;
   swing: AgentSwingOutput;
   longTerm: AgentLongTermOutput;
+  earningsQuality: AgentEarningsQualityOutput;
+  rebalance: AgentRebalanceOutput;
   riskManagement: AgentRiskManagementOutput;
   disclaimer: "AI-assisted market analysis, not certified investment advice. Please verify before acting.";
 };

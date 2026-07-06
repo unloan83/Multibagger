@@ -1,4 +1,5 @@
 import {
+  agentEarningsQuality,
   agentFundamental,
   agentGrowth,
   agentInfo,
@@ -8,6 +9,7 @@ import {
   agentOrchestrator,
   agentPerformance,
   agentPortfolio,
+  agentRebalance,
   agentRiskValidation,
   agentSentiment,
   agentSwing,
@@ -84,11 +86,12 @@ export async function runMultiAgentRecommendationSystem({
     now,
   });
   const performance = agentPerformance({ history: portfolioHistory, logs: portfolioLogs, now });
-  const [fundamental, technical, intraday, swing] = await Promise.all([
+  const [fundamental, technical, intraday, swing, earningsQuality] = await Promise.all([
     agentFundamental(portfolio, now),
     agentTechnical(portfolio, now),
     agentIntraday(portfolio, info, now),
     agentSwing(portfolio, info, macroPolicy, now),
+    agentEarningsQuality(portfolio, now),
   ]);
   const longTerm = agentLongTerm({
     portfolio,
@@ -99,6 +102,7 @@ export async function runMultiAgentRecommendationSystem({
     performance,
     now,
   });
+  const rebalance = agentRebalance(portfolio, now);
   const output = agentOrchestrator({
     info,
     macroPolicy,
@@ -112,6 +116,8 @@ export async function runMultiAgentRecommendationSystem({
     intraday,
     swing,
     longTerm,
+    earningsQuality,
+    rebalance,
     portfolioInput: portfolio,
     now,
   });

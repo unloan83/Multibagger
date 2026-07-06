@@ -1,5 +1,6 @@
 import type {
   AgentAction,
+  AgentEarningsQualityOutput,
   AgentFundamentalOutput,
   AgentGrowthOutput,
   AgentInfoOutput,
@@ -9,6 +10,7 @@ import type {
   AgentOrchestratorOutput,
   AgentPerformanceOutput,
   AgentPortfolioOutput,
+  AgentRebalanceOutput,
   AgentRiskValidationOutput,
   AgentSentimentOutput,
   AgentSwingOutput,
@@ -22,17 +24,19 @@ import { clamp, normalizeSymbol, scoreToPercent } from "@/lib/agents/utils";
 import type { ManagedPortfolio } from "@/lib/portfolio";
 
 export const defaultOrchestratorWeights: OrchestratorWeights = {
-  existingLogic: 30,
-  info: 15,
-  macroPolicy: 10,
+  existingLogic: 28,
+  info: 14,
+  macroPolicy: 9,
   sentiment: 5,
-  portfolio: 8,
-  riskValidation: 8,
-  fundamental: 8,
+  portfolio: 7,
+  riskValidation: 7,
+  fundamental: 7,
   technical: 4,
   intraday: 4,
   swing: 4,
   longTerm: 4,
+  earningsQuality: 4,
+  rebalance: 3,
 };
 
 export function agentOrchestrator({
@@ -48,6 +52,8 @@ export function agentOrchestrator({
   intraday,
   swing,
   longTerm,
+  earningsQuality,
+  rebalance,
   portfolioInput,
   weights = defaultOrchestratorWeights,
   now = new Date(),
@@ -64,6 +70,8 @@ export function agentOrchestrator({
   intraday: AgentIntradayOutput;
   swing: AgentSwingOutput;
   longTerm: AgentLongTermOutput;
+  earningsQuality: AgentEarningsQualityOutput;
+  rebalance: AgentRebalanceOutput;
   portfolioInput: ManagedPortfolio;
   weights?: OrchestratorWeights;
   now?: Date;
@@ -85,6 +93,8 @@ export function agentOrchestrator({
     const intradaySignal = intraday.byStock[candidate.symbol];
     const swingSignal = swing.byStock[candidate.symbol];
     const longTermSignal = longTerm.byStock[candidate.symbol];
+    const earningsQualitySignal = earningsQuality.byStock[candidate.symbol];
+    const rebalanceSignal = rebalance.byStock[candidate.symbol];
 
     const agentScores = {
       existingLogic: roundScore(existingLogic + performance.scoreAdjustments.existingLogic),
@@ -98,6 +108,8 @@ export function agentOrchestrator({
       intraday: roundScore((intradaySignal?.score ?? 0) + performance.scoreAdjustments.intraday),
       swing: roundScore((swingSignal?.score ?? 0) + performance.scoreAdjustments.swing),
       longTerm: roundScore((longTermSignal?.score ?? 0) + performance.scoreAdjustments.longTerm),
+      earningsQuality: roundScore((earningsQualitySignal?.score ?? 0) + performance.scoreAdjustments.earningsQuality),
+      rebalance: roundScore((rebalanceSignal?.score ?? 0) + performance.scoreAdjustments.rebalance),
     };
     const totalWeight = Object.values(weights).reduce((sum, value) => sum + value, 0);
     const score = Math.round(Object.entries(weights).reduce((sum, [key, weight]) =>
@@ -124,6 +136,8 @@ export function agentOrchestrator({
       intradaySignal?.confidence ?? 25,
       swingSignal?.confidence ?? 30,
       longTermSignal?.confidence ?? 35,
+      earningsQualitySignal?.confidence ?? 30,
+      rebalanceSignal?.confidence ?? 35,
     ];
     const conflictPenalty = risk?.checks.conflictingSignals ? 12 : 0;
     const calibration = performance.confidenceCalibration ?? 55;
@@ -180,6 +194,8 @@ export function agentOrchestrator({
         intraday: intradaySignal?.reasons ?? ["No intraday data."],
         swing: swingSignal?.reasons ?? ["No swing data."],
         longTerm: longTermSignal?.reasons ?? ["No long-term data."],
+        earningsQuality: earningsQualitySignal?.reasons ?? ["No earnings quality data."],
+        rebalance: rebalanceSignal?.reasons ?? ["No rebalance data."],
       },
     };
   }).sort((a, b) => b.score - a.score);
@@ -209,6 +225,8 @@ export function agentOrchestrator({
     intraday,
     swing,
     longTerm,
+    earningsQuality,
+    rebalance,
     riskManagement,
     disclaimer: "AI-assisted market analysis, not certified investment advice. Please verify before acting.",
   };

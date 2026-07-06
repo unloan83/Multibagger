@@ -14,6 +14,8 @@ import {
   agentSentiment,
   agentSwing,
   agentTechnical,
+  computeBayesianAdjustments,
+  defaultOrchestratorWeights,
   reconcileRecommendationLogs,
   toRecommendationLogs,
   type AgentOrchestratorOutput,
@@ -86,6 +88,7 @@ export async function runMultiAgentRecommendationSystem({
     now,
   });
   const performance = agentPerformance({ history: portfolioHistory, logs: portfolioLogs, now });
+  const bayesian = computeBayesianAdjustments(portfolioLogs, defaultOrchestratorWeights);
   const [fundamental, technical, intraday, swing, earningsQuality] = await Promise.all([
     agentFundamental(portfolio, now),
     agentTechnical(portfolio, now),
@@ -118,6 +121,7 @@ export async function runMultiAgentRecommendationSystem({
     longTerm,
     earningsQuality,
     rebalance,
+    bayesian,
     portfolioInput: portfolio,
     now,
   });

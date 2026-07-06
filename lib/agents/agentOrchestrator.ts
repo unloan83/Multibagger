@@ -15,6 +15,7 @@ import type {
   AgentSentimentOutput,
   AgentSwingOutput,
   AgentTechnicalOutput,
+  BayesianOutput,
   FinalRecommendation,
   OrchestratorWeights,
 } from "@/lib/agents/types";
@@ -56,6 +57,7 @@ export function agentOrchestrator({
   rebalance,
   portfolioInput,
   weights = defaultOrchestratorWeights,
+  bayesian,
   now = new Date(),
 }: {
   info: AgentInfoOutput;
@@ -74,6 +76,7 @@ export function agentOrchestrator({
   rebalance: AgentRebalanceOutput;
   portfolioInput: ManagedPortfolio;
   weights?: OrchestratorWeights;
+  bayesian?: BayesianOutput;
   now?: Date;
 }): AgentOrchestratorOutput {
   validateWeights(weights);
@@ -111,9 +114,16 @@ export function agentOrchestrator({
       earningsQuality: roundScore((earningsQualitySignal?.score ?? 0) + performance.scoreAdjustments.earningsQuality),
       rebalance: roundScore((rebalanceSignal?.score ?? 0) + performance.scoreAdjustments.rebalance),
     };
-    const totalWeight = Object.values(weights).reduce((sum, value) => sum + value, 0);
-    const score = Math.round(Object.entries(weights).reduce((sum, [key, weight]) =>
-      sum + scoreToPercent(agentScores[key as keyof OrchestratorWeights]) * weight, 0) / totalWeight);
+    const bayesianMultipliers = bayesian?.adjustments.reduce(
+      (map, adj) => { map[adj.agent] = adj.weightMultiplier; return map; },
+      {} as Record<string, number>,
+    ) ?? {};
+    const adjustedWeights = Object.fromEntries(
+      Object.entries(weights).map(([key, w]) => [key, w * (bayesianMultipliers[key] ?? 1.0)]),
+    ) as OrchestratorWeights;
+    const totalAdjustedWeight = Object.values(adjustedWeights).reduce((sum, value) => sum + value, 0);
+    const score = Math.round(Object.entries(adjustedWeights).reduce((sum, [key, weight]) =>
+      sum + scoreToPercent(agentScores[key as keyof OrchestratorWeights]) * weight, 0) / totalAdjustedWeight);
     let action = chooseAction(candidate.proposedAction, score, Boolean(portfolioSignal));
     if (risk?.downgradeTo && ["Buy", "Sell"].includes(action)) action = risk.downgradeTo;
     if (risk?.blocked) action = candidate.proposedAction === "Sell" ? "Hold" : "Watch";
@@ -227,6 +237,11 @@ export function agentOrchestrator({
     longTerm,
     earningsQuality,
     rebalance,
+    bayesian: bayesian ?? {
+      adjustments: [],
+      state: { byAgent: {}, lastUpdated: now.toISOString() },
+      summary: "Bayesian layer not enabled.",
+    },
     riskManagement,
     disclaimer: "AI-assisted market analysis, not certified investment advice. Please verify before acting.",
   };

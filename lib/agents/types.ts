@@ -201,6 +201,37 @@ export type OrchestratorWeights = {
   rebalance: number;
 };
 
+export type BayesianAgentBelief = {
+  alpha: number;
+  beta: number;
+  totalObservations: number;
+};
+
+export type BayesianTimeframeBeliefs = {
+  intraday?: BayesianAgentBelief;
+  swing?: BayesianAgentBelief;
+  longTerm?: BayesianAgentBelief;
+};
+
+export type BayesianState = {
+  byAgent: Record<string, BayesianTimeframeBeliefs>;
+  lastUpdated: string;
+};
+
+export type BayesianAdjustment = {
+  agent: string;
+  reliability: number;
+  uncertainty: number;
+  weightMultiplier: number;
+  observations: number;
+};
+
+export type BayesianOutput = {
+  adjustments: BayesianAdjustment[];
+  state: BayesianState;
+  summary: string;
+};
+
 export type FinalRecommendation = {
   symbol: string;
   company: string;
@@ -487,6 +518,7 @@ export type AgentOrchestratorOutput = {
   longTerm: AgentLongTermOutput;
   earningsQuality: AgentEarningsQualityOutput;
   rebalance: AgentRebalanceOutput;
+  bayesian: BayesianOutput;
   riskManagement: AgentRiskManagementOutput;
   disclaimer: "AI-assisted market analysis, not certified investment advice. Please verify before acting.";
 };

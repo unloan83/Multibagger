@@ -2,15 +2,18 @@ import { NextResponse } from "next/server";
 import { normalizePortfolioName } from "@/lib/account-utils";
 import { getCurrentSessionUser } from "@/lib/auth";
 import { buildExpertActionMatrix, type ExpertQuote } from "@/lib/expert-insights";
-import { isGoogleSheetsConfigured, readPortfoliosFromSheets } from "@/lib/google-sheets";
+import { isGoogleSheetsConfigured, readPortfoliosFromSheets, readValidationRecords } from "@/lib/google-sheets";
 import { readPortfoliosFromCsvBackup, shouldUsePortfolioCsvBackup } from "@/lib/portfolio-backup";
 import { runStockIntelligenceAgent } from "@/lib/stock-intelligence/stockIntelligenceAgent";
-import type { ExistingRecommendationSignal } from "@/lib/stock-intelligence/types";
+import type { ExistingRecommendationSignal, StockIntelligenceReport, StockIntelligenceRecommendation } from "@/lib/stock-intelligence/types";
 import type { ManagedPortfolio } from "@/lib/portfolio";
+import { runMultiAgentRecommendationSystem } from "@/lib/agents/service";
+import { resolveQuotePositions } from "@/lib/quote-service";
+import { buildMarketOverview } from "@/lib/market-overview";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
-export const maxDuration = 60;
+export const maxDuration = 120;
 
 type RequestBody = {
   portfolioId?: string;
@@ -95,11 +98,56 @@ export async function POST(request: Request) {
     );
   }
 
-  const report = await runStockIntelligenceAgent({
-    portfolioId: portfolio.id,
-    portfolioName: portfolio.name,
-    signals,
-  });
+  const [report, market, history] = await Promise.all([
+    runStockIntelligenceAgent({
+      portfolioId: portfolio.id,
+      portfolioName: portfolio.name,
+      signals,
+    }),
+    buildMarketOverview(),
+    readValidationRecords(),
+  ]);
+
+  try {
+    const positions = await resolveQuotePositions(portfolio.inputs);
+    if (positions.some((position) => position.currentPrice > 0)) {
+      const enrichedPortfolio: ManagedPortfolio = {
+        ...portfolio,
+        positions,
+        refreshedAt: new Date().toISOString(),
+      };
+      const agentOutput = await runMultiAgentRecommendationSystem({
+        portfolio: enrichedPortfolio,
+        market,
+        history,
+        persist: false,
+      });
+      const agentBySymbol = new Map(
+        agentOutput.recommendations.map((rec) => [rec.symbol, rec]),
+      );
+      report.recommendations = report.recommendations.map((rec) => {
+        const agent = agentBySymbol.get(rec.symbol);
+        if (!agent) return rec;
+        return {
+          ...rec,
+          intradayScore: agent.agentScores.intraday,
+          swingScore: agent.agentScores.swing,
+          longTermScore: agent.agentScores.longTerm,
+          expectedMove: agent.expectedMove,
+          expectedCagr: agent.expectedCagr,
+          riskLevel: agent.riskLevel,
+          agentReasons: {
+            intraday: agent.agentReasons.intraday,
+            swing: agent.agentReasons.swing,
+            longTerm: agent.agentReasons.longTerm,
+          },
+        };
+      });
+    }
+  } catch (error) {
+    console.error("Agent enrichment failed (non-fatal):", error);
+  }
+
   return NextResponse.json(report);
 }
 

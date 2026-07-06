@@ -76,6 +76,17 @@ export type StockIntelligenceRecommendation = {
   target?: number;
   sourceSummary: Array<Pick<AnalyzedEvidence, "title" | "url" | "source" | "publishedAt" | "credibility" | "impact">>;
   evidence: AnalyzedEvidence[];
+  intradayScore?: number;
+  swingScore?: number;
+  longTermScore?: number;
+  expectedMove?: number;
+  expectedCagr?: number | null;
+  riskLevel?: "low" | "medium" | "high";
+  agentReasons?: {
+    intraday?: string[];
+    swing?: string[];
+    longTerm?: string[];
+  };
 };
 
 export type StockIntelligenceReport = {

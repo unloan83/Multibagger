@@ -83,6 +83,12 @@ export function AiMarketIntelligence({
         </div>
       ) : null}
 
+      {!signals.length && !report && !isLoading ? (
+        <div className="mt-4 rounded-xl border border-white/10 bg-[#16263D] p-4 text-sm text-slate-400">
+          No portfolio holdings or opportunity signals to analyze. Add positions to your portfolio or wait for market screening to populate opportunities.
+        </div>
+      ) : null}
+
       {!report && isLoading ? (
         <div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-4" aria-label="Loading market intelligence">
           {[0, 1, 2, 3].map((item) => <div key={item} className="h-28 animate-pulse rounded-xl bg-white/[0.05]" />)}
@@ -109,16 +115,46 @@ export function AiMarketIntelligence({
                   <ActionBadge action={item.action} />
                 </div>
                 <p className="mt-3 text-sm leading-6 text-slate-300">{item.reason}</p>
-                <div className="mt-3 grid grid-cols-3 gap-2 text-center text-xs">
+                <div className="mt-3 grid grid-cols-4 gap-2 text-center text-xs">
                   <Metric label="Confidence" value={`${item.confidence}%`} />
                   <Metric label="News" value={signed(item.newsImpactScore)} />
                   <Metric label="Final score" value={`${item.finalScore}/100`} />
+                  <Metric label="Risk" value={item.riskLevel ?? (item.confidence >= 70 ? "low" : "medium")} />
                 </div>
+                {item.intradayScore !== undefined || item.longTermScore !== undefined ? (
+                  <div className="mt-3 grid grid-cols-3 gap-2 text-center text-xs">
+                    {item.intradayScore !== undefined ? <Metric label="Intraday" value={`${signed(item.intradayScore)}`} /> : null}
+                    {item.swingScore !== undefined ? <Metric label="Swing" value={`${signed(item.swingScore)}`} /> : null}
+                    {item.longTermScore !== undefined ? <Metric label="Long-Term" value={`${signed(item.longTermScore)}`} /> : null}
+                  </div>
+                ) : null}
+                {item.expectedCagr != null ? (
+                  <div className="mt-3 text-xs text-slate-300">
+                    CAGR: <span className="font-semibold text-white">{(item.expectedCagr * 100).toFixed(1)}%</span>
+                    {item.expectedMove ? ` · Target move: ${(item.expectedMove * 100).toFixed(1)}%` : null}
+                  </div>
+                ) : null}
                 <details className="mt-3 rounded-lg border border-white/10 bg-black/15">
                   <summary className="cursor-pointer px-3 py-2 text-sm font-semibold text-cyan-200">Recommendation explanation</summary>
                   <div className="space-y-3 border-t border-white/10 p-3 text-xs leading-5 text-slate-300">
                     <EvidenceList title="Positive triggers" items={item.positiveTriggers} icon="positive" />
                     <EvidenceList title="Negative concerns" items={item.negativeConcerns} icon="negative" />
+                    {item.agentReasons ? (
+                      <div>
+                        <p className="font-semibold text-white">Agent Reasoning</p>
+                        <ul className="mt-1 space-y-1">
+                          {item.agentReasons.intraday?.length ? (
+                            <li><span className="font-medium text-cyan-200">Intraday:</span> {item.agentReasons.intraday.slice(0, 2).join("; ")}</li>
+                          ) : null}
+                          {item.agentReasons.swing?.length ? (
+                            <li><span className="font-medium text-cyan-200">Swing:</span> {item.agentReasons.swing.slice(0, 2).join("; ")}</li>
+                          ) : null}
+                          {item.agentReasons.longTerm?.length ? (
+                            <li><span className="font-medium text-cyan-200">Long-term:</span> {item.agentReasons.longTerm.slice(0, 2).join("; ")}</li>
+                          ) : null}
+                        </ul>
+                      </div>
+                    ) : null}
                     <div>
                       <p className="font-semibold text-white">Sources</p>
                       <ul className="mt-1 space-y-1.5">

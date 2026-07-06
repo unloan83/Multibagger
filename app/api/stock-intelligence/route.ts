@@ -5,7 +5,7 @@ import { buildExpertActionMatrix, type ExpertQuote } from "@/lib/expert-insights
 import { isGoogleSheetsConfigured, readPortfoliosFromSheets, readValidationRecords } from "@/lib/google-sheets";
 import { readPortfoliosFromCsvBackup, shouldUsePortfolioCsvBackup } from "@/lib/portfolio-backup";
 import { runStockIntelligenceAgent } from "@/lib/stock-intelligence/stockIntelligenceAgent";
-import type { ExistingRecommendationSignal, StockIntelligenceReport, StockIntelligenceRecommendation } from "@/lib/stock-intelligence/types";
+import type { ExistingRecommendationSignal } from "@/lib/stock-intelligence/types";
 import type { ManagedPortfolio } from "@/lib/portfolio";
 import { runMultiAgentRecommendationSystem } from "@/lib/agents/service";
 import { resolveQuotePositions } from "@/lib/quote-service";

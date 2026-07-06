@@ -9,7 +9,6 @@ import type {
   AgentOrchestratorOutput,
   AgentPerformanceOutput,
   AgentPortfolioOutput,
-  AgentRiskManagementOutput,
   AgentRiskValidationOutput,
   AgentSentimentOutput,
   AgentSwingOutput,

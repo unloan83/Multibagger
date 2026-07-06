@@ -195,7 +195,8 @@ function buildLongTermReasons(
   if (m.dividendYield !== null && m.dividendYield > 0) reasons.push(`Div: ${(m.dividendYield * 100).toFixed(1)}%`);
   if (sectorSignal?.reasons.length) reasons.push(`Sector: ${sectorSignal.reasons.slice(0, 1).join(" ")}`);
   if (infoSignal?.reasons.length) reasons.push(`News: ${infoSignal.reasons.slice(0, 1).join(" ")}`);
-  if (performance?.hitRate !== null) reasons.push(`Hit rate: ${performance.hitRate}%`);
+  const perfHitRate = performance?.hitRate;
+  if (perfHitRate != null) reasons.push(`Hit rate: ${perfHitRate}%`);
   reasons.push(score >= 0 ? "Long-term fundamentals support position." : "Long-term fundamentals underweight.");
   return reasons;
 }

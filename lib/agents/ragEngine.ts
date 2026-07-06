@@ -93,6 +93,21 @@ export function buildRAGContext(
     });
   }
 
+  const ltData = longTerm.byStock[norm];
+  if (ltData) {
+    const parts: string[] = [];
+    if (ltData.score !== undefined) parts.push(`Score ${ltData.score}`);
+    if (ltData.confidence !== undefined) parts.push(`Confidence ${ltData.confidence}%`);
+    if (ltData.cagr !== null) parts.push(`CAGR ${(ltData.cagr * 100).toFixed(1)}%`);
+    if (ltData.riskLevel) parts.push(`Risk ${ltData.riskLevel}`);
+    docs.push({
+      source: "Long-Term Fundamentals",
+      content: parts.join(", "),
+      relevance: "medium",
+      publishedAt: longTerm.generatedAt,
+    });
+  }
+
   return { documents: docs };
 }
 

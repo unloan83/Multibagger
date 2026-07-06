@@ -1,7 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import {
-  agentFundamental,
   agentGrowth,
   agentInfo,
   agentMacroPolicy,
@@ -10,7 +9,6 @@ import {
   agentPortfolio,
   agentRiskValidation,
   agentSentiment,
-  agentTechnical,
   buildAgentValidationReport,
   reconcileRecommendationLogs,
   toRecommendationLogs,

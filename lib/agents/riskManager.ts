@@ -1,13 +1,13 @@
+import type { ManagedPortfolio } from "@/lib/portfolio";
 import type {
   AgentPerformanceOutput,
   AgentPortfolioOutput,
   AgentRiskManagementOutput,
   FinalRecommendation,
-  ManagedPortfolio,
   RiskRule,
   RiskRuleResult,
 } from "@/lib/agents/types";
-import { clamp, normalizeSymbol } from "@/lib/agents/utils";
+import { normalizeSymbol } from "@/lib/agents/utils";
 
 export function applyRiskManagement(
   recommendations: FinalRecommendation[],
@@ -131,7 +131,7 @@ const takeProfitRule: RiskRule = (recommendations) => {
   };
 };
 
-const diversificationRule: RiskRule = (recommendations, portfolio, portfolioOutput) => {
+const diversificationRule: RiskRule = (recommendations, portfolio) => {
   const reasons: string[] = [];
   const totalHoldings = portfolio.positions.length;
   const buyCount = recommendations.filter((r) => r.action === "Buy").length;

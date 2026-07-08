@@ -1313,6 +1313,20 @@ function toAgentTimeframe(horizon: string): ExistingRecommendationSignal["timefr
   return "6–12 months";
 }
 
+function clampScore(value: number) {
+  return Math.max(0, Math.min(100, Math.round(Number.isFinite(value) ? value : 50)));
+}
+
+function getUniqueSignals(signals: ExistingRecommendationSignal[]) {
+  const seen = new Set<string>();
+  return signals.filter((signal) => {
+    const key = signal.symbol.trim().toUpperCase();
+    if (!key || seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+}
+
 function SimplifiedPortfolioView({
   portfolio,
   history,
@@ -1341,7 +1355,34 @@ function SimplifiedPortfolioView({
   );
   const intelligenceSignals = useMemo<ExistingRecommendationSignal[]>(() => {
     const portfolioSymbols = new Set(portfolio.positions.map((position) => position.symbol));
-    return sections.all.slice(0, 12).map((row) => {
+    const holdingSignals = portfolio.positions
+      .filter((position) => position.symbol && (position.list === "current" || position.quantity > 0))
+      .map((position): ExistingRecommendationSignal => {
+        const changePercent =
+          position.previousClose > 0
+            ? ((position.currentPrice - position.previousClose) / position.previousClose) * 100
+            : 0;
+        return {
+          symbol: position.symbol,
+          company: position.company || position.stock || position.symbol,
+          sector: position.sector || "Unclassified",
+          source: "portfolio",
+          action: "HOLD",
+          score: clampScore(50 + changePercent),
+          confidence: 55,
+          timeframe: "6–12 months",
+          reason: `${position.company || position.symbol} is an authenticated portfolio holding and should be monitored for fresh market, sector, and policy changes.`,
+          currentPrice: position.currentPrice,
+          previousClose: position.previousClose,
+          quantity: position.quantity,
+          volume: position.volume,
+          priceVolumeContext: [
+            `CMP ${formatDecisionPrice(position.currentPrice)} vs previous close ${formatDecisionPrice(position.previousClose)}.`,
+            `Quantity held: ${position.quantity}.`,
+          ],
+        };
+      });
+    const recommendationSignals = sections.all.map((row): ExistingRecommendationSignal => {
       const position = portfolio.positions.find((item) => item.symbol === row.symbol);
       return {
         symbol: row.symbol,
@@ -1362,6 +1403,8 @@ function SimplifiedPortfolioView({
         priceVolumeContext: row.technicalFactors.slice(0, 3),
       };
     });
+
+    return getUniqueSignals([...holdingSignals, ...recommendationSignals]).slice(0, 12);
   }, [portfolio.positions, sections.all]);
   const recommendationTabs: Array<{
     id: RecommendationViewTab;

@@ -79,7 +79,7 @@ export async function POST(request: Request) {
     .flatMap((candidate): ExistingRecommendationSignal[] => {
       const symbol = normalizeSymbol(candidate.symbol);
       if (!symbol) return [];
-      const isPortfolioStock = portfolioSymbols.has(symbol);
+      const isPortfolioStock = portfolioSymbols.has(symbol) || candidate.source === "portfolio";
       const opportunity = opportunities.get(symbol);
       if (!isPortfolioStock && !opportunity) return [];
 

@@ -19,7 +19,7 @@ const responseCache = new Map<string, { json: unknown; expiresAt: number }>();
 const CACHE_TTL_MS = 60_000;
 
 function cacheKey(body: RequestBody, userEmail: string): string {
-  const stable = { portfolioId: body.portfolioId, signalCount: body.signals?.length ?? 0 };
+  const stable = { portfolioId: body.portfolioId, signals: body.signals ?? [] };
   return `${userEmail}::${JSON.stringify(stable)}`;
 }
 
@@ -158,6 +158,15 @@ export async function POST(request: Request) {
         if (!agent) return rec;
         return {
           ...rec,
+          action: agent.action,
+          confidence: agent.confidence,
+          finalScore: agent.score,
+          reason: agent.reason,
+          whatChanged: agent.whatChangedRecently,
+          positiveTriggers: agent.positiveTriggers,
+          negativeConcerns: agent.negativeConcerns,
+          target: ["Buy", "Sell"].includes(agent.action) ? agent.target : undefined,
+          stopLoss: ["Buy", "Sell"].includes(agent.action) ? agent.stopLoss : undefined,
           intradayScore: agent.agentScores.intraday,
           swingScore: agent.agentScores.swing,
           longTermScore: agent.agentScores.longTerm,
@@ -167,6 +176,14 @@ export async function POST(request: Request) {
           expectedCagr: agent.expectedCagr,
           riskLevel: agent.riskLevel,
           agentReasons: {
+            existingLogic: agent.agentReasons.existingLogic,
+            info: agent.agentReasons.info,
+            macroPolicy: agent.agentReasons.macroPolicy,
+            sentiment: agent.agentReasons.sentiment,
+            portfolio: agent.agentReasons.portfolio,
+            riskValidation: agent.agentReasons.riskValidation,
+            fundamental: agent.agentReasons.fundamental,
+            technical: agent.agentReasons.technical,
             intraday: agent.agentReasons.intraday,
             swing: agent.agentReasons.swing,
             longTerm: agent.agentReasons.longTerm,

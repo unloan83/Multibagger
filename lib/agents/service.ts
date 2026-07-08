@@ -79,14 +79,6 @@ export async function runMultiAgentRecommendationSystem({
     portfolioAnalysis: portfolioOutput,
     now,
   });
-  const riskValidation = agentRiskValidation({
-    growth,
-    info,
-    macroPolicy,
-    sentiment,
-    portfolio: portfolioOutput,
-    now,
-  });
   const performance = agentPerformance({ history: portfolioHistory, logs: portfolioLogs, now });
   const bayesian = computeBayesianAdjustments(portfolioLogs, defaultOrchestratorWeights);
   const [fundamental, technical, intraday, swing, earningsQuality] = await Promise.all([
@@ -106,6 +98,17 @@ export async function runMultiAgentRecommendationSystem({
     now,
   });
   const rebalance = agentRebalance(portfolio, now);
+  const riskValidation = agentRiskValidation({
+    growth,
+    info,
+    macroPolicy,
+    sentiment,
+    portfolio: portfolioOutput,
+    fundamental,
+    technical,
+    earningsQuality,
+    now,
+  });
   const output = agentOrchestrator({
     info,
     macroPolicy,

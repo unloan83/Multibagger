@@ -190,7 +190,11 @@ export function agentOrchestrator({
       stopLoss: longTermSignal?.stopLoss ?? (["Buy", "Sell"].includes(action) ? candidate.stopLoss : undefined),
       expectedMove: intradaySignal?.metrics?.targetDistance ?? undefined,
       expectedCagr: longTermSignal?.cagr ?? null,
-      riskLevel: longTermSignal?.riskLevel ?? (intradaySignal?.metrics?.intradayVolatility !== null && intradaySignal.metrics.intradayVolatility > 3 ? "high" : "medium"),
+      riskLevel: longTermSignal?.riskLevel ?? (
+        intradaySignal?.metrics?.intradayVolatility != null && intradaySignal.metrics.intradayVolatility > 3
+          ? "high"
+          : "medium"
+      ),
       agentScores,
       agentReasons: {
         existingLogic: [candidate.reason],
@@ -217,12 +221,35 @@ export function agentOrchestrator({
   });
 
   const riskManagement = applyRiskManagement(enriched, portfolioInput, portfolio, performance);
+  const blockedSymbols = new Set(riskManagement.rules
+    .filter((rule) => rule.action === "block")
+    .flatMap((rule) => rule.symbols ?? []));
+  const riskAdjusted = enriched.map((recommendation) => {
+    if (!blockedSymbols.has(recommendation.symbol) || !["Buy", "Sell"].includes(recommendation.action)) {
+      return recommendation;
+    }
+    const isHolding = portfolioInput.positions.some(
+      (position) => normalizeSymbol(position.symbol) === recommendation.symbol && position.quantity > 0,
+    );
+    const action: AgentAction = isHolding ? "Hold" : "Watch";
+    const reasons = riskManagement.rules
+      .filter((rule) => rule.action === "block" && rule.symbols?.includes(recommendation.symbol))
+      .flatMap((rule) => rule.reasons);
+    return {
+      ...recommendation,
+      action,
+      target: undefined,
+      stopLoss: undefined,
+      reason: `${recommendation.action} was blocked by portfolio risk management and changed to ${action}: ${reasons.join(" ")}`,
+      negativeConcerns: [...new Set([...recommendation.negativeConcerns, ...reasons])].slice(0, 6),
+    };
+  });
 
   return {
     agent: "Orchestrator",
     generatedAt: now.toISOString(),
     weights,
-    recommendations: enriched,
+    recommendations: riskAdjusted,
     info,
     macroPolicy,
     sentiment,

@@ -1,10 +1,13 @@
 import type {
   AgentGrowthOutput,
+  AgentEarningsQualityOutput,
+  AgentFundamentalOutput,
   AgentInfoOutput,
   AgentMacroPolicyOutput,
   AgentPortfolioOutput,
   AgentRiskValidationOutput,
   AgentSentimentOutput,
+  AgentTechnicalOutput,
 } from "@/lib/agents/types";
 import { average, clamp, normalizeSymbol } from "@/lib/agents/utils";
 
@@ -14,6 +17,9 @@ export function agentRiskValidation({
   macroPolicy,
   sentiment,
   portfolio,
+  fundamental,
+  technical,
+  earningsQuality,
   now = new Date(),
 }: {
   growth: AgentGrowthOutput;
@@ -21,6 +27,9 @@ export function agentRiskValidation({
   macroPolicy: AgentMacroPolicyOutput;
   sentiment: AgentSentimentOutput;
   portfolio: AgentPortfolioOutput;
+  fundamental?: AgentFundamentalOutput;
+  technical?: AgentTechnicalOutput;
+  earningsQuality?: AgentEarningsQualityOutput;
   now?: Date;
 }): AgentRiskValidationOutput {
   const decisions = growth.candidates.map((candidate) => {
@@ -28,7 +37,17 @@ export function agentRiskValidation({
     const sentimentSignal = sentiment.byStock[candidate.symbol];
     const sectorSignal = macroPolicy.sectors.find((item) => item.sector === candidate.sector);
     const portfolioSignal = portfolio.stocks.find((item) => item.symbol === candidate.symbol);
-    const directionalScores = [infoSignal?.score, sentimentSignal?.score, sectorSignal?.score]
+    const fundamentalSignal = fundamental?.byStock[candidate.symbol];
+    const technicalSignal = technical?.byStock[candidate.symbol];
+    const earningsSignal = earningsQuality?.byStock[candidate.symbol];
+    const directionalScores = [
+      infoSignal?.score,
+      sentimentSignal?.score,
+      sectorSignal?.score,
+      fundamentalSignal?.score,
+      technicalSignal?.score,
+      earningsSignal?.score,
+    ]
       .filter((score): score is number => score !== undefined && Math.abs(score) >= 0.75);
     const relevantEvents = info.events.filter((event) =>
       event.affectedStocks?.some((symbol) => normalizeSymbol(symbol) === candidate.symbol),
@@ -49,9 +68,12 @@ export function agentRiskValidation({
     const eventUncertainty = relevantEvents.some(
       (event) => event.impact === "mixed" || (Math.abs(event.impactScore) >= 2 && event.confidence < 55),
     );
-    const weakSources = relevantEvents.length === 0 || relevantEvents.every(
+    const weakNewsSources = relevantEvents.length === 0 || relevantEvents.every(
       (event) => event.sourceCredibility < 50,
     );
+    const reliableSpecialistEvidence = [fundamentalSignal, technicalSignal, earningsSignal]
+      .some((signal) => signal && signal.confidence >= 55 && Math.abs(signal.score) >= 0.75);
+    const weakSources = weakNewsSources && !reliableSpecialistEvidence;
     const portfolioMismatch = Boolean(
       portfolioSignal &&
       ((candidate.proposedAction === "Buy" && ["Sell", "Hold"].includes(portfolioSignal.action) && portfolioSignal.currentWeight > 20) ||

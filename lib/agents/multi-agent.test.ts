@@ -16,8 +16,10 @@ import {
 import { toEvent } from "@/lib/agents/marketIntelligence";
 import type {
   AgentFundamentalOutput,
+  AgentEarningsQualityOutput,
   AgentIntradayOutput,
   AgentLongTermOutput,
+  AgentRebalanceOutput,
   AgentSwingOutput,
   AgentTechnicalOutput,
 } from "@/lib/agents/types";
@@ -77,6 +79,20 @@ const emptyLongTerm = (): AgentLongTermOutput => ({
   summary: "No long-term data available.",
 });
 
+const emptyEarningsQuality = (): AgentEarningsQualityOutput => ({
+  agent: "EarningsQuality",
+  generatedAt: new Date().toISOString(),
+  byStock: {},
+  summary: "No earnings quality data available.",
+});
+
+const emptyRebalance = (): AgentRebalanceOutput => ({
+  agent: "Rebalance",
+  generatedAt: new Date().toISOString(),
+  byStock: {},
+  summary: "No rebalance data available.",
+});
+
 test("social input is explicitly capped at low confidence", () => {
   const output = agentInfo([{
     summary: "Test wins record order and profit surges",
@@ -124,6 +140,8 @@ test("risk validation downgrades a low-confidence Buy and orchestrator cannot re
     intraday: emptyIntraday(),
     swing: emptySwing(),
     longTerm: emptyLongTerm(),
+    earningsQuality: emptyEarningsQuality(),
+    rebalance: emptyRebalance(),
     portfolioInput: portfolio,
     now,
   });
@@ -131,6 +149,47 @@ test("risk validation downgrades a low-confidence Buy and orchestrator cannot re
   assert.equal(risk.decisions[0].checks.poorConfidence, true);
   assert.equal(risk.decisions[0].downgradeTo, "Watch");
   assert(["Watch", "Hold"].includes(final.recommendations[0].action));
+});
+
+test("reliable specialist evidence prevents a no-news weak-source downgrade", () => {
+  const now = new Date("2026-06-30T05:00:00.000Z");
+  const info = agentInfo([], now);
+  const macro = agentMacroPolicy({ info, market: null, now });
+  const sentiment = agentSentiment(info, now);
+  const portfolioOutput = agentPortfolio({ portfolio, info, macroPolicy: macro, sentiment, now });
+  const recommendation: Recommendation = {
+    id: "specialist-buy",
+    portfolioId: portfolio.id,
+    portfolioName: portfolio.name,
+    section: "1-3 Yr Plan",
+    symbol: "TEST",
+    company: "Test Ltd",
+    action: "Accumulate",
+    horizon: "6-12 months",
+    rationale: "Strong specialist evidence.",
+    confidence: 75,
+    createdAt: now.toISOString(),
+    status: "NA",
+  };
+  const growth = agentGrowth({ portfolio, existingRecommendations: [recommendation], now });
+  const fundamental = emptyFundamental();
+  fundamental.byStock.TEST = {
+    metrics: { peRatio: 18, pbRatio: 2, debtEquity: 20, returnOnEquity: 0.18, revenueGrowth: 0.15, profitMargin: 0.12, marketCap: 1_000_000, dividendYield: 0.01 },
+    score: 2,
+    confidence: 75,
+    reasons: ["Fundamentals independently support the candidate."],
+  };
+  const risk = agentRiskValidation({
+    growth,
+    info,
+    macroPolicy: macro,
+    sentiment,
+    portfolio: portfolioOutput,
+    fundamental,
+    now,
+  });
+
+  assert.equal(risk.decisions[0].checks.weakSources, false);
 });
 
 test("performance logs retain every agent score and contribution direction", () => {
@@ -154,6 +213,8 @@ test("performance logs retain every agent score and contribution direction", () 
     intraday: emptyIntraday(),
     swing: emptySwing(),
     longTerm: emptyLongTerm(),
+    earningsQuality: emptyEarningsQuality(),
+    rebalance: emptyRebalance(),
     portfolioInput: portfolio,
     now,
   });
@@ -161,7 +222,7 @@ test("performance logs retain every agent score and contribution direction", () 
 
   assert.equal(logs.length, 1);
   assert.deepEqual(Object.keys(logs[0].agentScores).sort(), [
-    "existingLogic", "fundamental", "info", "intraday", "longTerm", "macroPolicy", "portfolio", "riskValidation", "sentiment", "swing", "technical",
+    "earningsQuality", "existingLogic", "fundamental", "info", "intraday", "longTerm", "macroPolicy", "portfolio", "rebalance", "riskValidation", "sentiment", "swing", "technical",
   ].sort());
   assert.equal(logs[0].status, "pending");
   assert.equal(logs[0].shadowMode, true);
@@ -182,6 +243,8 @@ test("performance uses trading-day windows and meaningful return thresholds", ()
     intraday: 1,
     swing: 1,
     longTerm: 1,
+    earningsQuality: 1,
+    rebalance: 1,
   };
   const logs = toRecommendationLogs([{
     symbol: "TEST",
@@ -238,6 +301,8 @@ test("validation report blocks promotion when official source coverage is missin
     intraday: emptyIntraday(),
     swing: emptySwing(),
     longTerm: emptyLongTerm(),
+    earningsQuality: emptyEarningsQuality(),
+    rebalance: emptyRebalance(),
     portfolioInput: portfolio,
     now,
   });
@@ -250,7 +315,7 @@ test("validation report blocks promotion when official source coverage is missin
   });
 
   assert.equal(report.mode, "shadow");
-  assert.equal(report.agentHealth.length, 14);
+  assert.equal(report.agentHealth.length, 16);
   assert.equal(report.promotionGate.status, "SHADOW_ONLY");
   assert.equal(
     report.sourceCoverage.find((item) => item.area === "exchange filings")?.status,

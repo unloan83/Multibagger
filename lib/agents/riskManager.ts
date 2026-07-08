@@ -192,9 +192,11 @@ const volatilityRule: RiskRule = (recommendations, portfolio) => {
     if (rec.action !== "Buy") continue;
     const position = portfolio.positions.find((p) => normalizeSymbol(p.symbol) === rec.symbol);
     if (!position) continue;
-    const volatility = position.volume ? Math.min(100, Math.max(0, position.volume / 1000000)) : 0;
+    const volatility = position.previousClose > 0
+      ? Math.min(100, Math.abs((position.currentPrice - position.previousClose) / position.previousClose) * 1_000)
+      : 0;
     if (volatility >= 70) {
-      reasons.push(`${rec.symbol}: high volatility (${volatility.toFixed(0)}/100).`);
+      reasons.push(`${rec.symbol}: unusually large daily price move (${(volatility / 10).toFixed(1)}%).`);
     }
   }
 

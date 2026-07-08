@@ -139,8 +139,7 @@ export function reconcileRecommendationLogs(
     const outcome = history
       .filter((record) =>
         record.portfolioId === log.portfolioId &&
-        record.symbol.toUpperCase() === log.stock.toUpperCase() &&
-        record.timestamp.slice(0, 10) >= log.timestamp.slice(0, 10) &&
+        record.recommendationId === log.id &&
         ["Hit", "Miss"].includes(record.validationStatus),
       )
       .sort((a, b) => b.timestamp.localeCompare(a.timestamp))[0];
@@ -194,6 +193,13 @@ function evaluateHorizonOutcomes(
   return outcomes.map((outcome) => {
     if (outcome.status !== "pending" || now.getTime() < Date.parse(outcome.dueAt) || price <= 0 || log.entryPrice <= 0) {
       return outcome;
+    }
+    const evaluationDelay = now.getTime() - Date.parse(outcome.dueAt);
+    if (evaluationDelay > 36 * 60 * 60 * 1_000) {
+      return {
+        ...outcome,
+        reason: "Evaluation window was missed; a later spot price was not used as the horizon close.",
+      };
     }
     const returnPercent = ((price - log.entryPrice) / log.entryPrice) * 100;
     const requiredMove = requiredReturnPercent(outcome.horizon);

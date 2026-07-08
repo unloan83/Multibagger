@@ -11,7 +11,7 @@ export function agentRebalance(
 ): AgentRebalanceOutput {
   const symbols = portfolio.positions
     .filter((p) => p.quantity > 0)
-    .map((p) => p.symbol)
+    .map((p) => normalizeSymbol(p.symbol))
     .filter(Boolean)
     .slice(0, 50);
 

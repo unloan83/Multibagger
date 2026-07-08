@@ -85,6 +85,14 @@ export type StockIntelligenceRecommendation = {
   expectedCagr?: number | null;
   riskLevel?: "low" | "medium" | "high";
   agentReasons?: {
+    existingLogic?: string[];
+    info?: string[];
+    macroPolicy?: string[];
+    sentiment?: string[];
+    portfolio?: string[];
+    riskValidation?: string[];
+    fundamental?: string[];
+    technical?: string[];
     intraday?: string[];
     swing?: string[];
     longTerm?: string[];

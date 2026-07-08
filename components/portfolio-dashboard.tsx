@@ -180,6 +180,37 @@ type ExpertActionMatrix = {
   categories: ExpertMatrixCategory[];
 };
 
+type AgentRecommendationDto = {
+  symbol: string;
+  company: string;
+  action: "Buy" | "Hold" | "Sell" | "Watch";
+  timeframe: "Intraday" | "Short term" | "3-6 months" | "6-12 months" | "Long term";
+  confidence: number;
+  score: number;
+  reason: string;
+  whatChangedRecently: string[];
+  positiveTriggers: string[];
+  negativeConcerns: string[];
+  sourceSummary: string[];
+  portfolioImpact: string;
+  target?: number;
+  stopLoss?: number;
+  expectedMove?: number;
+  expectedCagr?: number | null;
+  riskLevel?: "low" | "medium" | "high";
+  currentPrice?: number;
+  agentScores: Record<string, number>;
+  agentReasons: Record<string, string[] | undefined>;
+};
+
+type AgentRecommendationsPayload = {
+  generatedAt: string;
+  mode: "agent-orchestrated";
+  summaries: Record<string, string>;
+  recommendations: AgentRecommendationDto[];
+  error?: string;
+};
+
 type NotificationMode =
   | "Immediate Alerts"
   | "Daily Summary"
@@ -1349,9 +1380,62 @@ function SimplifiedPortfolioView({
   const [activePanel, setActivePanel] = useState<PortfolioActionPanel | null>(null);
   const [activeRecommendationTab, setActiveRecommendationTab] =
     useState<RecommendationViewTab>("portfolio");
+  const [agentRecommendations, setAgentRecommendations] =
+    useState<AgentRecommendationsPayload | null>(null);
+  const [isAgentLoading, setIsAgentLoading] = useState(false);
+  const [agentError, setAgentError] = useState("");
+
+  useEffect(() => {
+    if (!portfolio.positions.length) {
+      setAgentRecommendations(null);
+      return;
+    }
+
+    let cancelled = false;
+
+    async function refreshAgentRecommendations() {
+      setIsAgentLoading(true);
+      setAgentError("");
+      try {
+        const response = await fetch("/api/agent-recommendations", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            portfolioId: portfolio.id,
+            inputs: portfolio.inputs,
+            positions: portfolio.positions,
+          }),
+        });
+        const payload = (await response.json()) as AgentRecommendationsPayload;
+        if (!response.ok) {
+          throw new Error(payload.error || "Agent recommendations are temporarily unavailable.");
+        }
+        if (!cancelled) setAgentRecommendations(payload);
+      } catch (reason) {
+        if (!cancelled) {
+          setAgentRecommendations(null);
+          setAgentError(reason instanceof Error ? reason.message : "Agent recommendations are temporarily unavailable.");
+        }
+      } finally {
+        if (!cancelled) setIsAgentLoading(false);
+      }
+    }
+
+    void refreshAgentRecommendations();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [portfolio.id, portfolio.inputs, portfolio.positions]);
+
   const sections = useMemo(
-    () => buildSimplifiedPortfolioSections(portfolio, history, expertMatrix),
-    [expertMatrix, history, portfolio],
+    () => buildSimplifiedPortfolioSections(
+      portfolio,
+      history,
+      expertMatrix,
+      agentRecommendations?.recommendations ?? [],
+    ),
+    [agentRecommendations?.recommendations, expertMatrix, history, portfolio],
   );
   const intelligenceSignals = useMemo<ExistingRecommendationSignal[]>(() => {
     const portfolioSymbols = new Set(portfolio.positions.map((position) => position.symbol));
@@ -1413,38 +1497,49 @@ function SimplifiedPortfolioView({
     subtitle: string;
     rows: DecisionRecommendationRow[];
     emptyText: string;
+    badge: string;
   }> = [
     {
       id: "portfolio",
       label: "Portfolio",
       title: "Portfolio Recommendations",
-      subtitle: "Evidence-gated buy and persistent-decline sell signals for this portfolio.",
+      subtitle: "Agent-orchestrated holding decisions after specialist checks and risk validation.",
       rows: sections.portfolio,
-      emptyText: "No portfolio recommendation currently clears the display threshold.",
+      emptyText: isAgentLoading
+        ? "Agent recommendations are running specialist checks."
+        : agentError || "No portfolio recommendation currently clears the display threshold.",
+      badge: "AGENT ORCHESTRATED",
     },
     {
       id: "long-term",
       label: "Long Term",
       title: "Long Term Opportunities",
-      subtitle: "High-conviction opportunities supported by long-horizon trend evidence.",
+      subtitle: "Long-horizon agent decisions for current holdings and watchlist stocks.",
       rows: sections.longTerm,
-      emptyText: "No long-term opportunity currently clears the evidence threshold.",
+      emptyText: isAgentLoading
+        ? "Long-term agent checks are running."
+        : agentError || "No long-term agent opportunity currently clears the evidence threshold.",
+      badge: "AGENT ORCHESTRATED",
     },
     {
       id: "intraday",
       label: "Intraday",
       title: "Intraday Opportunities",
-      subtitle: "High-momentum opportunities with at least 10% modeled intraday potential.",
+      subtitle: "Intraday agent decisions only; expert-market snapshot ideas stay in Expert Recommendations.",
       rows: sections.intraday,
-      emptyText: "No intraday opportunity currently clears the 10% potential threshold.",
+      emptyText: isAgentLoading
+        ? "Intraday agent checks are running."
+        : agentRecommendations?.summaries?.intraday || "No intraday opportunity currently clears the 10% potential threshold.",
+      badge: "AGENT ORCHESTRATED",
     },
     {
       id: "expert",
       label: "Expert Recommendations",
       title: "Expert Recommendations",
-      subtitle: "Highest-confidence consensus signals from the expert recommendation matrix.",
+      subtitle: "Market-wide expert-matrix ideas; separated from the portfolio agent engine.",
       rows: sections.consensus,
       emptyText: "Expert recommendations are loading.",
+      badge: "EXPERT MATRIX",
     },
   ];
   const activeRecommendation =
@@ -1598,12 +1693,20 @@ function SimplifiedPortfolioView({
             );
           })}
         </div>
+        <div className="rounded-xl border border-white/10 bg-[#16263D] px-4 py-3 text-xs leading-5 text-slate-400">
+          <span className="font-semibold text-cyan-200">
+            {isAgentLoading ? "Agent engine running." : agentRecommendations ? "Agent engine active." : "Agent engine fallback."}
+          </span>{" "}
+          Portfolio, Long Term, and Intraday tabs use the multi-agent orchestrator when available. Expert Recommendations use the separate market-wide expert matrix.
+          {agentError ? <span className="ml-1 text-amber-100">{agentError}</span> : null}
+        </div>
 
         <DecisionRecommendationTable
           key={activeRecommendation.id}
           id={`recommendation-panel-${activeRecommendation.id}`}
           title={activeRecommendation.title}
           subtitle={activeRecommendation.subtitle}
+          badge={activeRecommendation.badge}
           rows={activeRecommendation.rows}
           emptyText={activeRecommendation.emptyText}
         />
@@ -1642,6 +1745,7 @@ function DecisionRecommendationTable({
   id,
   title,
   subtitle,
+  badge = "CALCULATED",
   rows,
   emptyText,
 }: {
@@ -1649,6 +1753,7 @@ function DecisionRecommendationTable({
   id?: string;
   title: string;
   subtitle: string;
+  badge?: string;
   rows: DecisionRecommendationRow[];
   emptyText: string;
 }) {
@@ -1658,7 +1763,7 @@ function DecisionRecommendationTable({
       role="tabpanel"
       className={cn("min-w-0 space-y-3 rounded-2xl border border-white/10 bg-[#101D30] p-3 shadow-xl sm:p-5", className)}
     >
-      <SectionTitle title={title} subtitle={subtitle} badge="CALCULATED" accent="blue" />
+      <SectionTitle title={title} subtitle={subtitle} badge={badge} accent="blue" />
       <div className="space-y-3 md:hidden">
         {rows.map((row) => (
           <article
@@ -4474,7 +4579,7 @@ function SectionTitle({
 }: {
   title: string;
   subtitle: string;
-  badge: "LIVE" | "CALCULATED";
+  badge: string;
   accent: "blue" | "gold" | "cyan" | "green" | "purple";
 }) {
   return (
@@ -4492,7 +4597,7 @@ function SourceBadge({
   label,
   accent,
 }: {
-  label: "LIVE" | "CALCULATED";
+  label: string;
   accent: "blue" | "gold" | "cyan" | "green" | "purple";
 }) {
   const classes = {
@@ -5010,14 +5115,41 @@ function buildSimplifiedPortfolioSections(
   portfolio: ManagedPortfolio,
   history: Recommendation[],
   matrix: ExpertActionMatrix | null,
+  agentRecommendations: AgentRecommendationDto[] = [],
 ) {
   const recommendations = generateRecommendations(portfolio, history);
+  const ownedSymbols = new Set(
+    portfolio.positions
+      .filter((position) => position.list === "current" && position.quantity > 0)
+      .map((position) => position.symbol),
+  );
+  const agentRows = agentRecommendations.map((recommendation) =>
+    buildDecisionRowFromAgentRecommendation(recommendation, portfolio),
+  );
   const buy = buildPortfolioBuyRows(portfolio, recommendations);
   const sell = buildPortfolioSellRows(portfolio, recommendations);
-  const portfolioRows = getUniqueDecisionRows([...buy, ...sell], 8);
-  const longTerm = buildMarketLongTermRows(matrix, recommendations);
+  const agentPortfolioRows = getUniqueDecisionRows(
+    agentRows.filter((row) => ownedSymbols.has(row.symbol)),
+    8,
+  );
+  const portfolioRows = agentPortfolioRows.length
+    ? agentPortfolioRows
+    : getUniqueDecisionRows([...buy, ...sell], 8);
+  const agentLongTerm = getUniqueDecisionRows(
+    agentRows.filter((row) => row.horizon !== "Intraday"),
+    8,
+  );
+  const longTerm = agentLongTerm.length
+    ? agentLongTerm
+    : buildLegacyLongTermRows(recommendations);
   const consensus = buildExpertConsensusRows(matrix);
-  const intraday = buildMarketIntradayRows(matrix, recommendations);
+  const agentIntraday = getUniqueDecisionRows(
+    agentRows.filter((row) => row.horizon === "Intraday"),
+    8,
+  );
+  const intraday = agentIntraday.length
+    ? agentIntraday
+    : buildLegacyIntradayRows(recommendations);
 
   return {
     all: [...portfolioRows, ...longTerm, ...consensus, ...intraday],
@@ -5072,65 +5204,25 @@ function buildPortfolioSellRows(
     .slice(0, 6);
 }
 
-function buildMarketLongTermRows(
-  matrix: ExpertActionMatrix | null,
+function buildLegacyLongTermRows(
   recommendations: ReturnType<typeof generateRecommendations>,
 ) {
-  const rows: DecisionRecommendationRow[] = [];
-  const categories = matrix?.categories ?? [];
-  const largeCap = categories.find((category) =>
-    category.title.toLowerCase().includes("large"),
-  );
-  const midCap = categories.find((category) =>
-    category.title.toLowerCase().includes("mid"),
-  );
-  const smallCap = categories.find((category) =>
-    category.title.toLowerCase().includes("small"),
-  );
-  rows.push(...buildQuoteRowsForCategory(midCap, "Mid Cap | Market Wide", 3, "longTerm"));
-  rows.push(...buildQuoteRowsForCategory(smallCap, "Small Cap | Market Wide", 3, "longTerm"));
-  rows.push(...buildQuoteRowsForCategory(largeCap, "Large Cap | Market Wide", 2, "longTerm"));
-
-  if (rows.length > 0) {
-    return rows;
-  }
-
   return [
     ...recommendations.longTermPlan.filter((item) => item.action === "Accumulate"),
+    ...recommendations.multibaggerCandidates,
     ...recommendations.etfs,
   ]
-    .map((item) => buildDecisionRowFromRecommendation(item, undefined, "Market Wide"))
+    .map((item) => buildDecisionRowFromRecommendation(item, undefined, "Legacy Portfolio Logic"))
     .slice(0, 10);
 }
 
-function buildMarketIntradayRows(
-  matrix: ExpertActionMatrix | null,
+function buildLegacyIntradayRows(
   recommendations: ReturnType<typeof generateRecommendations>,
 ) {
-  const categories = matrix?.categories ?? [];
-  const midCap = categories.find((category) =>
-    category.title.toLowerCase().includes("mid"),
-  );
-  const smallCap = categories.find((category) =>
-    category.title.toLowerCase().includes("small"),
-  );
-  const largeCap = categories.find((category) =>
-    category.title.toLowerCase().includes("large"),
-  );
-  const rows = [
-    ...buildQuoteRowsForCategory(midCap, "Mid Cap | High Momentum", 3, "intraday"),
-    ...buildQuoteRowsForCategory(smallCap, "Small Cap | High Momentum", 3, "intraday"),
-    ...buildQuoteRowsForCategory(largeCap, "Large Cap | High Momentum", 2, "intraday"),
-  ];
-
-  if (rows.length > 0) {
-    return rows;
-  }
-
   return recommendations.intraday
     .filter((item) => item.action === "Accumulate")
     .sort((a, b) => b.confidence - a.confidence)
-    .map((item) => buildDecisionRowFromRecommendation(item, undefined, "Market Intraday"))
+    .map((item) => buildDecisionRowFromRecommendation(item, undefined, "Legacy Intraday Logic"))
     .slice(0, 10);
 }
 
@@ -5192,25 +5284,65 @@ function buildExpertConsensusRows(
     .slice(0, 6);
 }
 
-function buildQuoteRowsForCategory(
-  category: ExpertMatrixCategory | undefined,
-  type: string,
-  limit: number,
-  source: "longTerm" | "intraday" = "longTerm",
-) {
-  if (!category) {
-    return [];
-  }
+function buildDecisionRowFromAgentRecommendation(
+  recommendation: AgentRecommendationDto,
+  portfolio: ManagedPortfolio,
+): DecisionRecommendationRow {
+  const position = portfolio.positions.find((item) => item.symbol === recommendation.symbol);
+  const cmp = recommendation.currentPrice || position?.currentPrice || 0;
+  const action =
+    recommendation.action === "Buy"
+      ? "BUY" as const
+      : recommendation.action === "Sell"
+        ? "SELL" as const
+        : "WATCH" as const;
+  const target =
+    recommendation.target ??
+    (cmp > 0 && action === "BUY" ? cmp * 1.08 : 0);
+  const stopLoss =
+    recommendation.stopLoss ??
+    (cmp > 0 && action === "BUY" ? cmp * 0.92 : 0);
+  const agentScoreSummary = topAgentScores(recommendation.agentScores);
+  const fundamentalReasons = [
+    ...(recommendation.agentReasons.fundamental ?? []),
+    ...(recommendation.agentReasons.earningsQuality ?? []),
+    ...(recommendation.agentReasons.longTerm ?? []),
+  ].slice(0, 4);
+  const technicalReasons = [
+    ...(recommendation.agentReasons.technical ?? []),
+    ...(recommendation.agentReasons.intraday ?? []),
+    ...(recommendation.agentReasons.swing ?? []),
+  ].slice(0, 4);
 
-  const quotes =
-    source === "intraday" ? category.intradayBreakouts : category.longTermUpsides;
-
-  return (
-    quotes
-      .sort((a, b) => b.score - a.score)
-      .slice(0, limit)
-      .map((quote) => buildDecisionRowFromQuote(quote, type, category.title, source)) ?? []
-  );
+  return {
+    action,
+    cmp,
+    company: recommendation.company,
+    confidence: recommendation.confidence,
+    fundamentalFactors: fundamentalReasons.length
+      ? fundamentalReasons
+      : ["Fundamental and earnings-quality agents did not add a strong independent signal."],
+    reason: recommendation.reason,
+    riskFactors: recommendation.negativeConcerns.length
+      ? recommendation.negativeConcerns
+      : [`Risk level: ${recommendation.riskLevel ?? "medium"}.`],
+    horizon: normalizeAgentHorizon(recommendation.timeframe),
+    sectorStrength:
+      recommendation.agentReasons.macroPolicy?.[0] ??
+      recommendation.agentReasons.portfolio?.[0] ??
+      recommendation.portfolioImpact,
+    stopLoss,
+    symbol: recommendation.symbol,
+    target,
+    technicalFactors: technicalReasons.length
+      ? technicalReasons
+      : [
+          agentScoreSummary
+            ? `Agent score mix: ${agentScoreSummary}.`
+            : "Technical, intraday and swing agents completed without a decisive setup.",
+        ],
+    type: `Agent Orchestrator | ${recommendation.timeframe}`,
+  };
 }
 
 function buildDecisionRowFromQuote(
@@ -5353,6 +5485,22 @@ function getPresentationHorizon({
   const normalized = `${categoryTitle} ${horizon}`.toLowerCase();
   if (normalized.includes("mid") || normalized.includes("swing")) return "3–6 Months";
   return "6–12 Months";
+}
+
+function normalizeAgentHorizon(timeframe: AgentRecommendationDto["timeframe"]) {
+  if (timeframe === "Intraday") return "Intraday";
+  if (timeframe === "3-6 months") return "3–6 Months";
+  if (timeframe === "6-12 months") return "6–12 Months";
+  if (timeframe === "Long term") return "Long Term";
+  return "Short Term";
+}
+
+function topAgentScores(scores: Record<string, number>) {
+  return Object.entries(scores)
+    .sort((a, b) => Math.abs(b[1]) - Math.abs(a[1]))
+    .slice(0, 4)
+    .map(([agent, score]) => `${agent} ${score >= 0 ? "+" : ""}${score}`)
+    .join(" · ");
 }
 
 function getQuoteStopLoss(cmp: number, score: number, volumeShock = 0) {

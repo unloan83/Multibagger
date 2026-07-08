@@ -104,7 +104,7 @@ export function AdminAgentValidationDashboard({
             </div>
             <h3 className="mt-2 text-lg font-semibold text-white">Agent Validation Layer</h3>
             <p className="mt-1 max-w-3xl text-sm text-slate-300">
-              Agent decisions are logged and compared with current logic. They are not shown to portfolio users and cannot replace production recommendations.
+              Agent decisions now power the portfolio-facing recommendation tabs. This panel keeps the shadow audit trail, source coverage checks, and promotion evidence separate from the user view.
             </p>
           </div>
           <div className="flex flex-col gap-2 sm:flex-row">

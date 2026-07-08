@@ -45,6 +45,9 @@ export type ExistingRecommendationSignal = {
   timeframe: "Intraday" | "Short term" | "3–6 months" | "6–12 months";
   reason: string;
   currentPrice?: number;
+  previousClose?: number;
+  quantity?: number;
+  volume?: number;
   target?: number;
   stopLoss?: number;
   priceVolumeContext?: string[];

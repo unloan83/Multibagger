@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { normalizePortfolioName } from "@/lib/account-utils";
-import { getCurrentSessionUser } from "@/lib/auth";
+import { canAccessPortfolio, getCurrentSessionUser } from "@/lib/auth";
 import { buildExpertActionMatrix, type ExpertQuote } from "@/lib/expert-insights";
 import { isGoogleSheetsConfigured, readPortfoliosFromSheets, readValidationRecords } from "@/lib/google-sheets";
 import { readPortfoliosFromCsvBackup, shouldUsePortfolioCsvBackup } from "@/lib/portfolio-backup";
@@ -54,7 +54,7 @@ export async function POST(request: Request) {
   const cached = getCached(cacheKeyStr);
   if (cached) return NextResponse.json(cached);
   const portfolios = await loadPortfolios();
-  const portfolio = resolvePortfolio(portfolios, body.portfolioId, user);
+  const portfolio = await resolvePortfolio(portfolios, body, user);
   if (!portfolio) {
     return NextResponse.json(
       { error: "No portfolio is mapped to this profile. Please contact admin." },
@@ -206,19 +206,95 @@ async function loadPortfolios() {
     const backups = await readPortfoliosFromCsvBackup();
     if (backups.length) return backups;
   }
-  return isGoogleSheetsConfigured() ? readPortfoliosFromSheets() : [];
+  if (isGoogleSheetsConfigured()) {
+    try {
+      const portfolios = await readPortfoliosFromSheets();
+      if (portfolios.length) return portfolios;
+    } catch (error) {
+      console.error("Stock intelligence portfolio storage unavailable:", error);
+    }
+  }
+  return readPortfoliosFromCsvBackup();
 }
 
-function resolvePortfolio(
+async function resolvePortfolio(
   portfolios: ManagedPortfolio[],
-  requestedId: string | undefined,
+  body: RequestBody,
   user: NonNullable<Awaited<ReturnType<typeof getCurrentSessionUser>>>,
 ) {
-  if (user.role === "admin" && requestedId) {
-    return portfolios.find((portfolio) => portfolio.id === requestedId);
-  }
+  const requestedId = body.portfolioId?.trim();
+  const normalizedRequest = normalizePortfolioName(requestedId ?? "");
   const mappedName = normalizePortfolioName(user.portfolioName ?? "");
-  return portfolios.find((portfolio) => normalizePortfolioName(portfolio.name) === mappedName);
+  const requested = requestedId
+    ? portfolios.find((portfolio) =>
+      portfolio.id === requestedId ||
+      normalizePortfolioName(portfolio.id) === normalizedRequest ||
+      normalizePortfolioName(portfolio.name) === normalizedRequest)
+    : undefined;
+
+  if (requested) {
+    const authorized = user.role === "admin" ||
+      normalizePortfolioName(requested.name) === mappedName ||
+      await canAccessPortfolio(requested.id);
+    if (authorized) return requested;
+  }
+
+  const mapped = portfolios.find((portfolio) => normalizePortfolioName(portfolio.name) === mappedName);
+  if (mapped) return mapped;
+
+  const canUseSubmittedSignals = Boolean(requestedId) && (
+    user.role === "admin" ||
+    normalizedRequest === mappedName ||
+    await canAccessPortfolio(requestedId!)
+  );
+  return canUseSubmittedSignals ? buildSignalPortfolio(requestedId!, user.portfolioName, body.signals ?? []) : undefined;
+}
+
+function buildSignalPortfolio(
+  id: string,
+  mappedName: string | undefined,
+  signals: Array<Partial<ExistingRecommendationSignal>>,
+): ManagedPortfolio | undefined {
+  const holdings = signals
+    .filter((signal) => signal.source === "portfolio")
+    .slice(0, 50)
+    .flatMap((signal) => {
+      const symbol = normalizeSymbol(signal.symbol);
+      if (!symbol) return [];
+      const quantity = clamp(Number(signal.quantity ?? 1), 0, 1_000_000_000);
+      const currentPrice = clamp(Number(signal.currentPrice ?? 0), 0, 1_000_000_000);
+      const previousClose = clamp(Number(signal.previousClose ?? currentPrice), 0, 1_000_000_000);
+      return [{
+        input: {
+          list: quantity > 0 ? "current" as const : "watchlist" as const,
+          stockCode: symbol,
+          company: cleanText(signal.company, symbol),
+          stock: symbol,
+          quantity,
+        },
+        position: {
+          list: quantity > 0 ? "current" as const : "watchlist" as const,
+          stock: symbol,
+          symbol,
+          company: cleanText(signal.company, symbol),
+          sector: cleanText(signal.sector, "Unclassified"),
+          quantity,
+          currentPrice,
+          previousClose,
+          volume: positiveNumber(signal.volume),
+          currency: "INR" as const,
+        },
+      }];
+    });
+  if (!holdings.length) return undefined;
+  return {
+    id,
+    name: mappedName?.trim() || id,
+    appetite: "moderate",
+    inputs: holdings.map(({ input }) => input),
+    positions: holdings.map(({ position }) => position),
+    refreshedAt: new Date().toISOString(),
+  };
 }
 
 function normalizeSymbol(value: unknown) {

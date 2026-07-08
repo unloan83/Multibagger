@@ -2,22 +2,22 @@
   "title": "Multi-Factor Wealth Discovery Matrix",
   "verified": "NSE price trend, sector-relative strength, revenue and earnings growth, profitability, leverage, valuation, liquidity, news catalysts and risk",
   "source": "Expanded thematic NSE screening universe with Yahoo market/fundamental feeds and outcome-learning history",
-  "asOf": "2026-07-08T06:39:39.869Z",
+  "asOf": "2026-07-08T12:05:30.306Z",
   "refreshCycle": "Technical and catalyst signals refresh intraday; fundamental factors are cached for six hours.",
   "caveat": "Research screening only—not a guarantee of returns. Verify exchange filings, valuation, governance, liquidity, and position sizing before investing.",
   "universeSize": 500,
   "evaluatedSize": 500,
-  "eligibleSize": 3,
-  "abstained": false,
-  "marketRegime": "Correction",
+  "eligibleSize": 1,
+  "abstained": true,
+  "marketRegime": "Risk-Off",
   "rejectionSummary": [
     {
-      "reason": "Decision score is below the 78/100 regime-adjusted threshold.",
-      "count": 476
+      "reason": "Decision score is below the 82/100 regime-adjusted threshold.",
+      "count": 493
     },
     {
-      "reason": "Sector-relative return is below the 0% regime floor.",
-      "count": 253
+      "reason": "Sector-relative return is below the 5% regime floor.",
+      "count": 320
     },
     {
       "reason": "Earnings growth is not consistent across at least two of the last three years.",
@@ -25,7 +25,7 @@
     },
     {
       "reason": "EMA20 is below EMA50.",
-      "count": 182
+      "count": 185
     },
     {
       "reason": "Operating cash flow is below 70% of reported earnings.",
@@ -36,12 +36,12 @@
       "count": 138
     },
     {
-      "reason": "Latest annual revenue growth is below the 5% floor.",
-      "count": 129
+      "reason": "Current price move is too extended for a fresh recommendation.",
+      "count": 131
     },
     {
-      "reason": "Current price move is too extended for a fresh recommendation.",
-      "count": 128
+      "reason": "Latest annual revenue growth is below the 5% floor.",
+      "count": 129
     },
     {
       "reason": "ROE is below the 8% quality floor.",
@@ -70,94 +70,77 @@
     {
       "symbol": "COFORGE",
       "name": "Coforge Limited",
-      "score": 90,
+      "score": 89,
       "reason": "Evidence-derived long-term potential is below the 15% entry hurdle."
     },
     {
       "symbol": "EMMVEE",
       "name": "EMMVEE PHOTOVOLTAIC PWR L",
-      "score": 87,
+      "score": 88,
       "reason": "Operating cash flow is below 70% of reported earnings."
-    },
-    {
-      "symbol": "SCI",
-      "name": "The Shipping Corporation of India Limited",
-      "score": 85,
-      "reason": "Latest annual revenue growth is below the 5% floor."
-    },
-    {
-      "symbol": "HEXT",
-      "name": "Hexaware Technologies Limited",
-      "score": 82,
-      "reason": "Five quarterly observations are required for year-over-year validation."
-    },
-    {
-      "symbol": "SUZLON",
-      "name": "Suzlon Energy Limited",
-      "score": 81,
-      "reason": "Operating cash flow is below 70% of reported earnings. Current price move is too extended for a fresh recommendation."
     },
     {
       "symbol": "IIFL",
       "name": "IIFL Finance Limited",
-      "score": 80,
+      "score": 83,
       "reason": "Financial companies require a separate banking/NBFC capital-adequacy model. Positive operating cash flow is not verified."
-    },
-    {
-      "symbol": "ENGINERSIN",
-      "name": "Engineers India Limited",
-      "score": 80,
-      "reason": "Operating cash flow is below 70% of reported earnings. Revenue growth is not consistent across at least two of the last three years."
     },
     {
       "symbol": "KARURVYSYA",
       "name": "The Karur Vysya Bank Limited",
-      "score": 80,
+      "score": 82,
       "reason": "Financial companies require a separate banking/NBFC capital-adequacy model. Positive operating cash flow is not verified."
+    },
+    {
+      "symbol": "BOSCHLTD",
+      "name": "Bosch Limited",
+      "score": 81,
+      "reason": "Earnings growth is not consistent across at least two of the last three years. Current price move is too extended for a fresh recommendation."
     },
     {
       "symbol": "CHENNPETRO",
       "name": "Chennai Petroleum Corporation Limited",
-      "score": 80,
+      "score": 81,
       "reason": "Revenue growth is not consistent across at least two of the last three years. Earnings growth is not consistent across at least two of the last three years."
+    },
+    {
+      "symbol": "CAPLIPOINT",
+      "name": "Caplin Point Laboratories Limited",
+      "score": 81,
+      "reason": "Decision score is below the 82/100 regime-adjusted threshold."
+    },
+    {
+      "symbol": "CUB",
+      "name": "City Union Bank Limited",
+      "score": 81,
+      "reason": "Financial companies require a separate banking/NBFC capital-adequacy model. Operating cash flow is below 70% of reported earnings."
+    },
+    {
+      "symbol": "NAVINFLUOR",
+      "name": "Navin Fluorine International Limited",
+      "score": 81,
+      "reason": "Decision score is below the 82/100 regime-adjusted threshold."
+    },
+    {
+      "symbol": "IKS",
+      "name": "INVENTURUS KNOWLEDGE SO L",
+      "score": 80,
+      "reason": "Current price move is too extended for a fresh recommendation."
+    },
+    {
+      "symbol": "EICHERMOT",
+      "name": "Eicher Motors Limited",
+      "score": 80,
+      "reason": "Sector-relative return is below the 5% regime floor. Decision score is below the 82/100 regime-adjusted threshold."
     },
     {
       "symbol": "HSCL",
       "name": "Himadri Speciality Chemical Limited",
       "score": 80,
       "reason": "Operating cash flow is below 70% of reported earnings. Latest annual revenue growth is below the 5% floor."
-    },
-    {
-      "symbol": "DIXON",
-      "name": "Dixon Technologies (India) Limited",
-      "score": 80,
-      "reason": "Current price move is too extended for a fresh recommendation. Price is more than 8% above EMA20 for the current regime."
-    },
-    {
-      "symbol": "HBLENGINE",
-      "name": "HBL ENGINEERING LTD",
-      "score": 80,
-      "reason": "Revenue growth is not consistent across at least two of the last three years. Earnings growth is not consistent across at least two of the last three years."
     }
   ],
-  "consecutivePicks": [
-    {
-      "symbol": "NAVINFLUOR",
-      "name": "Navin Fluorine International Limited",
-      "appearances": 2,
-      "categories": [
-        "Mid-Cap Growth Leaders"
-      ]
-    },
-    {
-      "symbol": "CAPLIPOINT",
-      "name": "Caplin Point Laboratories Limited",
-      "appearances": 2,
-      "categories": [
-        "Mid-Cap Growth Leaders"
-      ]
-    }
-  ],
+  "consecutivePicks": [],
   "categories": [
     {
       "key": "largeCap",
@@ -168,292 +151,7 @@
     {
       "key": "midCap",
       "title": "Mid-Cap Growth Leaders",
-      "longTermUpsides": [
-        {
-          "symbol": "NAVINFLUOR",
-          "name": "Navin Fluorine International Limited",
-          "price": 7478,
-          "previousClose": 7729,
-          "changePercent": -3.2475093802561776,
-          "volume": 33755,
-          "volumeShock": 0.26,
-          "target": 0,
-          "upside": 0,
-          "score": 78,
-          "action": "Watchlist",
-          "remark": "Score 76/100 | EMA20 7,468.57 vs EMA50 7,185.6 | VWAP gap +22.76% | ATR risk +2.71% | Volume shock 0.26x | daily review. Decision score 78/100 | Industry theme: Chemicals. Latest annual revenue growth +41.1% and earnings growth +129.9%. ROE +16.7%, margin +20.0%, debt/equity 32. Evidence-derived long-term potential 29.4%; minimum hurdle 15%.",
-          "caveats": [
-            "Model output is a screening signal, not financial advice. Validate fundamentals, news, liquidity, and risk before trading.",
-            "Volume confirmation is weak, so breakout reliability is lower.",
-            "No verified company-specific news catalyst is included; review current exchange filings manually.",
-            "Governance, promoter pledging, auditor qualifications, contingent liabilities and cash-flow quality require manual filing review."
-          ],
-          "metrics": {
-            "historyDays": 248,
-            "dayChangePercent": -3.2475093802561776,
-            "return5Percent": -2.7188760244568755,
-            "return20Percent": 9.511605769934832,
-            "return60Percent": 19.878166078871434,
-            "return120Percent": 31.227516012985873,
-            "drawdownFrom60DayHighPercent": -4.250960307298335,
-            "volumeShock": 0.26,
-            "ema20": 7468.574976527371,
-            "ema50": 7185.596559283279,
-            "ema200": 6245.76012851477,
-            "vwap": 6091.401813197701,
-            "vwapDistancePercent": 22.763203435341918,
-            "atr": 202.39285714285714,
-            "atrPercent": 2.7065105261146982,
-            "trendScore": 30,
-            "momentumScore": -23.38007504204942,
-            "liquidityScore": 27.170105869276956,
-            "riskScore": 0,
-            "finalScore": 76,
-            "intradayPotentialPercent": 0,
-            "longTermPotentialPercent": 29.36,
-            "persistentDeclineScore": 12,
-            "expectedDownsidePercent": 0,
-            "target": 9673.5408,
-            "upsidePercent": 29.360000000000007,
-            "caveats": [
-              "Model output is a screening signal, not financial advice. Validate fundamentals, news, liquidity, and risk before trading.",
-              "Price is extended from VWAP; avoid chasing without confirmation.",
-              "Volume confirmation is weak, so breakout reliability is lower."
-            ]
-          },
-          "theme": "Chemicals",
-          "sector": "Chemicals",
-          "factorScores": {
-            "fundamentals": 15,
-            "growth": 20,
-            "momentum": 9,
-            "quality": 20,
-            "sectorStrength": 8,
-            "valuation": 4,
-            "catalyst": 5,
-            "liquidity": 10,
-            "dataQuality": 95,
-            "risk": 8,
-            "portfolioFit": 2.5,
-            "newsSentiment": 4,
-            "governmentPolicy": 2.5,
-            "expertConsensus": 0,
-            "learningFeedback": 0.7,
-            "total": 78
-          },
-          "reasons": [
-            "Industry theme: Chemicals.",
-            "Latest annual revenue growth +41.1% and earnings growth +129.9%.",
-            "ROE +16.7%, margin +20.0%, debt/equity 32.",
-            "Operating cash conversion 1.35x reported earnings; positive growth years 2/3 revenue and 2/3 earnings.",
-            "Sector-relative return +19.4% with EMA20 above EMA50.",
-            "Average daily traded value approximately INR 102.6 Cr.",
-            "Market regime: Correction.",
-            "Neutral Sector: Chemicals scored 61/100.",
-            "News sentiment neutral (0/10).",
-            "Government policy impact neutral (0/10).",
-            "Expert focus count 0.",
-            "Learning adjustment -2.0 points."
-          ],
-          "marketCapCr": 38783.2114851,
-          "dataQuality": 95,
-          "fundamentalAsOf": "2026-03-31",
-          "averageDailyTurnoverCr": 102.57393753,
-          "catalystSummary": "No verified company-specific catalyst is included in the score.",
-          "intelligence": {
-            "baseScore": 79,
-            "contextAdjustment": -1.1,
-            "finalScore": 78,
-            "sentimentScore": 0,
-            "sentiment": "Neutral",
-            "sectorPolicyScore": 0,
-            "sectorDirectionScore": 61,
-            "sectorDirectionLabel": "Neutral Sector",
-            "sectorDirection": {
-              "sector": "Chemicals",
-              "score": 61,
-              "return20Percent": 3.2427263172595313,
-              "return60Percent": 6.07135176327237,
-              "trendBreadthPercent": 65.38461538461539,
-              "newsSentimentScore": 0,
-              "policyScore": 0,
-              "rank": 12,
-              "label": "Neutral Sector"
-            },
-            "expertFocusCount": 0,
-            "learningAdjustment": -2,
-            "factorWeights": {
-              "technicalStrength": 25,
-              "fundamentalStrength": 30,
-              "portfolioFit": 5,
-              "sectorMomentum": 15,
-              "newsSentiment": 8,
-              "governmentPolicy": 5,
-              "expertConsensus": 5,
-              "learningFeedback": 7
-            },
-            "contributions": {
-              "technicalStrength": 19.3,
-              "fundamentalStrength": 24,
-              "portfolioFit": 2.5,
-              "sectorMomentum": 9.2,
-              "newsSentiment": 4,
-              "governmentPolicy": 2.5,
-              "expertConsensus": 0,
-              "learningFeedback": 0.7
-            },
-            "reasons": [
-              "Neutral Sector: Chemicals scored 61/100.",
-              "News sentiment neutral (0/10).",
-              "Government policy impact neutral (0/10).",
-              "Expert focus count 0.",
-              "Learning adjustment -2.0 points."
-            ]
-          }
-        },
-        {
-          "symbol": "CAPLIPOINT",
-          "name": "Caplin Point Laboratories Limited",
-          "price": 2587,
-          "previousClose": 2624.199951171875,
-          "changePercent": -1.4175730456538884,
-          "volume": 51562,
-          "volumeShock": 0.29,
-          "target": 0,
-          "upside": 0,
-          "score": 81,
-          "action": "Watchlist",
-          "remark": "Score 83/100 | EMA20 2,455.57 vs EMA50 2,229.94 | VWAP gap +27.82% | ATR risk +3.66% | Volume shock 0.29x | daily review. Decision score 81/100 | Industry theme: Healthcare. Latest annual revenue growth +12.9% and earnings growth +19.6%. ROE +17.9%, margin +29.3%, debt/equity 0. Evidence-derived long-term potential 45.2%; minimum hurdle 15%.",
-          "caveats": [
-            "Model output is a screening signal, not financial advice. Validate fundamentals, news, liquidity, and risk before trading.",
-            "Volume confirmation is weak, so breakout reliability is lower.",
-            "No verified company-specific news catalyst is included; review current exchange filings manually.",
-            "Governance, promoter pledging, auditor qualifications, contingent liabilities and cash-flow quality require manual filing review."
-          ],
-          "metrics": {
-            "historyDays": 248,
-            "dayChangePercent": -1.4175730456538884,
-            "return5Percent": -1.4851485148514851,
-            "return20Percent": 14.712666548955491,
-            "return60Percent": 51.42823478285039,
-            "return120Percent": 42.65232974910394,
-            "drawdownFrom60DayHighPercent": -3.289719626168224,
-            "volumeShock": 0.29,
-            "ema20": 2455.5682355731083,
-            "ema50": 2229.9353281228,
-            "ema200": 2029.4855431628853,
-            "vwap": 2023.8819173188938,
-            "vwapDistancePercent": 27.8236629253098,
-            "atr": 94.67857142857143,
-            "atrPercent": 3.6597824286266496,
-            "trendScore": 30,
-            "momentumScore": -8.440584365231107,
-            "liquidityScore": 28.274029063284075,
-            "riskScore": 1.1216301286653043,
-            "finalScore": 83,
-            "intradayPotentialPercent": 0,
-            "longTermPotentialPercent": 45.21,
-            "persistentDeclineScore": 0,
-            "expectedDownsidePercent": 0,
-            "target": 3756.5827,
-            "upsidePercent": 45.209999999999994,
-            "caveats": [
-              "Model output is a screening signal, not financial advice. Validate fundamentals, news, liquidity, and risk before trading.",
-              "Price is extended from VWAP; avoid chasing without confirmation.",
-              "Volume confirmation is weak, so breakout reliability is lower."
-            ]
-          },
-          "theme": "Healthcare",
-          "sector": "Healthcare",
-          "factorScores": {
-            "fundamentals": 15,
-            "growth": 14,
-            "momentum": 9,
-            "quality": 20,
-            "sectorStrength": 10,
-            "valuation": 12,
-            "catalyst": 5,
-            "liquidity": 8,
-            "dataQuality": 95,
-            "risk": 8,
-            "portfolioFit": 2.5,
-            "newsSentiment": 4,
-            "governmentPolicy": 2.5,
-            "expertConsensus": 0,
-            "learningFeedback": 0.7,
-            "total": 81
-          },
-          "reasons": [
-            "Industry theme: Healthcare.",
-            "Latest annual revenue growth +12.9% and earnings growth +19.6%.",
-            "ROE +17.9%, margin +29.3%, debt/equity 0.",
-            "Operating cash conversion 0.82x reported earnings; positive growth years 2/3 revenue and 2/3 earnings.",
-            "Sector-relative return +37.5% with EMA20 above EMA50.",
-            "Average daily traded value approximately INR 47.4 Cr.",
-            "Market regime: Correction.",
-            "Strong Sector: Healthcare scored 76/100.",
-            "News sentiment neutral (0/10).",
-            "Government policy impact neutral (0/10).",
-            "Expert focus count 0.",
-            "Learning adjustment -2.0 points."
-          ],
-          "marketCapCr": 19271.6253453,
-          "dataQuality": 95,
-          "fundamentalAsOf": "2026-03-31",
-          "averageDailyTurnoverCr": 47.438649544006346,
-          "catalystSummary": "No verified company-specific catalyst is included in the score.",
-          "intelligence": {
-            "baseScore": 81,
-            "contextAdjustment": 0.1,
-            "finalScore": 81,
-            "sentimentScore": 0,
-            "sentiment": "Neutral",
-            "sectorPolicyScore": 0,
-            "sectorDirectionScore": 76,
-            "sectorDirectionLabel": "Strong Sector",
-            "sectorDirection": {
-              "sector": "Healthcare",
-              "score": 76,
-              "return20Percent": 5.675202441093775,
-              "return60Percent": 16.688142077048383,
-              "trendBreadthPercent": 87.75510204081633,
-              "newsSentimentScore": 0,
-              "policyScore": 0,
-              "rank": 3,
-              "label": "Strong Sector"
-            },
-            "expertFocusCount": 0,
-            "learningAdjustment": -2,
-            "factorWeights": {
-              "technicalStrength": 25,
-              "fundamentalStrength": 30,
-              "portfolioFit": 5,
-              "sectorMomentum": 15,
-              "newsSentiment": 8,
-              "governmentPolicy": 5,
-              "expertConsensus": 5,
-              "learningFeedback": 7
-            },
-            "contributions": {
-              "technicalStrength": 17.8,
-              "fundamentalStrength": 25.2,
-              "portfolioFit": 2.5,
-              "sectorMomentum": 11.4,
-              "newsSentiment": 4,
-              "governmentPolicy": 2.5,
-              "expertConsensus": 0,
-              "learningFeedback": 0.7
-            },
-            "reasons": [
-              "Strong Sector: Healthcare scored 76/100.",
-              "News sentiment neutral (0/10).",
-              "Government policy impact neutral (0/10).",
-              "Expert focus count 0.",
-              "Learning adjustment -2.0 points."
-            ]
-          }
-        }
-      ],
+      "longTermUpsides": [],
       "intradayBreakouts": []
     },
     {
@@ -513,9 +211,9 @@
     "sectorDirections": [
       {
         "sector": "Textiles",
-        "score": 87,
-        "return20Percent": 10.66344134869559,
-        "return60Percent": 19.37532446178102,
+        "score": 82,
+        "return20Percent": 8.62244117018561,
+        "return60Percent": 16.0676034225823,
         "trendBreadthPercent": 100,
         "newsSentimentScore": 0,
         "policyScore": 0,
@@ -524,9 +222,9 @@
       },
       {
         "sector": "Realty",
-        "score": 86,
-        "return20Percent": 17.296390148622006,
-        "return60Percent": 11.604508455452361,
+        "score": 80,
+        "return20Percent": 14.40592918402201,
+        "return60Percent": 8.396237301472333,
         "trendBreadthPercent": 81.81818181818183,
         "newsSentimentScore": 0,
         "policyScore": 0,
@@ -534,22 +232,22 @@
         "label": "Strong Sector"
       },
       {
-        "sector": "Healthcare",
-        "score": 76,
-        "return20Percent": 5.675202441093775,
-        "return60Percent": 16.688142077048383,
-        "trendBreadthPercent": 87.75510204081633,
-        "newsSentimentScore": 0,
+        "sector": "Automobile and Auto Components",
+        "score": 77,
+        "return20Percent": 5.8859924929268805,
+        "return60Percent": 6.050261094572986,
+        "trendBreadthPercent": 81.57894736842105,
+        "newsSentimentScore": 10,
         "policyScore": 0,
         "rank": 3,
         "label": "Strong Sector"
       },
       {
-        "sector": "Automobile and Auto Components",
-        "score": 73,
-        "return20Percent": 7.499307183994496,
-        "return60Percent": 8.363915766611282,
-        "trendBreadthPercent": 84.21052631578947,
+        "sector": "Healthcare",
+        "score": 74,
+        "return20Percent": 4.2371241685165675,
+        "return60Percent": 15.136611687271389,
+        "trendBreadthPercent": 87.75510204081633,
         "newsSentimentScore": 0,
         "policyScore": 0,
         "rank": 4,
@@ -558,8 +256,8 @@
       {
         "sector": "Diversified",
         "score": 73,
-        "return20Percent": 9.994896342906523,
-        "return60Percent": 11.46704291615463,
+        "return20Percent": 10.462334691951737,
+        "return60Percent": 9.70012339407093,
         "trendBreadthPercent": 66.66666666666666,
         "newsSentimentScore": 0,
         "policyScore": 0,
@@ -568,9 +266,9 @@
       },
       {
         "sector": "Consumer Services",
-        "score": 70,
-        "return20Percent": 10.836210448569787,
-        "return60Percent": 6.716983856808308,
+        "score": 67,
+        "return20Percent": 9.499246934876092,
+        "return60Percent": 4.455111096814932,
         "trendBreadthPercent": 62.06896551724138,
         "newsSentimentScore": 0,
         "policyScore": 0,
@@ -579,9 +277,9 @@
       },
       {
         "sector": "Telecommunication",
-        "score": 70,
-        "return20Percent": 3.519591572554328,
-        "return60Percent": 22.0626559389515,
+        "score": 67,
+        "return20Percent": 1.733808746350281,
+        "return60Percent": 19.977011368326252,
         "trendBreadthPercent": 60,
         "newsSentimentScore": 0,
         "policyScore": 0,
@@ -589,22 +287,22 @@
         "label": "Strong Sector"
       },
       {
-        "sector": "Services",
-        "score": 68,
-        "return20Percent": 7.581450868894033,
-        "return60Percent": 8.681208190896319,
-        "trendBreadthPercent": 64.28571428571429,
+        "sector": "Financial Services",
+        "score": 64,
+        "return20Percent": 6.558865205734539,
+        "return60Percent": 3.0597150567556586,
+        "trendBreadthPercent": 68.31683168316832,
         "newsSentimentScore": 0,
         "policyScore": 0,
         "rank": 8,
         "label": "Strong Sector"
       },
       {
-        "sector": "Financial Services",
-        "score": 68,
-        "return20Percent": 8.358057795301212,
-        "return60Percent": 5.884036805589089,
-        "trendBreadthPercent": 68.31683168316832,
+        "sector": "Capital Goods",
+        "score": 63,
+        "return20Percent": 2.650920590643608,
+        "return60Percent": 7.335841152662179,
+        "trendBreadthPercent": 69.84126984126983,
         "newsSentimentScore": 0,
         "policyScore": 0,
         "rank": 9,
@@ -612,21 +310,21 @@
       },
       {
         "sector": "Oil Gas & Consumable Fuels",
-        "score": 67,
-        "return20Percent": 5.3719368042364595,
-        "return60Percent": 8.438790164476409,
+        "score": 62,
+        "return20Percent": 4.418049773713269,
+        "return60Percent": 6.847670318600377,
         "trendBreadthPercent": 58.82352941176471,
         "newsSentimentScore": 0,
-        "policyScore": 4,
+        "policyScore": 0,
         "rank": 10,
         "label": "Strong Sector"
       },
       {
-        "sector": "Capital Goods",
-        "score": 66,
-        "return20Percent": 3.654820216442947,
-        "return60Percent": 9.85054867420094,
-        "trendBreadthPercent": 71.42857142857143,
+        "sector": "Services",
+        "score": 62,
+        "return20Percent": 5.271971724470312,
+        "return60Percent": 3.3165793396314607,
+        "trendBreadthPercent": 64.28571428571429,
         "newsSentimentScore": 0,
         "policyScore": 0,
         "rank": 11,
@@ -634,9 +332,9 @@
       },
       {
         "sector": "Chemicals",
-        "score": 61,
-        "return20Percent": 3.2427263172595313,
-        "return60Percent": 6.07135176327237,
+        "score": 59,
+        "return20Percent": 2.1174356869796322,
+        "return60Percent": 3.882565951822266,
         "trendBreadthPercent": 65.38461538461539,
         "newsSentimentScore": 0,
         "policyScore": 0,
@@ -644,22 +342,22 @@
         "label": "Neutral Sector"
       },
       {
-        "sector": "Construction",
-        "score": 59,
-        "return20Percent": 5.074251037771627,
-        "return60Percent": 6.9221498328270155,
-        "trendBreadthPercent": 46.15384615384615,
+        "sector": "Consumer Durables",
+        "score": 56,
+        "return20Percent": 5.0478738668735845,
+        "return60Percent": -2.0519077835721706,
+        "trendBreadthPercent": 56.25,
         "newsSentimentScore": 0,
         "policyScore": 0,
         "rank": 13,
         "label": "Neutral Sector"
       },
       {
-        "sector": "Consumer Durables",
-        "score": 59,
-        "return20Percent": 5.846289272780445,
-        "return60Percent": 0.26771893136470315,
-        "trendBreadthPercent": 56.25,
+        "sector": "Construction",
+        "score": 55,
+        "return20Percent": 3.1659616634000085,
+        "return60Percent": 3.788410135922284,
+        "trendBreadthPercent": 46.15384615384615,
         "newsSentimentScore": 0,
         "policyScore": 0,
         "rank": 14,
@@ -667,9 +365,9 @@
       },
       {
         "sector": "Fast Moving Consumer Goods",
-        "score": 57,
-        "return20Percent": 4.053771242433549,
-        "return60Percent": 5.578740704805468,
+        "score": 55,
+        "return20Percent": 2.695176686574537,
+        "return60Percent": 3.932635937030598,
         "trendBreadthPercent": 46.42857142857143,
         "newsSentimentScore": 0,
         "policyScore": 0,
@@ -678,32 +376,32 @@
       },
       {
         "sector": "Media Entertainment & Publication",
-        "score": 55,
-        "return20Percent": -1.3261770697306912,
-        "return60Percent": 11.357085892798992,
+        "score": 53,
+        "return20Percent": -2.365715631425531,
+        "return60Percent": 8.92576246522199,
         "trendBreadthPercent": 50,
         "newsSentimentScore": 0,
         "policyScore": 0,
         "rank": 16,
-        "label": "Weak Sector"
+        "label": "Neutral Sector"
       },
       {
         "sector": "Construction Materials",
-        "score": 55,
-        "return20Percent": 6.665303265124959,
-        "return60Percent": 0.2543655879468604,
+        "score": 51,
+        "return20Percent": 5.079418398775249,
+        "return60Percent": -2.7157121688674914,
         "trendBreadthPercent": 36.36363636363637,
         "newsSentimentScore": 0,
         "policyScore": 0,
         "rank": 17,
-        "label": "Neutral Sector"
+        "label": "Weak Sector"
       },
       {
         "sector": "Power",
-        "score": 51,
-        "return20Percent": 1.8330557439528616,
-        "return60Percent": 2.329726698439076,
-        "trendBreadthPercent": 41.17647058823529,
+        "score": 47,
+        "return20Percent": 0.5559551591946296,
+        "return60Percent": 0.11987334156122753,
+        "trendBreadthPercent": 35.294117647058826,
         "newsSentimentScore": 0,
         "policyScore": 0,
         "rank": 18,
@@ -711,9 +409,9 @@
       },
       {
         "sector": "Information Technology",
-        "score": 44,
-        "return20Percent": 0.9798797936472399,
-        "return60Percent": -3.462782473018722,
+        "score": 42,
+        "return20Percent": -0.06681068951617472,
+        "return60Percent": -5.362922579001509,
         "trendBreadthPercent": 29.629629629629626,
         "newsSentimentScore": 0,
         "policyScore": 0,
@@ -722,9 +420,9 @@
       },
       {
         "sector": "Metals & Mining",
-        "score": 37,
-        "return20Percent": -1.1763605273882707,
-        "return60Percent": -7.439696814407313,
+        "score": 35,
+        "return20Percent": -2.2857846744670955,
+        "return60Percent": -9.234122805472863,
         "trendBreadthPercent": 22.22222222222222,
         "newsSentimentScore": 0,
         "policyScore": 0,

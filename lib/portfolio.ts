@@ -758,34 +758,7 @@ export function generateRecommendations(
     (position) => position.currentPrice > 0,
   );
   const historyScores = buildHistoryScores(history);
-
-  const intraday = universe
-    .map((position) => {
-      const metrics = analyzePosition({
-        position,
-        profile: "intraday",
-        historyScore: historyScores[position.symbol] ?? 0,
-      });
-
-      return { position, metrics };
-    })
-    .filter(({ metrics }) => qualifiesForHighPotentialIntraday(metrics))
-    .sort((a, b) => b.metrics.finalScore - a.metrics.finalScore)
-    .slice(0, appetite.maxIntraday)
-    .map(({ position, metrics }) =>
-      buildRecommendation({
-        portfolio,
-        createdAt,
-        section: "Intraday",
-        position,
-        action: getSignalAction(metrics, "intraday"),
-        horizon: "Today | refresh 5-15 min",
-        confidence: confidenceFromSignal(metrics, appetite.confidenceShift),
-        rationale: `${buildSignalRemark(metrics, "intraday")} Evidence-derived intraday potential ${metrics.intradayPotentialPercent.toFixed(1)}%; only setups at or above the 10% hurdle are included. ${formatNewsSignal(position.newsHeadlines)} Appetite mode: ${appetite.riskLabel}.`,
-        caveats: metrics.caveats,
-        metrics,
-      }),
-    );
+  const selectedSymbols = new Set<string>();
 
   const longTermPlan = current
     .map((position) => {
@@ -846,8 +819,40 @@ export function generateRecommendations(
         metrics,
       }),
     );
+  addSelectedRecommendationSymbols(selectedSymbols, longTermPlan);
+
+  const intraday = universe
+    .filter((position) => !selectedSymbols.has(normalizeSymbol(position.symbol)))
+    .map((position) => {
+      const metrics = analyzePosition({
+        position,
+        profile: "intraday",
+        historyScore: historyScores[position.symbol] ?? 0,
+      });
+
+      return { position, metrics };
+    })
+    .filter(({ metrics }) => qualifiesForHighPotentialIntraday(metrics))
+    .sort((a, b) => b.metrics.finalScore - a.metrics.finalScore)
+    .slice(0, appetite.maxIntraday)
+    .map(({ position, metrics }) =>
+      buildRecommendation({
+        portfolio,
+        createdAt,
+        section: "Intraday",
+        position,
+        action: getSignalAction(metrics, "intraday"),
+        horizon: "Today | refresh 5-15 min",
+        confidence: confidenceFromSignal(metrics, appetite.confidenceShift),
+        rationale: `${buildSignalRemark(metrics, "intraday")} Evidence-derived intraday potential ${metrics.intradayPotentialPercent.toFixed(1)}%; only setups at or above the 10% hurdle are included. ${formatNewsSignal(position.newsHeadlines)} Appetite mode: ${appetite.riskLabel}.`,
+        caveats: metrics.caveats,
+        metrics,
+      }),
+    );
+  addSelectedRecommendationSymbols(selectedSymbols, intraday);
 
   const multibaggerCandidates = universe
+    .filter((position) => !selectedSymbols.has(normalizeSymbol(position.symbol)))
     .filter((position) =>
       [
         "Information Technology",
@@ -886,6 +891,7 @@ export function generateRecommendations(
         metrics,
       }),
     );
+  addSelectedRecommendationSymbols(selectedSymbols, multibaggerCandidates);
 
   const etfs = [
     {
@@ -906,21 +912,23 @@ export function generateRecommendations(
       sector: "Banking ETF",
       rationale: "Balances stock-specific bank exposure with basket exposure.",
     },
-  ].map((etf, index) =>
-    buildRecommendation({
-      portfolio,
-      createdAt,
-      section: "ETF",
-      position: {
-        symbol: etf.symbol,
-        company: etf.company,
-      },
-      action: "Accumulate",
-      horizon: "6-12 months",
-      confidence: 68 - index * 4 + appetite.confidenceShift,
-      rationale: `${etf.rationale} Appetite mode: ${appetite.riskLabel}.`,
-    }),
-  );
+  ]
+    .filter((etf) => !selectedSymbols.has(normalizeSymbol(etf.symbol)))
+    .map((etf, index) =>
+      buildRecommendation({
+        portfolio,
+        createdAt,
+        section: "ETF",
+        position: {
+          symbol: etf.symbol,
+          company: etf.company,
+        },
+        action: "Accumulate",
+        horizon: "6-12 months",
+        confidence: 68 - index * 4 + appetite.confidenceShift,
+        rationale: `${etf.rationale} Appetite mode: ${appetite.riskLabel}.`,
+      }),
+    );
 
   return {
     intraday,
@@ -928,6 +936,19 @@ export function generateRecommendations(
     multibaggerCandidates,
     etfs,
   };
+}
+
+function normalizeSymbol(symbol: string) {
+  return symbol.trim().toUpperCase().replace(/\.NS$|\.BO$/u, "");
+}
+
+function addSelectedRecommendationSymbols(
+  selectedSymbols: Set<string>,
+  recommendations: Recommendation[],
+) {
+  for (const recommendation of recommendations) {
+    selectedSymbols.add(normalizeSymbol(recommendation.symbol));
+  }
 }
 
 function buildRecommendation({

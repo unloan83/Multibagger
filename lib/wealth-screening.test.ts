@@ -285,6 +285,23 @@ function buildTrendBars(direction: "up" | "down") {
   });
 }
 
+function buildHighPotentialTrendBars() {
+  return Array.from({ length: 240 }, (_, index) => {
+    const close = 100 + index * 0.65;
+    const breakoutHigh =
+      index > 0 && index % 5 === 0
+        ? (100 + (index - 1) * 0.65) * 1.1
+        : close * 1.01;
+
+    return {
+      close,
+      high: breakoutHigh,
+      low: close * 0.995,
+      volume: 2_000_000,
+    };
+  });
+}
+
 test("requires evidence-derived long-term potential before accumulation", () => {
   const trendBars = buildTrendBars("up");
   const signal = analyzeStockSignal({
@@ -349,4 +366,81 @@ test("does not convert a temporary dip or concentration into a sell", () => {
       (recommendation) => recommendation.action !== "Urgent Sell",
     ),
   );
+});
+
+test("keeps stock names unique across recommendation types", () => {
+  const highPotentialBars = buildHighPotentialTrendBars();
+  const trendBars = buildTrendBars("up");
+  const portfolio: ManagedPortfolio = {
+    id: "unique-recommendation-types",
+    name: "Unique Recommendation Types",
+    appetite: "moderate",
+    inputs: [],
+    positions: [
+      {
+        list: "current",
+        stock: "OVERLAP",
+        symbol: "OVERLAP",
+        company: "Overlap Tech Ltd.",
+        sector: "Information Technology",
+        quantity: 1,
+        currentPrice: highPotentialBars.at(-1)!.close * 1.01,
+        previousClose: highPotentialBars.at(-1)!.close,
+        volume: 4_000_000,
+        bars: highPotentialBars,
+        currency: "INR",
+      },
+      {
+        list: "current",
+        stock: "ANCHOR",
+        symbol: "ANCHOR",
+        company: "Anchor Holdings Ltd.",
+        sector: "Fast Moving Consumer Goods",
+        quantity: 10_000,
+        currentPrice: 200,
+        previousClose: 200,
+        volume: 2_000_000,
+        bars: trendBars,
+        currency: "INR",
+      },
+      {
+        list: "watchlist",
+        stock: "DAYMOVE",
+        symbol: "DAYMOVE",
+        company: "Day Move Ltd.",
+        sector: "Information Technology",
+        quantity: 0,
+        currentPrice: highPotentialBars.at(-1)!.close * 1.01,
+        previousClose: highPotentialBars.at(-1)!.close,
+        volume: 4_000_000,
+        bars: highPotentialBars,
+        currency: "INR",
+      },
+      {
+        list: "watchlist",
+        stock: "BAGGER",
+        symbol: "BAGGER",
+        company: "Bagger Tech Ltd.",
+        sector: "Information Technology",
+        quantity: 0,
+        currentPrice: trendBars.at(-1)!.close,
+        previousClose: trendBars.at(-2)!.close,
+        volume: 3_000_000,
+        bars: trendBars,
+        currency: "INR",
+      },
+    ],
+  };
+
+  const recommendations = generateRecommendations(portfolio);
+  const stockRecommendations = [
+    ...recommendations.intraday,
+    ...recommendations.longTermPlan,
+    ...recommendations.multibaggerCandidates,
+  ];
+  const symbols = stockRecommendations.map((recommendation) => recommendation.symbol);
+
+  assert(recommendations.longTermPlan.some((item) => item.symbol === "OVERLAP"));
+  assert(!recommendations.intraday.some((item) => item.symbol === "OVERLAP"));
+  assert.equal(new Set(symbols).size, symbols.length);
 });

@@ -1351,11 +1351,15 @@ function clampScore(value: number) {
 function getUniqueSignals(signals: ExistingRecommendationSignal[]) {
   const seen = new Set<string>();
   return signals.filter((signal) => {
-    const key = signal.symbol.trim().toUpperCase();
+    const key = normalizeDecisionSymbol(signal.symbol);
     if (!key || seen.has(key)) return false;
     seen.add(key);
     return true;
   });
+}
+
+function normalizeDecisionSymbol(symbol: string) {
+  return symbol.trim().toUpperCase().replace(/\.NS$|\.BO$/u, "");
 }
 
 function SimplifiedPortfolioView({
@@ -1695,7 +1699,11 @@ function SimplifiedPortfolioView({
         </div>
         <div className="rounded-xl border border-white/10 bg-[#16263D] px-4 py-3 text-xs leading-5 text-slate-400">
           <span className="font-semibold text-cyan-200">
-            {isAgentLoading ? "Agent engine running." : agentRecommendations ? "Agent engine active." : "Agent engine fallback."}
+            {isAgentLoading
+              ? "Agent engine running."
+              : agentRecommendations
+                ? "Agent engine active."
+                : "Calculated recommendations shown."}
           </span>{" "}
           Portfolio, Long Term, and Intraday tabs use the multi-agent orchestrator when available. Expert Recommendations use the separate market-wide expert matrix.
           {agentError ? <span className="ml-1 text-amber-100">{agentError}</span> : null}
@@ -1797,6 +1805,9 @@ function DecisionRecommendationTable({
                 ) : null}
               </div>
             </div>
+            <p className="mt-3 line-clamp-2 text-xs leading-5 text-slate-400">
+              {compactRecommendationText(row.reason, row.symbol)}
+            </p>
           </article>
         ))}
         {rows.length === 0 ? (
@@ -1813,6 +1824,7 @@ function DecisionRecommendationTable({
               <TableHead>Target</TableHead>
               <TableHead>Stop Loss</TableHead>
               <TableHead>Horizon</TableHead>
+              <TableHead>Comment</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -1824,11 +1836,14 @@ function DecisionRecommendationTable({
                 <TableCell>{formatDecisionPrice(row.target)}</TableCell>
                 <TableCell>{formatDecisionPrice(row.stopLoss)}</TableCell>
                 <TableCell>{row.horizon}</TableCell>
+                <TableCell className="max-w-[320px] text-xs leading-5 text-slate-400">
+                  {compactRecommendationText(row.reason, row.symbol)}
+                </TableCell>
               </TableRow>
             ))}
             {rows.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={6} className="text-sm text-slate-400">{emptyText}</TableCell>
+                <TableCell colSpan={7} className="text-sm text-slate-400">{emptyText}</TableCell>
               </TableRow>
             ) : null}
           </TableBody>
@@ -2166,10 +2181,11 @@ function RecommendationPerformancePanel({
 function getUniqueRecommendationRows(rows: DecisionRecommendationRow[]) {
   return Object.values(
     rows.reduce<Record<string, DecisionRecommendationRow>>((acc, row) => {
-      const existing = acc[row.symbol];
+      const symbol = normalizeDecisionSymbol(row.symbol);
+      const existing = acc[symbol];
 
       if (!existing || row.confidence > existing.confidence) {
-        acc[row.symbol] = row;
+        acc[symbol] = row;
       }
 
       return acc;
@@ -5128,31 +5144,44 @@ function buildSimplifiedPortfolioSections(
   );
   const buy = buildPortfolioBuyRows(portfolio, recommendations);
   const sell = buildPortfolioSellRows(portfolio, recommendations);
+  const selectedSymbols = new Set<string>();
   const agentPortfolioRows = getUniqueDecisionRows(
     agentRows.filter((row) => ownedSymbols.has(row.symbol)),
     8,
   );
-  const portfolioRows = agentPortfolioRows.length
-    ? agentPortfolioRows
-    : getUniqueDecisionRows([...buy, ...sell], 8);
+  const portfolioRows = takeNewDecisionRows(
+    agentPortfolioRows.length
+      ? agentPortfolioRows
+      : getUniqueDecisionRows([...buy, ...sell], 8),
+    selectedSymbols,
+  );
   const agentLongTerm = getUniqueDecisionRows(
     agentRows.filter((row) => row.horizon !== "Intraday"),
     8,
   );
-  const longTerm = agentLongTerm.length
-    ? agentLongTerm
-    : buildLegacyLongTermRows(recommendations);
-  const consensus = buildExpertConsensusRows(matrix);
+  const longTerm = takeNewDecisionRows(
+    agentLongTerm.length
+      ? agentLongTerm
+      : buildLegacyLongTermRows(recommendations),
+    selectedSymbols,
+  );
   const agentIntraday = getUniqueDecisionRows(
     agentRows.filter((row) => row.horizon === "Intraday"),
     8,
   );
-  const intraday = agentIntraday.length
-    ? agentIntraday
-    : buildLegacyIntradayRows(recommendations);
+  const intraday = takeNewDecisionRows(
+    agentIntraday.length
+      ? agentIntraday
+      : buildLegacyIntradayRows(recommendations),
+    selectedSymbols,
+  );
+  const consensus = takeNewDecisionRows(
+    buildExpertConsensusRows(matrix),
+    selectedSymbols,
+  );
 
   return {
-    all: [...portfolioRows, ...longTerm, ...consensus, ...intraday],
+    all: [...portfolioRows, ...longTerm, ...intraday, ...consensus],
     buy,
     consensus,
     intraday,
@@ -5236,21 +5265,24 @@ function buildExpertConsensusRows(
   ]);
   const quoteBySymbol = quotes.reduce<Record<string, (typeof quotes)[number]>>(
     (acc, item) => {
-      const current = acc[item.quote.symbol];
+      const symbol = normalizeDecisionSymbol(item.quote.symbol);
+      const current = acc[symbol];
       if (!current || item.quote.score > current.quote.score) {
-        acc[item.quote.symbol] = item;
+        acc[symbol] = item;
       }
       return acc;
     },
     {},
   );
   const liveMentions = quotes.reduce<Record<string, number>>((acc, item) => {
-    acc[item.quote.symbol] = (acc[item.quote.symbol] ?? 0) + 1;
+    const symbol = normalizeDecisionSymbol(item.quote.symbol);
+    acc[symbol] = (acc[symbol] ?? 0) + 1;
     return acc;
   }, {});
   const focusBySymbol = matrix.consecutivePicks?.reduce<Record<string, number>>(
     (acc, pick) => {
-      acc[pick.symbol] = Math.max(pick.appearances, liveMentions[pick.symbol] ?? 0);
+      const symbol = normalizeDecisionSymbol(pick.symbol);
+      acc[symbol] = Math.max(pick.appearances, liveMentions[symbol] ?? 0);
       return acc;
     },
     {},
@@ -5258,7 +5290,8 @@ function buildExpertConsensusRows(
 
   return Object.values(quoteBySymbol)
     .map(({ category, quote }) => {
-      const expertFocus = focusBySymbol[quote.symbol] ?? liveMentions[quote.symbol] ?? 1;
+      const symbol = normalizeDecisionSymbol(quote.symbol);
+      const expertFocus = focusBySymbol[symbol] ?? liveMentions[symbol] ?? 1;
       return {
         ...buildDecisionRowFromQuote(
           quote,
@@ -5343,6 +5376,20 @@ function buildDecisionRowFromAgentRecommendation(
         ],
     type: `Agent Orchestrator | ${recommendation.timeframe}`,
   };
+}
+
+function takeNewDecisionRows(
+  rows: DecisionRecommendationRow[],
+  selectedSymbols: Set<string>,
+) {
+  return rows.filter((row) => {
+    const symbol = normalizeDecisionSymbol(row.symbol);
+    if (!symbol || selectedSymbols.has(symbol)) {
+      return false;
+    }
+    selectedSymbols.add(symbol);
+    return true;
+  });
 }
 
 function buildDecisionRowFromQuote(
@@ -5461,9 +5508,10 @@ function buildDecisionRowFromRecommendation(
 function getUniqueDecisionRows(rows: DecisionRecommendationRow[], limit: number) {
   return Object.values(
     rows.reduce<Record<string, DecisionRecommendationRow>>((acc, row) => {
-      const current = acc[row.symbol];
+      const symbol = normalizeDecisionSymbol(row.symbol);
+      const current = acc[symbol];
       if (!current || row.confidence > current.confidence) {
-        acc[row.symbol] = row;
+        acc[symbol] = row;
       }
       return acc;
     }, {}),

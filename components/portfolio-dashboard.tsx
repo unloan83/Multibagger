@@ -1529,7 +1529,7 @@ function SimplifiedPortfolioView({
       id: "intraday",
       label: "Intraday",
       title: "Intraday Opportunities",
-      subtitle: "Intraday agent decisions only; expert-market snapshot ideas stay in Expert Recommendations.",
+      subtitle: "Intraday agent decisions first, with expert-market breakout watchlists when the agent has no intraday setup.",
       rows: sections.intraday,
       emptyText: isAgentLoading
         ? "Intraday agent checks are running."
@@ -5172,7 +5172,13 @@ function buildSimplifiedPortfolioSections(
   const intraday = takeNewDecisionRows(
     agentIntraday.length
       ? agentIntraday
-      : buildLegacyIntradayRows(recommendations),
+      : getUniqueDecisionRows(
+          [
+            ...buildExpertIntradayRows(matrix),
+            ...buildLegacyIntradayRows(recommendations),
+          ],
+          10,
+        ),
     selectedSymbols,
   );
   const consensus = takeNewDecisionRows(
@@ -5252,6 +5258,26 @@ function buildLegacyIntradayRows(
     .filter((item) => item.action === "Accumulate")
     .sort((a, b) => b.confidence - a.confidence)
     .map((item) => buildDecisionRowFromRecommendation(item, undefined, "Legacy Intraday Logic"))
+    .slice(0, 10);
+}
+
+function buildExpertIntradayRows(
+  matrix: ExpertActionMatrix | null,
+): DecisionRecommendationRow[] {
+  if (!matrix) return [];
+
+  return matrix.categories
+    .flatMap((category) =>
+      category.intradayBreakouts.map((quote) =>
+        buildDecisionRowFromQuote(
+          quote,
+          `${getMarketCapType(category.title)} | Expert Intraday`,
+          category.title,
+          "intraday",
+        ),
+      ),
+    )
+    .sort((a, b) => b.confidence - a.confidence)
     .slice(0, 10);
 }
 

@@ -291,6 +291,7 @@ function toExpertQuote(
 ): ExpertQuote {
   const intradayPotential =
     source === "intraday" ? stock.metrics.intradayPotentialPercent : 0;
+  const isSafetyGatedIntradayWatch = source === "intraday" && !stock.eligible;
   return {
     symbol: stock.symbol,
     name: stock.name,
@@ -306,14 +307,18 @@ function toExpertQuote(
     upside: source === "intraday" ? intradayPotential : stock.upside,
     score: stock.score,
     action:
-      source === "intraday" ||
+      isSafetyGatedIntradayWatch
+        ? "Watchlist"
+        : source === "intraday" ||
       marketRegime === "Bull Market" ||
       marketRegime === "Risk-On"
         ? "Accumulate"
         : "Watchlist",
     remark:
-      source === "intraday"
-        ? `${stock.remark} Evidence-derived intraday potential ${intradayPotential.toFixed(1)}%; minimum hurdle ${MIN_INTRADAY_POTENTIAL_PERCENT}%.`
+      isSafetyGatedIntradayWatch
+        ? `Momentum watchlist only: ${stock.gateFailures.slice(0, 2).join(" ")} Evidence-derived intraday potential ${intradayPotential.toFixed(1)}%; minimum hurdle ${MIN_INTRADAY_POTENTIAL_PERCENT}%.`
+        : source === "intraday"
+          ? `${stock.remark} Evidence-derived intraday potential ${intradayPotential.toFixed(1)}%; minimum hurdle ${MIN_INTRADAY_POTENTIAL_PERCENT}%.`
         : `${stock.remark} Evidence-derived long-term potential ${stock.metrics.longTermPotentialPercent.toFixed(1)}%; minimum hurdle ${MIN_LONG_TERM_POTENTIAL_PERCENT}%.`,
     caveats: stock.caveats,
     metrics: stock.metrics,

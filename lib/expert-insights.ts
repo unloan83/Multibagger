@@ -177,9 +177,9 @@ export async function generateExpertActionMatrix(): Promise<ExpertActionMatrix> 
   return {
     title: "Multi-Factor Wealth Discovery Matrix",
     verified:
-      "NSE price trend, sector-relative strength, revenue and earnings growth, profitability, leverage, valuation, liquidity, news catalysts and risk",
+      "NIFTY 500 core plus NSE cap-bucket overlays, price trend, sector-relative strength, revenue and earnings growth, profitability, leverage, valuation, liquidity, news catalysts and risk",
     source:
-      "Expanded thematic NSE screening universe with Yahoo market/fundamental feeds and outcome-learning history",
+      "Official NIFTY 500 core with top large, mid and small-cap discovery overlays, Yahoo market/fundamental feeds and outcome-learning history",
     asOf: new Date().toISOString(),
     refreshCycle:
       "Technical and catalyst signals refresh intraday; fundamental factors are cached for six hours.",
@@ -394,7 +394,7 @@ function unavailableMatrix(reason: string): ExpertActionMatrix {
   return {
     title: "Multi-Factor Wealth Discovery Matrix",
     verified: "No recommendation published without a fresh validated snapshot.",
-    source: "Official NIFTY 500 universe; scheduled safety-gated screening",
+    source: "Official NIFTY 500 plus NSE cap-bucket universe; scheduled safety-gated screening",
     asOf: new Date().toISOString(),
     refreshCycle: "Scheduled twice each market day.",
     caveat: reason,

@@ -116,6 +116,50 @@ test("allows a complete, profitable, liquid candidate", () => {
   assert.deepEqual(failures(), []);
 });
 
+test("allows official NSE cap-bucket universe sources", () => {
+  for (const source of [
+    "NIFTY 200",
+    "NIFTY MidSmallcap 400",
+    "NIFTY Smallcap 250",
+    "NIFTY Microcap 250",
+  ]) {
+    assert.deepEqual(
+      failures({
+        row: {
+          ...row,
+          stock: {
+            ...row.stock,
+            source,
+          },
+        },
+      }),
+      [],
+    );
+  }
+});
+
+test("allows blended NIFTY 500 and cap-bucket source labels", () => {
+  assert.deepEqual(
+    failures({
+      row: {
+        ...row,
+        stock: { ...row.stock, source: "NIFTY 500 + NIFTY 200" },
+      },
+    }),
+    [],
+  );
+});
+
+test("rejects unverified universe sources", () => {
+  const result = failures({
+    row: {
+      ...row,
+      stock: { ...row.stock, source: "Unverified Screen" },
+    },
+  });
+  assert(result.some((item) => item.includes("official NSE cap-bucket universe")));
+});
+
 test("rejects incomplete fundamentals", () => {
   const result = failures({
     fundamentals: {

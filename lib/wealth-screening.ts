@@ -159,6 +159,15 @@ const severeRiskTerms = [
   "sebi order",
   "enforcement directorate",
 ];
+const verifiedUniverseSources = new Set([
+  "NIFTY 200",
+  "NIFTY 100",
+  "NIFTY MidSmallcap 400",
+  "NIFTY Midcap 150",
+  "NIFTY Smallcap 250",
+  "NIFTY Microcap 250",
+  "NIFTY 500",
+]);
 
 export function getMarketUniverse() {
   return marketUniverse as UniverseStock[];
@@ -496,8 +505,12 @@ export function evaluateSafetyGates({
             : 70;
 
   if (row.bars.length < 100) failures.push("Insufficient price history.");
-  if (row.stock.source !== "NIFTY 500") {
-    failures.push("Security is not verified against the official NIFTY 500 universe.");
+  const rowSources = (row.stock.source ?? "")
+    .split("+")
+    .map((source) => source.trim())
+    .filter(Boolean);
+  if (!rowSources.some((source) => verifiedUniverseSources.has(source))) {
+    failures.push("Security is not verified against the official NSE cap-bucket universe.");
   }
   if (row.stock.theme.toLowerCase().includes("financial")) {
     failures.push(

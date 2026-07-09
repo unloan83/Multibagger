@@ -76,6 +76,12 @@ export type ExclusionDiagnostic = {
   reason: string;
 };
 
+type IntradayPredictionPrior = {
+  score: number;
+  gainerDays: number;
+  portfolioTrackDays: number;
+};
+
 export type ExpertActionMatrix = {
   title: string;
   verified: string;
@@ -138,12 +144,13 @@ export async function generateExpertActionMatrix(): Promise<ExpertActionMatrix> 
     readExpertConsensusCounts(),
   ]);
   const learning = buildLearningFeedback(validationRecords);
+  const intradayPriors = await readIntradayPredictionPriors();
   const screened = await screenWealthUniverse(marketRegime, {
     expertConsensusCounts,
     learning,
   });
   const categories = (Object.keys(categoryMeta) as MarketCapBucket[]).map(
-    (bucket) => buildCategory(bucket, screened, marketRegime),
+    (bucket) => buildCategory(bucket, screened, marketRegime, intradayPriors),
   );
   const consecutivePicks = await getConsecutiveExpertPicks(categories);
   const selectedSymbols = new Set(
@@ -223,6 +230,7 @@ function buildCategory(
   bucket: MarketCapBucket,
   screened: ScreenedStock[],
   marketRegime: ScreeningRegime,
+  intradayPriors: Record<string, IntradayPredictionPrior>,
 ): ExpertCategory {
   const meta = categoryMeta[bucket];
   const bucketStocks = screened.filter((stock) => stock.capBucket === bucket);
@@ -236,11 +244,11 @@ function buildCategory(
     .slice(0, 6)
     .map((stock) => toExpertQuote(stock, marketRegime));
   const intradayBreakouts = bucketStocks
-    .filter(isMomentumCandidate)
+    .filter((stock) => isMomentumCandidate(stock, intradayPriors[stock.symbol]))
     .sort(
       (a, b) =>
-        b.metrics.intradayPotentialPercent -
-          a.metrics.intradayPotentialPercent ||
+        getIntradayRankScore(b, intradayPriors[b.symbol]) -
+          getIntradayRankScore(a, intradayPriors[a.symbol]) ||
         b.factorScores.momentum +
           b.factorScores.liquidity -
           (a.factorScores.momentum + a.factorScores.liquidity),
@@ -268,20 +276,41 @@ function isLongTermCandidate(stock: ScreenedStock) {
   );
 }
 
-function isMomentumCandidate(stock: ScreenedStock) {
+function isMomentumCandidate(
+  stock: ScreenedStock,
+  prior?: IntradayPredictionPrior,
+) {
   const minimumTurnover =
     stock.capBucket === "large" ? 20 : stock.capBucket === "mid" ? 10 : 5;
+  const hasTopGainerPrior = (prior?.score ?? 0) >= 1.5;
+  const priorAdjustedSetup =
+    hasTopGainerPrior &&
+    stock.metrics.intradayPotentialPercent >= 8 &&
+    stock.metrics.finalScore >= 60 &&
+    stock.metrics.dayChangePercent > 0 &&
+    stock.metrics.dayChangePercent <= 10 &&
+    stock.metrics.volumeShock >= 0.8 &&
+    stock.metrics.ema20 >= stock.metrics.ema50 &&
+    stock.metrics.riskScore <= 18;
 
   return (
-    stock.score >= 60 &&
+    stock.score >= (hasTopGainerPrior ? 58 : 60) &&
     stock.factorScores.momentum >= 9 &&
     stock.factorScores.liquidity >= 8 &&
     stock.averageDailyTurnoverCr >= minimumTurnover &&
-    qualifiesForHighPotentialIntraday(stock.metrics) &&
+    (qualifiesForHighPotentialIntraday(stock.metrics) || priorAdjustedSetup) &&
     !stock.gateFailures.some((failure) =>
       failure.includes("governance or regulatory risk"),
     )
   );
+}
+
+function getIntradayRankScore(
+  stock: ScreenedStock,
+  prior?: IntradayPredictionPrior,
+) {
+  const priorBoost = Math.min(prior?.score ?? 0, 4) * 1.25;
+  return stock.metrics.intradayPotentialPercent + priorBoost;
 }
 
 function toExpertQuote(
@@ -560,6 +589,95 @@ async function readConsecutivePicksFromCsv(): Promise<ConsecutivePick[]> {
   } catch {
     return [];
   }
+}
+
+async function readIntradayPredictionPriors(): Promise<
+  Record<string, IntradayPredictionPrior>
+> {
+  try {
+    const csvPath = path.join(process.cwd(), "data", "daily_recommendations.csv");
+    const csv = await fs.readFile(csvPath, "utf8");
+    const rows = parseCsvRows(csv);
+    const recentGainerDates = [
+      ...new Set(
+        rows
+          .filter(
+            (row) =>
+              row.source === "market-movers" &&
+              row.category === "gainer" &&
+              row.date,
+          )
+          .map((row) => row.date),
+      ),
+    ]
+      .sort()
+      .slice(-10);
+    const recentDateSet = new Set(recentGainerDates);
+    const priors: Record<string, IntradayPredictionPrior> = {};
+    const seenGainers = new Set<string>();
+    const seenPortfolioTracks = new Set<string>();
+
+    for (const row of rows) {
+      if (!row.symbol || !row.date || !recentDateSet.has(row.date)) continue;
+
+      const changePercent = Number(row.change_percent);
+      const symbol = row.symbol.toUpperCase();
+      const prior =
+        priors[symbol] ??
+        {
+          score: 0,
+          gainerDays: 0,
+          portfolioTrackDays: 0,
+        };
+
+      if (
+        row.source === "market-movers" &&
+        row.category === "gainer" &&
+        changePercent > 0
+      ) {
+        const key = `${row.date}:${symbol}:gainer`;
+        if (!seenGainers.has(key)) {
+          prior.gainerDays += 1;
+          prior.score += 1;
+          seenGainers.add(key);
+        }
+      }
+
+      if (
+        row.source === "portfolio-analysis" &&
+        row.category === "portfolio-short-term" &&
+        row.action === "Track" &&
+        changePercent > 0
+      ) {
+        const key = `${row.date}:${symbol}:portfolio`;
+        if (!seenPortfolioTracks.has(key)) {
+          prior.portfolioTrackDays += 1;
+          prior.score += 0.5;
+          seenPortfolioTracks.add(key);
+        }
+      }
+
+      if (prior.score > 0) {
+        priors[symbol] = prior;
+      }
+    }
+
+    return priors;
+  } catch {
+    return {};
+  }
+}
+
+function parseCsvRows(csv: string) {
+  const [headerLine, ...lines] = csv.split(/\r?\n/u).filter(Boolean);
+  const headers = parseCsvLine(headerLine);
+
+  return lines.map((line) => {
+    const cells = parseCsvLine(line);
+    return Object.fromEntries(
+      headers.map((header, index) => [header, cells[index] ?? ""]),
+    );
+  });
 }
 
 function parseCsvLine(line: string) {

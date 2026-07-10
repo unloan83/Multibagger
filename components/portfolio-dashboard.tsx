@@ -205,7 +205,7 @@ type AgentRecommendationDto = {
 
 type AgentRecommendationsPayload = {
   generatedAt: string;
-  mode: "agent-orchestrated";
+  mode: "agent-orchestrated" | "rules-fallback";
   summaries: Record<string, string>;
   recommendations: AgentRecommendationDto[];
   error?: string;
@@ -1362,6 +1362,19 @@ function normalizeDecisionSymbol(symbol: string) {
   return symbol.trim().toUpperCase().replace(/\.NS$|\.BO$/u, "");
 }
 
+async function readJsonResponse<T>(response: Response, emptyMessage: string): Promise<T> {
+  const text = await response.text();
+  if (!text.trim()) {
+    throw new Error(emptyMessage);
+  }
+
+  try {
+    return JSON.parse(text) as T;
+  } catch {
+    throw new Error("Agent recommendations returned an invalid JSON response.");
+  }
+}
+
 function SimplifiedPortfolioView({
   portfolio,
   history,
@@ -1388,6 +1401,10 @@ function SimplifiedPortfolioView({
     useState<AgentRecommendationsPayload | null>(null);
   const [isAgentLoading, setIsAgentLoading] = useState(false);
   const [agentError, setAgentError] = useState("");
+  const portfolioMetrics = useMemo(
+    () => calculatePortfolioMetrics(portfolio.positions),
+    [portfolio.positions],
+  );
 
   useEffect(() => {
     if (!portfolio.positions.length) {
@@ -1410,7 +1427,10 @@ function SimplifiedPortfolioView({
             positions: portfolio.positions,
           }),
         });
-        const payload = (await response.json()) as AgentRecommendationsPayload;
+        const payload = await readJsonResponse<AgentRecommendationsPayload>(
+          response,
+          "Agent recommendations returned an empty response. The backend may have timed out before sending JSON.",
+        );
         if (!response.ok) {
           throw new Error(payload.error || "Agent recommendations are temporarily unavailable.");
         }
@@ -1549,6 +1569,9 @@ function SimplifiedPortfolioView({
   const activeRecommendation =
     recommendationTabs.find((tab) => tab.id === activeRecommendationTab) ??
     recommendationTabs[0];
+  const currentCount = portfolio.positions.filter(
+    (position) => position.list === "current" || position.quantity > 0,
+  ).length;
   const panelButtons: Array<{
     id: PortfolioActionPanel;
     title: string;
@@ -1639,8 +1662,8 @@ function SimplifiedPortfolioView({
   }
 
   return (
-    <div className="space-y-5 border-t border-white/10 p-4 sm:p-5">
-      <section className="rounded-2xl border border-cyan-300/20 bg-gradient-to-br from-[#10243B] to-[#0B1726] p-5 shadow-xl">
+    <div className="space-y-4 border-t border-white/10 p-2 sm:space-y-5 sm:p-5">
+      <section className="hidden rounded-2xl border border-cyan-300/20 bg-gradient-to-br from-[#10243B] to-[#0B1726] p-5 shadow-xl md:block">
         <div className="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
           <div>
             <p className="text-xs font-semibold uppercase tracking-[0.18em] text-amber-200">
@@ -1667,11 +1690,14 @@ function SimplifiedPortfolioView({
         </div>
       </section>
 
-      <AiMarketIntelligence portfolioId={portfolio.id} signals={intelligenceSignals} />
+      <ResponsiveMarketIntelligence
+        portfolioId={portfolio.id}
+        signals={intelligenceSignals}
+      />
 
       <section className="min-w-0 space-y-3">
         <div
-          className="flex max-w-full gap-2 overflow-x-auto rounded-2xl border border-white/10 bg-[#101D30] p-2 shadow-xl [scrollbar-width:none] [&::-webkit-scrollbar]:hidden md:grid md:grid-cols-4"
+          className="flex max-w-full gap-1 overflow-x-auto rounded-md bg-[#101D30] p-1 shadow-sm ring-1 ring-white/10 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden md:grid md:grid-cols-4 md:gap-2 md:rounded-2xl md:p-2 md:shadow-xl"
           role="tablist"
           aria-label="Recommendation categories"
         >
@@ -1686,10 +1712,10 @@ function SimplifiedPortfolioView({
                 aria-controls={`recommendation-panel-${tab.id}`}
                 onClick={() => setActiveRecommendationTab(tab.id)}
                 className={cn(
-                  "min-h-11 shrink-0 rounded-xl border px-4 py-2.5 text-sm font-semibold transition md:w-full",
+                  "min-h-10 shrink-0 rounded-md px-3 py-2 text-sm font-semibold transition md:min-h-11 md:w-full md:rounded-xl md:px-4 md:py-2.5",
                   isActive
-                    ? "border-cyan-200/50 bg-cyan-300 text-slate-950 shadow-lg shadow-cyan-950/20"
-                    : "border-white/10 bg-[#16263D] text-slate-300 hover:border-cyan-300/40 hover:text-white",
+                    ? "bg-cyan-300 text-slate-950 shadow-lg shadow-cyan-950/20 ring-1 ring-cyan-200/50"
+                    : "bg-transparent text-slate-300 hover:bg-[#16263D] hover:text-white md:ring-1 md:ring-white/10",
                 )}
               >
                 {tab.label}
@@ -1697,7 +1723,12 @@ function SimplifiedPortfolioView({
             );
           })}
         </div>
-        <div className="rounded-xl border border-white/10 bg-[#16263D] px-4 py-3 text-xs leading-5 text-slate-400">
+        <MobilePortfolioSummary
+          currentCount={currentCount}
+          metrics={portfolioMetrics}
+          visibleRows={activeRecommendation.rows.length}
+        />
+        <div className="hidden rounded-xl border border-white/10 bg-[#16263D] px-4 py-3 text-xs leading-5 text-slate-400 md:block">
           <span className="font-semibold text-cyan-200">
             {isAgentLoading
               ? "Agent engine running."
@@ -1748,6 +1779,106 @@ function SimplifiedPortfolioView({
   );
 }
 
+function ResponsiveMarketIntelligence({
+  portfolioId,
+  signals,
+}: {
+  portfolioId: string;
+  signals: ExistingRecommendationSignal[];
+}) {
+  const isMobile = useIsMobileViewport();
+  const [isMobilePanelOpen, setIsMobilePanelOpen] = useState(false);
+
+  if (isMobile === null) {
+    return null;
+  }
+
+  if (isMobile) {
+    return (
+      <details
+        className="group rounded-xl bg-[#101D30] px-3 py-2 shadow-sm ring-1 ring-white/10"
+        onToggle={(event) => setIsMobilePanelOpen(event.currentTarget.open)}
+      >
+        <summary className="flex cursor-pointer list-none items-center justify-between gap-3 text-sm font-semibold text-slate-100 [&::-webkit-details-marker]:hidden">
+          <span className="inline-flex items-center gap-2">
+            <Sparkles className="h-4 w-4 text-cyan-200" aria-hidden="true" />
+            Market signals
+          </span>
+          <ChevronDown
+            className="h-4 w-4 text-slate-400 transition group-open:rotate-180"
+            aria-hidden="true"
+          />
+        </summary>
+        {isMobilePanelOpen ? (
+          <div className="mt-3 overflow-hidden rounded-lg">
+            <AiMarketIntelligence portfolioId={portfolioId} signals={signals} />
+          </div>
+        ) : null}
+      </details>
+    );
+  }
+
+  return <AiMarketIntelligence portfolioId={portfolioId} signals={signals} />;
+}
+
+function useIsMobileViewport() {
+  const [isMobile, setIsMobile] = useState<boolean | null>(null);
+
+  useEffect(() => {
+    const media = window.matchMedia("(max-width: 767px)");
+    const update = () => setIsMobile(media.matches);
+
+    update();
+    if (typeof media.addEventListener === "function") {
+      media.addEventListener("change", update);
+    } else {
+      media.addListener(update);
+    }
+
+    return () => {
+      if (typeof media.removeEventListener === "function") {
+        media.removeEventListener("change", update);
+      } else {
+        media.removeListener(update);
+      }
+    };
+  }, []);
+
+  return isMobile;
+}
+
+function MobilePortfolioSummary({
+  currentCount,
+  metrics,
+  visibleRows,
+}: {
+  currentCount: number;
+  metrics: ReturnType<typeof calculatePortfolioMetrics>;
+  visibleRows: number;
+}) {
+  const dayTone = metrics.dayChange >= 0 ? "text-emerald-300" : "text-rose-300";
+
+  return (
+    <section className="rounded-md bg-[#16263D] px-4 py-3 shadow-sm ring-1 ring-white/10 md:hidden">
+      <div className="grid grid-cols-[1fr_auto] gap-x-4 gap-y-1 text-sm">
+        <div className="text-slate-400">Curr. Val.</div>
+        <div className="text-right text-base font-semibold text-emerald-300">
+          {formatCurrency(metrics.totalValue)}
+        </div>
+        <div className="text-slate-400">Day&apos;s P&amp;L</div>
+        <div className={cn("text-right text-base font-semibold", dayTone)}>
+          {formatCurrency(metrics.dayChange)}{" "}
+          <span className="text-sm">({formatPercent(metrics.dayChangePercent)})</span>
+        </div>
+      </div>
+      <div className="mt-3 flex items-center justify-between border-t border-white/10 pt-2 text-[11px] font-semibold uppercase tracking-[0.12em] text-slate-500">
+        <span>Holdings {currentCount}</span>
+        <span>Shown {visibleRows}</span>
+      </div>
+    </section>
+  );
+}
+
 function DecisionRecommendationTable({
   className,
   id,
@@ -1769,26 +1900,30 @@ function DecisionRecommendationTable({
     <section
       id={id}
       role="tabpanel"
-      className={cn("min-w-0 space-y-3 rounded-2xl border border-white/10 bg-[#101D30] p-3 shadow-xl sm:p-5", className)}
+      className={cn("min-w-0 space-y-3 rounded-md bg-transparent p-0 sm:rounded-2xl sm:border sm:border-white/10 sm:bg-[#101D30] sm:p-5 sm:shadow-xl", className)}
     >
-      <SectionTitle title={title} subtitle={subtitle} badge={badge} accent="blue" />
+      <div className="hidden sm:block">
+        <SectionTitle title={title} subtitle={subtitle} badge={badge} accent="blue" />
+      </div>
       <div className="space-y-3 md:hidden">
         {rows.map((row) => (
           <article
             key={`${title}-mobile-${row.symbol}-${row.type}`}
-            className="rounded-xl border border-white/10 bg-[#16263D] px-4 py-3.5 shadow-md"
+            className="rounded-md bg-[#16263D] px-3.5 py-3 shadow-sm ring-1 ring-white/10"
           >
             <div className="flex items-start justify-between gap-4">
               <div className="min-w-0">
-                <div className="truncate font-semibold text-white">
-                  {row.company || row.symbol}
-                </div>
+                <div className="truncate text-base font-semibold text-white">{row.symbol}</div>
                 <div className="mt-1 text-[11px] text-slate-400">
-                  {row.symbol} · {row.horizon}
+                  {(row.company && row.company !== row.symbol) ? `${row.company} · ` : ""}
+                  {row.horizon}
                 </div>
               </div>
               <div className="shrink-0 text-right">
-                <div className="font-semibold text-white">
+                <div className={cn(
+                  "text-base font-semibold",
+                  row.action === "SELL" ? "text-rose-300" : "text-emerald-300",
+                )}>
                   {formatDecisionPrice(row.cmp)}
                 </div>
                 <div className="mt-1 text-[11px] text-slate-400">
@@ -1796,7 +1931,7 @@ function DecisionRecommendationTable({
                 </div>
               </div>
             </div>
-            <div className="mt-3 flex items-center justify-between gap-3 border-t border-white/10 pt-3">
+            <div className="mt-3 flex items-center justify-between gap-3 pt-2">
               <RecommendationActionBadge action={row.action} />
               <div className="text-right text-[11px] text-slate-400">
                 <span>Confidence {row.confidence}%</span>

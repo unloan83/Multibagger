@@ -107,6 +107,7 @@ export function calculateStopLoss(
   riskScore = 0,
 ) {
   if (price <= 0) return 0;
+  if (action === "Watchlist" || action === "Hold") return 0;
   const isSell = action === "Urgent Sell";
   const baseRisk = section === "Intraday" ? 0.025 : riskScore >= 55 ? 0.12 : 0.08;
 

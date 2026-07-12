@@ -117,6 +117,8 @@ const categoryMeta: Record<
   small: { key: "smallCap", title: "Small-Cap Wealth Candidates" },
 };
 
+export const STOCKS_PER_MARKET_CAP_CATEGORY = 3;
+
 export async function buildExpertActionMatrix(): Promise<ExpertActionMatrix> {
   const snapshot = await readSnapshot();
 
@@ -206,7 +208,7 @@ export async function generateExpertActionMatrix(): Promise<ExpertActionMatrix> 
       "Uniform benchmark-relative screening; no example stock receives a score adjustment or guaranteed inclusion.",
       "Mandatory gates cover data freshness, positive TTM earnings, revenue direction, ROE, leverage, valuation, liquidity, trend, price extension and market regime.",
       "News sentiment, government policy, sector direction, expert consensus and learning feedback are capped context adjustments; they cannot bypass a failed safety gate.",
-      "The engine abstains when evidence is incomplete or no stock clears every safety gate; non-selected names retain exclusion diagnostics.",
+      "Each market-cap category returns exactly three ranked stocks when at least three were evaluated. Stocks that clear every gate are Accumulate ideas; deterministic backfills remain Watchlist ideas with their failed gates disclosed.",
     ],
     exclusionDiagnostics,
     consecutivePicks,
@@ -218,6 +220,10 @@ export async function generateExpertActionMatrix(): Promise<ExpertActionMatrix> 
 export async function writeExpertActionMatrixSnapshot(
   matrix: ExpertActionMatrix,
 ) {
+  const contractErrors = validateRecommendationContract(matrix);
+  if (contractErrors.length) {
+    throw new Error(`Invalid recommendation snapshot: ${contractErrors.join(" ")}`);
+  }
   const snapshotPath = path.join(
     process.cwd(),
     "data",
@@ -226,7 +232,36 @@ export async function writeExpertActionMatrixSnapshot(
   await fs.writeFile(snapshotPath, `${JSON.stringify(matrix, null, 2)}\n`, "utf8");
 }
 
-function buildCategory(
+export function validateRecommendationContract(matrix: ExpertActionMatrix) {
+  const errors: string[] = [];
+  const expectedKeys = new Set(Object.values(categoryMeta).map((meta) => meta.key));
+  const seenKeys = new Set<string>();
+
+  for (const category of matrix.categories) {
+    if (!expectedKeys.has(category.key)) {
+      errors.push(`Unknown market-cap category ${category.key}.`);
+    }
+    if (seenKeys.has(category.key)) {
+      errors.push(`Duplicate market-cap category ${category.key}.`);
+    }
+    seenKeys.add(category.key);
+    if (category.longTermUpsides.length !== STOCKS_PER_MARKET_CAP_CATEGORY) {
+      errors.push(
+        `${category.key} contains ${category.longTermUpsides.length} stocks; expected ${STOCKS_PER_MARKET_CAP_CATEGORY}.`,
+      );
+    }
+    const symbols = category.longTermUpsides.map((quote) => quote.symbol);
+    if (new Set(symbols).size !== symbols.length) {
+      errors.push(`${category.key} contains duplicate stock symbols.`);
+    }
+  }
+  for (const expectedKey of expectedKeys) {
+    if (!seenKeys.has(expectedKey)) errors.push(`Missing market-cap category ${expectedKey}.`);
+  }
+  return errors;
+}
+
+export function buildCategory(
   bucket: MarketCapBucket,
   screened: ScreenedStock[],
   marketRegime: ScreeningRegime,
@@ -234,15 +269,14 @@ function buildCategory(
 ): ExpertCategory {
   const meta = categoryMeta[bucket];
   const bucketStocks = screened.filter((stock) => stock.capBucket === bucket);
-  const longTermUpsides = bucketStocks
-    .filter(isLongTermCandidate)
-    .sort(
-      (a, b) =>
-        b.score + b.factorScores.growth + b.factorScores.quality -
-        (a.score + a.factorScores.growth + a.factorScores.quality),
-    )
-    .slice(0, 6)
-    .map((stock) => toExpertQuote(stock, marketRegime));
+  const longTermUpsides = selectCategoryStocks(bucketStocks).map((stock) =>
+    toExpertQuote(
+      stock,
+      marketRegime,
+      "longTerm",
+      !isLongTermCandidate(stock),
+    ),
+  );
   const intradayBreakouts = bucketStocks
     .filter((stock) => isMomentumCandidate(stock, intradayPriors[stock.symbol]))
     .sort(
@@ -262,6 +296,39 @@ function buildCategory(
     longTermUpsides,
     intradayBreakouts,
   };
+}
+
+/**
+ * Enforces the output contract independently from the scoring model. Fully
+ * qualified ideas rank first, followed by gate-eligible ideas and then the
+ * strongest review candidates. Symbol order makes ties reproducible.
+ */
+export function selectCategoryStocks(stocks: ScreenedStock[]) {
+  return [...stocks]
+    .sort((a, b) =>
+      selectionTier(a) - selectionTier(b) ||
+      longTermRankScore(b) - longTermRankScore(a) ||
+      a.symbol.localeCompare(b.symbol),
+    )
+    .slice(0, STOCKS_PER_MARKET_CAP_CATEGORY);
+}
+
+function selectionTier(stock: ScreenedStock) {
+  if (isLongTermCandidate(stock)) return 0;
+  if (stock.eligible) return 1;
+  return 2;
+}
+
+function longTermRankScore(stock: ScreenedStock) {
+  const gatePenalty = Math.min(stock.gateFailures.length, 10) * 4;
+  return (
+    stock.score * 2 +
+    stock.factorScores.growth +
+    stock.factorScores.quality +
+    stock.factorScores.momentum +
+    stock.factorScores.risk -
+    gatePenalty
+  );
 }
 
 function isLongTermCandidate(stock: ScreenedStock) {
@@ -317,6 +384,7 @@ function toExpertQuote(
   stock: ScreenedStock,
   marketRegime: ScreeningRegime,
   source: "longTerm" | "intraday" = "longTerm",
+  forceWatchlist = false,
 ): ExpertQuote {
   const intradayPotential =
     source === "intraday" ? stock.metrics.intradayPotentialPercent : 0;
@@ -336,7 +404,7 @@ function toExpertQuote(
     upside: source === "intraday" ? intradayPotential : stock.upside,
     score: stock.score,
     action:
-      isSafetyGatedIntradayWatch
+      forceWatchlist || isSafetyGatedIntradayWatch
         ? "Watchlist"
         : source === "intraday" ||
       marketRegime === "Bull Market" ||
@@ -344,7 +412,9 @@ function toExpertQuote(
         ? "Accumulate"
         : "Watchlist",
     remark:
-      isSafetyGatedIntradayWatch
+      forceWatchlist
+        ? `Ranked category backfill (watchlist, not an accumulation signal): ${getExclusionReason(stock)} ${stock.remark}`
+        : isSafetyGatedIntradayWatch
         ? `Momentum watchlist only: ${stock.gateFailures.slice(0, 2).join(" ")} Evidence-derived intraday potential ${intradayPotential.toFixed(1)}%; minimum hurdle ${MIN_INTRADAY_POTENTIAL_PERCENT}%.`
         : source === "intraday"
           ? `${stock.remark} Evidence-derived intraday potential ${intradayPotential.toFixed(1)}%; minimum hurdle ${MIN_INTRADAY_POTENTIAL_PERCENT}%.`
@@ -413,7 +483,8 @@ async function readSnapshot(): Promise<ExpertActionMatrix | null> {
       !Number.isFinite(ageHours) ||
       ageHours < -1 ||
       ageHours > 36 ||
-      snapshot.universeSize < 450
+      snapshot.universeSize < 450 ||
+      validateRecommendationContract(snapshot).length > 0
     ) {
       return null;
     }

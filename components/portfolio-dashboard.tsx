@@ -180,6 +180,35 @@ type ExpertActionMatrix = {
   categories: ExpertMatrixCategory[];
 };
 
+type IpoRecommendationDto = {
+  id: string;
+  company: string;
+  symbol?: string;
+  exchange: string;
+  status: "upcoming" | "open" | "closed" | "listed";
+  openDate: string;
+  closeDate: string;
+  priceBandLow: number;
+  priceBandHigh: number;
+  lotSize: number;
+  recommendation: "BUY" | "WATCH" | "AVOID";
+  score: number;
+  confidence: number;
+  gmp: {
+    latest: number | null;
+    indicationPercent: number | null;
+    estimatedListingPrice: number | null;
+    trend: "rising" | "flat" | "falling" | "volatile" | "unavailable";
+  };
+  reasons: string[];
+  concerns: string[];
+};
+
+type IpoRecommendationsPayload = {
+  recommendations: IpoRecommendationDto[];
+  warning?: string;
+};
+
 type AgentRecommendationDto = {
   symbol: string;
   company: string;
@@ -1320,7 +1349,7 @@ type DecisionRecommendationRow = {
   stopLoss: number;
   confidence: number;
   horizon: string;
-  action: "BUY" | "WATCH" | "SELL";
+  action: "BUY" | "WATCH" | "SELL" | "AVOID";
   reason: string;
   technicalFactors: string[];
   fundamentalFactors: string[];
@@ -1334,7 +1363,7 @@ type RecommendationViewTab =
   | "portfolio"
   | "long-term"
   | "intraday"
-  | "expert";
+  | "ipo";
 
 function toAgentTimeframe(horizon: string): ExistingRecommendationSignal["timeframe"] {
   const value = horizon.toLowerCase();
@@ -1401,6 +1430,9 @@ function SimplifiedPortfolioView({
     useState<AgentRecommendationsPayload | null>(null);
   const [isAgentLoading, setIsAgentLoading] = useState(false);
   const [agentError, setAgentError] = useState("");
+  const [ipoRecommendations, setIpoRecommendations] =
+    useState<IpoRecommendationsPayload | null>(null);
+  const [isIpoLoading, setIsIpoLoading] = useState(false);
   const portfolioMetrics = useMemo(
     () => calculatePortfolioMetrics(portfolio.positions),
     [portfolio.positions],
@@ -1452,6 +1484,23 @@ function SimplifiedPortfolioView({
     };
   }, [portfolio.id, portfolio.inputs, portfolio.positions]);
 
+  useEffect(() => {
+    let cancelled = false;
+    setIsIpoLoading(true);
+    fetch("/api/ipos")
+      .then((response) => readJsonResponse<IpoRecommendationsPayload>(response, "IPO intelligence returned an empty response."))
+      .then((payload) => {
+        if (!cancelled) setIpoRecommendations(payload);
+      })
+      .catch(() => {
+        if (!cancelled) setIpoRecommendations(null);
+      })
+      .finally(() => {
+        if (!cancelled) setIsIpoLoading(false);
+      });
+    return () => { cancelled = true; };
+  }, []);
+
   const sections = useMemo(
     () => buildSimplifiedPortfolioSections(
       portfolio,
@@ -1497,7 +1546,7 @@ function SimplifiedPortfolioView({
         company: row.company || row.symbol,
         sector: position?.sector || "Unclassified",
         source: portfolioSymbols.has(row.symbol) ? "portfolio" : "opportunity",
-        action: row.action,
+        action: row.action === "AVOID" ? "WATCH" : row.action,
         score: row.confidence,
         confidence: row.confidence,
         timeframe: toAgentTimeframe(row.horizon),
@@ -1557,13 +1606,15 @@ function SimplifiedPortfolioView({
       badge: "AGENT ORCHESTRATED",
     },
     {
-      id: "expert",
-      label: "Expert Recommendations",
-      title: "Expert Recommendations",
-      subtitle: "Market-wide expert-matrix ideas; separated from the portfolio agent engine.",
-      rows: sections.consensus,
-      emptyText: "Expert recommendations are loading.",
-      badge: "EXPERT MATRIX",
+      id: "ipo",
+      label: "Upcoming IPOs",
+      title: "Upcoming IPOs",
+      subtitle: "IPO fundamentals, valuation, subscription demand and capped unofficial grey-market indications.",
+      rows: buildIpoDecisionRows(ipoRecommendations?.recommendations ?? []),
+      emptyText: isIpoLoading
+        ? "Upcoming IPO intelligence is loading."
+        : ipoRecommendations?.warning || "No upcoming IPO records are available from the configured feed.",
+      badge: "IPO INTELLIGENCE",
     },
   ];
   const activeRecommendation =
@@ -1736,7 +1787,7 @@ function SimplifiedPortfolioView({
                 ? "Agent engine active."
                 : "Calculated recommendations shown."}
           </span>{" "}
-          Portfolio, Long Term, and Intraday tabs use the multi-agent orchestrator when available. Expert Recommendations use the separate market-wide expert matrix.
+          Portfolio, Long Term, and Intraday combine the relevant agent and expert-matrix horizons. Upcoming IPOs use the separate IPO intelligence engine.
           {agentError ? <span className="ml-1 text-amber-100">{agentError}</span> : null}
         </div>
 
@@ -1922,7 +1973,7 @@ function DecisionRecommendationTable({
               <div className="shrink-0 text-right">
                 <div className={cn(
                   "text-base font-semibold",
-                  row.action === "SELL" ? "text-rose-300" : "text-emerald-300",
+                  row.action === "SELL" || row.action === "AVOID" ? "text-rose-300" : "text-emerald-300",
                 )}>
                   {formatDecisionPrice(row.cmp)}
                 </div>
@@ -2012,7 +2063,7 @@ function RecommendationStockLabel({ row }: { row: DecisionRecommendationRow }) {
 function RecommendationActionBadge({
   action,
 }: {
-  action: "BUY" | "WATCH" | "SELL";
+  action: "BUY" | "WATCH" | "SELL" | "AVOID";
 }) {
   return (
     <span className={cn(
@@ -5295,36 +5346,27 @@ function buildSimplifiedPortfolioSections(
     8,
   );
   const longTerm = takeNewDecisionRows(
-    agentLongTerm.length
-      ? agentLongTerm
-      : buildLegacyLongTermRows(recommendations),
-    selectedSymbols,
+    getUniqueDecisionRows([
+      ...(agentLongTerm.length ? agentLongTerm : buildLegacyLongTermRows(recommendations)),
+      ...buildExpertLongTermRows(matrix),
+    ], 12),
+    new Set(selectedSymbols),
   );
   const agentIntraday = getUniqueDecisionRows(
     agentRows.filter((row) => row.horizon === "Intraday"),
     8,
   );
   const intraday = takeNewDecisionRows(
-    agentIntraday.length
-      ? agentIntraday
-      : getUniqueDecisionRows(
-          [
-            ...buildExpertIntradayRows(matrix),
-            ...buildLegacyIntradayRows(recommendations),
-          ],
-          10,
-        ),
-    selectedSymbols,
-  );
-  const consensus = takeNewDecisionRows(
-    buildExpertConsensusRows(matrix),
-    selectedSymbols,
+    getUniqueDecisionRows([
+      ...(agentIntraday.length ? agentIntraday : buildLegacyIntradayRows(recommendations)),
+      ...buildExpertIntradayRows(matrix),
+    ], 12),
+    new Set(selectedSymbols),
   );
 
   return {
-    all: [...portfolioRows, ...longTerm, ...intraday, ...consensus],
+    all: [...portfolioRows, ...longTerm, ...intraday],
     buy,
-    consensus,
     intraday,
     longTerm,
     portfolio: portfolioRows,
@@ -5386,6 +5428,52 @@ function buildLegacyLongTermRows(
     .slice(0, 10);
 }
 
+function buildExpertLongTermRows(
+  matrix: ExpertActionMatrix | null,
+): DecisionRecommendationRow[] {
+  if (!matrix) return [];
+  return matrix.categories
+    .flatMap((category) =>
+      category.longTermUpsides.map((quote) =>
+        buildDecisionRowFromQuote(
+          quote,
+          `${getMarketCapType(category.title)} | Expert Long Term`,
+          category.title,
+          "longTerm",
+        ),
+      ),
+    )
+    .sort((a, b) => b.confidence - a.confidence);
+}
+
+function buildIpoDecisionRows(ipos: IpoRecommendationDto[]): DecisionRecommendationRow[] {
+  return ipos.map((ipo) => ({
+    symbol: ipo.symbol || ipo.company,
+    company: ipo.company,
+    type: `${ipo.exchange} | ${ipo.status}`,
+    cmp: ipo.priceBandHigh,
+    target: ipo.gmp.estimatedListingPrice ?? 0,
+    stopLoss: 0,
+    confidence: ipo.confidence,
+    horizon: `${ipo.openDate} to ${ipo.closeDate}`,
+    action: ipo.recommendation,
+    reason: [
+      `IPO score ${ipo.score}/100; lot size ${ipo.lotSize}.`,
+      ipo.gmp.latest == null
+        ? "GMP unavailable."
+        : `Unofficial GMP ₹${ipo.gmp.latest.toFixed(0)} (${ipo.gmp.indicationPercent?.toFixed(1)}%), trend ${ipo.gmp.trend}.`,
+      ...ipo.reasons.slice(0, 2),
+    ].join(" "),
+    technicalFactors: [
+      `GMP trend: ${ipo.gmp.trend}.`,
+      `Price band: ₹${ipo.priceBandLow}–₹${ipo.priceBandHigh}.`,
+    ],
+    fundamentalFactors: ipo.reasons,
+    sectorStrength: `${ipo.exchange} ${ipo.status} issue.`,
+    riskFactors: ipo.concerns,
+  }));
+}
+
 function buildLegacyIntradayRows(
   recommendations: ReturnType<typeof generateRecommendations>,
 ) {
@@ -5414,68 +5502,6 @@ function buildExpertIntradayRows(
     )
     .sort((a, b) => b.confidence - a.confidence)
     .slice(0, 10);
-}
-
-function buildExpertConsensusRows(
-  matrix: ExpertActionMatrix | null,
-): DecisionRecommendationRow[] {
-  if (!matrix) return [];
-  const quotes = matrix.categories.flatMap((category) => [
-    ...category.longTermUpsides.map((quote) => ({ category, quote })),
-    ...category.intradayBreakouts.map((quote) => ({ category, quote })),
-  ]);
-  const quoteBySymbol = quotes.reduce<Record<string, (typeof quotes)[number]>>(
-    (acc, item) => {
-      const symbol = normalizeDecisionSymbol(item.quote.symbol);
-      const current = acc[symbol];
-      if (!current || item.quote.score > current.quote.score) {
-        acc[symbol] = item;
-      }
-      return acc;
-    },
-    {},
-  );
-  const liveMentions = quotes.reduce<Record<string, number>>((acc, item) => {
-    const symbol = normalizeDecisionSymbol(item.quote.symbol);
-    acc[symbol] = (acc[symbol] ?? 0) + 1;
-    return acc;
-  }, {});
-  const focusBySymbol = matrix.consecutivePicks?.reduce<Record<string, number>>(
-    (acc, pick) => {
-      const symbol = normalizeDecisionSymbol(pick.symbol);
-      acc[symbol] = Math.max(pick.appearances, liveMentions[symbol] ?? 0);
-      return acc;
-    },
-    {},
-  ) ?? {};
-
-  return Object.values(quoteBySymbol)
-    .map(({ category, quote }) => {
-      const symbol = normalizeDecisionSymbol(quote.symbol);
-      const expertFocus = focusBySymbol[symbol] ?? liveMentions[symbol] ?? 1;
-      return {
-        ...buildDecisionRowFromQuote(
-          quote,
-          `${getMarketCapType(category.title)} | Expert Consensus`,
-          category.title,
-          "longTerm",
-        ),
-        expertFocus,
-        consensusBadge:
-          quote.action === "Watchlist"
-            ? "Watchlist" as const
-            : expertFocus >= 3 || quote.score >= 80
-            ? "Strong Buy" as const
-            : expertFocus >= 2 || quote.score >= 65
-              ? "Buy" as const
-              : "Watchlist" as const,
-      };
-    })
-    .sort((a, b) => {
-      const focusDifference = (b.expertFocus ?? 0) - (a.expertFocus ?? 0);
-      return focusDifference || b.confidence - a.confidence;
-    })
-    .slice(0, 6);
 }
 
 function buildDecisionRowFromAgentRecommendation(

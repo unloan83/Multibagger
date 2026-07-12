@@ -102,6 +102,21 @@ test("learning feedback uses 7, 30 and 90 day reviews with sample guards", () =>
   assert(feedback.recommendationQualityScore > 0);
 });
 
+test("learning feedback excludes non-actionable watchlist outcomes", () => {
+  const records = [
+    ...Array.from({ length: 5 }, (_, index) => validationRecord("Hit", index)),
+    ...Array.from({ length: 20 }, (_, index) => ({
+      ...validationRecord("Miss", index + 10),
+      action: "Watchlist",
+    })),
+  ];
+  const feedback = buildLearningFeedback(records, new Date("2026-06-22T00:00:00.000Z"));
+
+  assert.equal(feedback.windows[1].sampleSize, 5);
+  assert.equal(feedback.windows[1].hitRate, 100);
+  assert.equal(feedback.adjustment, 2);
+});
+
 function validationRecord(
   status: ValidationRecord["validationStatus"],
   index: number,

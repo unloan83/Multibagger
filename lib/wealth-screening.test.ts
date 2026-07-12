@@ -14,6 +14,7 @@ import {
   type TechnicalCandidate,
 } from "@/lib/wealth-screening";
 import { generateRecommendations, type ManagedPortfolio } from "@/lib/portfolio";
+import { calculateStopLoss } from "@/lib/intelligence-validation";
 import type { StockSignalMetrics } from "@/lib/analysis";
 
 const bars = Array.from({ length: 220 }, (_, index) => ({
@@ -250,6 +251,12 @@ test("rejects excessive valuation and leverage", () => {
   });
   assert(result.some((item) => item.includes("80x")));
   assert(result.some((item) => item.includes("Debt-to-equity")));
+});
+
+test("does not assign buy-style stop losses to watchlist observations", () => {
+  assert.equal(calculateStopLoss(100, "Watchlist", "1-3 Yr Plan"), 0);
+  assert.equal(calculateStopLoss(100, "Hold", "1-3 Yr Plan"), 0);
+  assert.equal(calculateStopLoss(100, "Accumulate", "1-3 Yr Plan"), 92);
 });
 
 function buildIntradayBars(highExcursionPercent: number) {

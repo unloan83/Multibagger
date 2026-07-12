@@ -293,10 +293,16 @@ export function buildLearningFeedback(
   records: ValidationRecord[],
   now = new Date(),
 ): LearningFeedback {
-  const windows = ([7, 30, 90] as const).map((days) =>
-    summarizeReviewWindow(records, days, now),
+  // Watchlists communicate ranked research candidates, not predictions. Mixing
+  // their outcomes into hit-rate calibration rewards or penalizes calls the
+  // model never made and creates a self-reinforcing accuracy error.
+  const actionableRecords = records.filter((record) =>
+    ["Accumulate", "Urgent Sell"].includes(record.action),
   );
-  const completed = records.filter((record) =>
+  const windows = ([7, 30, 90] as const).map((days) =>
+    summarizeReviewWindow(actionableRecords, days, now),
+  );
+  const completed = actionableRecords.filter((record) =>
     ["Hit", "Miss"].includes(record.validationStatus),
   );
   const sectorAccuracy = groupAccuracy(completed, (record) => record.sector || "Unclassified");
@@ -314,8 +320,8 @@ export function buildLearningFeedback(
     ]),
   );
   const confidenceAccuracy = calculateConfidenceAccuracy(completed);
-  const qualityAverage = average(records.map((record) => record.qualityScore));
-  if (!records.length) {
+  const qualityAverage = average(actionableRecords.map((record) => record.qualityScore));
+  if (!actionableRecords.length) {
     return {
       adjustment: 0,
       confidenceAccuracy: 0,

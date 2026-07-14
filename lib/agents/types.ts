@@ -128,6 +128,12 @@ export type GrowthCandidate = {
   liquidityScore?: number;
   target?: number;
   stopLoss?: number;
+  /** Market-cap bucket from the NIFTY 500 wealth screening universe. */
+  capBucket?: "large" | "mid" | "small" | "emerging";
+  /** Origin of this candidate: user portfolio or cap-segmented universe. */
+  source?: "portfolio" | "wealth-universe";
+  /** Thematic sector name, e.g. "Defense & Capital Goods" (long-term universe only). */
+  thematicSector?: string;
 };
 
 export type AgentGrowthOutput = {
@@ -135,6 +141,19 @@ export type AgentGrowthOutput = {
   generatedAt: string;
   candidates: GrowthCandidate[];
   groups: Record<AgentTimeframe, string[]>;
+};
+
+export type AgentWealthUniverseOutput = {
+  agent: "WealthUniverse";
+  generatedAt: string;
+  candidates: GrowthCandidate[];
+  byBucket: {
+    large: { longTerm: GrowthCandidate[]; intraday: GrowthCandidate[] };
+    mid: { longTerm: GrowthCandidate[]; intraday: GrowthCandidate[] };
+    small: { longTerm: GrowthCandidate[]; intraday: GrowthCandidate[] };
+  };
+  snapshotAge: number;
+  summary: string;
 };
 
 export type RiskDecision = {
@@ -252,6 +271,12 @@ export type FinalRecommendation = {
   riskLevel?: "low" | "medium" | "high";
   agentScores: Record<keyof OrchestratorWeights, number>;
   agentReasons: Record<string, string[]>;
+  /** Market-cap bucket inherited from the NIFTY 500 wealth screening universe. */
+  capBucket?: "large" | "mid" | "small" | "emerging";
+  /** Origin: user portfolio-based or cap-segmented universe candidate. */
+  source?: "portfolio" | "wealth-universe";
+  /** Thematic sector name, e.g. "Defense & Capital Goods" (long-term universe only). */
+  thematicSector?: string;
 };
 
 export type AgentRecommendationLog = {
@@ -310,6 +335,7 @@ export type TechnicalMetrics = {
 };
 
 export type IntradayMetrics = {
+  // --- existing ---
   rsi14: number | null;
   shortSMA: number | null;
   atr14: number | null;
@@ -320,7 +346,31 @@ export type IntradayMetrics = {
   lastPrice: number | null;
   stopLossDistance: number | null;
   targetDistance: number | null;
+  // --- new ---
+  /** Volume-weighted average price across all 15m bars fetched. */
+  vwap: number | null;
+  /** Percentage the current price is above (+) or below (−) VWAP. */
+  vwapDistancePct: number | null;
+  /** Today's open vs previous close as a percentage. */
+  gapPct: number | null;
+  /** Direction of the overnight gap. */
+  gapType: "up" | "down" | "flat" | null;
+  /** High of the first 30-minute opening range (first 2 × 15m candles). */
+  orbHigh: number | null;
+  /** Low of the first 30-minute opening range. */
+  orbLow: number | null;
+  /** Where current price sits relative to the ORB. */
+  priceVsOrb: "above" | "below" | "inside" | null;
+  /** Actual risk:reward ratio based on ATR — replaces fixed 1.8 ×. */
+  dynamicRR: number | null;
+  /** True if the stock is within 1% of a 5 %/10 %/20 % NSE circuit limit. */
+  isNearCircuit: boolean;
+  /** Sector rotation score from macroPolicy (−5 to +5). */
+  sectorMomentum: number | null;
+  /** Which candidate pool this stock came from. */
+  source: "portfolio" | "universe" | "mover";
 };
+
 
 export type SwingMetrics = {
   sma20: number | null;

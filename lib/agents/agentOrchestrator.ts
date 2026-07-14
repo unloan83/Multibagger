@@ -211,6 +211,9 @@ export function agentOrchestrator({
         earningsQuality: earningsQualitySignal?.reasons ?? ["No earnings quality data."],
         rebalance: rebalanceSignal?.reasons ?? ["No rebalance data."],
       },
+      capBucket: candidate.capBucket,
+      source: candidate.source,
+      thematicSector: candidate.thematicSector,
     };
   }).sort((a, b) => b.score - a.score);
 

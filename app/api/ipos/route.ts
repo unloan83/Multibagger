@@ -2,6 +2,7 @@ import fs from "node:fs/promises";
 import path from "node:path";
 import { NextResponse } from "next/server";
 import { analyzeIpos, type IpoCandidate } from "@/lib/agents/ipoAgent";
+import { parseIpoNotifyCandidates } from "@/lib/agents/ipoNotify";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -33,6 +34,20 @@ async function loadIpoFeed(): Promise<{
   source: string;
   warning?: string;
 }> {
+  const ipoNotifyKey = process.env.IPO_NOTIFY_API_KEY;
+  if (ipoNotifyKey) {
+    try {
+      const candidates = await loadIpoNotifyFeed(ipoNotifyKey);
+      return { candidates, source: "IPO Notify" };
+    } catch (error) {
+      return {
+        candidates: await readLocalFeed(),
+        source: "local fallback",
+        warning: error instanceof Error ? error.message : "IPO Notify is unavailable.",
+      };
+    }
+  }
+
   const url = process.env.IPO_FEED_URL;
   if (url) {
     try {
@@ -58,8 +73,28 @@ async function loadIpoFeed(): Promise<{
   return {
     candidates: await readLocalFeed(),
     source: "local fallback",
-    warning: "Set IPO_FEED_URL (and optionally IPO_FEED_API_KEY) for live NSE/BSE, subscription and GMP data.",
+    warning: "Set IPO_NOTIFY_API_KEY for live open/upcoming IPO and subscription data.",
   };
+}
+
+async function loadIpoNotifyFeed(apiKey: string) {
+  const statuses = ["open", "upcoming"] as const;
+  const payloads = await Promise.all(statuses.map(async (status) => {
+    const response = await fetch(`https://iponotify.me/api/ipo/${status}?limit=10`, {
+      headers: { "X-API-KEY": apiKey },
+      signal: AbortSignal.timeout(8_000),
+      next: { revalidate: 900 },
+    });
+    if (!response.ok) {
+      const message = await response.text().catch(() => "");
+      throw new Error(`IPO Notify ${status} feed returned HTTP ${response.status}${message ? `: ${message.slice(0, 160)}` : ""}`);
+    }
+    return { status, payload: await response.json() as unknown };
+  }));
+
+  return payloads.flatMap(({ status, payload }) =>
+    parseIpoNotifyCandidates(payload, status),
+  );
 }
 
 function parseCandidates(payload: unknown): IpoCandidate[] {

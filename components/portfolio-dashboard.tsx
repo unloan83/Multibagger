@@ -230,6 +230,12 @@ type AgentRecommendationDto = {
   currentPrice?: number;
   agentScores: Record<string, number>;
   agentReasons: Record<string, string[] | undefined>;
+  /** Market-cap bucket from the NIFTY 500 wealth screening universe. */
+  capBucket?: "large" | "mid" | "small" | "emerging";
+  /** Origin of this recommendation: user portfolio or cap-segmented universe. */
+  source?: "portfolio" | "wealth-universe";
+  /** Thematic sector name, e.g. "Defense & Capital Goods" (long-term universe only). */
+  thematicSector?: string;
 };
 
 type AgentRecommendationsPayload = {
@@ -5345,20 +5351,25 @@ function buildSimplifiedPortfolioSections(
     agentRows.filter((row) => row.horizon !== "Intraday"),
     8,
   );
-  const longTerm = takeNewDecisionRows(
-    getUniqueDecisionRows([
-      ...(agentLongTerm.length ? agentLongTerm : buildLegacyLongTermRows(recommendations)),
-      ...buildExpertLongTermRows(matrix),
-    ], 12),
-    new Set(selectedSymbols),
-  );
   const agentIntraday = getUniqueDecisionRows(
     agentRows.filter((row) => row.horizon === "Intraday"),
     8,
   );
+  // Always merge both agent and expert-matrix rows. Expert-matrix rows carry
+  // Large/Mid/Small Cap labels and must not be suppressed when agents run.
+  // takeNewDecisionRows deduplicates by symbol, so a stock won't appear twice.
+  const longTerm = takeNewDecisionRows(
+    getUniqueDecisionRows([
+      ...agentLongTerm,
+      ...buildLegacyLongTermRows(recommendations),
+      ...buildExpertLongTermRows(matrix),
+    ], 12),
+    new Set(selectedSymbols),
+  );
   const intraday = takeNewDecisionRows(
     getUniqueDecisionRows([
-      ...(agentIntraday.length ? agentIntraday : buildLegacyIntradayRows(recommendations)),
+      ...agentIntraday,
+      ...buildLegacyIntradayRows(recommendations),
       ...buildExpertIntradayRows(matrix),
     ], 12),
     new Set(selectedSymbols),
@@ -5534,6 +5545,29 @@ function buildDecisionRowFromAgentRecommendation(
     ...(recommendation.agentReasons.swing ?? []),
   ].slice(0, 4);
 
+  const capLabelMap: Record<string, string> = {
+    large: "Large Cap",
+    mid: "Mid Cap",
+    small: "Small Cap",
+    emerging: "Emerging",
+  };
+  const capLabel = recommendation.capBucket ? capLabelMap[recommendation.capBucket] : null;
+  const horizonLabel = normalizeAgentHorizon(recommendation.timeframe);
+  const thematicLabel = recommendation.thematicSector ?? null;
+
+  // Build a rich type label:
+  // Thematic: "Defense & Capital Goods | Emerging | Agent Long Term"
+  // Cap-only:  "Large Cap | Agent Intraday"
+  // Portfolio: "Agent Orchestrator | Long term"
+  let typeLabel: string;
+  if (thematicLabel && capLabel) {
+    typeLabel = `${thematicLabel} | ${capLabel} | Agent ${horizonLabel}`;
+  } else if (capLabel) {
+    typeLabel = `${capLabel} | Agent ${horizonLabel}`;
+  } else {
+    typeLabel = `Agent Orchestrator | ${recommendation.timeframe}`;
+  }
+
   return {
     action,
     cmp,
@@ -5546,7 +5580,7 @@ function buildDecisionRowFromAgentRecommendation(
     riskFactors: recommendation.negativeConcerns.length
       ? recommendation.negativeConcerns
       : [`Risk level: ${recommendation.riskLevel ?? "medium"}.`],
-    horizon: normalizeAgentHorizon(recommendation.timeframe),
+    horizon: horizonLabel,
     sectorStrength:
       recommendation.agentReasons.macroPolicy?.[0] ??
       recommendation.agentReasons.portfolio?.[0] ??
@@ -5561,7 +5595,7 @@ function buildDecisionRowFromAgentRecommendation(
             ? `Agent score mix: ${agentScoreSummary}.`
             : "Technical, intraday and swing agents completed without a decisive setup.",
         ],
-    type: `Agent Orchestrator | ${recommendation.timeframe}`,
+    type: typeLabel,
   };
 }
 

@@ -2,7 +2,8 @@ name: Daily Recommendation CSV
 
 on:
   schedule:
-    - cron: "15 4 * * 1-5"
+    - cron: "0 5 * * 1-5" # 10:30 AM IST
+    - cron: "0 9 * * 1-5" # 2:30 PM IST
   workflow_dispatch:
 
 permissions:
@@ -23,8 +24,13 @@ jobs:
         with:
           node-version: "20"
 
-      - name: Capture expert and portfolio recommendations
-        run: node scripts/update_daily_recommendations.mjs --slot morning
+      - name: Capture top-gainer targets, expert, and portfolio recommendations
+        run: |
+          if [ "${{ github.event.schedule }}" = "0 9 * * 1-5" ]; then
+            node scripts/update_daily_recommendations.mjs --slot afternoon
+          else
+            node scripts/update_daily_recommendations.mjs --slot morning
+          fi
 
       - name: Commit CSV update
         uses: stefanzweifel/git-auto-commit-action@v5

@@ -9,9 +9,11 @@ import type {
   AgentSentimentOutput,
   AgentTechnicalOutput,
   AgentTimeframe,
+  AgentWealthUniverseOutput,
   GrowthCandidate,
 } from "@/lib/agents/types";
 import { clamp, normalizeSymbol } from "@/lib/agents/utils";
+
 
 export function agentGrowth({
   portfolio,
@@ -20,6 +22,7 @@ export function agentGrowth({
   macroPolicy,
   sentiment,
   portfolioAnalysis,
+  wealthUniverse,
   now = new Date(),
 }: {
   portfolio: ManagedPortfolio;
@@ -28,6 +31,8 @@ export function agentGrowth({
   macroPolicy?: AgentMacroPolicyOutput;
   sentiment?: AgentSentimentOutput;
   portfolioAnalysis?: AgentPortfolioOutput;
+  /** Cap-segmented NIFTY 500 universe candidates from agentWealthUniverse. */
+  wealthUniverse?: AgentWealthUniverseOutput;
   now?: Date;
 }): AgentGrowthOutput {
   const recommendationSymbols = new Set(existingRecommendations.map((item) => normalizeSymbol(item.symbol)));
@@ -53,10 +58,25 @@ export function agentGrowth({
       reason: "Existing stock logic has not produced a qualified Buy or Sell signal.",
       positiveTriggers: position.newsHeadlines?.slice(0, 2) ?? [],
       negativeConcerns: ["No qualified signal from the existing evidence gate."],
+      source: "portfolio" as const,
     }));
-  const candidates = [...fromExisting, ...watchOnly]
+
+  // Wealth-universe candidates (Large/Mid/Small Cap picks from the NIFTY 500 screen)
+  // are merged in after portfolio candidates. Symbols already covered by portfolio
+  // positions or existing recommendations are excluded to avoid duplication.
+  const coveredSymbols = new Set([
+    ...fromExisting.map((c) => c.symbol),
+    ...watchOnly.map((c) => c.symbol),
+  ]);
+  const universeCandidates = (wealthUniverse?.candidates ?? []).filter(
+    (c) => !coveredSymbols.has(c.symbol),
+  );
+
+  const candidates = [...fromExisting, ...watchOnly, ...universeCandidates]
     .map((candidate) => ({
       ...candidate,
+      // Re-compute live info/macro/sentiment signals for all candidates.
+      // capBucket and source are preserved via the spread.
       supportingScores: supportScores(
         candidate.symbol,
         candidate.sector,
@@ -67,7 +87,7 @@ export function agentGrowth({
       ),
     }))
     .sort((a, b) => b.existingLogicScore - a.existingLogicScore)
-    .slice(0, 20);
+    .slice(0, 30); // raised from 20 to accommodate both portfolio and universe candidates
   const timeframes: AgentTimeframe[] = ["Intraday", "Short term", "3-6 months", "6-12 months", "Long term"];
 
   return {

@@ -88,6 +88,7 @@ const marketMoverGroups = {
 };
 
 const slot = getArgValue("--slot") ?? "all";
+const recommendationSlots = new Set(["morning", "afternoon"]);
 const now = new Date();
 const date = new Intl.DateTimeFormat("en-CA", {
   timeZone: "Asia/Kolkata",
@@ -106,18 +107,44 @@ await fs.mkdir(path.dirname(outputPath), { recursive: true });
 const rows = [];
 
 if (slot === "market-close" || slot === "all") {
-  rows.push(...await buildMarketRows());
+  rows.push(...await buildMarketRows("market-close"));
 }
 
-if (slot === "morning" || slot === "all") {
-  rows.push(...await buildExpertRows());
-  rows.push(...await buildPortfolioRows());
+if (recommendationSlots.has(slot)) {
+  rows.push(...await buildRecommendationRows(slot));
+}
+
+if (slot === "all") {
+  rows.push(...await buildRecommendationRows("morning"));
 }
 
 await writeRows(rows);
 console.log(`Wrote ${rows.length} ${slot} rows to ${path.relative(repoRoot, outputPath)}`);
 
-async function buildMarketRows() {
+async function buildRecommendationRows(runSlot) {
+  const preRecommendationGainers = await buildMarketRows(runSlot, {
+    includeLosers: false,
+    notes: `${formatRecommendationSlot(runSlot)} pre-recommendation target: live segmented top gainer by daily change percent`,
+    segmentSuffix: "Top Gainer Targets",
+    action: "Prioritize Match",
+  });
+
+  return [
+    ...preRecommendationGainers,
+    ...await buildExpertRows(runSlot),
+    ...await buildPortfolioRows(runSlot),
+  ];
+}
+
+async function buildMarketRows(
+  runSlot,
+  {
+    includeLosers = true,
+    notes = "Post-close segmented top gainer by daily change percent",
+    segmentSuffix = "Top Gainers",
+    action = "Track",
+  } = {},
+) {
   const rows = [];
 
   for (const [segment, symbols] of Object.entries(marketMoverGroups)) {
@@ -134,17 +161,22 @@ async function buildMarketRows() {
     rows.push(
       ...gainers.map((quote) =>
         toCsvRow(quote, {
-          runSlot: "market-close",
+          runSlot,
           category: "gainer",
           source: "market-movers",
-          segment: `${segment} Top Gainers`,
-          action: "Track",
-          notes: "Post-close segmented top gainer by daily change percent",
+          segment: `${segment} ${segmentSuffix}`,
+          action,
+          notes,
         }),
       ),
+    );
+
+    if (!includeLosers) continue;
+
+    rows.push(
       ...losers.map((quote) =>
         toCsvRow(quote, {
-          runSlot: "market-close",
+          runSlot,
           category: "loser",
           source: "market-movers",
           segment: `${segment} Top Losers`,
@@ -158,7 +190,7 @@ async function buildMarketRows() {
   return rows;
 }
 
-async function buildExpertRows() {
+async function buildExpertRows(runSlot) {
   const snapshot = JSON.parse(await fs.readFile(wealthSnapshotPath, "utf8"));
   const ageHours = (Date.now() - Date.parse(snapshot.asOf)) / 3_600_000;
 
@@ -169,7 +201,7 @@ async function buildExpertRows() {
   return snapshot.categories.flatMap((category) => [
       ...category.longTermUpsides.map((quote) =>
         toCsvRow(quote, {
-          runSlot: "morning",
+          runSlot,
           category: "expert-long-term",
           source: "expert-action-matrix",
           segment: category.title,
@@ -182,7 +214,7 @@ async function buildExpertRows() {
       ),
       ...category.intradayBreakouts.map((quote) =>
         toCsvRow(quote, {
-          runSlot: "morning",
+          runSlot,
           category: "expert-intraday",
           source: "expert-action-matrix",
           segment: category.title,
@@ -196,7 +228,7 @@ async function buildExpertRows() {
     ]);
 }
 
-async function buildPortfolioRows() {
+async function buildPortfolioRows(runSlot) {
   const inputs = await readPortfolioInputs();
   const quotes = (
     await Promise.all(
@@ -226,7 +258,7 @@ async function buildPortfolioRows() {
   return [
     ...shortTerm.map((quote) =>
       toCsvRow(quote, {
-        runSlot: "morning",
+        runSlot,
         category: "portfolio-short-term",
         source: "portfolio-analysis",
         segment: "Short-Term Buy/Sell Analysis",
@@ -237,7 +269,7 @@ async function buildPortfolioRows() {
     ),
     ...longTerm.map((quote) =>
       toCsvRow(quote, {
-        runSlot: "morning",
+        runSlot,
         category: "portfolio-long-term",
         source: "portfolio-analysis",
         segment: "Long-Term Buy/Sell Plan",
@@ -548,6 +580,10 @@ function formatFactorSummary(factors = {}) {
     `Liquidity ${factors.liquidity ?? 0}/10`,
     `Risk ${factors.risk ?? 0}/10`,
   ].join(" | ");
+}
+
+function formatRecommendationSlot(runSlot) {
+  return runSlot === "afternoon" ? "14:30 IST" : "10:30 IST";
 }
 
 function getArgValue(name) {

@@ -4,6 +4,7 @@ export { agentMacroPolicy } from "@/lib/agents/agentMacroPolicy";
 export { agentSentiment } from "@/lib/agents/agentSentiment";
 export { agentPortfolio } from "@/lib/agents/agentPortfolio";
 export { agentGrowth } from "@/lib/agents/agentGrowth";
+export { agentWealthUniverse } from "@/lib/agents/agentWealthUniverse";
 export { agentRiskValidation } from "@/lib/agents/agentRiskValidation";
 export {
   agentPerformance,

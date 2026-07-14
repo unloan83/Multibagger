@@ -14,6 +14,7 @@ import {
 } from "@/lib/portfolio-backup";
 import {
   buildPortfolioInputRow,
+  generateRecommendations,
   identifySector,
   parseQuantity,
   type ManagedPortfolio,
@@ -25,6 +26,8 @@ import { resolveQuotePositions } from "@/lib/quote-service";
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
 export const maxDuration = 120;
+
+const AGENT_RESPONSE_BUDGET_MS = 8_500;
 
 type RequestBody = {
   portfolioId?: string;
@@ -67,68 +70,174 @@ export async function POST(request: Request) {
     positions,
     refreshedAt: new Date().toISOString(),
   };
-  const [market, history] = await Promise.all([
-    buildMarketOverview(),
-    readValidationRecords(),
-  ]);
-  const output = await runMultiAgentRecommendationSystem({
-    portfolio: enrichedPortfolio,
-    market,
-    history,
-    persist: false,
-  });
   const prices = Object.fromEntries(
     positions.map((position) => [normalizeSymbol(position.symbol), position.currentPrice]),
   );
 
-  return NextResponse.json({
-    generatedAt: output.generatedAt,
-    portfolioId: enrichedPortfolio.id,
-    portfolioName: enrichedPortfolio.name,
-    mode: "agent-orchestrated",
-    disclaimer: output.disclaimer,
+  try {
+    const output = await withTimeout(
+      (async () => {
+        const [market, history] = await Promise.all([
+          buildMarketOverview(),
+          readValidationRecords(),
+        ]);
+        return runMultiAgentRecommendationSystem({
+          portfolio: enrichedPortfolio,
+          market,
+          history,
+          persist: false,
+        });
+      })(),
+      AGENT_RESPONSE_BUDGET_MS,
+    );
+
+    return NextResponse.json({
+      generatedAt: output.generatedAt,
+      portfolioId: enrichedPortfolio.id,
+      portfolioName: enrichedPortfolio.name,
+      mode: "agent-orchestrated",
+      disclaimer: output.disclaimer,
+      summaries: {
+        info: output.info.sourceSummary.join(" ") || `${output.info.events.length} intelligence events evaluated.`,
+        macroPolicy: output.macroPolicy.reasons.join(" ") || `Macro-policy score ${output.macroPolicy.marketScore}.`,
+        sentiment: `${output.sentiment.market.classification} market sentiment; low-quality source share ${(output.sentiment.lowQualityShare * 100).toFixed(0)}%.`,
+        portfolio: output.portfolio.reasons.join(" ") || `${output.portfolio.stocks.length} portfolio holdings evaluated.`,
+        growth: `${output.growth.candidates.length} portfolio candidates evaluated by the growth agent.`,
+        riskValidation: `${output.riskValidation.decisions.length} risk-validation decisions completed.`,
+        fundamental: output.fundamental.summary,
+        technical: output.technical.summary,
+        intraday: output.intraday.summary,
+        swing: output.swing.summary,
+        longTerm: output.longTerm.summary,
+        earningsQuality: output.earningsQuality.summary,
+        rebalance: output.rebalance.summary,
+        riskManagement: output.riskManagement.reasons.join(" ") || "Risk management checks completed.",
+        bayesian: output.bayesian.summary,
+      },
+      recommendations: output.recommendations.map((recommendation) => ({
+        symbol: recommendation.symbol,
+        company: recommendation.company,
+        action: recommendation.action,
+        timeframe: recommendation.timeframe,
+        confidence: recommendation.confidence,
+        score: recommendation.score,
+        reason: recommendation.reason,
+        whatChangedRecently: recommendation.whatChangedRecently,
+        positiveTriggers: recommendation.positiveTriggers,
+        negativeConcerns: recommendation.negativeConcerns,
+        sourceSummary: recommendation.sourceSummary,
+        portfolioImpact: recommendation.portfolioImpact,
+        target: recommendation.target,
+        stopLoss: recommendation.stopLoss,
+        expectedMove: recommendation.expectedMove,
+        expectedCagr: recommendation.expectedCagr,
+        riskLevel: recommendation.riskLevel,
+        agentScores: recommendation.agentScores,
+        agentReasons: recommendation.agentReasons,
+        currentPrice: prices[recommendation.symbol] ?? 0,
+        capBucket: recommendation.capBucket,
+        source: recommendation.source,
+        thematicSector: recommendation.thematicSector,
+      })),
+    }, {
+      headers: { "Cache-Control": "private, no-store" },
+    });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Agent recommendations are temporarily unavailable.";
+    console.error("Agent recommendations fell back to local rules:", error);
+    return NextResponse.json(buildRulesFallback(enrichedPortfolio, prices, message), {
+      headers: { "Cache-Control": "private, no-store" },
+    });
+  }
+}
+
+async function withTimeout<T>(promise: Promise<T>, timeoutMs: number): Promise<T> {
+  let timeout: ReturnType<typeof setTimeout> | undefined;
+  try {
+    return await Promise.race([
+      promise,
+      new Promise<T>((_, reject) => {
+        timeout = setTimeout(
+          () => reject(new Error("Agent orchestration exceeded the response budget.")),
+          timeoutMs,
+        );
+      }),
+    ]);
+  } finally {
+    if (timeout) clearTimeout(timeout);
+  }
+}
+
+function buildRulesFallback(
+  portfolio: ManagedPortfolio,
+  prices: Record<string, number>,
+  reason: string,
+) {
+  const groups = generateRecommendations(portfolio, []);
+  const recommendations = [
+    ...groups.longTermPlan,
+    ...groups.multibaggerCandidates,
+    ...groups.intraday,
+    ...groups.etfs,
+  ]
+    .sort((a, b) => b.confidence - a.confidence)
+    .slice(0, 12);
+
+  return {
+    generatedAt: new Date().toISOString(),
+    portfolioId: portfolio.id,
+    portfolioName: portfolio.name,
+    mode: "rules-fallback",
+    disclaimer: "Agent orchestration could not complete within the response window; showing local portfolio-screening recommendations.",
     summaries: {
-      info: output.info.sourceSummary.join(" ") || `${output.info.events.length} intelligence events evaluated.`,
-      macroPolicy: output.macroPolicy.reasons.join(" ") || `Macro-policy score ${output.macroPolicy.marketScore}.`,
-      sentiment: `${output.sentiment.market.classification} market sentiment; low-quality source share ${(output.sentiment.lowQualityShare * 100).toFixed(0)}%.`,
-      portfolio: output.portfolio.reasons.join(" ") || `${output.portfolio.stocks.length} portfolio holdings evaluated.`,
-      growth: `${output.growth.candidates.length} portfolio candidates evaluated by the growth agent.`,
-      riskValidation: `${output.riskValidation.decisions.length} risk-validation decisions completed.`,
-      fundamental: output.fundamental.summary,
-      technical: output.technical.summary,
-      intraday: output.intraday.summary,
-      swing: output.swing.summary,
-      longTerm: output.longTerm.summary,
-      earningsQuality: output.earningsQuality.summary,
-      rebalance: output.rebalance.summary,
-      riskManagement: output.riskManagement.reasons.join(" ") || "Risk management checks completed.",
-      bayesian: output.bayesian.summary,
+      info: reason,
+      portfolio: `${recommendations.length} local screening recommendations generated from current portfolio prices.`,
+      riskManagement: "Use position sizing, stop-loss discipline, and manual validation before trading.",
     },
-    recommendations: output.recommendations.map((recommendation) => ({
-      symbol: recommendation.symbol,
-      company: recommendation.company,
-      action: recommendation.action,
-      timeframe: recommendation.timeframe,
-      confidence: recommendation.confidence,
-      score: recommendation.score,
-      reason: recommendation.reason,
-      whatChangedRecently: recommendation.whatChangedRecently,
-      positiveTriggers: recommendation.positiveTriggers,
-      negativeConcerns: recommendation.negativeConcerns,
-      sourceSummary: recommendation.sourceSummary,
-      portfolioImpact: recommendation.portfolioImpact,
-      target: recommendation.target,
-      stopLoss: recommendation.stopLoss,
-      expectedMove: recommendation.expectedMove,
-      expectedCagr: recommendation.expectedCagr,
-      riskLevel: recommendation.riskLevel,
-      agentScores: recommendation.agentScores,
-      agentReasons: recommendation.agentReasons,
-      currentPrice: prices[recommendation.symbol] ?? 0,
-    })),
-  }, {
-    headers: { "Cache-Control": "private, no-store" },
-  });
+    recommendations: recommendations.map((recommendation) => {
+      const currentPrice = prices[recommendation.symbol] ?? 0;
+      const target = recommendation.metrics?.target || (recommendation.action === "Accumulate" ? currentPrice * 1.08 : undefined);
+      const stopLoss = recommendation.action === "Accumulate" && currentPrice > 0 ? currentPrice * 0.92 : undefined;
+      const isBuy = recommendation.action === "Accumulate";
+      const timeframe = recommendation.section === "Intraday"
+        ? "Intraday"
+        : recommendation.section === "1-3 Yr Plan"
+          ? "Long term"
+          : "6-12 months";
+
+      return {
+        symbol: recommendation.symbol,
+        company: recommendation.company,
+        action: isBuy ? "Buy" : "Sell",
+        timeframe,
+        confidence: recommendation.confidence,
+        score: recommendation.metrics?.finalScore ?? recommendation.confidence,
+        reason: recommendation.rationale,
+        whatChangedRecently: recommendation.caveats ?? [],
+        positiveTriggers: isBuy ? [recommendation.rationale] : [],
+        negativeConcerns: isBuy ? recommendation.caveats ?? [] : [recommendation.rationale],
+        sourceSummary: ["Local portfolio screening"],
+        portfolioImpact: `${recommendation.section} signal generated from current price, trend, momentum, risk, and portfolio context.`,
+        target,
+        stopLoss,
+        expectedMove: recommendation.metrics?.upsidePercent,
+        expectedCagr: null,
+        riskLevel: (recommendation.metrics?.riskScore ?? 50) >= 70
+          ? "high"
+          : (recommendation.metrics?.riskScore ?? 50) >= 40
+            ? "medium"
+            : "low",
+        agentScores: {
+          existingLogic: recommendation.metrics?.finalScore ?? recommendation.confidence,
+        },
+        agentReasons: {
+          existingLogic: [recommendation.rationale],
+        },
+        currentPrice,
+      };
+    }),
+    error: reason,
+  };
 }
 
 async function loadPortfolios() {

@@ -21,6 +21,7 @@ import {
   type AgentOrchestratorOutput,
   type RawIntelligenceEvent,
 } from "@/lib/agents";
+import { agentWealthUniverse } from "@/lib/agents/agentWealthUniverse";
 import {
   appendAgentRecommendationLogs,
   readAgentRecommendationLogs,
@@ -70,6 +71,17 @@ export async function runMultiAgentRecommendationSystem({
   const macroPolicy = agentMacroPolicy({ info, market, now });
   const sentiment = agentSentiment(info, now);
   const portfolioOutput = agentPortfolio({ portfolio, info, macroPolicy, sentiment, now });
+  const [wealthUniverse, fundamental, technical, swing, earningsQuality] = await Promise.all([
+    agentWealthUniverse(now),          // reads cached JSON snapshot — no live network calls
+    agentFundamental(portfolio, now),
+    agentTechnical(portfolio, now),
+    agentSwing(portfolio, info, macroPolicy, now),
+    agentEarningsQuality(portfolio, now),
+  ]);
+  // agentIntraday runs after wealthUniverse so it can expand its candidate pool
+  // with cap-bucket universe picks and apply sector rotation from macroPolicy.
+  const intraday = await agentIntraday(portfolio, info, macroPolicy, wealthUniverse, now);
+
   const growth = agentGrowth({
     portfolio,
     existingRecommendations,
@@ -77,17 +89,12 @@ export async function runMultiAgentRecommendationSystem({
     macroPolicy,
     sentiment,
     portfolioAnalysis: portfolioOutput,
+    wealthUniverse,
     now,
   });
   const performance = agentPerformance({ history: portfolioHistory, logs: portfolioLogs, now });
   const bayesian = computeBayesianAdjustments(portfolioLogs, defaultOrchestratorWeights);
-  const [fundamental, technical, intraday, swing, earningsQuality] = await Promise.all([
-    agentFundamental(portfolio, now),
-    agentTechnical(portfolio, now),
-    agentIntraday(portfolio, info, now),
-    agentSwing(portfolio, info, macroPolicy, now),
-    agentEarningsQuality(portfolio, now),
-  ]);
+
   const longTerm = agentLongTerm({
     portfolio,
     info,

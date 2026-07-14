@@ -57,7 +57,7 @@ test("rejects snapshots that violate the three-per-category contract", () => {
       { key: "midCap", longTermUpsides: [quote("C"), quote("D"), quote("E")], intradayBreakouts: [] },
       { key: "smallCap", longTermUpsides: [quote("F"), quote("G"), quote("H")], intradayBreakouts: [] },
     ],
-  } as ExpertActionMatrix;
+  } as unknown as ExpertActionMatrix;
 
   assert.deepEqual(validateRecommendationContract(matrix), [
     "largeCap contains 2 stocks; expected 3.",

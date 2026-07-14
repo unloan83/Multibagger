@@ -1,0 +1,118 @@
+{
+  "sectors": [
+    {
+      "key": "defenseCapitalGoods",
+      "title": "Defense & Capital Goods",
+      "description": "Defense manufacturers, aerospace, heavy engineering, and strategic infrastructure",
+      "primaryThemes": ["Capital Goods"],
+      "additionalSymbols": [],
+      "exclusions": [],
+      "emergingSymbols": [
+        "MAZDOCK", "GRSE", "COCHINSHIP", "PARAS", "DPIL", "BEML",
+        "MIDHANI", "DATAPATT", "IDEAFORGE", "ZEN", "APOLLODEF"
+      ],
+      "emergingGates": {
+        "minRevenueGrowthPct": 15,
+        "minRoe": 0.05,
+        "minQuarters": 3,
+        "requirePositiveEarnings": true
+      }
+    },
+    {
+      "key": "renewableEnergy",
+      "title": "Renewable Energy & Infrastructure",
+      "description": "Solar, wind, green hydrogen, power transmission, and clean energy infrastructure",
+      "primaryThemes": ["Power"],
+      "additionalSymbols": [
+        "ADANIGREEN", "SUZLON", "INOXWIND", "WAAREEENER", "STERLINWIL",
+        "INOXGREEN", "WEBSOL", "GENSOL", "GOLDENKA", "KPEL"
+      ],
+      "exclusions": [],
+      "emergingSymbols": [
+        "INOXGREEN", "WEBSOL", "GENSOL", "BOROSIL", "KPEL",
+        "SOLARINDS", "AMGREEN", "SERENTICA", "WAAREEENER", "GOLDENKA"
+      ],
+      "emergingGates": {
+        "minRevenueGrowthPct": 25,
+        "minRoe": 0.05,
+        "minQuarters": 3,
+        "requirePositiveEarnings": true
+      }
+    },
+    {
+      "key": "cdmoSpecialtyPharma",
+      "title": "CDMO & Specialty Pharma",
+      "description": "Contract development & manufacturing organisations, specialty APIs, and niche therapeutics",
+      "primaryThemes": ["Healthcare"],
+      "additionalSymbols": [],
+      "exclusions": [],
+      "emergingSymbols": [
+        "SUVEN", "PIRAMALPHA", "OPTOCIRCUI", "NEULANDLAB", "SOLARA",
+        "HIMATSEIDE", "WINDLAS", "STRIDES", "JUBLPHARMA", "MARKSANS"
+      ],
+      "emergingGates": {
+        "minRevenueGrowthPct": 20,
+        "minRoe": 0.05,
+        "minQuarters": 3,
+        "requirePositiveEarnings": true
+      }
+    },
+    {
+      "key": "evSupplyChain",
+      "title": "EV Supply Chain",
+      "description": "Electric vehicles, EV batteries, charging infrastructure, and EV-specific auto components",
+      "primaryThemes": ["Automobile and Auto Components"],
+      "additionalSymbols": ["KPITTECH"],
+      "exclusions": [],
+      "emergingSymbols": [
+        "OLECTRA", "SONACOMS", "AMARON", "LUMAXIND", "ATHERENE",
+        "GREENPANEL", "MINDA", "TIINDIA", "CRAFTSMAN", "SANSERA"
+      ],
+      "emergingGates": {
+        "minRevenueGrowthPct": 20,
+        "minRoe": 0.05,
+        "minQuarters": 3,
+        "requirePositiveEarnings": true
+      }
+    },
+    {
+      "key": "aiDataCenters",
+      "title": "AI & Data Centers",
+      "description": "Artificial intelligence, machine learning platforms, data centre operators, and cloud-native software",
+      "primaryThemes": ["Information Technology"],
+      "additionalSymbols": [],
+      "exclusions": [],
+      "emergingSymbols": [
+        "LATENTVIEW", "ROUTE", "INTELLECT", "BSOFT", "SAKSOFT",
+        "MASTEK", "NEWGEN", "NUCLEUS", "RATEGAIN", "HAPPSTMNDS"
+      ],
+      "emergingGates": {
+        "minRevenueGrowthPct": 25,
+        "minRoe": 0.05,
+        "minQuarters": 3,
+        "requirePositiveEarnings": true
+      }
+    },
+    {
+      "key": "semiconductorsElectronics",
+      "title": "Semiconductors & Electronics Mfg",
+      "description": "Electronics Manufacturing Services, PCB makers, embedded systems, and semiconductor-adjacent companies listed on NSE",
+      "primaryThemes": ["Information Technology", "Capital Goods", "Consumer Durables"],
+      "additionalSymbols": [
+        "DIXON", "AMBER", "KAYNES", "SYRMA", "PGEL",
+        "SIGNATUREG", "AVALON", "IDEAFORGE", "MOSCHIP"
+      ],
+      "exclusions": [],
+      "emergingSymbols": [
+        "SYRMA", "PGEL", "SIGNATUREG", "AVALON", "MOSCHIP",
+        "VALONZ", "KAYNES", "AEQUS", "CENTUM", "RUTTONSHA"
+      ],
+      "emergingGates": {
+        "minRevenueGrowthPct": 25,
+        "minRoe": 0.04,
+        "minQuarters": 3,
+        "requirePositiveEarnings": false
+      }
+    }
+  ]
+}

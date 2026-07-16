@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { AlertTriangle, FlaskConical, RefreshCw, ShieldCheck } from "lucide-react";
 import type { AgentValidationReport } from "@/lib/agents/validationTypes";
 import type { ManagedPortfolio } from "@/lib/portfolio";
+import type { ModelEvaluation } from "@/lib/model-evaluation";
 import { Button } from "@/components/ui/button";
 import {
   Table,
@@ -28,6 +29,7 @@ type ValidationPreflight = {
   }>;
   report?: AgentValidationReport | null;
   recentReports?: AgentValidationReport[];
+  evaluation?: ModelEvaluation;
 };
 
 export function AdminAgentValidationDashboard({
@@ -42,6 +44,7 @@ export function AdminAgentValidationDashboard({
   const [portfolioId, setPortfolioId] = useState(candidates[0]?.id ?? "");
   const [report, setReport] = useState<AgentValidationReport | null>(null);
   const [recentReports, setRecentReports] = useState<AgentValidationReport[]>([]);
+  const [evaluation, setEvaluation] = useState<ModelEvaluation | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [preflight, setPreflight] = useState<ValidationPreflight | null>(null);
@@ -55,6 +58,7 @@ export function AdminAgentValidationDashboard({
         setPreflight(payload);
         setReport(payload?.report ?? null);
         setRecentReports(payload?.recentReports ?? []);
+        setEvaluation(payload?.evaluation ?? null);
       })
       .catch(() => setPreflight(null));
   }, [portfolio?.id]);
@@ -79,6 +83,7 @@ export function AdminAgentValidationDashboard({
       const payload = (await response.json()) as {
         report?: AgentValidationReport;
         recentReports?: AgentValidationReport[];
+        evaluation?: ModelEvaluation;
         error?: string;
       };
       if (!response.ok || !payload.report) {
@@ -86,6 +91,7 @@ export function AdminAgentValidationDashboard({
       }
       setReport(payload.report);
       setRecentReports(payload.recentReports ?? []);
+      setEvaluation(payload.evaluation ?? null);
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : "Shadow validation failed.");
     } finally {
@@ -163,6 +169,30 @@ export function AdminAgentValidationDashboard({
               </article>
             ))}
           </div>
+        </section>
+      ) : null}
+
+      {evaluation ? (
+        <section className="space-y-3">
+          <div className="flex items-center justify-between gap-3">
+            <Heading title="Out-of-sample model evaluation" />
+            <StatusBadge value={evaluation.promotionGate.eligible ? "healthy" : "degraded"} />
+          </div>
+          <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+            <Metric label="Evaluation status" value={evaluation.status} tone={evaluation.promotionGate.eligible ? "good" : "warn"} />
+            <Metric label="Completed outcomes" value={`${evaluation.sample.completed}/${evaluation.promotionGate.minimumCompleted}`} />
+            <Metric label="Held-out outcomes" value={`${evaluation.sample.test}/${evaluation.promotionGate.minimumTest}`} />
+            <Metric label="Held-out hit rate" value={evaluation.outOfSample.hitRate == null ? "Pending" : `${evaluation.outOfSample.hitRate}%`} />
+            <Metric label="Return vs cash" value={evaluation.outOfSample.excessReturnVsCashPercent == null ? "Pending" : `${evaluation.outOfSample.excessReturnVsCashPercent}%`} />
+            <Metric label="Brier calibration" value={evaluation.outOfSample.brierScore == null ? "Pending" : String(evaluation.outOfSample.brierScore)} />
+            <Metric label="Maximum drawdown" value={evaluation.outOfSample.maximumDrawdownPercent == null ? "Pending" : `${evaluation.outOfSample.maximumDrawdownPercent}%`} />
+            <Metric label="Walk-forward folds" value={String(evaluation.walkForward.length)} />
+          </div>
+          {evaluation.promotionGate.reasons.length ? (
+            <div className="rounded-xl border border-amber-300/25 bg-amber-300/10 p-4 text-xs leading-5 text-amber-100">
+              {evaluation.promotionGate.reasons.join(" ")}
+            </div>
+          ) : null}
         </section>
       ) : null}
 

@@ -40,8 +40,16 @@ jobs:
           GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY: ${{ secrets.GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY }}
           EXPERT_CONSENSUS_URL: ${{ secrets.EXPERT_CONSENSUS_URL }}
 
+      - name: Generate thematic long-term universe snapshot
+        run: npm run longterm:snapshot
+        env:
+          GOOGLE_SHEETS_SPREADSHEET_ID: ${{ secrets.GOOGLE_SHEETS_SPREADSHEET_ID }}
+          GOOGLE_SERVICE_ACCOUNT_EMAIL: ${{ secrets.GOOGLE_SERVICE_ACCOUNT_EMAIL }}
+          GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY: ${{ secrets.GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY }}
+          EXPERT_CONSENSUS_URL: ${{ secrets.EXPERT_CONSENSUS_URL }}
+
       - name: Commit updated universe and snapshot
         uses: stefanzweifel/git-auto-commit-action@v5
         with:
           commit_message: "Update wealth recommendation snapshot"
-          file_pattern: data/market-universe.json data/wealth_recommendations.json
+          file_pattern: data/market-universe.json data/wealth_recommendations.json data/long_term_universe.json

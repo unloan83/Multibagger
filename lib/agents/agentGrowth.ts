@@ -72,22 +72,31 @@ export function agentGrowth({
     (c) => !coveredSymbols.has(c.symbol),
   );
 
-  const candidates = [...fromExisting, ...watchOnly, ...universeCandidates]
-    .map((candidate) => ({
-      ...candidate,
-      // Re-compute live info/macro/sentiment signals for all candidates.
-      // capBucket and source are preserved via the spread.
-      supportingScores: supportScores(
+  const ranked = [...fromExisting, ...watchOnly, ...universeCandidates]
+    .map((candidate) => {
+      const liveScores = supportScores(
         candidate.symbol,
         candidate.sector,
         info,
         macroPolicy,
         sentiment,
         portfolioAnalysis,
-      ),
-    }))
-    .sort((a, b) => b.existingLogicScore - a.existingLogicScore)
-    .slice(0, 30); // raised from 20 to accommodate both portfolio and universe candidates
+      );
+      return {
+        ...candidate,
+        // Refresh live context while retaining cached wealth-screening factor
+        // evidence when portfolio-only specialist agents have no stock record.
+        supportingScores: {
+          ...liveScores,
+          fundamental: liveScores.fundamental || candidate.supportingScores.fundamental,
+          technical: liveScores.technical || candidate.supportingScores.technical,
+        },
+      };
+    })
+    .sort((a, b) => b.existingLogicScore - a.existingLogicScore);
+  // Section quotas prevent a large portfolio/watchlist from crowding the
+  // market-wide discovery universe out of the orchestrator.
+  const candidates = selectCandidateQuota(ranked);
   const timeframes: AgentTimeframe[] = ["Intraday", "Short term", "3-6 months", "6-12 months", "Long term"];
 
   return {
@@ -99,6 +108,17 @@ export function agentGrowth({
       candidates.filter((item) => item.timeframe === timeframe).map((item) => item.symbol),
     ])) as Record<AgentTimeframe, string[]>,
   };
+}
+
+function selectCandidateQuota(candidates: GrowthCandidate[]) {
+  const portfolioCandidates = candidates.filter((candidate) => candidate.source !== "wealth-universe").slice(0, 12);
+  const longTermUniverse = candidates.filter(
+    (candidate) => candidate.source === "wealth-universe" && candidate.timeframe !== "Intraday",
+  ).slice(0, 12);
+  const intradayUniverse = candidates.filter(
+    (candidate) => candidate.source === "wealth-universe" && candidate.timeframe === "Intraday",
+  ).slice(0, 6);
+  return [...portfolioCandidates, ...longTermUniverse, ...intradayUniverse];
 }
 
 function toCandidate(recommendation: Recommendation, portfolio: ManagedPortfolio): GrowthCandidate {

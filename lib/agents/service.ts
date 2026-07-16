@@ -31,6 +31,7 @@ import type { MarketOverview } from "@/lib/decision-intelligence";
 import type { ValidationRecord } from "@/lib/intelligence-validation";
 import { generateRecommendations, type ManagedPortfolio, type Recommendation } from "@/lib/portfolio";
 import { collectAttributedMarketIntelligence } from "@/lib/agents/marketIntelligence";
+import { filterLearningAgentLogs, filterLearningValidationHistory } from "@/lib/learning-history";
 
 export async function runMultiAgentRecommendationSystem({
   portfolio,
@@ -48,12 +49,14 @@ export async function runMultiAgentRecommendationSystem({
     collectIntelligenceEvents(portfolio),
     readAgentRecommendationLogs(),
   ]);
-  const portfolioHistory = history.filter((record) => record.portfolioId === portfolio.id);
+  const cleanHistory = filterLearningValidationHistory(history, now);
+  const portfolioHistory = cleanHistory.filter((record) => record.portfolioId === portfolio.id);
   const currentPrices = Object.fromEntries(
     portfolio.positions.map((position) => [normalize(position.symbol), position.currentPrice]),
   );
   const reconciledLogs = reconcileRecommendationLogs(allLogs, history, currentPrices);
-  const portfolioLogs = reconciledLogs.filter((log) => log.portfolioId === portfolio.id);
+  const cleanLogs = filterLearningAgentLogs(reconciledLogs, now);
+  const portfolioLogs = cleanLogs.filter((log) => log.portfolioId === portfolio.id);
   if (persist && recommendationLogsChanged(allLogs, reconciledLogs)) {
     await writeAgentRecommendationLogs(reconciledLogs);
   }
@@ -65,7 +68,6 @@ export async function runMultiAgentRecommendationSystem({
     ...recommendationGroups.intraday,
     ...recommendationGroups.longTermPlan,
     ...recommendationGroups.multibaggerCandidates,
-    ...recommendationGroups.etfs,
   ];
   const info = agentInfo(events, now);
   const macroPolicy = agentMacroPolicy({ info, market, now });
@@ -122,6 +124,7 @@ export async function runMultiAgentRecommendationSystem({
     sentiment,
     portfolio: portfolioOutput,
     growth,
+    wealthUniverse,
     riskValidation,
     performance,
     fundamental,

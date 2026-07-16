@@ -10,6 +10,7 @@ import {
   updateValidationRecords,
   writeLearningRows,
 } from "@/lib/google-sheets";
+import { filterLearningValidationHistory } from "@/lib/learning-history";
 import { resolveQuotePositions } from "@/lib/quote-service";
 
 export const dynamic = "force-dynamic";
@@ -62,7 +63,7 @@ export async function GET(request: Request) {
           : record.hitTimestamp,
     };
   });
-  const learning = buildLearningRows(nextRecords, now);
+  const learning = buildLearningRows(filterLearningValidationHistory(nextRecords, now), now);
 
   await updateValidationRecords(nextRecords);
   await writeLearningRows(learning);

@@ -15,8 +15,10 @@ import type {
   AgentSentimentOutput,
   AgentSwingOutput,
   AgentTechnicalOutput,
+  AgentWealthUniverseOutput,
   BayesianOutput,
   FinalRecommendation,
+  GrowthCandidate,
   OrchestratorWeights,
 } from "@/lib/agents/types";
 import { buildRAGContext, enrichRecommendationWithRAG } from "@/lib/agents/ragEngine";
@@ -40,12 +42,31 @@ export const defaultOrchestratorWeights: OrchestratorWeights = {
   rebalance: 3,
 };
 
+export const intradayOrchestratorWeights: OrchestratorWeights = {
+  existingLogic: 20, info: 8, macroPolicy: 8, sentiment: 5, portfolio: 2,
+  riskValidation: 10, fundamental: 3, technical: 15, intraday: 20,
+  swing: 5, longTerm: 1, earningsQuality: 1, rebalance: 2,
+};
+
+export const longTermOrchestratorWeights: OrchestratorWeights = {
+  existingLogic: 20, info: 8, macroPolicy: 8, sentiment: 3, portfolio: 5,
+  riskValidation: 10, fundamental: 16, technical: 5, intraday: 1,
+  swing: 3, longTerm: 10, earningsQuality: 8, rebalance: 3,
+};
+
+export const swingOrchestratorWeights: OrchestratorWeights = {
+  existingLogic: 22, info: 10, macroPolicy: 8, sentiment: 5, portfolio: 5,
+  riskValidation: 10, fundamental: 8, technical: 10, intraday: 4,
+  swing: 10, longTerm: 3, earningsQuality: 2, rebalance: 3,
+};
+
 export function agentOrchestrator({
   info,
   macroPolicy,
   sentiment,
   portfolio,
   growth,
+  wealthUniverse,
   riskValidation,
   performance,
   fundamental,
@@ -65,6 +86,7 @@ export function agentOrchestrator({
   sentiment: AgentSentimentOutput;
   portfolio: AgentPortfolioOutput;
   growth: AgentGrowthOutput;
+  wealthUniverse?: AgentWealthUniverseOutput;
   riskValidation: AgentRiskValidationOutput;
   performance: AgentPerformanceOutput;
   fundamental: AgentFundamentalOutput;
@@ -106,8 +128,8 @@ export function agentOrchestrator({
       sentiment: roundScore((sentimentSignal?.score ?? sentiment.market.score * 0.4) + performance.scoreAdjustments.sentiment),
       portfolio: roundScore((portfolioSignal?.score ?? 0) + performance.scoreAdjustments.portfolio),
       riskValidation: roundScore((risk?.score ?? 0) + performance.scoreAdjustments.riskValidation),
-      fundamental: roundScore((fundamentalSignal?.score ?? 0) + performance.scoreAdjustments.fundamental),
-      technical: roundScore((technicalSignal?.score ?? 0) + performance.scoreAdjustments.technical),
+      fundamental: roundScore((fundamentalSignal?.score ?? candidate.supportingScores.fundamental) + performance.scoreAdjustments.fundamental),
+      technical: roundScore((technicalSignal?.score ?? candidate.supportingScores.technical) + performance.scoreAdjustments.technical),
       intraday: roundScore((intradaySignal?.score ?? 0) + performance.scoreAdjustments.intraday),
       swing: roundScore((swingSignal?.score ?? 0) + performance.scoreAdjustments.swing),
       longTerm: roundScore((longTermSignal?.score ?? 0) + performance.scoreAdjustments.longTerm),
@@ -118,8 +140,11 @@ export function agentOrchestrator({
       (map, adj) => { map[adj.agent] = adj.weightMultiplier; return map; },
       {} as Record<string, number>,
     ) ?? {};
+    const timeframeWeights = weights === defaultOrchestratorWeights
+      ? weightsForTimeframe(candidate.timeframe)
+      : weights;
     const adjustedWeights = Object.fromEntries(
-      Object.entries(weights).map(([key, w]) => [key, w * (bayesianMultipliers[key] ?? 1.0)]),
+      Object.entries(timeframeWeights).map(([key, w]) => [key, w * (bayesianMultipliers[key] ?? 1.0)]),
     ) as OrchestratorWeights;
     const totalAdjustedWeight = Object.values(adjustedWeights).reduce((sum, value) => sum + value, 0);
     const score = Math.round(Object.entries(adjustedWeights).reduce((sum, [key, weight]) =>
@@ -151,11 +176,33 @@ export function agentOrchestrator({
     ];
     const conflictPenalty = risk?.checks.conflictingSignals ? 12 : 0;
     const calibration = performance.confidenceCalibration ?? 55;
-    const confidence = Math.round(clamp(
+    const rawConfidence = Math.round(clamp(
       confidenceInputs.reduce((sum, value) => sum + value, 0) / confidenceInputs.length * 0.85 + calibration * 0.15 - conflictPenalty,
       15,
       95,
     ));
+    const evidenceCompleteness = calculateEvidenceCompleteness({
+      candidate, infoSignal, fundamentalSignal, technicalSignal, intradaySignal,
+      longTermSignal, earningsQualitySignal, risk,
+    });
+    const confidence = Math.min(rawConfidence, evidenceCompleteness);
+    const rejectionCodes: FinalRecommendation["rejectionCodes"] = [];
+    if (evidenceCompleteness < 55) rejectionCodes.push("INSUFFICIENT_EVIDENCE");
+    if (confidence < 55) rejectionCodes.push("LOW_CONFIDENCE");
+    const target = longTermSignal?.target ?? (["Buy", "Sell"].includes(action) ? candidate.target : undefined);
+    const stopLoss = longTermSignal?.stopLoss ?? (["Buy", "Sell"].includes(action) ? candidate.stopLoss : undefined);
+    if (action === "Buy" && !target) rejectionCodes.push("MISSING_TARGET");
+    if (action === "Buy" && !stopLoss) rejectionCodes.push("MISSING_STOP_LOSS");
+    if (risk?.blocked) rejectionCodes.push("RISK_BLOCKED");
+    if (candidate.proposedAction === "Watch") rejectionCodes.push("NO_QUALIFIED_SIGNAL");
+    if (action === "Buy" && rejectionCodes.length) action = portfolioSignal ? "Hold" : "Watch";
+    const publicationStatus: FinalRecommendation["publicationStatus"] = action === "Buy" || action === "Sell"
+      ? "actionable"
+      : portfolioSignal
+        ? "portfolio-decision"
+        : rejectionCodes.includes("RISK_BLOCKED") || rejectionCodes.includes("INSUFFICIENT_EVIDENCE")
+          ? "rejected"
+          : "watchlist";
     const riskReasons = risk?.reasons ?? [];
     const positiveTriggers = [
       ...candidate.positiveTriggers,
@@ -178,6 +225,9 @@ export function agentOrchestrator({
       timeframe: candidate.timeframe,
       confidence,
       score,
+      publicationStatus,
+      evidenceCompleteness,
+      rejectionCodes,
       reason,
       whatChangedRecently: infoSignal?.reasons.slice(0, 3) ?? ["No verified recent company event in the current feed."],
       positiveTriggers,
@@ -186,8 +236,8 @@ export function agentOrchestrator({
       portfolioImpact: portfolioSignal
         ? `${portfolioSignal.action}: ${portfolioSignal.reasons.join(" ")}`
         : "Stock is not a current holding; no holding-level portfolio impact.",
-      target: longTermSignal?.target ?? (["Buy", "Sell"].includes(action) ? candidate.target : undefined),
-      stopLoss: longTermSignal?.stopLoss ?? (["Buy", "Sell"].includes(action) ? candidate.stopLoss : undefined),
+      target: ["Buy", "Sell"].includes(action) ? target : undefined,
+      stopLoss: ["Buy", "Sell"].includes(action) ? stopLoss : undefined,
       expectedMove: intradaySignal?.metrics?.targetDistance ?? undefined,
       expectedCagr: longTermSignal?.cagr ?? null,
       riskLevel: longTermSignal?.riskLevel ?? (
@@ -241,6 +291,8 @@ export function agentOrchestrator({
     return {
       ...recommendation,
       action,
+      publicationStatus: "portfolio-decision" as const,
+      rejectionCodes: [...new Set([...recommendation.rejectionCodes, "RISK_BLOCKED" as const])],
       target: undefined,
       stopLoss: undefined,
       reason: `${recommendation.action} was blocked by portfolio risk management and changed to ${action}: ${reasons.join(" ")}`,
@@ -258,6 +310,21 @@ export function agentOrchestrator({
     sentiment,
     portfolio,
     growth,
+    wealthUniverse: wealthUniverse ?? {
+      agent: "WealthUniverse",
+      generatedAt: now.toISOString(),
+      candidates: [],
+      byBucket: {
+        large: { longTerm: [], intraday: [] },
+        mid: { longTerm: [], intraday: [] },
+        small: { longTerm: [], intraday: [] },
+      },
+      snapshotAge: -1,
+      longTermSnapshotAge: -1,
+      freshness: "unavailable",
+      rejectionReasons: ["Wealth universe was not supplied to the orchestrator."],
+      summary: "Wealth universe was not supplied to the orchestrator.",
+    },
     riskValidation,
     performance,
     fundamental,
@@ -298,6 +365,47 @@ function chooseAction(proposed: AgentAction, score: number, isHolding: boolean):
   if (proposed === "Buy") return score >= 62 ? "Buy" : isHolding ? "Hold" : "Watch";
   if (proposed === "Sell") return score <= 42 ? "Sell" : "Hold";
   return proposed;
+}
+
+function weightsForTimeframe(timeframe: GrowthCandidate["timeframe"]) {
+  if (timeframe === "Intraday") return intradayOrchestratorWeights;
+  if (timeframe === "Long term" || timeframe === "6-12 months") return longTermOrchestratorWeights;
+  return swingOrchestratorWeights;
+}
+
+function calculateEvidenceCompleteness({
+  candidate,
+  infoSignal,
+  fundamentalSignal,
+  technicalSignal,
+  intradaySignal,
+  longTermSignal,
+  earningsQualitySignal,
+  risk,
+}: {
+  candidate: GrowthCandidate;
+  infoSignal?: AgentInfoOutput["byStock"][string];
+  fundamentalSignal?: AgentFundamentalOutput["byStock"][string];
+  technicalSignal?: AgentTechnicalOutput["byStock"][string];
+  intradaySignal?: AgentIntradayOutput["byStock"][string];
+  longTermSignal?: AgentLongTermOutput["byStock"][string];
+  earningsQualitySignal?: AgentEarningsQualityOutput["byStock"][string];
+  risk?: AgentRiskValidationOutput["decisions"][number];
+}) {
+  const cachedFundamental = candidate.supportingScores.fundamental !== 0;
+  const cachedTechnical = candidate.supportingScores.technical !== 0;
+  const checks = candidate.timeframe === "Intraday"
+    ? [
+        Boolean(technicalSignal || cachedTechnical), Boolean(intradaySignal),
+        candidate.liquidityScore != null, candidate.volatilityScore != null,
+        Boolean(candidate.target), Boolean(candidate.stopLoss), Boolean(risk), Boolean(infoSignal),
+      ]
+    : [
+        Boolean(fundamentalSignal || cachedFundamental), Boolean(technicalSignal || cachedTechnical),
+        Boolean(longTermSignal || cachedFundamental), Boolean(earningsQualitySignal || cachedFundamental),
+        Boolean(candidate.target), Boolean(candidate.stopLoss), Boolean(risk), Boolean(infoSignal),
+      ];
+  return Math.round((checks.filter(Boolean).length / checks.length) * 100);
 }
 
 function validateWeights(weights: OrchestratorWeights) {

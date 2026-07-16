@@ -11,6 +11,9 @@ import {
   agentSentiment,
   buildAgentValidationReport,
   reconcileRecommendationLogs,
+  intradayOrchestratorWeights,
+  longTermOrchestratorWeights,
+  swingOrchestratorWeights,
   toRecommendationLogs,
 } from "@/lib/agents";
 import { toEvent } from "@/lib/agents/marketIntelligence";
@@ -22,6 +25,7 @@ import type {
   AgentRebalanceOutput,
   AgentSwingOutput,
   AgentTechnicalOutput,
+  AgentWealthUniverseOutput,
 } from "@/lib/agents/types";
 import type { ManagedPortfolio, Recommendation } from "@/lib/portfolio";
 
@@ -149,6 +153,18 @@ test("risk validation downgrades a low-confidence Buy and orchestrator cannot re
   assert.equal(risk.decisions[0].checks.poorConfidence, true);
   assert.equal(risk.decisions[0].downgradeTo, "Watch");
   assert(["Watch", "Hold"].includes(final.recommendations[0].action));
+  assert.notEqual(final.recommendations[0].publicationStatus, "actionable");
+  assert(final.recommendations[0].confidence <= final.recommendations[0].evidenceCompleteness);
+  assert(final.recommendations[0].rejectionCodes.includes("LOW_CONFIDENCE"));
+});
+
+test("timeframe orchestrator weight profiles remain normalized", () => {
+  for (const weights of [intradayOrchestratorWeights, longTermOrchestratorWeights, swingOrchestratorWeights]) {
+    assert.equal(Object.values(weights).reduce((sum, value) => sum + value, 0), 100);
+  }
+  assert(intradayOrchestratorWeights.intraday > longTermOrchestratorWeights.intraday);
+  assert(longTermOrchestratorWeights.fundamental > intradayOrchestratorWeights.fundamental);
+  assert(swingOrchestratorWeights.swing > longTermOrchestratorWeights.swing);
 });
 
 test("reliable specialist evidence prevents a no-news weak-source downgrade", () => {
@@ -253,6 +269,9 @@ test("performance uses trading-day windows and meaningful return thresholds", ()
     timeframe: "Intraday",
     confidence: 70,
     score: 2,
+    publicationStatus: "actionable",
+    evidenceCompleteness: 100,
+    rejectionCodes: [],
     reason: "Threshold test.",
     whatChangedRecently: [],
     positiveTriggers: [],
@@ -343,4 +362,62 @@ test("market intelligence classifies official and attributed sources", () => {
   assert.ok(filing.affectedStocks?.includes("TEST"));
   assert.equal(macro.source.kind, "macro");
   assert.equal(macro.source.credibility, "high");
+});
+
+test("growth candidate quotas preserve market-wide long-term and intraday coverage", () => {
+  const now = new Date("2026-07-16T05:00:00.000Z");
+  const largePortfolio: ManagedPortfolio = {
+    ...portfolio,
+    positions: Array.from({ length: 20 }, (_, index) => ({
+      ...portfolio.positions[0],
+      symbol: `PORT${index}`,
+      stock: `PORT${index}`,
+      company: `Portfolio ${index}`,
+    })),
+  };
+  const candidate = (symbol: string, timeframe: "Long term" | "Intraday") => ({
+    symbol,
+    company: symbol,
+    sector: "Technology",
+    proposedAction: "Buy" as const,
+    timeframe,
+    existingLogicScore: 80,
+    supportingScores: { info: 0, macroPolicy: 0, sentiment: 0, portfolio: 0, fundamental: 2, technical: 2 },
+    confidence: 80,
+    reason: "Qualified universe candidate.",
+    positiveTriggers: ["Qualified"],
+    negativeConcerns: [],
+    source: "wealth-universe" as const,
+  });
+  const longTermCandidates = Array.from({ length: 15 }, (_, index) => candidate(`LONG${index}`, "Long term"));
+  const intradayCandidates = Array.from({ length: 8 }, (_, index) => candidate(`DAY${index}`, "Intraday"));
+  const wealthUniverse: AgentWealthUniverseOutput = {
+    agent: "WealthUniverse",
+    generatedAt: now.toISOString(),
+    candidates: [...longTermCandidates, ...intradayCandidates],
+    byBucket: {
+      large: { longTerm: longTermCandidates, intraday: intradayCandidates },
+      mid: { longTerm: [], intraday: [] },
+      small: { longTerm: [], intraday: [] },
+    },
+    snapshotAge: 1,
+    longTermSnapshotAge: 1,
+    freshness: "fresh",
+    rejectionReasons: [],
+    summary: "Fresh test universe.",
+  };
+
+  const growth = agentGrowth({
+    portfolio: largePortfolio,
+    existingRecommendations: [],
+    wealthUniverse,
+    now,
+  });
+
+  assert.equal(growth.candidates.filter((item) => item.source === "portfolio").length, 12);
+  assert.equal(growth.candidates.filter((item) => item.source === "wealth-universe" && item.timeframe === "Long term").length, 12);
+  assert.equal(growth.candidates.filter((item) => item.source === "wealth-universe" && item.timeframe === "Intraday").length, 6);
+  const retainedEvidence = growth.candidates.find((item) => item.symbol === "LONG0");
+  assert.equal(retainedEvidence?.supportingScores.fundamental, 2);
+  assert.equal(retainedEvidence?.supportingScores.technical, 2);
 });

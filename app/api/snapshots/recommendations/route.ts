@@ -22,6 +22,7 @@ import {
   type Recommendation,
 } from "@/lib/portfolio";
 import { resolveQuotePositions } from "@/lib/quote-service";
+import { filterLearningValidationHistory } from "@/lib/learning-history";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -44,7 +45,7 @@ export async function GET(request: Request) {
     buildMarketOverview(),
   ]);
   const historicalRecommendations = validationHistoryToRecommendations(
-    await readValidationRecords(),
+    filterLearningValidationHistory(await readValidationRecords()),
   );
   const marketRegime = getMarketRegime(marketOverview.sentiment, marketOverview.averageMove);
   const validationDate = timestamp.slice(0, 10);

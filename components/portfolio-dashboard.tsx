@@ -81,7 +81,8 @@ import {
 
 const liveUnloanHomeUrl = process.env.NEXT_PUBLIC_LIVEUNLOAN_URL ?? "https://liveunloan.vercel.app";
 const portfoliosStorageKey = "multibagger-portfolios";
-const historyStorageKey = "multibagger-recommendation-history";
+const historyStorageKey = "multibagger-recommendation-history-v2";
+const legacyHistoryStorageKey = "multibagger-recommendation-history";
 const pinStorageKey = "unloan-portfolio-pin-hashes";
 const portfolioDashboardCollapseKey = "unloan-portfolio-dashboard-open";
 const unlockedPortfolioStorageKey = "unloan-unlocked-portfolio";
@@ -216,6 +217,9 @@ type AgentRecommendationDto = {
   timeframe: "Intraday" | "Short term" | "3-6 months" | "6-12 months" | "Long term";
   confidence: number;
   score: number;
+  publicationStatus?: "actionable" | "portfolio-decision" | "watchlist" | "rejected";
+  evidenceCompleteness?: number;
+  rejectionCodes?: string[];
   reason: string;
   whatChangedRecently: string[];
   positiveTriggers: string[];
@@ -243,6 +247,14 @@ type AgentRecommendationsPayload = {
   mode: "agent-orchestrated" | "rules-fallback";
   summaries: Record<string, string>;
   recommendations: AgentRecommendationDto[];
+  diagnostics?: {
+    fallback: boolean;
+    universeFreshness: "fresh" | "stale" | "unavailable";
+    universeRejectionReasons: string[];
+    actionableCount: number;
+    watchCount: number;
+    rejectedCount: number;
+  };
   error?: string;
 };
 
@@ -477,6 +489,7 @@ export function PortfolioDashboard({
 
   useEffect(() => {
     async function hydratePortfolios() {
+      window.localStorage.removeItem(legacyHistoryStorageKey);
       const savedHistory = window.localStorage.getItem(historyStorageKey);
 
       if (savedHistory) {
@@ -1369,6 +1382,7 @@ type RecommendationViewTab =
   | "portfolio"
   | "long-term"
   | "intraday"
+  | "watchlist"
   | "ipo";
 
 function toAgentTimeframe(horizon: string): ExistingRecommendationSignal["timeframe"] {
@@ -1587,7 +1601,7 @@ function SimplifiedPortfolioView({
       emptyText: isAgentLoading
         ? "Agent recommendations are running specialist checks."
         : agentError || "No portfolio recommendation currently clears the display threshold.",
-      badge: "AGENT ORCHESTRATED",
+      badge: agentRecommendations?.mode === "rules-fallback" ? "RULES FALLBACK" : "AGENT ORCHESTRATED",
     },
     {
       id: "long-term",
@@ -1598,7 +1612,7 @@ function SimplifiedPortfolioView({
       emptyText: isAgentLoading
         ? "Long-term agent checks are running."
         : agentError || "No long-term agent opportunity currently clears the evidence threshold.",
-      badge: "AGENT ORCHESTRATED",
+      badge: agentRecommendations?.mode === "rules-fallback" ? "RULES FALLBACK" : "AGENT ORCHESTRATED",
     },
     {
       id: "intraday",
@@ -1609,7 +1623,16 @@ function SimplifiedPortfolioView({
       emptyText: isAgentLoading
         ? "Intraday agent checks are running."
         : agentRecommendations?.summaries?.intraday || "No intraday opportunity currently clears the 10% potential threshold.",
-      badge: "AGENT ORCHESTRATED",
+      badge: agentRecommendations?.mode === "rules-fallback" ? "RULES FALLBACK" : "AGENT ORCHESTRATED",
+    },
+    {
+      id: "watchlist",
+      label: "Watchlist",
+      title: "Research Watchlist",
+      subtitle: "Non-actionable candidates are isolated here until they clear every publication gate.",
+      rows: sections.watchlist,
+      emptyText: "No developing or rejected candidates are currently being monitored.",
+      badge: "NOT ACTIONABLE",
     },
     {
       id: "ipo",
@@ -1754,7 +1777,7 @@ function SimplifiedPortfolioView({
 
       <section className="min-w-0 space-y-3">
         <div
-          className="flex max-w-full gap-1 overflow-x-auto rounded-md bg-[#101D30] p-1 shadow-sm ring-1 ring-white/10 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden md:grid md:grid-cols-4 md:gap-2 md:rounded-2xl md:p-2 md:shadow-xl"
+          className="flex max-w-full gap-1 overflow-x-auto rounded-md bg-[#101D30] p-1 shadow-sm ring-1 ring-white/10 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden md:grid md:grid-cols-5 md:gap-2 md:rounded-2xl md:p-2 md:shadow-xl"
           role="tablist"
           aria-label="Recommendation categories"
         >
@@ -1789,12 +1812,19 @@ function SimplifiedPortfolioView({
           <span className="font-semibold text-cyan-200">
             {isAgentLoading
               ? "Agent engine running."
-              : agentRecommendations
+              : agentRecommendations?.mode === "rules-fallback"
+                ? "Agent engine unavailable; rules fallback is active."
+                : agentRecommendations
                 ? "Agent engine active."
                 : "Calculated recommendations shown."}
           </span>{" "}
           Portfolio, Long Term, and Intraday combine the relevant agent and expert-matrix horizons. Upcoming IPOs use the separate IPO intelligence engine.
           {agentError ? <span className="ml-1 text-amber-100">{agentError}</span> : null}
+          {agentRecommendations?.diagnostics && agentRecommendations.diagnostics.universeFreshness !== "fresh" ? (
+            <span className="ml-1 text-amber-100">
+              {agentRecommendations.diagnostics.universeRejectionReasons.join(" ")}
+            </span>
+          ) : null}
         </div>
 
         <DecisionRecommendationTable
@@ -5348,11 +5378,11 @@ function buildSimplifiedPortfolioSections(
     selectedSymbols,
   );
   const agentLongTerm = getUniqueDecisionRows(
-    agentRows.filter((row) => row.horizon !== "Intraday"),
+    agentRows.filter((row) => row.horizon !== "Intraday" && row.action === "BUY"),
     8,
   );
   const agentIntraday = getUniqueDecisionRows(
-    agentRows.filter((row) => row.horizon === "Intraday"),
+    agentRows.filter((row) => row.horizon === "Intraday" && row.action === "BUY"),
     8,
   );
   // Always merge both agent and expert-matrix rows. Expert-matrix rows carry
@@ -5362,7 +5392,7 @@ function buildSimplifiedPortfolioSections(
     getUniqueDecisionRows([
       ...agentLongTerm,
       ...buildLegacyLongTermRows(recommendations),
-      ...buildExpertLongTermRows(matrix),
+      ...buildExpertLongTermRows(matrix).filter((row) => row.action === "BUY"),
     ], 12),
     new Set(selectedSymbols),
   );
@@ -5370,16 +5400,22 @@ function buildSimplifiedPortfolioSections(
     getUniqueDecisionRows([
       ...agentIntraday,
       ...buildLegacyIntradayRows(recommendations),
-      ...buildExpertIntradayRows(matrix),
+      ...buildExpertIntradayRows(matrix).filter((row) => row.action === "BUY"),
     ], 12),
     new Set(selectedSymbols),
   );
+  const watchlist = getUniqueDecisionRows([
+    ...agentRows.filter((row) => (row.action === "WATCH" || row.action === "AVOID") && !ownedSymbols.has(row.symbol)),
+    ...buildExpertLongTermRows(matrix).filter((row) => row.action === "WATCH"),
+    ...buildExpertIntradayRows(matrix).filter((row) => row.action === "WATCH"),
+  ], 12);
 
   return {
     all: [...portfolioRows, ...longTerm, ...intraday],
     buy,
     intraday,
     longTerm,
+    watchlist,
     portfolio: portfolioRows,
     sell,
   };
@@ -5433,7 +5469,6 @@ function buildLegacyLongTermRows(
   return [
     ...recommendations.longTermPlan.filter((item) => item.action === "Accumulate"),
     ...recommendations.multibaggerCandidates,
-    ...recommendations.etfs,
   ]
     .map((item) => buildDecisionRowFromRecommendation(item, undefined, "Legacy Portfolio Logic"))
     .slice(0, 10);
@@ -5522,7 +5557,9 @@ function buildDecisionRowFromAgentRecommendation(
   const position = portfolio.positions.find((item) => item.symbol === recommendation.symbol);
   const cmp = recommendation.currentPrice || position?.currentPrice || 0;
   const action =
-    recommendation.action === "Buy"
+    recommendation.publicationStatus === "rejected"
+      ? "AVOID" as const
+      : recommendation.action === "Buy"
       ? "BUY" as const
       : recommendation.action === "Sell"
         ? "SELL" as const
@@ -5574,11 +5611,11 @@ function buildDecisionRowFromAgentRecommendation(
     company: recommendation.company,
     confidence: recommendation.confidence,
     fundamentalFactors: fundamentalReasons.length
-      ? fundamentalReasons
+      ? [...fundamentalReasons, `Evidence completeness: ${recommendation.evidenceCompleteness ?? 0}%.`]
       : ["Fundamental and earnings-quality agents did not add a strong independent signal."],
     reason: recommendation.reason,
     riskFactors: recommendation.negativeConcerns.length
-      ? recommendation.negativeConcerns
+      ? [...recommendation.negativeConcerns, ...(recommendation.rejectionCodes ?? []).map((code) => `Publication gate: ${code}.`)]
       : [`Risk level: ${recommendation.riskLevel ?? "medium"}.`],
     horizon: horizonLabel,
     sectorStrength:

@@ -43,6 +43,21 @@ export async function agentWealthUniverse(
     readLongTermUniverseSnapshot(),
     readIntradaySnapshot(),
   ]);
+  const longTermSnapshotAge = longTermUniverse
+    ? (now.getTime() - Date.parse(longTermUniverse.asOf)) / 3_600_000
+    : -1;
+  const intradaySnapshotAge = intradaySnapshot
+    ? (now.getTime() - Date.parse(intradaySnapshot.asOf)) / 3_600_000
+    : -1;
+  const rejectionReasons: string[] = [];
+  if (!longTermUniverse) rejectionReasons.push("Long-term universe snapshot is unavailable.");
+  else if (!Number.isFinite(longTermSnapshotAge) || longTermSnapshotAge > MAX_AGE_HOURS) {
+    rejectionReasons.push(`Long-term universe snapshot is stale (${longTermSnapshotAge.toFixed(1)} hours).`);
+  }
+  if (!intradaySnapshot) rejectionReasons.push("Intraday wealth snapshot is unavailable.");
+  else if (!Number.isFinite(intradaySnapshotAge) || intradaySnapshotAge > MAX_AGE_HOURS) {
+    rejectionReasons.push(`Intraday wealth snapshot is stale (${intradaySnapshotAge.toFixed(1)} hours).`);
+  }
 
   // --- Long-term candidates from the thematic 96-stock universe ---
   const longTermCandidates: GrowthCandidate[] = [];
@@ -101,12 +116,17 @@ export async function agentWealthUniverse(
     generatedAt: now.toISOString(),
     candidates: allCandidates,
     byBucket,
-    snapshotAge: intradaySnapshot
-      ? (now.getTime() - Date.parse(intradaySnapshot.asOf)) / 3_600_000
-      : -1,
+    snapshotAge: intradaySnapshotAge,
+    longTermSnapshotAge,
+    freshness: rejectionReasons.length === 0
+      ? "fresh"
+      : longTermUniverse || intradaySnapshot
+        ? "stale"
+        : "unavailable",
+    rejectionReasons,
     summary: allCandidates.length > 0
       ? `${longTermCandidates.length} thematic long-term candidates (${ltSectorSummary}) + ${intradayCandidates.length} intraday cap-bucket candidates.`
-      : "Both wealth snapshots are unavailable or stale. Run wealth:snapshot and longterm:snapshot.",
+      : `${rejectionReasons.join(" ")} Run wealth:snapshot and longterm:snapshot.`,
   };
 }
 
@@ -134,6 +154,7 @@ function screenedStockToCandidate(
     reasons: string[];
     caveats: string[];
     metrics: { riskScore?: number; liquidityScore?: number };
+    price?: number;
     target: number;
     revenueGrowthPercent: number;
     factorScores: { growth: number; quality: number; valuation: number; momentum: number };
@@ -173,6 +194,7 @@ function screenedStockToCandidate(
     volatilityScore: stock.metrics.riskScore,
     liquidityScore: stock.metrics.liquidityScore,
     target: stock.target > 0 ? stock.target : undefined,
+    stopLoss: stock.price && stock.price > 0 ? Math.round(stock.price * 0.85 * 100) / 100 : undefined,
     capBucket: capSlot,
     source: "wealth-universe",
     thematicSector: thematicSectorTitle,
@@ -217,6 +239,9 @@ function toGrowthCandidate(
     volatilityScore: quote.metrics?.riskScore,
     liquidityScore: quote.metrics?.liquidityScore,
     target: quote.target > 0 ? quote.target : undefined,
+    stopLoss: quote.price > 0
+      ? Math.round(quote.price * (1 - Math.max(1.2, quote.metrics?.atrPercent ?? 1.2) / 100) * 100) / 100
+      : undefined,
     capBucket,
     source: "wealth-universe",
   };

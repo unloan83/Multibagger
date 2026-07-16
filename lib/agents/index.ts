@@ -13,7 +13,13 @@ export {
   reconcileRecommendationLogs,
   toRecommendationLogs,
 } from "@/lib/agents/agentPerformance";
-export { agentOrchestrator, defaultOrchestratorWeights } from "@/lib/agents/agentOrchestrator";
+export {
+  agentOrchestrator,
+  defaultOrchestratorWeights,
+  intradayOrchestratorWeights,
+  longTermOrchestratorWeights,
+  swingOrchestratorWeights,
+} from "@/lib/agents/agentOrchestrator";
 export { buildAgentValidationReport } from "@/lib/agents/agentValidation";
 export { agentFundamental } from "@/lib/agents/agentFundamental";
 export { agentTechnical } from "@/lib/agents/agentTechnical";

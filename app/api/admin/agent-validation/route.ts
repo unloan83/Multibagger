@@ -14,6 +14,7 @@ import {
 } from "@/lib/google-sheets";
 import { buildMarketOverview } from "@/lib/market-overview";
 import { identifySector, type PortfolioPosition } from "@/lib/portfolio";
+import { evaluateRecommendationModel } from "@/lib/model-evaluation";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -27,6 +28,12 @@ export async function GET(request: Request) {
   const recentReports = portfolioId
     ? storedReports.filter((report) => report.portfolioId === portfolioId).slice(0, 10)
     : storedReports.slice(0, 10);
+  const evaluationHistory = isGoogleSheetsConfigured()
+    ? await readValidationRecords().catch(() => [])
+    : [];
+  const evaluation = evaluateRecommendationModel(
+    portfolioId ? evaluationHistory.filter((record) => record.portfolioId === portfolioId) : evaluationHistory,
+  );
   const checks = [
     {
       id: "admin-auth",
@@ -60,6 +67,7 @@ export async function GET(request: Request) {
     checks,
     report: recentReports[0] ?? null,
     recentReports,
+    evaluation,
   }, {
     headers: { "Cache-Control": "private, no-store" },
   });
@@ -159,10 +167,13 @@ export async function POST(request: Request) {
     history: history.filter((record) => record.portfolioId === portfolioId),
     logs,
   });
+  const evaluation = evaluateRecommendationModel(
+    history.filter((record) => record.portfolioId === portfolioId),
+  );
   await appendAgentValidationReport(report);
   const recentReports = await readRecentAgentValidationReports(10);
 
-  return NextResponse.json({ report, recentReports }, {
+  return NextResponse.json({ report, recentReports, evaluation }, {
     headers: { "Cache-Control": "private, no-store" },
   });
 }

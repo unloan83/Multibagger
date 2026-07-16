@@ -153,6 +153,9 @@ export type AgentWealthUniverseOutput = {
     small: { longTerm: GrowthCandidate[]; intraday: GrowthCandidate[] };
   };
   snapshotAge: number;
+  longTermSnapshotAge: number;
+  freshness: "fresh" | "stale" | "unavailable";
+  rejectionReasons: string[];
   summary: string;
 };
 
@@ -258,6 +261,16 @@ export type FinalRecommendation = {
   timeframe: AgentTimeframe;
   confidence: number;
   score: number;
+  publicationStatus: "actionable" | "portfolio-decision" | "watchlist" | "rejected";
+  evidenceCompleteness: number;
+  rejectionCodes: Array<
+    | "INSUFFICIENT_EVIDENCE"
+    | "LOW_CONFIDENCE"
+    | "MISSING_TARGET"
+    | "MISSING_STOP_LOSS"
+    | "RISK_BLOCKED"
+    | "NO_QUALIFIED_SIGNAL"
+  >;
   reason: string;
   whatChangedRecently: string[];
   positiveTriggers: string[];
@@ -559,6 +572,7 @@ export type AgentOrchestratorOutput = {
   sentiment: AgentSentimentOutput;
   portfolio: AgentPortfolioOutput;
   growth: AgentGrowthOutput;
+  wealthUniverse: AgentWealthUniverseOutput;
   riskValidation: AgentRiskValidationOutput;
   performance: AgentPerformanceOutput;
   fundamental: AgentFundamentalOutput;

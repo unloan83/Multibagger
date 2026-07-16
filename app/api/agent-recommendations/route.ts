@@ -103,6 +103,7 @@ export async function POST(request: Request) {
         sentiment: `${output.sentiment.market.classification} market sentiment; low-quality source share ${(output.sentiment.lowQualityShare * 100).toFixed(0)}%.`,
         portfolio: output.portfolio.reasons.join(" ") || `${output.portfolio.stocks.length} portfolio holdings evaluated.`,
         growth: `${output.growth.candidates.length} portfolio candidates evaluated by the growth agent.`,
+        universe: output.wealthUniverse.summary,
         riskValidation: `${output.riskValidation.decisions.length} risk-validation decisions completed.`,
         fundamental: output.fundamental.summary,
         technical: output.technical.summary,
@@ -121,6 +122,9 @@ export async function POST(request: Request) {
         timeframe: recommendation.timeframe,
         confidence: recommendation.confidence,
         score: recommendation.score,
+        publicationStatus: recommendation.publicationStatus,
+        evidenceCompleteness: recommendation.evidenceCompleteness,
+        rejectionCodes: recommendation.rejectionCodes,
         reason: recommendation.reason,
         whatChangedRecently: recommendation.whatChangedRecently,
         positiveTriggers: recommendation.positiveTriggers,
@@ -139,6 +143,14 @@ export async function POST(request: Request) {
         source: recommendation.source,
         thematicSector: recommendation.thematicSector,
       })),
+      diagnostics: {
+        fallback: false,
+        universeFreshness: output.wealthUniverse.freshness,
+        universeRejectionReasons: output.wealthUniverse.rejectionReasons,
+        actionableCount: output.recommendations.filter((item) => item.action === "Buy" || item.action === "Sell").length,
+        watchCount: output.recommendations.filter((item) => item.action === "Watch" || item.action === "Hold").length,
+        rejectedCount: output.recommendations.filter((item) => item.publicationStatus === "rejected").length,
+      },
     }, {
       headers: { "Cache-Control": "private, no-store" },
     });
@@ -178,7 +190,6 @@ function buildRulesFallback(
     ...groups.longTermPlan,
     ...groups.multibaggerCandidates,
     ...groups.intraday,
-    ...groups.etfs,
   ]
     .sort((a, b) => b.confidence - a.confidence)
     .slice(0, 12);
@@ -188,6 +199,14 @@ function buildRulesFallback(
     portfolioId: portfolio.id,
     portfolioName: portfolio.name,
     mode: "rules-fallback",
+    diagnostics: {
+      fallback: true,
+      universeFreshness: "unavailable",
+      universeRejectionReasons: [reason],
+      actionableCount: recommendations.length,
+      watchCount: 0,
+      rejectedCount: 0,
+    },
     disclaimer: "Agent orchestration could not complete within the response window; showing local portfolio-screening recommendations.",
     summaries: {
       info: reason,
@@ -212,6 +231,9 @@ function buildRulesFallback(
         timeframe,
         confidence: recommendation.confidence,
         score: recommendation.metrics?.finalScore ?? recommendation.confidence,
+        publicationStatus: "actionable" as const,
+        evidenceCompleteness: 50,
+        rejectionCodes: [],
         reason: recommendation.rationale,
         whatChangedRecently: recommendation.caveats ?? [],
         positiveTriggers: isBuy ? [recommendation.rationale] : [],

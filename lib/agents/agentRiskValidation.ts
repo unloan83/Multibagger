@@ -44,8 +44,8 @@ export function agentRiskValidation({
       infoSignal?.score,
       sentimentSignal?.score,
       sectorSignal?.score,
-      fundamentalSignal?.score,
-      technicalSignal?.score,
+      fundamentalSignal?.score ?? candidate.supportingScores.fundamental,
+      technicalSignal?.score ?? candidate.supportingScores.technical,
       earningsSignal?.score,
     ]
       .filter((score): score is number => score !== undefined && Math.abs(score) >= 0.75);
@@ -72,7 +72,10 @@ export function agentRiskValidation({
       (event) => event.sourceCredibility < 50,
     );
     const reliableSpecialistEvidence = [fundamentalSignal, technicalSignal, earningsSignal]
-      .some((signal) => signal && signal.confidence >= 55 && Math.abs(signal.score) >= 0.75);
+      .some((signal) => signal && signal.confidence >= 55 && Math.abs(signal.score) >= 0.75) ||
+      (candidate.source === "wealth-universe" &&
+        Math.abs(candidate.supportingScores.fundamental) >= 0.75 &&
+        Math.abs(candidate.supportingScores.technical) >= 0.75);
     const weakSources = weakNewsSources && !reliableSpecialistEvidence;
     const portfolioMismatch = Boolean(
       portfolioSignal &&

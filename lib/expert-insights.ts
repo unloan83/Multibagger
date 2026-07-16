@@ -18,6 +18,7 @@ import {
   type ReviewWindow,
   type SectorDirection,
 } from "@/lib/recommendation-intelligence";
+import { filterLearningValidationHistory } from "@/lib/learning-history";
 import {
   getMarketUniverse,
   screenWealthUniverse,
@@ -145,7 +146,7 @@ export async function generateExpertActionMatrix(): Promise<ExpertActionMatrix> 
     loadValidationRecords(),
     readExpertConsensusCounts(),
   ]);
-  const learning = buildLearningFeedback(validationRecords);
+  const learning = buildLearningFeedback(filterLearningValidationHistory(validationRecords));
   const intradayPriors = await readIntradayPredictionPriors();
   const screened = await screenWealthUniverse(marketRegime, {
     expertConsensusCounts,

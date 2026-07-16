@@ -78,7 +78,10 @@ export async function POST(request: Request) {
   try {
     return await runShadowValidation(request);
   } catch (error) {
-    const message = error instanceof Error ? error.message : "Shadow validation failed unexpectedly.";
+    const rawMessage = error instanceof Error ? error.message : "Shadow validation failed unexpectedly.";
+    const message = /quota exceeded|read requests per minute/iu.test(rawMessage)
+      ? "Google Sheets is temporarily rate-limited. Please wait 60 seconds before retrying validation."
+      : rawMessage;
     console.error("Admin shadow validation failed:", error);
     return NextResponse.json({ error: message }, { status: 500 });
   }

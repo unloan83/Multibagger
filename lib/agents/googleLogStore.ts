@@ -6,8 +6,26 @@ const sheetName = "Agent Recommendation Logs";
 const spreadsheetId = process.env.GOOGLE_SHEETS_SPREADSHEET_ID;
 const clientEmail = process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL;
 const privateKey = normalizeGooglePrivateKey(process.env.GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY);
+const cacheMs = 15_000;
+let logCache: { expiresAt: number; value: AgentRecommendationLog[] } | null = null;
+let logRead: Promise<AgentRecommendationLog[]> | null = null;
+let sheetEnsuredUntil = 0;
+let sheetEnsure: Promise<void> | null = null;
 
 export async function readAgentRecommendationLogs(): Promise<AgentRecommendationLog[]> {
+  if (logCache && logCache.expiresAt > Date.now()) return logCache.value;
+  if (logRead) return logRead;
+  logRead = readAgentRecommendationLogsNow();
+  try {
+    const value = await logRead;
+    logCache = { expiresAt: Date.now() + cacheMs, value };
+    return value;
+  } finally {
+    logRead = null;
+  }
+}
+
+async function readAgentRecommendationLogsNow(): Promise<AgentRecommendationLog[]> {
   if (!configured()) return [];
   try {
     const sheets = await client();
@@ -67,6 +85,7 @@ export async function appendAgentRecommendationLogs(logs: AgentRecommendationLog
       values: additions.map(toSheetRow),
     },
   });
+  logCache = null;
   return additions.length;
 }
 
@@ -82,6 +101,7 @@ export async function writeAgentRecommendationLogs(logs: AgentRecommendationLog[
       values: logs.map(toSheetRow),
     },
   });
+  logCache = null;
 }
 
 function toSheetRow(log: AgentRecommendationLog) {
@@ -119,6 +139,14 @@ function safeText(value: string, limit = 1_000) {
 }
 
 async function ensureSheet(sheets: Awaited<ReturnType<typeof client>>) {
+  if (sheetEnsuredUntil > Date.now()) return;
+  if (sheetEnsure) return sheetEnsure;
+  sheetEnsure = ensureSheetNow(sheets).finally(() => { sheetEnsure = null; });
+  await sheetEnsure;
+  sheetEnsuredUntil = Date.now() + 5 * 60_000;
+}
+
+async function ensureSheetNow(sheets: Awaited<ReturnType<typeof client>>) {
   const spreadsheet = await sheets.spreadsheets.get({ spreadsheetId });
   const exists = spreadsheet.data.sheets?.some((sheet) => sheet.properties?.title === sheetName);
   if (!exists) {

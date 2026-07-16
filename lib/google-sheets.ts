@@ -31,6 +31,14 @@ const validationSheet = "Validation";
 const learningSheet = "Learning";
 const marketMoversSheet = "Market Movers";
 const stockIntelligenceLogSheet = "AI Recommendation Log";
+const readCacheMs = 15_000;
+const ensureCacheMs = 5 * 60_000;
+let portfolioCache: { expiresAt: number; value: ManagedPortfolio[] } | null = null;
+let portfolioRead: Promise<ManagedPortfolio[]> | null = null;
+let validationCache: { expiresAt: number; value: ValidationRecord[] } | null = null;
+let validationRead: Promise<ValidationRecord[]> | null = null;
+const ensuredUntil = new Map<string, number>();
+const ensureRequests = new Map<string, Promise<void>>();
 
 export type ValidationSource =
   | "expert-insight"
@@ -184,9 +192,12 @@ export async function readPortfoliosFromSheets(): Promise<ManagedPortfolio[]> {
     return [];
   }
 
-  const sheets = await getSheetsClient();
-  await ensureSheets();
-  const [portfolioResponse, holdingResponse] = await Promise.all([
+  if (portfolioCache && portfolioCache.expiresAt > Date.now()) return portfolioCache.value;
+  if (portfolioRead) return portfolioRead;
+  portfolioRead = (async () => {
+    const sheets = await getSheetsClient();
+    await ensureSheets();
+    const [portfolioResponse, holdingResponse] = await Promise.all([
     sheets.spreadsheets.values.get({
       spreadsheetId,
       range: `${portfoliosSheet}!A2:E`,
@@ -196,10 +207,10 @@ export async function readPortfoliosFromSheets(): Promise<ManagedPortfolio[]> {
       range: `${holdingsSheet}!A2:F`,
     }),
   ]);
-  const portfolioRows = portfolioResponse.data.values ?? [];
-  const holdingRows = holdingResponse.data.values ?? [];
+    const portfolioRows = portfolioResponse.data.values ?? [];
+    const holdingRows = holdingResponse.data.values ?? [];
 
-  return portfolioRows.map((row) => {
+    const value = portfolioRows.map((row) => {
     const id = String(row[0] ?? "");
     const inputs = holdingRows
       .filter((holding) => String(holding[0] ?? "") === id)
@@ -220,7 +231,15 @@ export async function readPortfoliosFromSheets(): Promise<ManagedPortfolio[]> {
       inputs,
       positions: [],
     };
-  });
+    });
+    portfolioCache = { expiresAt: Date.now() + readCacheMs, value };
+    return value;
+  })();
+  try {
+    return await portfolioRead;
+  } finally {
+    portfolioRead = null;
+  }
 }
 
 export async function savePortfolioToSheets(portfolio: ManagedPortfolio) {
@@ -579,6 +598,7 @@ export async function appendValidationRows(rows: ValidationRow[]) {
       }),
     },
   });
+  validationCache = null;
 }
 
 export async function readValidationRecords(): Promise<ValidationRecord[]> {
@@ -586,14 +606,24 @@ export async function readValidationRecords(): Promise<ValidationRecord[]> {
     return [];
   }
 
-  const sheets = await getSheetsClient();
-  await ensureSheets();
-  const response = await sheets.spreadsheets.values.get({
-    spreadsheetId,
-    range: rangeFor(validationSheet, "A2:AJ"),
-  });
-
-  return (response.data.values ?? []).map(parseValidationRecord);
+  if (validationCache && validationCache.expiresAt > Date.now()) return validationCache.value;
+  if (validationRead) return validationRead;
+  validationRead = (async () => {
+    const sheets = await getSheetsClient();
+    await ensureSheets();
+    const response = await sheets.spreadsheets.values.get({
+      spreadsheetId,
+      range: rangeFor(validationSheet, "A2:AJ"),
+    });
+    const value = (response.data.values ?? []).map(parseValidationRecord);
+    validationCache = { expiresAt: Date.now() + readCacheMs, value };
+    return value;
+  })();
+  try {
+    return await validationRead;
+  } finally {
+    validationRead = null;
+  }
 }
 
 export async function updateValidationRecords(records: ValidationRecord[]) {
@@ -613,6 +643,7 @@ export async function updateValidationRecords(records: ValidationRecord[]) {
     valueInputOption: "USER_ENTERED",
     requestBody: { values: records.map(validationRecordValues) },
   });
+  validationCache = null;
 }
 
 export async function writeLearningRows(rows: LearningRow[]) {
@@ -930,6 +961,7 @@ async function writePortfolios(portfolios: ManagedPortfolio[]) {
       .filter((portfolio) => !portfolio.isMarketPortfolio)
       .map((portfolio) => writePortfolioTab(sheets, portfolio)),
   );
+  portfolioCache = null;
 }
 
 async function writePortfolioTab(
@@ -971,6 +1003,17 @@ async function writePortfolioTab(
 }
 
 async function ensureSheets(additionalTitles: string[] = []) {
+  const cacheKey = [...additionalTitles].sort().join("|") || "base";
+  if ((ensuredUntil.get(cacheKey) ?? 0) > Date.now()) return;
+  const pending = ensureRequests.get(cacheKey);
+  if (pending) return pending;
+  const request = ensureSheetsNow(additionalTitles).finally(() => ensureRequests.delete(cacheKey));
+  ensureRequests.set(cacheKey, request);
+  await request;
+  ensuredUntil.set(cacheKey, Date.now() + ensureCacheMs);
+}
+
+async function ensureSheetsNow(additionalTitles: string[] = []) {
   const sheets = await getSheetsClient();
   const spreadsheet = await sheets.spreadsheets.get({ spreadsheetId });
   const names =

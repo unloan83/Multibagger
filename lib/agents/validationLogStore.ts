@@ -6,6 +6,10 @@ const sheetName = "Agent Validation Runs";
 const spreadsheetId = process.env.GOOGLE_SHEETS_SPREADSHEET_ID;
 const clientEmail = process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL;
 const privateKey = normalizeGooglePrivateKey(process.env.GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY);
+let reportCache: { expiresAt: number; value: AgentValidationReport[] } | null = null;
+let reportRead: Promise<AgentValidationReport[]> | null = null;
+let sheetEnsuredUntil = 0;
+let sheetEnsure: Promise<void> | null = null;
 
 export async function appendAgentValidationReport(report: AgentValidationReport) {
   if (!configured()) return false;
@@ -32,6 +36,7 @@ export async function appendAgentValidationReport(report: AgentValidationReport)
       ]],
     },
   });
+  reportCache = null;
   return true;
 }
 
@@ -82,6 +87,25 @@ function truncateLongStrings(_key: string, value: unknown) {
 }
 
 export async function readRecentAgentValidationReports(limit = 20): Promise<AgentValidationReport[]> {
+  const reports = await readCachedReports();
+  return reports.slice(0, Math.max(1, limit));
+}
+
+async function readCachedReports(): Promise<AgentValidationReport[]> {
+  if (!configured()) return [];
+  if (reportCache && reportCache.expiresAt > Date.now()) return reportCache.value;
+  if (reportRead) return reportRead;
+  reportRead = readReportsNow();
+  try {
+    const value = await reportRead;
+    reportCache = { expiresAt: Date.now() + 15_000, value };
+    return value;
+  } finally {
+    reportRead = null;
+  }
+}
+
+async function readReportsNow(): Promise<AgentValidationReport[]> {
   if (!configured()) return [];
   try {
     const sheets = await client();
@@ -91,7 +115,7 @@ export async function readRecentAgentValidationReports(limit = 20): Promise<Agen
       range: `'${sheetName}'!A2:K`,
     });
     return (response.data.values ?? [])
-      .slice(-Math.max(1, limit))
+      .slice(-50)
       .reverse()
       .flatMap((row) => {
         try {
@@ -106,6 +130,14 @@ export async function readRecentAgentValidationReports(limit = 20): Promise<Agen
 }
 
 async function ensureSheet(sheets: Awaited<ReturnType<typeof client>>) {
+  if (sheetEnsuredUntil > Date.now()) return;
+  if (sheetEnsure) return sheetEnsure;
+  sheetEnsure = ensureSheetNow(sheets).finally(() => { sheetEnsure = null; });
+  await sheetEnsure;
+  sheetEnsuredUntil = Date.now() + 5 * 60_000;
+}
+
+async function ensureSheetNow(sheets: Awaited<ReturnType<typeof client>>) {
   const spreadsheet = await sheets.spreadsheets.get({ spreadsheetId });
   const exists = spreadsheet.data.sheets?.some((sheet) => sheet.properties?.title === sheetName);
   if (!exists) {

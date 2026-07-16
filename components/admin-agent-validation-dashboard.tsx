@@ -53,7 +53,7 @@ export function AdminAgentValidationDashboard({
   useEffect(() => {
     if (!portfolio?.id) return;
     fetch(`/api/admin/agent-validation?portfolioId=${encodeURIComponent(portfolio.id)}`, { cache: "no-store" })
-      .then(async (response) => response.ok ? await response.json() as ValidationPreflight : null)
+      .then(async (response) => response.ok ? await readJsonResponse<ValidationPreflight>(response) : null)
       .then((payload) => {
         setPreflight(payload);
         setReport(payload?.report ?? null);
@@ -80,12 +80,12 @@ export function AdminAgentValidationDashboard({
           })),
         }),
       });
-      const payload = (await response.json()) as {
+      const payload = await readJsonResponse<{
         report?: AgentValidationReport;
         recentReports?: AgentValidationReport[];
         evaluation?: ModelEvaluation;
         error?: string;
-      };
+      }>(response);
       if (!response.ok || !payload.report) {
         throw new Error(payload.error ?? "Shadow validation failed.");
       }
@@ -321,6 +321,22 @@ export function AdminAgentValidationDashboard({
       )}
     </div>
   );
+}
+
+async function readJsonResponse<T>(response: Response): Promise<T> {
+  const body = await response.text();
+  if (!body.trim()) {
+    throw new Error(
+      response.ok
+        ? "The validation service returned an empty response. Please retry."
+        : `The validation service ended before returning details (HTTP ${response.status}).`,
+    );
+  }
+  try {
+    return JSON.parse(body) as T;
+  } catch {
+    throw new Error(`The validation service returned an invalid response (HTTP ${response.status}).`);
+  }
 }
 
 function Metric({ label, value, tone = "neutral" }: { label: string; value: string; tone?: "neutral" | "good" | "warn" }) {

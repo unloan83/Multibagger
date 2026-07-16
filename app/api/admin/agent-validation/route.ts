@@ -18,6 +18,7 @@ import { evaluateRecommendationModel } from "@/lib/model-evaluation";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
+export const maxDuration = 120;
 
 export async function GET(request: Request) {
   if (!(await isAdminRequest())) {
@@ -74,6 +75,16 @@ export async function GET(request: Request) {
 }
 
 export async function POST(request: Request) {
+  try {
+    return await runShadowValidation(request);
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Shadow validation failed unexpectedly.";
+    console.error("Admin shadow validation failed:", error);
+    return NextResponse.json({ error: message }, { status: 500 });
+  }
+}
+
+async function runShadowValidation(request: Request) {
   if (!(await isAdminRequest())) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }

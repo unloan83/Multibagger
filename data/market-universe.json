@@ -5758,6 +5758,17 @@
     ]
   },
   {
+    "symbol": "GRINDWELL",
+    "company": "Grindwell Norton Ltd.",
+    "theme": "Capital Goods",
+    "capHint": "small",
+    "benchmark": "^CNXINFRA",
+    "source": "NIFTY Microcap 250",
+    "sources": [
+      "NIFTY Microcap 250"
+    ]
+  },
+  {
     "symbol": "GRSE",
     "company": "Garden Reach Shipbuilders & Engineers Ltd.",
     "theme": "Capital Goods",
@@ -6319,18 +6330,6 @@
     "source": "NIFTY Microcap 250",
     "sources": [
       "NIFTY Microcap 250"
-    ]
-  },
-  {
-    "symbol": "JBCHEPHARM",
-    "company": "J.B. Chemicals & Pharmaceuticals Ltd.",
-    "theme": "Healthcare",
-    "capHint": "small",
-    "benchmark": "^CNXPHARMA",
-    "source": "NIFTY 500 + NIFTY Smallcap 250",
-    "sources": [
-      "NIFTY 500",
-      "NIFTY Smallcap 250"
     ]
   },
   {
@@ -7420,6 +7419,18 @@
     ]
   },
   {
+    "symbol": "PFOCUS",
+    "company": "Prime Focus Ltd.",
+    "theme": "Media Entertainment & Publication",
+    "capHint": "small",
+    "benchmark": "^CNXCONSUM",
+    "source": "NIFTY 500 + NIFTY Smallcap 250",
+    "sources": [
+      "NIFTY 500",
+      "NIFTY Smallcap 250"
+    ]
+  },
+  {
     "symbol": "PGEL",
     "company": "PG Electroplast Ltd.",
     "theme": "Consumer Durables",
@@ -8249,17 +8260,6 @@
     "theme": "Financial Services",
     "capHint": "small",
     "benchmark": "^CNXFIN",
-    "source": "NIFTY Microcap 250",
-    "sources": [
-      "NIFTY Microcap 250"
-    ]
-  },
-  {
-    "symbol": "STYRENIX",
-    "company": "Styrenix Performance Materials Ltd.",
-    "theme": "Chemicals",
-    "capHint": "small",
-    "benchmark": "^NSEI",
     "source": "NIFTY Microcap 250",
     "sources": [
       "NIFTY Microcap 250"

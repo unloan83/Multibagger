@@ -10,7 +10,7 @@ import type {
 
 const SNAPSHOT_PATH = path.join(process.cwd(), "data", "wealth_recommendations.json");
 const MAX_AGE_HOURS = 36;
-const INTRADAY_PER_BUCKET = 3;
+const INTRADAY_PER_BUCKET = 5;
 
 type CapBucket = "large" | "mid" | "small";
 

@@ -114,10 +114,10 @@ function selectCandidateQuota(candidates: GrowthCandidate[]) {
   const portfolioCandidates = candidates.filter((candidate) => candidate.source !== "wealth-universe").slice(0, 12);
   const longTermUniverse = candidates.filter(
     (candidate) => candidate.source === "wealth-universe" && candidate.timeframe !== "Intraday",
-  ).slice(0, 12);
+  ).slice(0, 18);  // 3 per cap bucket × 6 thematic sectors
   const intradayUniverse = candidates.filter(
     (candidate) => candidate.source === "wealth-universe" && candidate.timeframe === "Intraday",
-  ).slice(0, 6);
+  ).slice(0, 15);  // 5 per cap bucket × 3 buckets
   return [...portfolioCandidates, ...longTermUniverse, ...intradayUniverse];
 }
 

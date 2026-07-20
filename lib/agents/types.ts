@@ -201,6 +201,7 @@ export type AgentPerformanceOutput = {
   miss: number;
   pending: number;
   hitRate: number | null;
+  byTimeframe: Record<AgentTimeframe, { hit: number; miss: number; hitRate: number | null }>;
   confidenceCalibration: number | null;
   contributions: PerformanceContribution[];
   scoreAdjustments: Record<keyof OrchestratorWeights, number>;

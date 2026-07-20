@@ -66,6 +66,15 @@ export function agentPerformance({
   ) as AgentPerformanceOutput["scoreAdjustments"];
   const hitRate = completed ? Math.round((hit / completed) * 100) : null;
 
+  const timeframes = ["Intraday", "Short term", "3-6 months", "6-12 months", "Long term"] as const;
+  const byTimeframe = Object.fromEntries(
+    timeframes.map((tf) => {
+      const tfLogs = logs.filter((log) => log.timeframe === tf && log.status !== "pending");
+      const tfHit = tfLogs.filter((log) => log.status === "hit").length;
+      return [tf, { hit: tfHit, miss: tfLogs.length - tfHit, hitRate: tfLogs.length ? Math.round((tfHit / tfLogs.length) * 100) : null }];
+    }),
+  ) as AgentPerformanceOutput["byTimeframe"];
+
   return {
     agent: "Performance",
     generatedAt: now.toISOString(),
@@ -74,6 +83,7 @@ export function agentPerformance({
     miss,
     pending,
     hitRate,
+    byTimeframe,
     confidenceCalibration,
     contributions,
     scoreAdjustments,

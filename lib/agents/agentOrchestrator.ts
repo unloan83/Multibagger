@@ -49,9 +49,9 @@ export const intradayOrchestratorWeights: OrchestratorWeights = {
 };
 
 export const longTermOrchestratorWeights: OrchestratorWeights = {
-  existingLogic: 20, info: 8, macroPolicy: 8, sentiment: 3, portfolio: 5,
-  riskValidation: 10, fundamental: 16, technical: 5, intraday: 1,
-  swing: 3, longTerm: 10, earningsQuality: 8, rebalance: 3,
+  existingLogic: 14, info: 8, macroPolicy: 8, sentiment: 3, portfolio: 5,
+  riskValidation: 10, fundamental: 20, technical: 5, intraday: 1,
+  swing: 3, longTerm: 14, earningsQuality: 6, rebalance: 3,
 };
 
 export const swingOrchestratorWeights: OrchestratorWeights = {
@@ -362,7 +362,7 @@ function buildRAGContextForTop(
 
 function chooseAction(proposed: AgentAction, score: number, isHolding: boolean): AgentAction {
   if (proposed === "Watch") return isHolding ? "Hold" : "Watch";
-  if (proposed === "Buy") return score >= 62 ? "Buy" : isHolding ? "Hold" : "Watch";
+  if (proposed === "Buy") return score >= 58 ? "Buy" : isHolding ? "Hold" : "Watch";
   if (proposed === "Sell") return score <= 42 ? "Sell" : "Hold";
   return proposed;
 }

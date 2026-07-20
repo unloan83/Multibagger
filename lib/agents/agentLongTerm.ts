@@ -44,8 +44,12 @@ export function agentLongTerm({
     const score = scoreLongTerm(metrics, fundamentalSignal, infoSignal, sectorSignal, macroPolicy, performance);
     const confidence = longTermConfidence(metrics, fundamentalSignal, performance);
     const reasons = buildLongTermReasons(metrics, score, fundamentalSignal, infoSignal, sectorSignal, performance);
-    const cagr = fundamentalSignal?.metrics?.returnOnEquity !== null
-      ? clamp(fundamentalSignal.metrics.returnOnEquity * 100, -10, 40)
+    const cagrInputs = [
+      fMetrics?.returnOnEquity != null ? fMetrics.returnOnEquity * 100 : null,
+      fMetrics?.revenueGrowth != null ? fMetrics.revenueGrowth * 100 * 0.6 : null,
+    ].filter((v): v is number => v !== null);
+    const cagr = cagrInputs.length
+      ? clamp(cagrInputs.reduce((s, v) => s + v, 0) / cagrInputs.length, -10, 40)
       : null;
     const riskLevel = assessLongTermRisk(metrics, portfolioSignal, macroPolicy);
 

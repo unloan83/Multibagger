@@ -234,7 +234,7 @@ function computeIntradayMetrics(
     : "flat";
 
   // --- Opening Range Breakout (first 2 × 15m candles = 30 min) ---
-  const orbCandles = todayQuotes(rawQuotes).slice(0, 2);
+  const orbCandles = filterTodayQuotes(rawQuotes).slice(0, 2);
   const orbHigh = orbCandles.length >= 2
     ? Math.max(...orbCandles.map((q) => q.high ?? q.close ?? 0).filter((v) => v > 0))
     : null;
@@ -408,11 +408,11 @@ function buildIntradayReasons(
 // Helpers
 // ---------------------------------------------------------------------------
 
-/** Extracts only today's candles from rawQuotes (UTC-aware). */
-function todayQuotes(
+/** Extracts only today's candles from rawQuotes (UTC-aware, uses the passed-in `now`). */
+function filterTodayQuotes(
   rawQuotes: Array<{ date?: Date | string | null; open?: number | null; high?: number | null; low?: number | null; close?: number | null }>,
+  now = new Date(),
 ): typeof rawQuotes {
-  const now = new Date();
   const todayMidnightUTC = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
   return rawQuotes.filter((q) => {
     if (!q.date) return false;

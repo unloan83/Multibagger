@@ -3848,6 +3848,17 @@
     ]
   },
   {
+    "symbol": "AGL",
+    "company": "Allcargo Global Ltd.",
+    "theme": "Services",
+    "capHint": "small",
+    "benchmark": "^CNXINFRA",
+    "source": "NIFTY Microcap 250",
+    "sources": [
+      "NIFTY Microcap 250"
+    ]
+  },
+  {
     "symbol": "AHLUCONT",
     "company": "Ahluwalia Contracts (India) Ltd.",
     "theme": "Construction",
@@ -8227,17 +8238,6 @@
     "theme": "Financial Services",
     "capHint": "small",
     "benchmark": "^CNXFIN",
-    "source": "NIFTY Microcap 250",
-    "sources": [
-      "NIFTY Microcap 250"
-    ]
-  },
-  {
-    "symbol": "STAR",
-    "company": "Strides Pharma Science Ltd.",
-    "theme": "Healthcare",
-    "capHint": "small",
-    "benchmark": "^CNXPHARMA",
     "source": "NIFTY Microcap 250",
     "sources": [
       "NIFTY Microcap 250"

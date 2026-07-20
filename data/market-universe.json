@@ -3848,17 +3848,6 @@
     ]
   },
   {
-    "symbol": "AGL",
-    "company": "Allcargo Global Ltd.",
-    "theme": "Services",
-    "capHint": "small",
-    "benchmark": "^CNXINFRA",
-    "source": "NIFTY Microcap 250",
-    "sources": [
-      "NIFTY Microcap 250"
-    ]
-  },
-  {
     "symbol": "AHLUCONT",
     "company": "Ahluwalia Contracts (India) Ltd.",
     "theme": "Construction",
@@ -5760,17 +5749,6 @@
   {
     "symbol": "GREAVESCOT",
     "company": "Greaves Cotton Ltd.",
-    "theme": "Capital Goods",
-    "capHint": "small",
-    "benchmark": "^CNXINFRA",
-    "source": "NIFTY Microcap 250",
-    "sources": [
-      "NIFTY Microcap 250"
-    ]
-  },
-  {
-    "symbol": "GRINDWELL",
-    "company": "Grindwell Norton Ltd.",
     "theme": "Capital Goods",
     "capHint": "small",
     "benchmark": "^CNXINFRA",
@@ -8244,6 +8222,17 @@
     ]
   },
   {
+    "symbol": "STAR",
+    "company": "Strides Pharma Science Ltd.",
+    "theme": "Healthcare",
+    "capHint": "small",
+    "benchmark": "^CNXPHARMA",
+    "source": "NIFTY Microcap 250",
+    "sources": [
+      "NIFTY Microcap 250"
+    ]
+  },
+  {
     "symbol": "STARCEMENT",
     "company": "Star Cement Ltd.",
     "theme": "Construction Materials",
@@ -8260,6 +8249,17 @@
     "theme": "Financial Services",
     "capHint": "small",
     "benchmark": "^CNXFIN",
+    "source": "NIFTY Microcap 250",
+    "sources": [
+      "NIFTY Microcap 250"
+    ]
+  },
+  {
+    "symbol": "STYRENIX",
+    "company": "Styrenix Performance Materials Ltd.",
+    "theme": "Chemicals",
+    "capHint": "small",
+    "benchmark": "^NSEI",
     "source": "NIFTY Microcap 250",
     "sources": [
       "NIFTY Microcap 250"

@@ -2750,7 +2750,16 @@ function SnapshotRefreshTab() {
     setResults((prev) => ({ ...prev, [job.id]: "" }));
     try {
       const res = await fetch(job.path);
-      const data = await res.json() as Record<string, unknown>;
+      const text = await res.text();
+      let data: Record<string, unknown> = {};
+      try {
+        data = JSON.parse(text) as Record<string, unknown>;
+      } catch {
+        // Server returned non-JSON (HTML error page or timeout)
+        setResults((prev) => ({ ...prev, [job.id]: `HTTP ${res.status} — ${text.slice(0, 120).replace(/<[^>]+>/g, " ").trim()}` }));
+        setStatuses((prev) => ({ ...prev, [job.id]: "error" }));
+        return;
+      }
       if (res.ok && data.ok) {
         const detail = job.id === "wealth"
           ? `Eligible: ${data.eligibleSize ?? "?"} / ${data.evaluatedSize ?? "?"}. Regime: ${data.marketRegime ?? "?"}. LT: ${(data.capBreakdown as Array<{longTerm:number}>|undefined)?.reduce((s,c)=>s+c.longTerm,0) ?? "?"}. Intraday: ${(data.capBreakdown as Array<{intraday:number}>|undefined)?.reduce((s,c)=>s+c.intraday,0) ?? "?"}.`
@@ -2758,7 +2767,8 @@ function SnapshotRefreshTab() {
         setResults((prev) => ({ ...prev, [job.id]: detail }));
         setStatuses((prev) => ({ ...prev, [job.id]: "done" }));
       } else {
-        setResults((prev) => ({ ...prev, [job.id]: JSON.stringify(data).slice(0, 200) }));
+        const msg = (data.error ?? data.contractErrors ?? JSON.stringify(data)) as string;
+        setResults((prev) => ({ ...prev, [job.id]: `HTTP ${res.status} — ${String(msg).slice(0, 200)}` }));
         setStatuses((prev) => ({ ...prev, [job.id]: "error" }));
       }
     } catch (err) {

@@ -34,13 +34,36 @@ export async function GET(request: Request) {
 
   const startedAt = new Date();
 
-  // Determine market regime from the latest market overview
-  const overview = await buildMarketOverview();
+  let overview: Awaited<ReturnType<typeof buildMarketOverview>>;
+  try {
+    overview = await buildMarketOverview();
+  } catch (err) {
+    return NextResponse.json(
+      { ok: false, error: "Market overview failed.", detail: String(err) },
+      { status: 500 },
+    );
+  }
+
   const regime = deriveRegime(overview.sentiment, overview.averageMove);
 
-  const universe = await screenLongTermUniverse(regime, startedAt);
+  let universe: Awaited<ReturnType<typeof screenLongTermUniverse>>;
+  try {
+    universe = await screenLongTermUniverse(regime, startedAt);
+  } catch (err) {
+    return NextResponse.json(
+      { ok: false, error: "Long-term screener failed.", detail: String(err) },
+      { status: 500 },
+    );
+  }
 
-  await writeLongTermUniverseSnapshot(universe);
+  try {
+    await writeLongTermUniverseSnapshot(universe);
+  } catch (err) {
+    return NextResponse.json(
+      { ok: false, error: "Failed to write snapshot.", detail: String(err) },
+      { status: 500 },
+    );
+  }
 
   const durationMs = Date.now() - startedAt.getTime();
 

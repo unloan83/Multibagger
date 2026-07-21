@@ -2767,8 +2767,8 @@ function SnapshotRefreshTab() {
         setResults((prev) => ({ ...prev, [job.id]: detail }));
         setStatuses((prev) => ({ ...prev, [job.id]: "done" }));
       } else {
-        const msg = (data.error ?? data.contractErrors ?? JSON.stringify(data)) as string;
-        setResults((prev) => ({ ...prev, [job.id]: `HTTP ${res.status} — ${String(msg).slice(0, 200)}` }));
+        const msg = (data.detail ?? data.error ?? data.contractErrors ?? JSON.stringify(data)) as string;
+        setResults((prev) => ({ ...prev, [job.id]: `HTTP ${res.status} — ${String(msg).slice(0, 300)}` }));
         setStatuses((prev) => ({ ...prev, [job.id]: "error" }));
       }
     } catch (err) {

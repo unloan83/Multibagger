@@ -31,7 +31,15 @@ export async function GET(request: Request) {
 
   const startedAt = new Date();
 
-  const matrix = await generateExpertActionMatrix();
+  let matrix: Awaited<ReturnType<typeof generateExpertActionMatrix>>;
+  try {
+    matrix = await generateExpertActionMatrix();
+  } catch (err) {
+    return NextResponse.json(
+      { ok: false, error: "Screener failed.", detail: String(err) },
+      { status: 500 },
+    );
+  }
 
   const contractErrors = validateRecommendationContract(matrix);
   if (contractErrors.length > 0) {
@@ -46,7 +54,14 @@ export async function GET(request: Request) {
     );
   }
 
-  await writeExpertActionMatrixSnapshot(matrix);
+  try {
+    await writeExpertActionMatrixSnapshot(matrix);
+  } catch (err) {
+    return NextResponse.json(
+      { ok: false, error: "Failed to write snapshot.", detail: String(err) },
+      { status: 500 },
+    );
+  }
 
   const longTermTotal = matrix.categories.reduce(
     (sum, category) => sum + category.longTermUpsides.length,

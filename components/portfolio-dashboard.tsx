@@ -2691,12 +2691,15 @@ function AdminControlPanel({
           onRefresh={refreshRequests}
         />
       ) : null}
+      {activeTab === "snapshots" ? (
+        <SnapshotRefreshTab />
+      ) : null}
       <SectionFooter text="Admin operations use the existing authenticated session and portfolio persistence." />
     </section>
   );
 }
 
-type AdminTab = "portfolio" | "monitor" | "performance" | "validation" | "agent-validation" | "export" | "pin-diagnostics" | "requests";
+type AdminTab = "portfolio" | "monitor" | "performance" | "validation" | "agent-validation" | "export" | "pin-diagnostics" | "requests" | "snapshots";
 
 const adminTabs: Array<{ id: AdminTab; label: string }> = [
   { id: "portfolio", label: "Portfolio Administration" },
@@ -2704,6 +2707,7 @@ const adminTabs: Array<{ id: AdminTab; label: string }> = [
   { id: "performance", label: "Performance Analytics" },
   { id: "validation", label: "Intelligence Validation" },
   { id: "agent-validation", label: "Agent Shadow Validation" },
+  { id: "snapshots", label: "Refresh Snapshots" },
   { id: "export", label: "Data Export" },
   { id: "pin-diagnostics", label: "PIN Diagnostics" },
   { id: "requests", label: "User Requests" },
@@ -2712,6 +2716,137 @@ const adminTabs: Array<{ id: AdminTab; label: string }> = [
 type AdminIntelligence = ReturnType<typeof buildAdminIntelligence>;
 type AdminPerformance = ReturnType<typeof buildPerformanceAnalytics>;
 type PerformanceWindow = "today" | "7d" | "30d" | "90d" | "all";
+
+type SnapshotJob = {
+  id: "wealth" | "long-term-universe";
+  label: string;
+  description: string;
+  path: string;
+};
+
+const SNAPSHOT_JOBS: SnapshotJob[] = [
+  {
+    id: "wealth",
+    label: "Wealth Snapshot",
+    description: "Screens 700 NIFTY 500 stocks for long-term upsides and intraday breakouts. Writes wealth_recommendations.json. Takes up to 5 minutes.",
+    path: "/api/snapshots/wealth",
+  },
+  {
+    id: "long-term-universe",
+    label: "Long-Term Universe",
+    description: "Screens thematic sectors (Defense, Renewables, Pharma, EV, AI, Semiconductors) for large/mid/small/emerging picks. Writes long_term_universe.json. Takes up to 5 minutes.",
+    path: "/api/snapshots/long-term-universe",
+  },
+];
+
+type SnapshotStatus = "idle" | "running" | "done" | "error";
+
+function SnapshotRefreshTab() {
+  const [statuses, setStatuses] = useState<Record<string, SnapshotStatus>>({});
+  const [results, setResults] = useState<Record<string, string>>({});
+
+  async function runSnapshot(job: SnapshotJob) {
+    setStatuses((prev) => ({ ...prev, [job.id]: "running" }));
+    setResults((prev) => ({ ...prev, [job.id]: "" }));
+    try {
+      const res = await fetch(job.path);
+      const data = await res.json() as Record<string, unknown>;
+      if (res.ok && data.ok) {
+        const detail = job.id === "wealth"
+          ? `Eligible: ${data.eligibleSize ?? "?"} / ${data.evaluatedSize ?? "?"}. Regime: ${data.marketRegime ?? "?"}. LT: ${(data.capBreakdown as Array<{longTerm:number}>|undefined)?.reduce((s,c)=>s+c.longTerm,0) ?? "?"}. Intraday: ${(data.capBreakdown as Array<{intraday:number}>|undefined)?.reduce((s,c)=>s+c.intraday,0) ?? "?"}.`
+          : `${data.totalStocks ?? "?"} stocks. Regime: ${data.marketRegime ?? "?"}. Sectors: ${JSON.stringify(data.slotSummary ?? {})}.`;
+        setResults((prev) => ({ ...prev, [job.id]: detail }));
+        setStatuses((prev) => ({ ...prev, [job.id]: "done" }));
+      } else {
+        setResults((prev) => ({ ...prev, [job.id]: JSON.stringify(data).slice(0, 200) }));
+        setStatuses((prev) => ({ ...prev, [job.id]: "error" }));
+      }
+    } catch (err) {
+      setResults((prev) => ({ ...prev, [job.id]: String(err) }));
+      setStatuses((prev) => ({ ...prev, [job.id]: "error" }));
+    }
+  }
+
+  async function runAll() {
+    for (const job of SNAPSHOT_JOBS) {
+      await runSnapshot(job);
+    }
+  }
+
+  const anyRunning = Object.values(statuses).some((s) => s === "running");
+
+  return (
+    <div className="space-y-4">
+      <div className="flex items-center justify-between">
+        <p className="text-sm text-slate-400">
+          Manually refresh screener snapshots. Run after code changes or when recommendations are stale.
+          Cron runs automatically at 03:45 UTC and 04:00 UTC on weekdays.
+        </p>
+        <Button
+          type="button"
+          variant="default"
+          disabled={anyRunning}
+          onClick={runAll}
+          className="shrink-0"
+        >
+          <RefreshCw className={cn("mr-2 h-4 w-4", anyRunning && "animate-spin")} />
+          Refresh All
+        </Button>
+      </div>
+      <div className="grid gap-3">
+        {SNAPSHOT_JOBS.map((job) => {
+          const status = statuses[job.id] ?? "idle";
+          const result = results[job.id] ?? "";
+          return (
+            <div
+              key={job.id}
+              className={cn(
+                "rounded-xl border p-4 space-y-2",
+                status === "done" && "border-emerald-400/40 bg-emerald-400/5",
+                status === "error" && "border-red-400/40 bg-red-400/5",
+                status === "running" && "border-sky-400/40 bg-sky-400/5",
+                status === "idle" && "border-slate-600/40 bg-slate-800/30",
+              )}
+            >
+              <div className="flex items-center justify-between gap-3">
+                <div>
+                  <p className="font-semibold text-slate-100">{job.label}</p>
+                  <p className="text-xs text-slate-400 mt-0.5">{job.description}</p>
+                </div>
+                <Button
+                  type="button"
+                  variant="outline"
+                  disabled={status === "running" || anyRunning}
+                  onClick={() => runSnapshot(job)}
+                  className="shrink-0"
+                >
+                  <RefreshCw className={cn("mr-2 h-4 w-4", status === "running" && "animate-spin")} />
+                  {status === "running" ? "Running…" : "Run"}
+                </Button>
+              </div>
+              {status === "done" && (
+                <p className="text-xs text-emerald-300 font-mono">
+                  ✓ Done — {result}
+                </p>
+              )}
+              {status === "error" && (
+                <p className="text-xs text-red-300 font-mono">
+                  ✗ Error — {result}
+                </p>
+              )}
+              {status === "running" && (
+                <p className="text-xs text-sky-300 animate-pulse">
+                  Running… this may take up to 5 minutes.
+                </p>
+              )}
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
 type PinDiagnosticResult = {
   portfolioId?: string;
   status: "Success" | "Failure" | "Pass" | "Fail";

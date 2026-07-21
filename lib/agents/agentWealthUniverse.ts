@@ -193,7 +193,7 @@ function screenedStockToCandidate(
     negativeConcerns: stock.caveats.slice(0, 3),
     volatilityScore: stock.metrics.riskScore,
     liquidityScore: stock.metrics.liquidityScore,
-    target: stock.target > 0 ? stock.target : undefined,
+    target: (stock.metrics as { target?: number }).target ?? (stock.target > 0 ? stock.target : undefined),
     stopLoss: stock.price && stock.price > 0 ? Math.round(stock.price * 0.85 * 100) / 100 : undefined,
     capBucket: capSlot,
     source: "wealth-universe",
@@ -238,7 +238,7 @@ function toGrowthCandidate(
     negativeConcerns: quote.caveats.slice(0, 3),
     volatilityScore: quote.metrics?.riskScore,
     liquidityScore: quote.metrics?.liquidityScore,
-    target: quote.target > 0 ? quote.target : undefined,
+    target: quote.metrics?.target > 0 ? quote.metrics.target : (quote.target > 0 ? quote.target : undefined),
     stopLoss: quote.price > 0
       ? Math.round(quote.price * (1 - Math.max(1.2, quote.metrics?.atrPercent ?? 1.2) / 100) * 100) / 100
       : undefined,

@@ -389,7 +389,12 @@ function toExpertQuote(
 ): ExpertQuote {
   const intradayPotential =
     source === "intraday" ? stock.metrics.intradayPotentialPercent : 0;
-  const isSafetyGatedIntradayWatch = source === "intraday" && !stock.eligible;
+  // For intraday picks, isMomentumCandidate() already enforces the correct
+  // intraday-specific gates (score, momentum, volume, trend, riskScore, liquidity).
+  // The long-term fundamental eligibility flag (stock.eligible) is irrelevant for
+  // a same-day trade — only a governance/regulatory risk headline warrants blocking.
+  const isSafetyGatedIntradayWatch = source === "intraday" &&
+    stock.gateFailures.some((f) => f.includes("governance or regulatory risk"));
   return {
     symbol: stock.symbol,
     name: stock.name,

@@ -1,6 +1,7 @@
 import fs from "node:fs/promises";
 import path from "node:path";
 import type { ExpertActionMatrix, ExpertQuote } from "@/lib/expert-insights";
+import { validateRecommendationContract } from "@/lib/expert-insights";
 import { readLongTermUniverseSnapshot } from "@/lib/long-term-universe";
 import type {
   AgentTimeframe,
@@ -133,7 +134,20 @@ export async function agentWealthUniverse(
 async function readIntradaySnapshot(): Promise<ExpertActionMatrix | null> {
   try {
     const json = await fs.readFile(SNAPSHOT_PATH, "utf8");
-    return JSON.parse(json) as ExpertActionMatrix;
+    const snapshot = JSON.parse(json) as ExpertActionMatrix;
+    const ageHours = (Date.now() - Date.parse(snapshot.asOf)) / 3_600_000;
+
+    if (
+      !Number.isFinite(ageHours) ||
+      ageHours < -1 ||
+      ageHours > MAX_AGE_HOURS ||
+      snapshot.universeSize < 450 ||
+      validateRecommendationContract(snapshot).length > 0
+    ) {
+      return null;
+    }
+
+    return snapshot;
   } catch {
     return null;
   }

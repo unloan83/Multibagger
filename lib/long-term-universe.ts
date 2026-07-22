@@ -232,13 +232,27 @@ export async function writeLongTermUniverseSnapshot(
 }
 
 /**
- * Reads the cached snapshot from disk.  Returns null if the file does not exist.
+ * Reads the cached snapshot from disk.  Returns null if the file does not exist,
+ * if the snapshot is older than 36 hours, or if it contains no stocks.
  * This is the fast path used by agentWealthUniverse on every agent request.
  */
 export async function readLongTermUniverseSnapshot(): Promise<LongTermUniverse | null> {
+  const MAX_AGE_HOURS = 36;
   try {
     const json = await fs.readFile(SNAPSHOT_PATH, "utf8");
-    return JSON.parse(json) as LongTermUniverse;
+    const snapshot = JSON.parse(json) as LongTermUniverse;
+    const ageHours = (Date.now() - Date.parse(snapshot.asOf)) / 3_600_000;
+
+    if (
+      !Number.isFinite(ageHours) ||
+      ageHours < -1 ||
+      ageHours > MAX_AGE_HOURS ||
+      snapshot.totalStocks === 0
+    ) {
+      return null;
+    }
+
+    return snapshot;
   } catch {
     return null;
   }

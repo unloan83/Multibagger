@@ -1,4 +1,5 @@
 import YahooFinance from "yahoo-finance2";
+import { computeATR, computeRSI } from "@/lib/agents/indicators";
 import type {
   AgentTechnicalOutput,
   TechnicalMetrics,
@@ -24,14 +25,22 @@ export async function agentTechnical(
         period2: now,
         interval: "1d",
       });
-      const prices = historical
-        .filter((h: { close?: number | null }) => h.close !== null && h.close! > 0)
-        .map((h: { close: number }) => h.close);
+      // Filter once so prices, highs and lows are bar-aligned (required by ATR)
+      const validBars = historical.filter(
+        (h: { close?: number | null }) => h.close !== null && h.close! > 0,
+      );
+      const prices = validBars.map((h: { close: number }) => h.close);
+      const highs = validBars.map(
+        (h: { high?: number | null; close: number }) => h.high ?? h.close,
+      );
+      const lows = validBars.map(
+        (h: { low?: number | null; close: number }) => h.low ?? h.close,
+      );
       const volumes = historical
         .filter((h: { volume?: number | null }) => h.volume !== null)
         .map((h: { volume: number }) => h.volume);
       const quote = await yf.quote(symbol);
-      const metrics = computeTechnicalMetrics(prices, volumes, quote);
+      const metrics = computeTechnicalMetrics(prices, highs, lows, volumes, quote);
       const score = scoreTechnical(metrics);
       const confidence = confidenceFromTechnical(metrics);
       const reasons = buildTechReasons(metrics, score);
@@ -68,10 +77,13 @@ export async function agentTechnical(
 
 function computeTechnicalMetrics(
   prices: number[],
+  highs: number[],
+  lows: number[],
   volumes: number[],
   quote: Awaited<ReturnType<typeof yf.quote>>,
 ): TechnicalMetrics {
-  const rsi14 = prices.length >= 15 ? computeRSI(prices, 14) : null;
+  // Wilder-smoothed RSI — replaces simple-average approximation
+  const rsi14 = computeRSI(prices, 14);
   const sma20 = prices.length >= 20 ? sma(prices, 20) : null;
   const sma50 = prices.length >= 50 ? sma(prices, 50) : null;
   const volumeAvg20 = volumes.length >= 20
@@ -82,7 +94,8 @@ function computeTechnicalMetrics(
   const prevClose = prices.length >= 2 ? prices[prices.length - 2] : null;
   const weekAgo = prices.length >= 6 ? prices[prices.length - 6] : null;
   const monthAgo = prices.length >= 22 ? prices[prices.length - 22] : null;
-  const atr14 = prices.length >= 15 ? computeATR(prices, 14) : null;
+  // True-range ATR (H/L/prevClose) — replaces close-to-close-only approximation
+  const atr14 = computeATR(highs, lows, prices, 14);
 
   return {
     rsi14,
@@ -159,31 +172,7 @@ function inferLastPrice(m: TechnicalMetrics): number | null {
   return m.sma20 ?? m.sma50 ?? null;
 }
 
-function computeRSI(prices: number[], period: number): number {
-  const changes: number[] = [];
-  for (let i = 1; i < prices.length; i++) {
-    changes.push(prices[i] - prices[i - 1]);
-  }
-  const recent = changes.slice(-period);
-  const gains = recent.filter((c) => c > 0);
-  const losses = recent.filter((c) => c < 0);
-  const avgGain = gains.length ? gains.reduce((s, v) => s + v, 0) / period : 0;
-  const avgLoss = losses.length ? losses.reduce((s, v) => s + Math.abs(v), 0) / period : 0;
-  if (avgLoss === 0) return 100;
-  const rs = avgGain / avgLoss;
-  return clamp(100 - 100 / (1 + rs), 0, 100);
-}
-
 function sma(values: number[], period: number): number {
   const slice = values.slice(-period);
   return slice.reduce((s, v) => s + v, 0) / slice.length;
-}
-
-function computeATR(prices: number[], period: number): number {
-  const trueranges: number[] = [];
-  for (let i = 1; i < prices.length; i++) {
-    trueranges.push(Math.abs(prices[i] - prices[i - 1]));
-  }
-  const recent = trueranges.slice(-period);
-  return recent.length ? recent.reduce((s, v) => s + v, 0) / recent.length : 0;
 }

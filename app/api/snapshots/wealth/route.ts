@@ -2,7 +2,6 @@ import { NextResponse } from "next/server";
 import { isRequestAuthenticated } from "@/lib/auth";
 import {
   generateExpertActionMatrix,
-  validateRecommendationContract,
   writeExpertActionMatrixSnapshot,
 } from "@/lib/expert-insights";
 
@@ -41,25 +40,14 @@ export async function GET(request: Request) {
     );
   }
 
-  const contractErrors = validateRecommendationContract(matrix);
-  if (contractErrors.length > 0) {
-    return NextResponse.json(
-      {
-        ok: false,
-        error: "Wealth snapshot failed contract validation.",
-        contractErrors,
-        asOf: matrix.asOf,
-      },
-      { status: 422 },
-    );
-  }
 
   try {
     await writeExpertActionMatrixSnapshot(matrix);
   } catch (err) {
+    // writeExpertActionMatrixSnapshot validates the contract and throws with contract errors.
     return NextResponse.json(
       { ok: false, error: "Failed to write snapshot.", detail: String(err) },
-      { status: 500 },
+      { status: 422 },
     );
   }
 

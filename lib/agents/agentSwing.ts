@@ -1,4 +1,5 @@
 import YahooFinance from "yahoo-finance2";
+import { computeATR, computeMACD, computeRSI } from "@/lib/agents/indicators";
 import type { AgentInfoOutput, AgentMacroPolicyOutput, AgentSwingOutput, SwingMetrics } from "@/lib/agents/types";
 import { clamp, normalizeSymbol } from "@/lib/agents/utils";
 import type { ManagedPortfolio } from "@/lib/portfolio";
@@ -20,11 +21,19 @@ export async function agentSwing(
         period2: now,
         interval: "1d",
       });
-      const prices = historical.map((h) => h.close).filter((p): p is number => p !== null && p > 0);
-      const volumes = historical.map((h) => h.volume).filter((v): v is number => v !== null);
+      // Filter once so prices, highs and lows are bar-aligned (required by ATR)
+      const validBars = historical.filter(
+        (h) => h.close !== null && (h.close as number) > 0,
+      );
+      const prices = validBars.map((h) => h.close as number);
+      const highs = validBars.map((h) => (h.high ?? h.close) as number);
+      const lows = validBars.map((h) => (h.low ?? h.close) as number);
+      const volumes = historical
+        .map((h) => h.volume)
+        .filter((v): v is number => v !== null);
       if (prices.length < 30) return null;
 
-      const metrics = computeSwingMetrics(prices, volumes);
+      const metrics = computeSwingMetrics(prices, highs, lows, volumes);
       const sectorSignal = macroPolicy.sectors.find(
         (s) => s.sector === portfolio.positions.find((pos) => normalizeSymbol(pos.symbol) === normalizeSymbol(symbol))?.sector,
       );
@@ -61,17 +70,22 @@ export async function agentSwing(
   };
 }
 
-function computeSwingMetrics(prices: number[], volumes: number[]): SwingMetrics {
+function computeSwingMetrics(
+  prices: number[],
+  highs: number[],
+  lows: number[],
+  volumes: number[],
+): SwingMetrics {
   const lastPrice = prices[prices.length - 1];
 
   const sma20 = prices.length >= 20 ? sma(prices, 20) : null;
   const sma50 = prices.length >= 50 ? sma(prices, 50) : null;
-  const rsi14 = prices.length >= 16 ? computeRSI(prices, 14) : null;
-  const macdLine = prices.length >= 26 ? computeEMA(prices, 12) - computeEMA(prices, 26) : null;
-  const signalLine = macdLine !== null && prices.length >= 35
-    ? computeMACDSignal(prices, 12, 26, 9)
-    : null;
-  const atr14 = prices.length >= 15 ? computeATR(prices, 14) : null;
+  // Wilder-smoothed RSI — replaces simple-average approximation
+  const rsi14 = computeRSI(prices, 14);
+  // Proper EMA-continuation MACD — replaces O(n²) re-seeded implementation
+  const { macdLine, signalLine } = computeMACD(prices);
+  // True-range ATR (H/L/prevClose) — replaces close-to-close-only approximation
+  const atr14 = computeATR(highs, lows, prices, 14);
 
   const volumeAvg20 = volumes.length >= 20 ? volumes.slice(-20).reduce((s, v) => s + v, 0) / 20 : null;
   const volumeToday = volumes[volumes.length - 1] ?? null;
@@ -161,40 +175,4 @@ function buildSwingReasons(m: SwingMetrics, score: number, sectorSignal?: { sect
 
 function sma(values: number[], period: number): number {
   return values.slice(-period).reduce((s, v) => s + v, 0) / period;
-}
-
-function computeEMA(values: number[], period: number): number {
-  const k = 2 / (period + 1);
-  let ema = values.slice(0, period).reduce((s, v) => s + v, 0) / period;
-  for (let i = period; i < values.length; i++) ema = values[i] * k + ema * (1 - k);
-  return ema;
-}
-
-function computeMACDSignal(prices: number[], fast: number, slow: number, signal: number): number {
-  const macdValues: number[] = [];
-  for (let i = slow; i < prices.length; i++) {
-    const emaFast = computeEMA(prices.slice(0, i + 1), fast);
-    const emaSlow = computeEMA(prices.slice(0, i + 1), slow);
-    macdValues.push(emaFast - emaSlow);
-  }
-  return computeEMA(macdValues, signal);
-}
-
-function computeRSI(prices: number[], period: number): number {
-  const changes: number[] = [];
-  for (let i = 1; i < prices.length; i++) changes.push(prices[i] - prices[i - 1]);
-  const recent = changes.slice(-period);
-  const gains = recent.filter((c) => c > 0);
-  const losses = recent.filter((c) => c < 0);
-  const avgGain = gains.length ? gains.reduce((s, v) => s + v, 0) / period : 0;
-  const avgLoss = losses.length ? losses.reduce((s, v) => s + Math.abs(v), 0) / period : 0;
-  if (avgLoss === 0) return 100;
-  const rs = avgGain / avgLoss;
-  return clamp(100 - 100 / (1 + rs), 0, 100);
-}
-
-function computeATR(prices: number[], period: number): number {
-  const ranges: number[] = [];
-  for (let i = 1; i < prices.length; i++) ranges.push(Math.abs(prices[i] - prices[i - 1]));
-  return ranges.slice(-period).reduce((s, v) => s + v, 0) / period;
 }

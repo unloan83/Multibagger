@@ -1,4 +1,5 @@
 import YahooFinance from "yahoo-finance2";
+import { computeATR, computeRSI } from "@/lib/agents/indicators";
 import type {
   AgentInfoOutput,
   AgentIntradayOutput,
@@ -104,8 +105,17 @@ export async function agentIntraday(
         (q) => q.date && new Date(q.date).getTime() < todayStart.getTime(),
       );
 
-      const prices = rawQuotes.map((q) => q.close).filter((p): p is number => p !== null && p > 0);
-      const volumes = rawQuotes.map((q) => q.volume).filter((v): v is number => v !== null);
+      // Build bar-aligned OHLC arrays for accurate ATR and RSI computation.
+      // rawQuotes already carries high/low/close — previously only close was used.
+      const validBars = rawQuotes.filter(
+        (q) => q.close !== null && (q.close as number) > 0,
+      );
+      const prices = validBars.map((q) => q.close as number);
+      const highs = validBars.map((q) => (q.high ?? q.close) as number);
+      const lows = validBars.map((q) => (q.low ?? q.close) as number);
+      const volumes = rawQuotes
+        .map((q) => q.volume)
+        .filter((v): v is number => v !== null);
       if (prices.length < 10) return null;
 
       const todayPrices = todayQuotes.map((q) => q.close).filter((p): p is number => p !== null && p > 0);
@@ -118,6 +128,8 @@ export async function agentIntraday(
 
       const metrics = computeIntradayMetrics(
         prices,
+        highs,
+        lows,
         volumes,
         todayPrices,
         todayVolumes,
@@ -186,6 +198,8 @@ export async function agentIntraday(
 
 function computeIntradayMetrics(
   allPrices: number[],
+  allHighs: number[],
+  allLows: number[],
   allVolumes: number[],
   todayPrices: number[],
   todayVolumes: number[],
@@ -199,9 +213,11 @@ function computeIntradayMetrics(
   const openPrice = todayPrices[0] ?? allPrices[0];
 
   // --- Standard metrics ---
-  const rsi14 = allPrices.length >= 16 ? computeRSI(allPrices, 14) : null;
+  // Wilder-smoothed RSI — replaces simple-average approximation
+  const rsi14 = computeRSI(allPrices, 14);
   const shortSMA = allPrices.length >= 10 ? sma(allPrices, 10) : null;
-  const atr14 = allPrices.length >= 15 ? computeATR(allPrices, 14) : null;
+  // True-range ATR using already-available H/L bars from rawQuotes
+  const atr14 = computeATR(allHighs, allLows, allPrices, 14);
 
   const volRecent = allVolumes.slice(-5).reduce((s, v) => s + v, 0) / 5;
   const volPrior = allVolumes.length >= 15
@@ -450,26 +466,7 @@ function computeVWAP(
   return vol > 0 ? tpv / vol : 0;
 }
 
-function computeRSI(prices: number[], period: number): number {
-  const changes: number[] = [];
-  for (let i = 1; i < prices.length; i++) changes.push(prices[i] - prices[i - 1]);
-  const recent = changes.slice(-period);
-  const gains = recent.filter((c) => c > 0);
-  const losses = recent.filter((c) => c < 0);
-  const avgGain = gains.length ? gains.reduce((s, v) => s + v, 0) / period : 0;
-  const avgLoss = losses.length ? losses.reduce((s, v) => s + Math.abs(v), 0) / period : 0;
-  if (avgLoss === 0) return 100;
-  return clamp(100 - 100 / (1 + avgGain / avgLoss), 0, 100);
-}
-
 function sma(values: number[], period: number): number {
   const slice = values.slice(-period);
   return slice.reduce((s, v) => s + v, 0) / slice.length;
-}
-
-function computeATR(prices: number[], period: number): number {
-  const ranges: number[] = [];
-  for (let i = 1; i < prices.length; i++) ranges.push(Math.abs(prices[i] - prices[i - 1]));
-  const recent = ranges.slice(-period);
-  return recent.length ? recent.reduce((s, v) => s + v, 0) / recent.length : 0;
 }

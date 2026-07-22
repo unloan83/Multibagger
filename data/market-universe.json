@@ -3848,17 +3848,6 @@
     ]
   },
   {
-    "symbol": "AGL",
-    "company": "Allcargo Global Ltd.",
-    "theme": "Services",
-    "capHint": "small",
-    "benchmark": "^CNXINFRA",
-    "source": "NIFTY Microcap 250",
-    "sources": [
-      "NIFTY Microcap 250"
-    ]
-  },
-  {
     "symbol": "AHLUCONT",
     "company": "Ahluwalia Contracts (India) Ltd.",
     "theme": "Construction",
@@ -5153,6 +5142,17 @@
       "NIFTY 500",
       "NIFTY MidSmallcap 400",
       "NIFTY Smallcap 250"
+    ]
+  },
+  {
+    "symbol": "DUMMYTRVN",
+    "company": "Dummy Triveni Ltd.",
+    "theme": "Capital Goods",
+    "capHint": "small",
+    "benchmark": "^CNXINFRA",
+    "source": "NIFTY Microcap 250",
+    "sources": [
+      "NIFTY Microcap 250"
     ]
   },
   {

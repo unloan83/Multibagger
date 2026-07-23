@@ -1,5 +1,6 @@
 import fs from "node:fs/promises";
 import path from "node:path";
+import { readSnapshotFile, writeSnapshotFile } from "@/lib/snapshot-storage";
 import { buildMarketOverview } from "@/lib/market-overview";
 import {
   isGoogleSheetsConfigured,
@@ -225,12 +226,10 @@ export async function writeExpertActionMatrixSnapshot(
   if (contractErrors.length) {
     throw new Error(`Invalid recommendation snapshot: ${contractErrors.join(" ")}`);
   }
-  const snapshotPath = path.join(
-    process.cwd(),
-    "data",
+  await writeSnapshotFile(
     "wealth_recommendations.json",
+    `${JSON.stringify(matrix, null, 2)}\n`,
   );
-  await fs.writeFile(snapshotPath, `${JSON.stringify(matrix, null, 2)}\n`, "utf8");
 }
 
 export function validateRecommendationContract(matrix: ExpertActionMatrix) {
@@ -475,14 +474,9 @@ function getMarketRegime(
 
 async function readSnapshot(): Promise<ExpertActionMatrix | null> {
   try {
-    const snapshotPath = path.join(
-      process.cwd(),
-      "data",
-      "wealth_recommendations.json",
-    );
-    const snapshot = JSON.parse(
-      await fs.readFile(snapshotPath, "utf8"),
-    ) as ExpertActionMatrix;
+    const json = await readSnapshotFile("wealth_recommendations.json");
+    if (!json) return null;
+    const snapshot = JSON.parse(json) as ExpertActionMatrix;
     const ageHours = (Date.now() - Date.parse(snapshot.asOf)) / 3_600_000;
 
     if (

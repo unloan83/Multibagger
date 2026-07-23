@@ -1,5 +1,6 @@
 import fs from "node:fs/promises";
 import path from "node:path";
+import { readSnapshotFile, writeSnapshotFile } from "@/lib/snapshot-storage";
 import {
   getMarketUniverse,
   screenWealthUniverse,
@@ -228,7 +229,10 @@ export async function screenLongTermUniverse(
 export async function writeLongTermUniverseSnapshot(
   universe: LongTermUniverse,
 ): Promise<void> {
-  await fs.writeFile(SNAPSHOT_PATH, `${JSON.stringify(universe, null, 2)}\n`, "utf8");
+  await writeSnapshotFile(
+    "long_term_universe.json",
+    `${JSON.stringify(universe, null, 2)}\n`,
+  );
 }
 
 /**
@@ -239,7 +243,8 @@ export async function writeLongTermUniverseSnapshot(
 export async function readLongTermUniverseSnapshot(): Promise<LongTermUniverse | null> {
   const MAX_AGE_HOURS = 36;
   try {
-    const json = await fs.readFile(SNAPSHOT_PATH, "utf8");
+    const json = await readSnapshotFile("long_term_universe.json");
+    if (!json) return null;
     const snapshot = JSON.parse(json) as LongTermUniverse;
     const ageHours = (Date.now() - Date.parse(snapshot.asOf)) / 3_600_000;
 

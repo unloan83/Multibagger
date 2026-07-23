@@ -1,5 +1,4 @@
-import fs from "node:fs/promises";
-import path from "node:path";
+import { readSnapshotFile } from "@/lib/snapshot-storage";
 import type { ExpertActionMatrix, ExpertQuote } from "@/lib/expert-insights";
 import { validateRecommendationContract } from "@/lib/expert-insights";
 import { readLongTermUniverseSnapshot } from "@/lib/long-term-universe";
@@ -9,8 +8,8 @@ import type {
   GrowthCandidate,
 } from "@/lib/agents/types";
 
-const SNAPSHOT_PATH = path.join(process.cwd(), "data", "wealth_recommendations.json");
 const MAX_AGE_HOURS = 36;
+
 const INTRADAY_PER_BUCKET = 5;
 
 type CapBucket = "large" | "mid" | "small";
@@ -133,7 +132,8 @@ export async function agentWealthUniverse(
 
 async function readIntradaySnapshot(): Promise<ExpertActionMatrix | null> {
   try {
-    const json = await fs.readFile(SNAPSHOT_PATH, "utf8");
+    const json = await readSnapshotFile("wealth_recommendations.json");
+    if (!json) return null;
     const snapshot = JSON.parse(json) as ExpertActionMatrix;
     const ageHours = (Date.now() - Date.parse(snapshot.asOf)) / 3_600_000;
 

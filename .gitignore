@@ -34,3 +34,4 @@ data/portfolio-backups/
 
 # Local dev / test scripts
 scripts/
+.env*

@@ -1,23 +1,24 @@
 /**
  * Vercel-compatible snapshot persistence layer.
  *
- * Write priority:
- *   1. Vercel Blob  (BLOB_READ_WRITE_TOKEN present — durable, cross-invocation)
- *   2. /tmp         (Vercel without Blob — ephemeral per warm instance, never EROFS)
- *   3. data/        (local dev only — process.cwd() is writable on your machine)
+ * Write strategy (no Blob token):
+ *   1. Write to /tmp FIRST — always writable on every runtime (Vercel Lambda,
+ *      Linux, macOS). This can never throw EROFS.
+ *   2. Also attempt data/ for local dev persistence — errors are silently
+ *      swallowed (Vercel /var/task is read-only but /tmp already succeeded).
+ *
+ * Write strategy (Blob token present):
+ *   → Vercel Blob Storage only (durable, cross-invocation).
  *
  * Read priority:
- *   1. Vercel Blob  (freshest data, written by cron)
- *   2. /tmp         (same warm invocation write)
- *   3. data/        (committed seed files — readable even on Vercel /var/task)
+ *   1. Vercel Blob (freshest, if token present)
+ *   2. /tmp        (written above, same or warm instance)
+ *   3. data/       (committed seed files, readable on /var/task)
  */
 import fs from "node:fs/promises";
 import path from "node:path";
 
 const BLOB_FOLDER = "snapshots";
-
-// Evaluated once at module load (cold-start).
-const IS_VERCEL = Boolean(process.env.VERCEL);
 const HAS_BLOB_TOKEN = Boolean(process.env.BLOB_READ_WRITE_TOKEN);
 
 // Module-level URL cache so warm Lambda instances avoid a list() round-trip.
@@ -29,13 +30,9 @@ const blobUrlCache = new Map<string, string>();
 
 export function getSnapshotStorageStatus() {
   return {
-    isVercel: IS_VERCEL,
     hasBlobToken: HAS_BLOB_TOKEN,
-    writeTarget: HAS_BLOB_TOKEN
-      ? "vercel-blob"
-      : IS_VERCEL
-        ? "/tmp (ephemeral — connect a Blob Store for durable storage)"
-        : "local data/",
+    isVercel: Boolean(process.env.VERCEL),
+    writeTarget: HAS_BLOB_TOKEN ? "vercel-blob" : "/tmp (+ data/ attempt)",
   };
 }
 
@@ -47,34 +44,34 @@ export async function writeSnapshotFile(
   filename: string,
   content: string,
 ): Promise<void> {
-  // ── Path 1: Vercel Blob Storage ──────────────────────────────────────────
+  // ── Blob Storage (preferred for Vercel — durable across invocations) ─────
   if (HAS_BLOB_TOKEN) {
     const { put } = await import("@vercel/blob");
-    const blob = await put(`${BLOB_FOLDER}/${filename}`, content, {
-      access: "public",
+    await put(`${BLOB_FOLDER}/${filename}`, content, {
+      access: "private",
       addRandomSuffix: false,
       contentType: "application/json",
     });
-    blobUrlCache.set(filename, blob.url);
+    // Don't cache private blob URLs — they are pre-signed and expire.
+    blobUrlCache.delete(filename);
     return;
   }
 
-  // ── Path 2: /tmp (Vercel without Blob) ───────────────────────────────────
-  // /var/task (process.cwd()) is read-only on Vercel — never touch it.
-  // /tmp is always writable on Lambda runtimes.
-  if (IS_VERCEL) {
-    console.warn(
-      `[snapshot-storage] BLOB_READ_WRITE_TOKEN not set — writing "${filename}" ` +
-        `to /tmp (ephemeral). Connect a Vercel Blob Store for durable snapshots.`,
-    );
-    await fs.writeFile(path.join("/tmp", filename), content, "utf8");
-    return;
-  }
+  // ── /tmp (primary non-Blob path) ─────────────────────────────────────────
+  // /tmp is writable on every Lambda runtime AND locally. Writing here first
+  // guarantees we never hit EROFS regardless of environment detection.
+  await fs.writeFile(path.join("/tmp", filename), content, "utf8");
 
-  // ── Path 3: Local data/ directory ────────────────────────────────────────
+  // ── data/ (local dev secondary — fire and forget) ─────────────────────────
+  // On Vercel /var/task this will EROFS — that error is intentionally ignored
+  // because /tmp already succeeded above.
   const dataPath = path.join(process.cwd(), "data", filename);
-  await fs.mkdir(path.dirname(dataPath), { recursive: true });
-  await fs.writeFile(dataPath, content, "utf8");
+  try {
+    await fs.mkdir(path.dirname(dataPath), { recursive: true });
+    await fs.writeFile(dataPath, content, "utf8");
+  } catch {
+    // Read-only filesystem (Vercel) or permission error — /tmp write succeeded.
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -82,17 +79,17 @@ export async function writeSnapshotFile(
 // ---------------------------------------------------------------------------
 
 export async function readSnapshotFile(filename: string): Promise<string | null> {
-  // 1. Blob Storage
+  // 1. Blob Storage — freshest data
   if (HAS_BLOB_TOKEN) {
     const blobContent = await readFromBlob(filename);
     if (blobContent !== null) return blobContent;
   }
 
-  // 2. /tmp (written by this warm invocation when Blob is absent)
+  // 2. /tmp — written by this or a recent warm invocation
   const tmpContent = await tryRead(path.join("/tmp", filename));
   if (tmpContent !== null) return tmpContent;
 
-  // 3. Committed seed file in data/ (readable even on /var/task)
+  // 3. Committed seed file in data/ (readable on Vercel /var/task)
   return tryRead(path.join(process.cwd(), "data", filename));
 }
 

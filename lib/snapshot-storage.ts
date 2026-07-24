@@ -1,67 +1,96 @@
 /**
  * Vercel-compatible snapshot persistence layer.
  *
- * Problem: Vercel serverless functions run inside a read-only filesystem
- * (/var/task). fs.writeFile() throws EROFS, so snapshot JSON files cannot
- * be written there after deployment.
+ * Write paths:
+ *   1. Vercel Blob (when BLOB_READ_WRITE_TOKEN is present — always true on Vercel
+ *      once the Blob Store is connected and the project has been redeployed).
+ *   2. Local filesystem data/ directory (local dev only, never on Vercel).
  *
- * Solution: Route all snapshot writes through Vercel Blob Storage when
- * BLOB_READ_WRITE_TOKEN is present.  For reads, try Blob first (latest
- * cron-written data) and fall back to the committed data/ seed files
- * (safe default until the first cron run completes).
+ * The module NEVER falls through to fs.writeFile() on Vercel.  If
+ * BLOB_READ_WRITE_TOKEN is absent inside a Vercel deployment the write throws
+ * immediately with a clear error rather than hitting EROFS on /var/task.
  *
- * Setup (one-time, in Vercel dashboard):
- *   Project → Storage → Create Blob Store → Connect to project
- *   Vercel auto-injects BLOB_READ_WRITE_TOKEN into all environments.
- *
- * Local development: when BLOB_READ_WRITE_TOKEN is absent the module
- * falls back to ordinary fs.readFile / fs.writeFile on the data/ directory.
+ * Read paths:
+ *   1. Vercel Blob  (freshest data, written by the cron).
+ *   2. Local data/  (committed seed files — safe readable fallback on Vercel
+ *      because /var/task is read-only but NOT inaccessible).
  */
 import fs from "node:fs/promises";
 import path from "node:path";
 
 const BLOB_FOLDER = "snapshots";
 
-/**
- * Whether to use Vercel Blob Storage.
- * True when BLOB_READ_WRITE_TOKEN is set (Vercel deployment or local with token).
- * False when running locally without a Blob store.
- */
-function useBlobStorage(): boolean {
-  return Boolean(process.env.BLOB_READ_WRITE_TOKEN);
-}
+// ---------------------------------------------------------------------------
+// Environment detection
+// ---------------------------------------------------------------------------
 
-/**
- * Module-level URL cache so warm Lambda instances avoid a list() call on
- * every agent read.  Keyed by filename (e.g. "wealth_recommendations.json").
- */
+/** True when running inside a Vercel serverless function. */
+const IS_VERCEL = Boolean(process.env.VERCEL);
+
+/** True when the Vercel Blob Store is wired up (token auto-injected by Vercel). */
+const HAS_BLOB_TOKEN = Boolean(process.env.BLOB_READ_WRITE_TOKEN);
+
+// ---------------------------------------------------------------------------
+// Module-level URL cache — warm Lambda instances skip a list() round-trip.
+// ---------------------------------------------------------------------------
 const blobUrlCache = new Map<string, string>();
+
+// ---------------------------------------------------------------------------
+// Public diagnostic helper
+// ---------------------------------------------------------------------------
+
+/** Returns a plain-object snapshot of the storage configuration.  Used by
+ *  /api/storage/status so operators can inspect the live runtime state. */
+export function getSnapshotStorageStatus() {
+  return {
+    isVercel: IS_VERCEL,
+    hasBlobToken: HAS_BLOB_TOKEN,
+    blobFolder: BLOB_FOLDER,
+    writeTarget: IS_VERCEL
+      ? HAS_BLOB_TOKEN
+        ? "vercel-blob"
+        : "none — BLOB_READ_WRITE_TOKEN missing, writes will fail"
+      : "local-fs",
+  };
+}
 
 // ---------------------------------------------------------------------------
 // Write
 // ---------------------------------------------------------------------------
 
 /**
- * Writes a snapshot JSON string to Blob Storage (on Vercel) or the local
- * data/ directory.
+ * Persists a snapshot JSON string.
+ *
+ * On Vercel: writes to Blob Storage only.  Throws if BLOB_READ_WRITE_TOKEN is
+ * absent so the error surfaces clearly instead of crashing with EROFS.
+ *
+ * Locally: writes to the data/ directory (creates it if needed).
  */
 export async function writeSnapshotFile(
   filename: string,
   content: string,
 ): Promise<void> {
-  if (useBlobStorage()) {
+  if (IS_VERCEL) {
+    if (!HAS_BLOB_TOKEN) {
+      throw new Error(
+        `[snapshot-storage] Cannot write "${filename}" on Vercel: ` +
+        "BLOB_READ_WRITE_TOKEN is not set. " +
+        "Go to the Vercel dashboard → Storage → connect a Blob Store to this project, " +
+        "then redeploy so the token is injected into the serverless functions.",
+      );
+    }
+
     const { put } = await import("@vercel/blob");
     const blob = await put(`${BLOB_FOLDER}/${filename}`, content, {
       access: "public",
       addRandomSuffix: false,
       contentType: "application/json",
     });
-    // Cache the blob URL so subsequent reads skip the list() round-trip
     blobUrlCache.set(filename, blob.url);
     return;
   }
 
-  // Local development: write directly to data/
+  // Local development — write to data/
   const filePath = path.join(process.cwd(), "data", filename);
   await fs.mkdir(path.dirname(filePath), { recursive: true });
   await fs.writeFile(filePath, content, "utf8");
@@ -75,18 +104,17 @@ export async function writeSnapshotFile(
  * Reads a snapshot JSON string.
  *
  * Priority:
- *   1. Vercel Blob (freshest data, written by the most recent cron run).
- *   2. Local data/ directory (committed seed file — readable on Vercel too
- *      since /var/task is read-only, not inaccessible).
+ *   1. Vercel Blob (freshest — written by the most recent cron run).
+ *   2. Local data/ directory (committed seed file; readable even on Vercel).
  *
  * Returns null when neither source has the file.
  */
 export async function readSnapshotFile(filename: string): Promise<string | null> {
-  if (useBlobStorage()) {
+  if (HAS_BLOB_TOKEN) {
     const blobContent = await readFromBlob(filename);
     if (blobContent !== null) return blobContent;
     // Fall back to the committed seed file for the initial read before the
-    // first cron run has written to Blob
+    // first cron run has written to Blob.
   }
 
   return readFromLocalFs(filename);
@@ -98,7 +126,6 @@ export async function readSnapshotFile(filename: string): Promise<string | null>
 
 async function readFromBlob(filename: string): Promise<string | null> {
   try {
-    // Use cached URL when available (avoids list() on warm Lambda instances)
     let url = blobUrlCache.get(filename);
 
     if (!url) {
@@ -112,7 +139,7 @@ async function readFromBlob(filename: string): Promise<string | null> {
 
     const res = await fetch(url, { cache: "no-store" } as RequestInit);
     if (!res.ok) {
-      blobUrlCache.delete(filename); // invalidate stale cached URL on error
+      blobUrlCache.delete(filename);
       return null;
     }
     return await res.text();

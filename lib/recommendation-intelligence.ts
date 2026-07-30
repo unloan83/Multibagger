@@ -52,47 +52,64 @@ export type RecommendationIntelligence = {
   expertFocusCount: number;
   learningAdjustment: number;
   sectorDirection: SectorDirection;
+  reasons: string[];
+  contributions: {
+    portfolioFit: number;
+    newsSentiment: number;
+    governmentPolicy: number;
+    expertConsensus: number;
+    learningFeedback: number;
+  };
 };
 
 /** No-op: returns neutral sentiment. */
 export function classifyNewsSentiment(
-  _headlines: string[],
-  _sectorHeadlines: string[],
-  _marketHeadlines: string[],
+  ..._args: unknown[]
 ): NewsSentiment {
   return { score: 0, label: "Neutral" };
 }
 
 /** No-op: returns empty headlines. */
 export async function fetchHeadlineIntelligence(
-  _query: string,
-  _count: number,
+  ..._args: unknown[]
 ): Promise<string[]> {
   return [];
 }
 
 /** No-op: returns empty headlines. */
 export function filterSectorHeadlines(
-  _sector: string,
-  _headlines: string[],
+  ..._args: unknown[]
 ): string[] {
   return [];
 }
 
 /** No-op: returns neutral sector directions. */
 export function rankSectorDirections(
-  _sectors: string[],
-  _headlines: string[],
-  _sectorHeadlinesMap: Record<string, string[]>,
-): Record<string, SectorDirection> {
-  return {};
+  candidates: Array<{
+    sector: string;
+    return20Percent: number;
+    return60Percent: number;
+    trendAligned: boolean;
+  }>,
+  ..._rest: unknown[]
+): SectorDirection[] {
+  const uniqueSectors = [...new Set(candidates.map((c) => c.sector))];
+  return uniqueSectors.map((sector, index) => ({
+    sector,
+    rank: index + 1,
+    score: 50,
+    label: "Neutral Sector",
+    return20Percent: 0,
+    return60Percent: 0,
+    trendBreadthPercent: 50,
+    newsSentimentScore: 0,
+    policyScore: 0,
+  }));
 }
 
 /** No-op: returns neutral policy score. */
 export function scoreGovernmentPolicy(
-  _theme: string,
-  _sectorHeadlines: string[],
-  _policyHeadlines: string[],
+  ..._args: unknown[]
 ): PolicyScore {
   return { score: 0, label: "Neutral" };
 }
@@ -121,12 +138,20 @@ export function applyRecommendationIntelligence({
     expertFocusCount,
     learningAdjustment,
     sectorDirection,
+    reasons: [],
+    contributions: {
+      portfolioFit: 0,
+      newsSentiment: 0,
+      governmentPolicy: 0,
+      expertConsensus: 0,
+      learningFeedback: learningAdjustment,
+    },
   };
 }
 
 /** No-op: returns empty learning feedback. */
 export function buildLearningFeedback(
-  _records: unknown[],
+  ..._args: unknown[]
 ): LearningFeedback {
   return {
     adjustment: 0,

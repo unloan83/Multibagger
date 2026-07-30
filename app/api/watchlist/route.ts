@@ -41,7 +41,7 @@ async function fetchWatchlistPrices(symbols: string[]): Promise<WatchlistHolding
         chart?: { result?: Array<{ meta?: Record<string, unknown> }> };
       };
       const meta = data.chart?.result?.[0]?.meta as
-        | { regularMarketPrice?: number; previousClose?: number; shortName?: string; longName?: string }
+        | { regularMarketPrice?: number; previousClose?: number; chartPreviousClose?: number; shortName?: string; longName?: string }
         | undefined;
       if (!meta) return null;
       const price = meta.regularMarketPrice ?? 0;

@@ -79,7 +79,6 @@ type SectorConfig = { sectors: ThematicSectorConfig[] };
 // Constants
 // ---------------------------------------------------------------------------
 
-const SNAPSHOT_PATH = path.join(process.cwd(), "data", "long_term_universe.json");
 const CONFIG_PATH = path.join(process.cwd(), "data", "thematic-sector-config.json");
 const STOCKS_PER_STANDARD_SLOT = 4;
 const STOCKS_PER_EMERGING_SLOT = 4;

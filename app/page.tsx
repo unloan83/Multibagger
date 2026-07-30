@@ -37,6 +37,7 @@ export default function HomePage() {
   const [pinError, setPinError] = useState("");
 
   const [snapshot, setSnapshot] = useState<Snapshot | null>(null);
+  const [error, setError] = useState("");
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<"all" | "longTerm" | "intraday">("all");
 
@@ -53,11 +54,9 @@ export default function HomePage() {
   useEffect(() => {
     if (!isUnlocked) return;
 
-    fetch("/api/snapshots/wealth")
+    fetch("/api/recommendations")
       .then(async (res) => {
         if (!res.ok) {
-          const localRes = await fetch("/data/wealth_recommendations.json").catch(() => null);
-          if (localRes?.ok) return localRes.json();
           throw new Error("Could not load recommendations.");
         }
         return res.json();
@@ -66,19 +65,10 @@ export default function HomePage() {
         setSnapshot(data);
         setLoading(false);
       })
-      .catch(() => {
+      .catch((err) => {
+        setError(err.message);
         setLoading(false);
       });
-
-    fetch("/data/wealth_recommendations.json")
-      .then((res) => (res.ok ? res.json() : null))
-      .then((data) => {
-        if (data) {
-          setSnapshot((prev) => prev ?? data);
-          setLoading(false);
-        }
-      })
-      .catch(() => {});
   }, [isUnlocked]);
 
   const handlePinSubmit = (e: React.FormEvent) => {

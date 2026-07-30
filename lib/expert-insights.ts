@@ -117,7 +117,7 @@ const categoryMeta: Record<
 export const STOCKS_PER_MARKET_CAP_CATEGORY = 3;
 
 export async function buildExpertActionMatrix(): Promise<ExpertActionMatrix> {
-  const snapshot = await readSnapshot();
+  const snapshot = await readWealthRecommendationsSnapshot();
 
   if (snapshot) {
     return snapshot;
@@ -467,24 +467,11 @@ function getMarketRegime(
   return Math.abs(averageMove) < 0.35 ? "Consolidation" : "Transition";
 }
 
-async function readSnapshot(): Promise<ExpertActionMatrix | null> {
+export async function readWealthRecommendationsSnapshot(): Promise<ExpertActionMatrix | null> {
   try {
     const json = await readSnapshotFile("wealth_recommendations.json");
     if (!json) return null;
-    const snapshot = JSON.parse(json) as ExpertActionMatrix;
-    const ageHours = (Date.now() - Date.parse(snapshot.asOf)) / 3_600_000;
-
-    if (
-      !Number.isFinite(ageHours) ||
-      ageHours < -1 ||
-      ageHours > 36 ||
-      snapshot.universeSize < 450 ||
-      validateRecommendationContract(snapshot).length > 0
-    ) {
-      return null;
-    }
-
-    return snapshot;
+    return JSON.parse(json) as ExpertActionMatrix;
   } catch {
     return null;
   }

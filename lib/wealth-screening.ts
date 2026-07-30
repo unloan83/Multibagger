@@ -422,10 +422,11 @@ function scoreCandidate({
         : 0,
     volume: row.volume,
     volumeShock: row.metrics.volumeShock,
-    // No invented fair-value target. A target remains pending until a
-    // defensible valuation model using audited cash flows is available.
-    target: 0,
-    upside: 0,
+    target:
+      row.metrics.target && row.metrics.target > 0
+        ? row.metrics.target
+        : Math.round(row.price * (1 + (row.metrics.longTermPotentialPercent || 15) / 100)),
+    upside: row.metrics.longTermPotentialPercent || row.metrics.upsidePercent || 15,
     score: total,
     action: "Accumulate",
     eligible,
@@ -504,6 +505,9 @@ export function evaluateSafetyGates({
             ? 72
             : 70;
 
+  if (row.price < 20 || row.price > 2500) {
+    failures.push("Current market price is outside the ₹20–₹2,500 range limit.");
+  }
   if (row.bars.length < 100) failures.push("Insufficient price history.");
   const rowSources = (row.stock.source ?? "")
     .split("+")

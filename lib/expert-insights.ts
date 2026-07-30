@@ -329,8 +329,10 @@ function longTermRankScore(stock: ScreenedStock) {
 function isLongTermCandidate(stock: ScreenedStock) {
   const threshold =
     stock.capBucket === "small" ? 58 : stock.capBucket === "mid" ? 60 : 62;
+  const inCmpRange = stock.price >= 20 && stock.price <= 2500;
 
   return (
+    inCmpRange &&
     stock.eligible &&
     stock.score >= threshold &&
     stock.factorScores.growth + stock.factorScores.quality >= 18 &&
@@ -344,7 +346,7 @@ function isMomentumCandidate(
 ) {
   const minimumTurnover =
     stock.capBucket === "large" ? 15 : stock.capBucket === "mid" ? 5 : 2;
-  const inSweetSpotCmpRange = stock.price >= 15 && stock.price <= 3500;
+  const inSweetSpotCmpRange = stock.price >= 20 && stock.price <= 2500;
   const hasTopGainerPrior = (prior?.score ?? 0) >= 1.5;
   const priorAdjustedSetup =
     hasTopGainerPrior &&
@@ -399,9 +401,16 @@ function toExpertQuote(
     volumeShock: stock.volumeShock,
     target:
       source === "intraday"
-        ? stock.price * (1 + intradayPotential / 100)
-        : stock.target,
-    upside: source === "intraday" ? intradayPotential : stock.upside,
+        ? Math.round(stock.price * (1 + intradayPotential / 100) * 10) / 10
+        : stock.target && stock.target > 0
+          ? Math.round(stock.target * 10) / 10
+          : Math.round(stock.price * (1 + (stock.metrics?.longTermPotentialPercent || 15) / 100) * 10) / 10,
+    upside:
+      source === "intraday"
+        ? Math.round(intradayPotential * 10) / 10
+        : stock.upside && stock.upside > 0
+          ? Math.round(stock.upside * 10) / 10
+          : Math.round((stock.metrics?.longTermPotentialPercent || 15) * 10) / 10,
     score: stock.score,
     action:
       forceWatchlist || isSafetyGatedIntradayWatch

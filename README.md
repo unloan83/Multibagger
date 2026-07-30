@@ -1,78 +1,71 @@
-# unloan stock portfolio dashboard
+# Multibagger — Daily Stock Recommendations
 
-A Vercel-ready portfolio dashboard built with Next.js 15, TypeScript, Tailwind CSS, shadcn/ui-style components, Recharts, and PapaParse.
+Simple daily stock recommendation engine that scans the NIFTY 500 universe and surfaces the strongest long-term and intraday picks.
 
-## Features
+## How It Works
 
-- Upload a simple portfolio CSV in the browser.
-- Fetch CMP, previous close, volume, headline signals, sector, and valuation details after upload.
-- Portfolio-specific summary cards for value, recommendation history, and live quote score.
-- Investment appetite modes: safe, moderate, and aggressive.
-- Portfolio growth chart.
-- Holdings table with value, return, and allocation weight.
-- Sector allocation pie chart.
-- Portfolio heatmap sized by portfolio weight and colored by return.
-- Automatic symbol and sector identification for common Indian stocks.
-- Controlled Stock Intelligence Agent with multi-source news, policy, sector, and sentiment validation.
-- Auditable AI recommendation logs and later hit/miss tracking in Google Sheets.
+1. **Scan** — Fetches live price, volume, and fundamental data for all NIFTY 500 stocks via Yahoo Finance
+2. **Score** — Multi-factor scoring: growth, quality, valuation, momentum, sector strength, liquidity, risk
+3. **Pick** — Selects top 3 long-term + top 5 intraday picks per market-cap category (large, mid, small)
+4. **Deliver** — Sends daily digest via Telegram and/or shows on a simple web dashboard
 
-## Stock Intelligence Agent
-
-The agent validates the existing recommendation engine; it does not independently pick stocks. By default, the final score weights existing logic at 60%, news/sentiment at 25%, and sector/macro/policy context at 15%. Buy and Sell require at least two independent medium/high-credibility sources. Stale, conflicting, or low-credibility-only evidence is held at Watch or Hold.
-
-Optional configuration:
-
-```bash
-NEWS_API_KEY=
-STOCK_INTELLIGENCE_EXISTING_WEIGHT=60
-STOCK_INTELLIGENCE_NEWS_WEIGHT=25
-STOCK_INTELLIGENCE_MACRO_WEIGHT=15
-```
-
-Yahoo Finance and GDELT are used as public context feeds; `NEWS_API_KEY` adds NewsAPI as another provider. Recommendation audit rows are written to the automatically created `AI Recommendation Log` tab when the existing Google Sheets service-account environment variables are configured.
-
-## CSV Format
-
-Use the included sample at `public/portfolio.csv`.
-
-```csv
-stock code,company,quantity
-RELIANCE,Reliance Industries,42
-TCS,Tata Consultancy Services,28
-MARUTI,Maruti Suzuki India,
-```
-
-Required columns:
-
-- `stock code` - NSE symbol such as `RELIANCE`, `TCS`, or `HDFCBANK`
-- `company` - company name
-
-Optional column:
-
-- `quantity` - rows with quantity become current holdings; blank or zero quantity rows become watchlist items.
-
-After upload, the app resolves the stock name or symbol and fetches CMP, previous close, volume, and available headline signals using a Next.js API route.
-
-## Local Development
+## Quick Start
 
 ```bash
 npm install
 npm run dev
 ```
 
-Open `http://localhost:3000`.
+Open `http://localhost:3000` to see today's picks.
+
+## Generate Fresh Recommendations
+
+```bash
+# Full NIFTY 500 wealth screening (takes 2-5 minutes)
+npm run wealth:snapshot
+
+# Thematic long-term universe screening
+npm run longterm:snapshot
+
+# Daily recommendations CSV
+npm run csv:morning
+npm run csv:afternoon
+npm run csv:market-close
+
+# Sync NIFTY 500 universe list
+npm run universe:sync
+```
 
 ## Deploy to Vercel
 
-1. Push this repository to GitHub.
-2. In Vercel, choose **Add New Project** and import the GitHub repository.
-3. Keep the framework preset as **Next.js**.
-4. Use the default build command:
+1. Push to GitHub
+2. Import in Vercel as a Next.js project
+3. Set optional env vars: `CRON_SECRET`, `TELEGRAM_TOKEN`, `TELEGRAM_CHAT_ID`
+4. Vercel Cron runs the wealth snapshot twice daily on market days
 
-```bash
-npm run build
+## Project Structure
+
 ```
-
-5. Use the default output settings and deploy.
-
-The dashboard can run without optional context or storage variables. Missing or weak context makes the agent abstain from aggressive calls instead of failing the portfolio page.
+app/
+  page.tsx            — "Today's Picks" dashboard
+  api/snapshots/      — Wealth + long-term universe cron endpoints
+lib/
+  wealth-screening.ts — Core NIFTY 500 scoring engine
+  expert-insights.ts  — Expert action matrix builder
+  analysis.ts         — Technical signal analysis
+  telegram.ts         — Telegram message delivery
+  long-term-universe.ts — Thematic sector screening
+  market-overview.ts  — Market sentiment from NIFTY 50
+  snapshot-storage.ts — Local file read/write
+  recommendation-intelligence.ts — Scoring adjustments (stubs)
+scripts/
+  update_daily_recommendations.mjs — Daily CSV generator
+  run_wealth_snapshot.ts           — Local wealth snapshot runner
+  run_long_term_universe.ts        — Local long-term runner
+  sync_nifty500_universe.mjs       — Universe sync
+data/
+  wealth_recommendations.json — Latest wealth snapshot
+  long_term_universe.json     — Latest long-term universe
+  daily_recommendations.csv   — Historical daily picks
+  market-universe.json        — NIFTY 500 stock list
+```

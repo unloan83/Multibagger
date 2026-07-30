@@ -1,30 +1,24 @@
 import { NextResponse } from "next/server";
-import { isRequestAuthenticated } from "@/lib/auth";
 import {
   generateExpertActionMatrix,
   writeExpertActionMatrixSnapshot,
 } from "@/lib/expert-insights";
+import { logRecommendationsToSheet } from "@/lib/google-sheets";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
-// The full NIFTY 500 screen fetches hundreds of Yahoo Finance data points.
-// Allow up to 5 minutes so the serverless function does not time out.
 export const maxDuration = 300;
 
 /**
  * GET /api/snapshots/wealth
  *
  * Runs the NIFTY 500 wealth screening engine, validates the output contract,
- * and writes the result to data/wealth_recommendations.json.
+ * writes the result to data/wealth_recommendations.json, and logs to Google Sheets.
  *
- * This endpoint is called automatically by Vercel Cron (see vercel.json).
- * It can also be called manually by an authenticated admin session.
- *
- * The resulting snapshot is consumed by agentWealthUniverse which reads it
- * on every agent-recommendations request without making extra network calls.
+ * Called by Vercel Cron or manually via the local runner script.
  */
 export async function GET(request: Request) {
-  if (!(await canRunSnapshot(request))) {
+  if (!canRunSnapshot(request)) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
@@ -40,15 +34,50 @@ export async function GET(request: Request) {
     );
   }
 
-
   try {
     await writeExpertActionMatrixSnapshot(matrix);
   } catch (err) {
-    // writeExpertActionMatrixSnapshot validates the contract and throws with contract errors.
     return NextResponse.json(
       { ok: false, error: "Failed to write snapshot.", detail: String(err) },
       { status: 422 },
     );
+  }
+
+  // Log to Google Sheets (non-blocking — logs on best-effort basis)
+  if (process.env.GOOGLE_SHEET_ID) {
+    const recommendations = matrix.categories.flatMap((category) => {
+      const longTerm = category.longTermUpsides.map((q) => ({
+        source: "wealth-snapshot",
+        category: category.key,
+        type: "longTerm" as const,
+        symbol: q.symbol,
+        name: q.name,
+        action: q.action,
+        score: q.score,
+        price: q.price,
+        target: q.target,
+        upside: q.upside,
+        sector: q.sector,
+        marketRegime: matrix.marketRegime,
+      }));
+      const intraday = category.intradayBreakouts.map((q) => ({
+        source: "wealth-snapshot",
+        category: category.key,
+        type: "intraday" as const,
+        symbol: q.symbol,
+        name: q.name,
+        action: q.action,
+        score: q.score,
+        price: q.price,
+        target: q.target,
+        upside: q.upside,
+        sector: q.sector,
+        marketRegime: matrix.marketRegime,
+      }));
+      return [...longTerm, ...intraday];
+    });
+
+    logRecommendationsToSheet(recommendations).catch(() => {});
   }
 
   const longTermTotal = matrix.categories.reduce(
@@ -81,23 +110,13 @@ export async function GET(request: Request) {
   });
 }
 
-async function canRunSnapshot(request: Request) {
-  try {
-    if (await isRequestAuthenticated()) return true;
-  } catch {
-    // cookies() throws outside a Next.js request scope (e.g. local runner scripts)
-  }
-
+function canRunSnapshot(request: Request) {
   const cronSecret = process.env.CRON_SECRET;
   const authorization = request.headers.get("authorization") ?? "";
 
-  if (cronSecret && authorization === `Bearer ${cronSecret}`) {
-    return true;
-  }
-
+  if (cronSecret && authorization === `Bearer ${cronSecret}`) return true;
   if (!cronSecret) {
     return (request.headers.get("user-agent") ?? "").toLowerCase().includes("vercel-cron");
   }
-
   return false;
 }

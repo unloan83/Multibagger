@@ -1,25 +1,10 @@
 import type { Metadata, Viewport } from "next";
 import type { ReactNode } from "react";
-import { PwaExperienceControls } from "@/components/pwa-experience-controls";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  appleWebApp: {
-    capable: true,
-    statusBarStyle: "default",
-    title: "UNLOAN",
-  },
-  title: "UNLOAN",
-  description: "Build Wealth. Reduce Debt. Create Freedom.",
-  icons: {
-    apple: "/icons/apple-touch-icon.png",
-    icon: [
-      { url: "/icons/unloan-icon-192.png", sizes: "192x192", type: "image/png" },
-      { url: "/icons/unloan-icon-512.png", sizes: "512x512", type: "image/png" },
-    ],
-    shortcut: "/icons/unloan-icon-192.png",
-  },
-  manifest: "/manifest.webmanifest",
+  title: "Multibagger — Daily Stock Picks",
+  description: "Strong long-term and intraday stock recommendations powered by NIFTY 500 screening.",
 };
 
 export const viewport: Viewport = {
@@ -37,10 +22,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en">
-      <body>
-        <PwaExperienceControls />
-        {children}
-      </body>
+      <body>{children}</body>
     </html>
   );
 }

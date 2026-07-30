@@ -3,10 +3,6 @@ import path from "node:path";
 import { readSnapshotFile, writeSnapshotFile } from "@/lib/snapshot-storage";
 import { buildMarketOverview } from "@/lib/market-overview";
 import {
-  isGoogleSheetsConfigured,
-  readValidationRecords,
-} from "@/lib/google-sheets";
-import {
   MIN_INTRADAY_POTENTIAL_PERCENT,
   MIN_LONG_TERM_POTENTIAL_PERCENT,
   qualifiesForHighPotentialIntraday,
@@ -19,7 +15,6 @@ import {
   type ReviewWindow,
   type SectorDirection,
 } from "@/lib/recommendation-intelligence";
-import { filterLearningValidationHistory } from "@/lib/learning-history";
 import {
   getMarketUniverse,
   screenWealthUniverse,
@@ -147,7 +142,7 @@ export async function generateExpertActionMatrix(): Promise<ExpertActionMatrix> 
     loadValidationRecords(),
     readExpertConsensusCounts(),
   ]);
-  const learning = buildLearningFeedback(filterLearningValidationHistory(validationRecords));
+  const learning = buildLearningFeedback(validationRecords);
   const intradayPriors = await readIntradayPredictionPriors();
   const screened = await screenWealthUniverse(marketRegime, {
     expertConsensusCounts,
@@ -531,12 +526,7 @@ function unavailableMatrix(reason: string): ExpertActionMatrix {
 }
 
 async function loadValidationRecords() {
-  if (!isGoogleSheetsConfigured()) return [];
-  try {
-    return await readValidationRecords();
-  } catch {
-    return [];
-  }
+  return [];
 }
 
 function buildMatrixIntelligenceReview(

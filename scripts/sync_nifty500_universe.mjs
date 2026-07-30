@@ -17,19 +17,25 @@ const capBucketSources = [
     capHint: "mid",
     source: "NIFTY MidSmallcap 400",
     url: "https://nsearchives.nseindia.com/content/indices/ind_niftymidsmallcap400list.csv",
-    limit: 200,
+    limit: 400,
   },
   {
     capHint: "small",
     source: "NIFTY Smallcap 250",
     url: "https://nsearchives.nseindia.com/content/indices/ind_niftysmallcap250list.csv",
-    limit: 200,
+    limit: 250,
   },
   {
     capHint: "small",
     source: "NIFTY Microcap 250",
     url: "https://nsearchives.nseindia.com/content/indices/ind_niftymicrocap250_list.csv",
-    limit: 200,
+    limit: 250,
+  },
+  {
+    capHint: "mid",
+    source: "NIFTY LargeMidcap 250",
+    url: "https://nsearchives.nseindia.com/content/indices/ind_niftylargemidcap250list.csv",
+    limit: 250,
   },
 ];
 
@@ -51,7 +57,11 @@ console.log(
 );
 
 async function fetchCapBucketUniverse({ capHint, source, url, limit }) {
-  return (await fetchIndexUniverse({ source, url, capHint })).slice(0, limit);
+  try {
+    return (await fetchIndexUniverse({ source, url, capHint })).slice(0, limit);
+  } catch {
+    return [];
+  }
 }
 
 async function fetchIndexUniverse({ source, url, capHint = "mid" }) {
@@ -122,7 +132,7 @@ function capBucketOrder(bucket) {
 }
 
 function benchmarkForIndustry(industry = "") {
-  const normalized = industry.toLowerCase();
+  const normalized = (industry || "").toLowerCase();
 
   if (normalized.includes("financial")) return "^CNXFIN";
   if (normalized.includes("information technology")) return "^CNXIT";

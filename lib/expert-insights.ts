@@ -282,7 +282,7 @@ export function buildCategory(
           b.factorScores.liquidity -
           (a.factorScores.momentum + a.factorScores.liquidity),
     )
-    .slice(0, 5)
+    .slice(0, 10)
     .map((stock) => toExpertQuote(stock, marketRegime, "intraday"));
 
   return {
@@ -343,22 +343,22 @@ function isMomentumCandidate(
   prior?: IntradayPredictionPrior,
 ) {
   const minimumTurnover =
-    stock.capBucket === "large" ? 20 : stock.capBucket === "mid" ? 10 : 5;
+    stock.capBucket === "large" ? 15 : stock.capBucket === "mid" ? 5 : 2;
+  const inSweetSpotCmpRange = stock.price >= 15 && stock.price <= 3500;
   const hasTopGainerPrior = (prior?.score ?? 0) >= 1.5;
   const priorAdjustedSetup =
     hasTopGainerPrior &&
     stock.metrics.intradayPotentialPercent >= 8 &&
-    stock.metrics.finalScore >= 60 &&
+    stock.metrics.finalScore >= 55 &&
     stock.metrics.dayChangePercent > 0 &&
-    stock.metrics.dayChangePercent <= 10 &&
-    stock.metrics.volumeShock >= 0.8 &&
-    stock.metrics.ema20 >= stock.metrics.ema50 &&
-    stock.metrics.riskScore <= 18;
+    stock.metrics.dayChangePercent <= 12 &&
+    stock.metrics.volumeShock >= 0.7 &&
+    stock.metrics.riskScore <= 22;
 
   return (
-    stock.score >= (hasTopGainerPrior ? 58 : 60) &&
-    stock.factorScores.momentum >= 9 &&
-    stock.factorScores.liquidity >= 8 &&
+    inSweetSpotCmpRange &&
+    stock.score >= (hasTopGainerPrior ? 55 : 58) &&
+    stock.factorScores.momentum >= 8 &&
     stock.averageDailyTurnoverCr >= minimumTurnover &&
     (qualifiesForHighPotentialIntraday(stock.metrics) || priorAdjustedSetup) &&
     !stock.gateFailures.some((failure) =>

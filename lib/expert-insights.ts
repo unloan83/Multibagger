@@ -345,24 +345,16 @@ function isMomentumCandidate(
   prior?: IntradayPredictionPrior,
 ) {
   const minimumTurnover =
-    stock.capBucket === "large" ? 15 : stock.capBucket === "mid" ? 5 : 2;
+    stock.capBucket === "large" ? 10 : stock.capBucket === "mid" ? 3 : 1;
   const inSweetSpotCmpRange = stock.price >= 20 && stock.price <= 2500;
-  const hasTopGainerPrior = (prior?.score ?? 0) >= 1.5;
-  const priorAdjustedSetup =
-    hasTopGainerPrior &&
-    stock.metrics.intradayPotentialPercent >= 8 &&
-    stock.metrics.finalScore >= 55 &&
-    stock.metrics.dayChangePercent > 0 &&
-    stock.metrics.dayChangePercent <= 12 &&
-    stock.metrics.volumeShock >= 0.7 &&
-    stock.metrics.riskScore <= 22;
+  const isPositiveOrBreakout = stock.changePercent >= -0.5 && stock.metrics.dayChangePercent >= -0.5;
+  const hasVolumeOrMomentum = stock.metrics.volumeShock >= 0.5 || stock.factorScores.momentum >= 5;
 
   return (
     inSweetSpotCmpRange &&
-    stock.score >= (hasTopGainerPrior ? 55 : 58) &&
-    stock.factorScores.momentum >= 8 &&
+    isPositiveOrBreakout &&
+    hasVolumeOrMomentum &&
     stock.averageDailyTurnoverCr >= minimumTurnover &&
-    (qualifiesForHighPotentialIntraday(stock.metrics) || priorAdjustedSetup) &&
     !stock.gateFailures.some((failure) =>
       failure.includes("governance or regulatory risk"),
     )
@@ -374,7 +366,16 @@ function getIntradayRankScore(
   prior?: IntradayPredictionPrior,
 ) {
   const priorBoost = Math.min(prior?.score ?? 0, 4) * 1.25;
-  return stock.metrics.intradayPotentialPercent + priorBoost;
+  const volumeMultiplier = Math.min(stock.metrics.volumeShock || 1, 3);
+  const momentumFactor = stock.metrics.dayChangePercent * 1.5;
+  const relativeStrengthFactor = (stock.relativeStrengthPercent || 50) * 0.1;
+  return (
+    stock.metrics.intradayPotentialPercent * 1.2 +
+    momentumFactor +
+    volumeMultiplier * 5 +
+    relativeStrengthFactor +
+    priorBoost
+  );
 }
 
 function toExpertQuote(

@@ -2,7 +2,7 @@
   "title": "Multi-Factor Wealth Discovery Matrix",
   "verified": "NIFTY 500 core plus NSE cap-bucket overlays, price trend, sector-relative strength, revenue and earnings growth, profitability, leverage, valuation, liquidity, news catalysts and risk",
   "source": "Official NIFTY 500 core with top large, mid and small-cap discovery overlays, Yahoo market/fundamental feeds and outcome-learning history",
-  "asOf": "2026-07-30T12:02:31.320Z",
+  "asOf": "2026-07-30T15:45:42.195Z",
   "refreshCycle": "Technical and catalyst signals refresh intraday; fundamental factors are cached for six hours.",
   "caveat": "Research screening only—not a guarantee of returns. Verify exchange filings, valuation, governance, liquidity, and position sizing before investing.",
   "universeSize": 744,
@@ -25,7 +25,7 @@
     },
     {
       "reason": "Decision score is below the 72/100 regime-adjusted threshold.",
-      "count": 290
+      "count": 289
     },
     {
       "reason": "Operating cash flow is below 70% of reported earnings.",
@@ -53,7 +53,7 @@
     },
     {
       "reason": "Decision score is below the 70/100 regime-adjusted threshold.",
-      "count": 153
+      "count": 154
     },
     {
       "reason": "TTM earnings deterioration exceeds 10%.",
@@ -2270,7 +2270,7 @@
             "Decision score is below the 72/100 regime-adjusted threshold.",
             "Model output is a screening signal, not financial advice. Validate fundamentals, news, liquidity, and risk before trading.",
             "Large daily move may reverse quickly; wait for consolidation if entering fresh.",
-            "Valuation is elevated at approximately 66.3x trailing earnings.",
+            "Valuation is elevated at approximately 66.9x trailing earnings.",
             "No verified company-specific news catalyst is included; review current exchange filings manually."
           ],
           "metrics": {
@@ -2449,7 +2449,7 @@
             "Average daily traded value approximately INR 5.5 Cr.",
             "Market regime: Consolidation."
           ],
-          "marketCapCr": 10761.0233607,
+          "marketCapCr": 10721.6837475,
           "dataQuality": 100,
           "fundamentalAsOf": "2026-03-31",
           "averageDailyTurnoverCr": 5.460309377836914,
@@ -2619,7 +2619,7 @@
             "Decision score is below the 72/100 regime-adjusted threshold.",
             "Model output is a screening signal, not financial advice. Validate fundamentals, news, liquidity, and risk before trading.",
             "Large daily move may reverse quickly; wait for consolidation if entering fresh.",
-            "Valuation is elevated at approximately 63.7x trailing earnings.",
+            "Valuation is elevated at approximately 64.4x trailing earnings.",
             "No verified company-specific news catalyst is included; review current exchange filings manually.",
             "Governance, promoter pledging, auditor qualifications, contingent liabilities and cash-flow quality require manual filing review."
           ],
@@ -3281,7 +3281,7 @@
             "Average daily traded value approximately INR 67.8 Cr.",
             "Market regime: Consolidation."
           ],
-          "marketCapCr": 9226.6032272,
+          "marketCapCr": 9231.378078,
           "dataQuality": 95,
           "fundamentalAsOf": "2026-06-30",
           "averageDailyTurnoverCr": 67.78327595905075,
@@ -3554,7 +3554,7 @@
           "volumeShock": 6.22,
           "target": 567.1,
           "upside": 4.1,
-          "score": 48,
+          "score": 50,
           "action": "Accumulate",
           "remark": "Not recommended: Current price move is too extended for a fresh recommendation. EMA20 is below EMA50. Sector-relative return is below the -5% regime floor. Technical risk exceeds the safety limit. Decision score is below the 75/100 regime-adjusted threshold. Evidence-derived intraday potential 4.1%; minimum hurdle 10%.",
           "caveats": [
@@ -3613,13 +3613,13 @@
             "catalyst": 5,
             "liquidity": 10,
             "dataQuality": 100,
-            "risk": 4,
+            "risk": 6,
             "portfolioFit": 0,
             "newsSentiment": 0,
             "governmentPolicy": 0,
             "expertConsensus": 0,
             "learningFeedback": 0,
-            "total": 48
+            "total": 50
           },
           "reasons": [
             "Industry theme: Services.",
@@ -3636,7 +3636,7 @@
           "averageDailyTurnoverCr": 26.381254463309936,
           "catalystSummary": "No verified company-specific catalyst is included in the score.",
           "intelligence": {
-            "finalScore": 48,
+            "finalScore": 50,
             "newsSentimentScore": 0,
             "policySupportScore": 0,
             "sectorDirectionScore": 50,

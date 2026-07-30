@@ -8,6 +8,7 @@
     "start": "next start",
     "lint": "eslint app lib",
     "wealth:snapshot": "node --import tsx scripts/run_wealth_snapshot.ts",
+    "term:snapshot": "node --import tsx scripts/run_term_analysis.ts",
     "longterm:snapshot": "node --import tsx scripts/run_long_term_universe.ts",
     "csv:market-close": "node scripts/update_daily_recommendations.mjs --slot market-close",
     "csv:morning": "node scripts/update_daily_recommendations.mjs --slot morning",

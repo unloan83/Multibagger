@@ -50,20 +50,13 @@ type WatchlistRecommendation = {
 
 type HistoryRecord = {
   date: string;
-  runTimeIst: string;
-  runSlot: string;
   stockName: string;
   symbol: string;
-  category: string;
-  segment: string;
-  action: string;
+  termType: string;
   cmp: number;
-  previousClose: number;
-  changePercent: number;
   target: number;
-  upsidePercent: number;
-  notes: string;
-  factorSummary: string;
+  hitOrMiss: "HIT" | "MISS" | "IN PROGRESS";
+  hitTimeDetails: string;
 };
 
 export default function HomePage() {
@@ -926,41 +919,39 @@ function HistorySingleRowTable({ records }: { records: HistoryRecord[] }) {
       <table className="w-full text-left text-xs text-slate-300 border-collapse">
         <thead className="bg-[#070e1a] text-[11px] font-semibold text-slate-400 uppercase tracking-wider border-b border-slate-800">
           <tr>
-            <th className="py-3.5 px-4">Date & Time</th>
-            <th className="py-3.5 px-3">Symbol & Name</th>
-            <th className="py-3.5 px-3">Category / Slot</th>
-            <th className="py-3.5 px-3 text-center">Action</th>
-            <th className="py-3.5 px-3 text-right">CMP (₹)</th>
+            <th className="py-3.5 px-4">Date</th>
+            <th className="py-3.5 px-4">Recommended Stock Name</th>
+            <th className="py-3.5 px-3 text-center">Term Type</th>
+            <th className="py-3.5 px-3 text-right">Recommended CMP (₹)</th>
             <th className="py-3.5 px-3 text-right">Target (₹)</th>
-            <th className="py-3.5 px-3 text-right">Change</th>
-            <th className="py-3.5 px-3 text-right">Upside</th>
-            <th className="py-3.5 px-3 text-center">Flag</th>
-            <th className="py-3.5 px-4 min-w-[200px]">Notes / Factor Summary</th>
+            <th className="py-3.5 px-3 text-center">Hit or Miss</th>
+            <th className="py-3.5 px-4">Hit Time Details</th>
           </tr>
         </thead>
         <tbody className="divide-y divide-slate-800/60 font-sans">
           {records.map((r, idx) => {
-            const isPos = r.changePercent >= 0;
-            const isMb = r.upsidePercent >= 100 || (r.target >= 2 * r.cmp && r.cmp > 0);
+            const isHit = r.hitOrMiss === "HIT";
+            const isMiss = r.hitOrMiss === "MISS";
             return (
               <tr key={`hist-${idx}`} className="hover:bg-[#0e1c30] transition-colors duration-150">
-                <td className="py-3 px-4 font-mono text-[11px] text-slate-300">
-                  <div>{r.date}</div>
-                  <div className="text-[10px] text-slate-500">{r.runTimeIst || r.runSlot}</div>
+                <td className="py-3 px-4 font-mono text-[11px] text-slate-400">
+                  {r.date}
                 </td>
 
-                <td className="py-3 px-3">
-                  <div className="font-bold text-white text-sm tracking-wide">{r.symbol}</div>
-                  <div className="text-[11px] text-slate-400 truncate max-w-[150px]">{r.stockName}</div>
-                </td>
-
-                <td className="py-3 px-3 text-slate-300 font-medium capitalize">
-                  {r.segment || r.category || r.runSlot}
+                <td className="py-3 px-4">
+                  <div className="font-bold text-white text-sm tracking-wide">{r.stockName}</div>
+                  <div className="text-[11px] text-cyan-400 font-mono font-semibold">{r.symbol}</div>
                 </td>
 
                 <td className="py-3 px-3 text-center">
-                  <span className="inline-block px-2.5 py-0.5 rounded text-[11px] font-bold uppercase bg-slate-800 text-cyan-300 border border-slate-700">
-                    {r.action}
+                  <span
+                    className={`inline-block px-2.5 py-0.5 rounded text-[11px] font-bold uppercase ${
+                      r.termType.toLowerCase().includes("intraday")
+                        ? "bg-amber-500/20 text-amber-300 border border-amber-500/30"
+                        : "bg-cyan-500/20 text-cyan-300 border border-cyan-500/30"
+                    }`}
+                  >
+                    {r.termType}
                   </span>
                 </td>
 
@@ -972,29 +963,24 @@ function HistorySingleRowTable({ records }: { records: HistoryRecord[] }) {
                   ₹{r.target ? r.target.toLocaleString("en-IN", { maximumFractionDigits: 1 }) : "—"}
                 </td>
 
-                <td className={`py-3 px-3 text-right font-semibold font-mono ${isPos ? "text-emerald-400" : "text-rose-400"}`}>
-                  {isPos ? "+" : ""}
-                  {r.changePercent ? r.changePercent.toFixed(1) : "0.0"}%
-                </td>
-
-                <td className="py-3 px-3 text-right font-bold text-cyan-400 font-mono">
-                  +{r.upsidePercent ? r.upsidePercent.toFixed(1) : "0"}%
-                </td>
-
                 <td className="py-3 px-3 text-center">
-                  {isMb ? (
-                    <span className="inline-flex items-center gap-1 rounded-full bg-purple-500/20 px-2.5 py-0.5 text-[10px] font-bold text-purple-300 border border-purple-500/40">
-                      🚀 MULTIBAGGER
+                  {isHit ? (
+                    <span className="inline-flex items-center gap-1 rounded-full bg-emerald-500/20 px-3 py-0.5 text-[11px] font-bold text-emerald-300 border border-emerald-500/40 shadow-sm animate-pulse">
+                      🎯 HIT
+                    </span>
+                  ) : isMiss ? (
+                    <span className="inline-flex items-center gap-1 rounded-full bg-rose-500/20 px-3 py-0.5 text-[11px] font-bold text-rose-300 border border-rose-500/40">
+                      ❌ MISS
                     </span>
                   ) : (
-                    <span className="text-slate-600 text-[10px]">—</span>
+                    <span className="inline-flex items-center gap-1 rounded-full bg-amber-500/20 px-3 py-0.5 text-[11px] font-bold text-amber-300 border border-amber-500/40">
+                      ⏳ IN PROGRESS
+                    </span>
                   )}
                 </td>
 
-                <td className="py-3 px-4 text-[11px] text-slate-400 leading-tight">
-                  <div className="truncate max-w-[260px]" title={r.notes || r.factorSummary}>
-                    {r.notes || r.factorSummary || "Historical signal logged"}
-                  </div>
+                <td className="py-3 px-4 text-[11px] font-mono text-slate-300 leading-tight">
+                  {r.hitTimeDetails || "Evaluating hit status"}
                 </td>
               </tr>
             );
@@ -1004,3 +990,4 @@ function HistorySingleRowTable({ records }: { records: HistoryRecord[] }) {
     </div>
   );
 }
+

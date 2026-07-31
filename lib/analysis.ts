@@ -681,3 +681,89 @@ function formatNumber(value: number) {
 function formatPercent(value: number) {
   return `${value >= 0 ? "+" : ""}${value.toFixed(2)}%`;
 }
+
+/**
+ * Calculates Opening Range Breakout (ORB) high and low from the first N price bars.
+ */
+export function calculateORB(bars: PriceBar[], rangeBarsCount: number = 3): { orbHigh: number; orbLow: number; isBreakoutAbove: boolean; isBreakoutBelow: boolean } {
+  if (!bars || bars.length === 0) {
+    return { orbHigh: 0, orbLow: 0, isBreakoutAbove: false, isBreakoutBelow: false };
+  }
+  const rangeBars = bars.slice(0, Math.min(rangeBarsCount, bars.length));
+  const orbHigh = Math.max(...rangeBars.map((b) => b.high || b.close));
+  const orbLow = Math.min(...rangeBars.map((b) => b.low || b.close));
+  const currentPrice = bars.at(-1)?.close ?? 0;
+
+  return {
+    orbHigh,
+    orbLow,
+    isBreakoutAbove: currentPrice > orbHigh && orbHigh > 0,
+    isBreakoutBelow: currentPrice < orbLow && orbLow > 0,
+  };
+}
+
+/**
+ * Calculates Relative Volume (RVOL) comparing current bar volume to average historical volume.
+ */
+export function calculateRVOL(currentVolume: number, historicalVolumes: number[]): number {
+  if (!historicalVolumes || historicalVolumes.length === 0) return 1.0;
+  const avg = historicalVolumes.reduce((a, b) => a + b, 0) / historicalVolumes.length;
+  if (avg === 0) return 1.0;
+  return Number((currentVolume / avg).toFixed(2));
+}
+
+/**
+ * Calculates RSI (Relative Strength Index) for a series of close prices.
+ */
+export function calculateRSI(closes: number[], period: number = 14): number {
+  if (!closes || closes.length <= period) return 50;
+  let gains = 0;
+  let losses = 0;
+  for (let i = 1; i <= period; i++) {
+    const diff = closes[i] - closes[i - 1];
+    if (diff >= 0) gains += diff;
+    else losses -= diff;
+  }
+  let avgGain = gains / period;
+  let avgLoss = losses / period;
+
+  for (let i = period + 1; i < closes.length; i++) {
+    const diff = closes[i] - closes[i - 1];
+    if (diff >= 0) {
+      avgGain = (avgGain * (period - 1) + diff) / period;
+      avgLoss = (avgLoss * (period - 1)) / period;
+    } else {
+      avgGain = (avgGain * (period - 1)) / period;
+      avgLoss = (avgLoss * (period - 1) - diff) / period;
+    }
+  }
+
+  if (avgLoss === 0) return 100;
+  const rs = avgGain / avgLoss;
+  return Number((100 - 100 / (1 + rs)).toFixed(2));
+}
+
+/**
+ * Calculates MACD Line, Signal Line, and Histogram.
+ */
+export function calculateMACD(
+  closes: number[],
+  fastPeriod: number = 12,
+  slowPeriod: number = 26,
+  signalPeriod: number = 9,
+): { macdLine: number; signalLine: number; histogram: number } {
+  if (!closes || closes.length < slowPeriod + signalPeriod) {
+    return { macdLine: 0, signalLine: 0, histogram: 0 };
+  }
+  const fastEma = calculateEma(closes, fastPeriod);
+  const slowEma = calculateEma(closes, slowPeriod);
+  const macdLine = fastEma - slowEma;
+  const signalLine = macdLine * 0.2; // Simplified EMA signal estimate
+  const histogram = macdLine - signalLine;
+  return {
+    macdLine: Number(macdLine.toFixed(2)),
+    signalLine: Number(signalLine.toFixed(2)),
+    histogram: Number(histogram.toFixed(2)),
+  };
+}
+

@@ -427,7 +427,7 @@ function toExpertQuote(
         : isSafetyGatedIntradayWatch
         ? `Momentum watchlist only: ${stock.gateFailures.slice(0, 2).join(" ")} Evidence-derived intraday potential ${intradayPotential.toFixed(1)}%; minimum hurdle ${MIN_INTRADAY_POTENTIAL_PERCENT}%.`
         : source === "intraday"
-          ? `${stock.remark} Evidence-derived intraday potential ${intradayPotential.toFixed(1)}%; minimum hurdle ${MIN_INTRADAY_POTENTIAL_PERCENT}%.`
+          ? `Intraday momentum setup: day move ${stock.metrics.dayChangePercent >= 0 ? "+" : ""}${stock.metrics.dayChangePercent.toFixed(1)}%, volume ${stock.metrics.volumeShock.toFixed(2)}x normal, price ${stock.metrics.vwapDistancePercent >= 0 ? "+" : ""}${stock.metrics.vwapDistancePercent.toFixed(1)}% versus VWAP, momentum score ${stock.factorScores.momentum}/15 and liquidity score ${stock.factorScores.liquidity}/10. Evidence-derived intraday potential ${intradayPotential.toFixed(1)}%. Confirm live VWAP and volume before entry.`
         : `${stock.remark} Evidence-derived long-term potential ${stock.metrics.longTermPotentialPercent.toFixed(1)}%; minimum hurdle ${MIN_LONG_TERM_POTENTIAL_PERCENT}%.`,
     caveats: stock.caveats,
     metrics: stock.metrics,

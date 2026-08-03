@@ -883,7 +883,7 @@ function SimpleSingleRowTable({
                 </td>
 
                 <td className="py-3 px-4 text-[11px] text-slate-400 leading-tight">
-                  {stock.remark || "High factor score & trend alignment"}
+                  {getIntradayRemark(stock)}
                 </td>
               </tr>
             );
@@ -892,6 +892,13 @@ function SimpleSingleRowTable({
       </table>
     </div>
   );
+}
+
+function getIntradayRemark(stock: StockPick): string {
+  if (stock.remark && !stock.remark.trim().toLowerCase().startsWith("not recommended")) {
+    return stock.remark;
+  }
+  return `Intraday momentum candidate ranked ${stock.score}/100 with ${stock.changePercent >= 0 ? "+" : ""}${stock.changePercent.toFixed(1)}% session movement and ${stock.upside.toFixed(1)}% modelled upside. Confirm live VWAP, relative volume and stop-loss before entry.`;
 }
 
 // Single-Row Table Component for Watchlist

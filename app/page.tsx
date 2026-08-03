@@ -31,6 +31,11 @@ type Snapshot = {
   asOf: string;
   marketRegime: string;
   categories: Category[];
+  intradayPipeline?: {
+    asOf: string;
+    slot?: string;
+    slotLabel?: string;
+  };
 };
 
 type WatchlistRecommendation = {
@@ -71,6 +76,7 @@ export default function HomePage() {
 
   // Term Recommendations State (20 total stocks, 5 per duration)
   const [termPicks, setTermPicks] = useState<TermRecommendation[]>([]);
+  const [termUpdatedAt, setTermUpdatedAt] = useState<string | null>(null);
   const [termFilter, setTermFilter] = useState<TermDuration | "all">("all");
   const [loadingTerm, setLoadingTerm] = useState(false);
 
@@ -103,6 +109,7 @@ export default function HomePage() {
       .then((data) => {
         if (data.ok && Array.isArray(data.picks)) {
           setTermPicks(data.picks);
+          setTermUpdatedAt(typeof data.asOf === "string" ? data.asOf : null);
         }
         setLoadingTerm(false);
       })
@@ -290,8 +297,9 @@ export default function HomePage() {
     ? termPicks
     : termPicks.filter((p) => p.termDuration === termFilter);
 
-  const formattedDate = snapshot?.asOf
-    ? new Date(snapshot.asOf).toLocaleDateString("en-IN", {
+  const formatUpdatedAt = (value?: string | null) =>
+    value
+      ? new Date(value).toLocaleDateString("en-IN", {
         day: "2-digit",
         month: "short",
         year: "numeric",
@@ -299,7 +307,10 @@ export default function HomePage() {
         minute: "2-digit",
         timeZone: "Asia/Kolkata",
       }) + " IST"
-    : "Today";
+      : "Awaiting first run";
+
+  const termUpdatedLabel = formatUpdatedAt(termUpdatedAt);
+  const intradayUpdatedLabel = formatUpdatedAt(snapshot?.intradayPipeline?.asOf);
 
   return (
     <main className="min-h-screen bg-[#060d17] text-slate-100 font-sans pb-12">
@@ -320,9 +331,23 @@ export default function HomePage() {
             </div>
           </div>
 
-          <div className="text-right text-xs text-slate-400">
-            <div className="font-medium text-slate-300">Updated {formattedDate}</div>
+          <div className="flex items-center gap-3">
+            <div className="hidden text-right text-[11px] leading-5 text-slate-400 sm:block">
+              <div><span className="font-semibold text-indigo-300">Term:</span> {termUpdatedLabel}</div>
+              <div><span className="font-semibold text-amber-300">Intraday:</span> {intradayUpdatedLabel}</div>
+            </div>
+            <a
+              href="https://liveunloan.vercel.app/"
+              className="inline-flex items-center gap-1.5 rounded-lg border border-cyan-500/30 bg-cyan-500/10 px-3 py-2 text-xs font-bold text-cyan-300 transition hover:border-cyan-400 hover:bg-cyan-500/20 hover:text-white"
+              aria-label="Go to Live Unloan home page"
+            >
+              <span aria-hidden="true">🏠</span> Home
+            </a>
           </div>
+        </div>
+        <div className="border-t border-slate-800/60 px-4 py-2 text-[10px] leading-4 text-slate-400 sm:hidden">
+          <div><span className="font-semibold text-indigo-300">Term updated:</span> {termUpdatedLabel}</div>
+          <div><span className="font-semibold text-amber-300">Intraday updated:</span> {intradayUpdatedLabel}</div>
         </div>
       </header>
 
@@ -990,4 +1015,3 @@ function HistorySingleRowTable({ records }: { records: HistoryRecord[] }) {
     </div>
   );
 }
-

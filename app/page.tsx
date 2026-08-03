@@ -420,6 +420,41 @@ export default function HomePage() {
           </div>
         </div>
 
+        <details className="group rounded-2xl border border-slate-700/80 bg-[#0b1626] shadow-lg">
+          <summary className="flex cursor-pointer list-none items-center justify-between gap-4 px-4 py-3.5 text-sm font-bold text-white transition hover:bg-slate-800/40 [&::-webkit-details-marker]:hidden">
+            <span className="flex items-center gap-2">
+              <span aria-hidden="true">📖</span>
+              Recommendation Logic & Metrics Glossary
+            </span>
+            <span className="text-xs font-semibold text-cyan-300 transition-transform group-open:rotate-180" aria-hidden="true">▼</span>
+          </summary>
+          <div className="border-t border-slate-700/70 px-4 py-4 text-xs leading-relaxed text-slate-300">
+            <p className="mb-4 text-slate-400">
+              The {marketLabel} market engine ranks candidates using market data, momentum, liquidity, business quality and risk. Scores are comparative screening scores—not probabilities or guaranteed returns. Term and intraday recommendations use different gates.
+            </p>
+            <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+              <GlossaryItem term="Recommendation Score (0–100)" description="Weighted rank combining growth, quality, valuation, momentum, sector strength, liquidity, catalysts, data quality and risk. A higher score means stronger evidence relative to the screened universe." />
+              <GlossaryItem term="Relative Strength (RS)" description={`Measures a stock's performance against the ${market === "us" ? "S&P 500 / US peer group" : "NIFTY 500 / sector peer group"}. Positive RS indicates benchmark outperformance over the review window.`} />
+              <GlossaryItem term="Momentum" description="Uses recent returns, trend direction and price acceleration. It helps identify continuation setups but is discounted when a move is overextended or unstable." />
+              <GlossaryItem term="RVOL / Volume Shock" description="Current or recent volume divided by normal volume. Above 1.0× means activity is stronger than usual; intraday candidates favour confirmed participation rather than price movement alone." />
+              <GlossaryItem term="VWAP" description="Volume-Weighted Average Price estimates the session's average traded price. Price holding above VWAP can confirm demand; a large gap from VWAP can indicate an overextended entry." />
+              <GlossaryItem term="EMA20 / EMA50 / EMA200" description="Exponential moving averages represent short-, medium- and long-term trend. The model rewards constructive alignment and applies caution when shorter averages fall below longer averages." />
+              <GlossaryItem term="ATR & Risk Score" description="Average True Range estimates typical price volatility. ATR, drawdown, liquidity and adverse price movement feed the risk score and influence target distance and position caution." />
+              <GlossaryItem term="Growth & Earnings Quality" description="Term screening reviews revenue and earnings consistency, margins, return on equity and whether reported profits are supported by operating cash flow." />
+              <GlossaryItem term="Debt-to-Equity (D/E)" description="Interest-bearing debt divided by shareholder equity. Lower leverage is generally preferred; financial companies require sector-specific interpretation." />
+              <GlossaryItem term="Cash-Flow Conversion" description="Operating cash flow divided by net income. It tests whether accounting earnings are translating into cash and helps flag weak earnings quality." />
+              <GlossaryItem term="CMP, Target & Upside" description="CMP is the current market price. Target is the modelled price objective for the displayed horizon. Upside is (Target − CMP) ÷ CMP × 100 and can change as prices refresh." />
+              <GlossaryItem term="BUY / ACCUMULATE / WATCH" description="BUY marks a stronger near-term setup; ACCUMULATE indicates staged entry over the stated horizon; WATCH means evidence or confirmation is incomplete and is not an entry signal." />
+              <GlossaryItem term="Term Logic" description="Prioritises business growth, earnings quality, leverage, valuation, medium-term trend, sector strength, liquidity and risk across 1-week, 1-month, 3-month and 6-month buckets." />
+              <GlossaryItem term="Intraday Logic" description="Prioritises session movement, relative volume, VWAP position, short-term momentum, liquidity and volatility. Long-term fundamental exclusions are not reused as intraday rationale." />
+              <GlossaryItem term="Multibagger Flag" description="Displayed only when modelled upside is at least 100%. It is a scenario flag, not a prediction or assurance that the stock will double." />
+            </div>
+            <p className="mt-4 rounded-lg border border-amber-500/20 bg-amber-500/5 px-3 py-2 text-[11px] text-amber-200/80">
+              Research screening only. Confirm live price, filings, news, liquidity, stop-loss and position size before acting.
+            </p>
+          </div>
+        </details>
+
         {/* Navigation Tabs */}
         <div className="flex items-center justify-between border-b border-slate-800/60 pb-3">
           <div className="flex items-center gap-2 bg-[#0d1b2e] p-1.5 rounded-xl border border-slate-800">
@@ -899,6 +934,15 @@ function getIntradayRemark(stock: StockPick): string {
     return stock.remark;
   }
   return `Intraday momentum candidate ranked ${stock.score}/100 with ${stock.changePercent >= 0 ? "+" : ""}${stock.changePercent.toFixed(1)}% session movement and ${stock.upside.toFixed(1)}% modelled upside. Confirm live VWAP, relative volume and stop-loss before entry.`;
+}
+
+function GlossaryItem({ term, description }: { term: string; description: string }) {
+  return (
+    <div className="rounded-xl border border-slate-800 bg-[#07111f] p-3">
+      <h3 className="mb-1 font-bold text-cyan-300">{term}</h3>
+      <p className="text-slate-400">{description}</p>
+    </div>
+  );
 }
 
 // Single-Row Table Component for Watchlist

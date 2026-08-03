@@ -64,6 +64,13 @@ type HistoryRecord = {
   hitTimeDetails: string;
 };
 
+type Market = "india" | "us";
+type UsMarketData = {
+  asOf: string;
+  termPicks: TermRecommendation[];
+  intradayPicks: StockPick[];
+};
+
 export default function HomePage() {
   const [isUnlocked, setIsUnlocked] = useState(false);
   const [pinInput, setPinInput] = useState("");
@@ -73,6 +80,9 @@ export default function HomePage() {
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<"term" | "intraday" | "watchlist" | "history">("term");
+  const [market, setMarket] = useState<Market>("india");
+  const [usMarketData, setUsMarketData] = useState<UsMarketData | null>(null);
+  const [loadingUsMarket, setLoadingUsMarket] = useState(false);
 
   // Term Recommendations State (20 total stocks, 5 per duration)
   const [termPicks, setTermPicks] = useState<TermRecommendation[]>([]);
@@ -138,6 +148,23 @@ export default function HomePage() {
         setLoading(false);
       });
   }, [isUnlocked]);
+
+  useEffect(() => {
+    if (!isUnlocked || market !== "us" || usMarketData) return;
+    setLoadingUsMarket(true);
+    fetch("/api/us-recommendations")
+      .then(async (res) => {
+        if (!res.ok) throw new Error("Could not load US recommendations.");
+        return res.json();
+      })
+      .then((data) => {
+        if (data.ok) {
+          setUsMarketData({ asOf: data.asOf, termPicks: data.termPicks || [], intradayPicks: data.intradayPicks || [] });
+        }
+      })
+      .catch((err) => setError(err.message || "Failed to load US recommendations."))
+      .finally(() => setLoadingUsMarket(false));
+  }, [isUnlocked, market, usMarketData]);
 
   // Fetch Watchlist Data when Watchlist Tab is selected
   const fetchWatchlist = () => {
@@ -281,21 +308,23 @@ export default function HomePage() {
   }
 
   // Extract intraday picks from snapshot
-  const intradayPicks: StockPick[] = [];
+  const indianIntradayPicks: StockPick[] = [];
   if (snapshot?.categories) {
     for (const cat of snapshot.categories) {
       const capLabel = cat.key === "largeCap" ? "Large Cap" : cat.key === "midCap" ? "Mid Cap" : "Small Cap";
       for (const item of cat.intradayBreakouts || []) {
         const isMb = (item.upside && item.upside >= 100) || (item.target >= 2 * item.price && item.price > 0);
-        intradayPicks.push({ ...item, marketCapCategory: capLabel, isMultibagger: isMb });
+        indianIntradayPicks.push({ ...item, marketCapCategory: capLabel, isMultibagger: isMb });
       }
     }
   }
 
   // Filter Term Picks by Selected Duration
+  const activeTermPicks = market === "us" ? usMarketData?.termPicks || [] : termPicks;
+  const intradayPicks = market === "us" ? usMarketData?.intradayPicks || [] : indianIntradayPicks;
   const filteredTermPicks = termFilter === "all"
-    ? termPicks
-    : termPicks.filter((p) => p.termDuration === termFilter);
+    ? activeTermPicks
+    : activeTermPicks.filter((p) => p.termDuration === termFilter);
 
   const formatUpdatedAt = (value?: string | null) =>
     value
@@ -309,8 +338,11 @@ export default function HomePage() {
       }) + " IST"
       : "Awaiting first run";
 
-  const termUpdatedLabel = formatUpdatedAt(termUpdatedAt);
-  const intradayUpdatedLabel = formatUpdatedAt(snapshot?.intradayPipeline?.asOf);
+  const termUpdatedLabel = formatUpdatedAt(market === "us" ? usMarketData?.asOf : termUpdatedAt);
+  const intradayUpdatedLabel = formatUpdatedAt(market === "us" ? usMarketData?.asOf : snapshot?.intradayPipeline?.asOf);
+  const currencySymbol = market === "us" ? "$" : "₹";
+  const marketLabel = market === "us" ? "US" : "Indian";
+  const marketLoading = market === "us" ? loadingUsMarket : loading;
 
   return (
     <main className="min-h-screen bg-[#060d17] text-slate-100 font-sans pb-12">
@@ -352,18 +384,33 @@ export default function HomePage() {
       </header>
 
       <div className="mx-auto max-w-7xl px-4 py-6 sm:px-6 space-y-6">
+        <div className="inline-flex items-center gap-1.5 rounded-xl border border-slate-700 bg-[#0b1626] p-1.5 shadow-lg" aria-label="Select stock market">
+          <button
+            onClick={() => { setMarket("india"); setActiveTab("term"); }}
+            className={`rounded-lg px-5 py-2.5 text-sm font-bold transition ${market === "india" ? "bg-indigo-600 text-white shadow-md" : "text-slate-300 hover:bg-slate-800"}`}
+          >
+            🇮🇳 Indian Market
+          </button>
+          <button
+            onClick={() => { setMarket("us"); setActiveTab("term"); }}
+            className={`rounded-lg px-5 py-2.5 text-sm font-bold transition ${market === "us" ? "bg-cyan-500 text-slate-950 shadow-md" : "text-slate-300 hover:bg-slate-800"}`}
+          >
+            🇺🇸 US Market
+          </button>
+        </div>
+
         {/* Run Time & Strategy Confirmation Banner */}
         <div className="rounded-2xl border border-cyan-500/20 bg-gradient-to-r from-[#0a192f] via-[#091526] to-[#0d1e38] p-4 text-xs shadow-lg">
           <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
             <div className="space-y-1">
               <span className="font-bold text-cyan-300 flex items-center gap-1.5 text-sm">
-                <span>🤖</span> End-of-Day Term Analysis Agent Schedule & Rules
+                <span>🤖</span> {marketLabel} Market Analysis Schedule & Rules
               </span>
               <p className="text-slate-300 leading-relaxed">
-                <strong className="text-indigo-400">Term Recommendations (20 Stocks):</strong> Evaluated daily by the Stock Analysis Agent post-market at <span className="text-white font-mono font-semibold">3:45 PM – 5:00 PM IST</span> (5 picks each for 1W, 1M, 3M, 6M).
+                <strong className="text-indigo-400">Term Recommendations (20 Stocks):</strong> Evaluated daily post-market at <span className="text-white font-mono font-semibold">{market === "us" ? "4:30 PM ET" : "3:45 PM – 5:00 PM IST"}</span> (5 picks each for 1W, 1M, 3M, 6M).
               </p>
               <p className="text-slate-300 leading-relaxed">
-                <strong className="text-amber-400">Intraday Breakout Picks:</strong> Calculated pre-market at <span className="text-white font-mono font-semibold">8:45 AM – 9:00 AM IST</span> (or <span className="text-white font-mono font-semibold">9:30 AM IST</span>) for morning momentum.
+                <strong className="text-amber-400">Intraday Breakout Picks:</strong> Calculated at <span className="text-white font-mono font-semibold">{market === "us" ? "9:35 AM, 12:00 PM & 2:30 PM ET" : "9:08 AM, 10:45 AM & 1:45 PM IST"}</span> for session momentum.
               </p>
             </div>
             <div className="shrink-0 bg-[#060e1a] border border-slate-800 rounded-xl p-2.5 text-slate-400 text-[11px] space-y-1">
@@ -384,7 +431,7 @@ export default function HomePage() {
                   : "text-slate-400 hover:text-slate-200"
               }`}
             >
-              <span>🎯</span> Term Recommendations ({termPicks.length})
+              <span>🎯</span> Term Recommendations ({activeTermPicks.length})
               <span className="text-[10px] opacity-75 font-normal">(1W, 1M, 3M, 6M)</span>
             </button>
             <button
@@ -398,26 +445,30 @@ export default function HomePage() {
               <span>⚡</span> Intraday ({intradayPicks.length})
               <span className="text-[10px] opacity-75 font-normal">(Same Day)</span>
             </button>
-            <button
-              onClick={() => setActiveTab("watchlist")}
-              className={`px-4 py-2 rounded-lg text-xs font-bold transition flex items-center gap-2 ${
-                activeTab === "watchlist"
-                  ? "bg-cyan-500 text-slate-950 shadow-md shadow-cyan-500/20"
-                  : "text-slate-400 hover:text-slate-200"
-              }`}
-            >
-              <span>⭐</span> Watchlist
-            </button>
-            <button
-              onClick={() => setActiveTab("history")}
-              className={`px-4 py-2 rounded-lg text-xs font-bold transition flex items-center gap-2 ${
-                activeTab === "history"
-                  ? "bg-emerald-600 text-white shadow-md shadow-emerald-600/20"
-                  : "text-slate-400 hover:text-slate-200"
-              }`}
-            >
-              <span>📜</span> History & CSV
-            </button>
+            {market === "india" && (
+              <>
+                <button
+                  onClick={() => setActiveTab("watchlist")}
+                  className={`px-4 py-2 rounded-lg text-xs font-bold transition flex items-center gap-2 ${
+                    activeTab === "watchlist"
+                      ? "bg-cyan-500 text-slate-950 shadow-md shadow-cyan-500/20"
+                      : "text-slate-400 hover:text-slate-200"
+                  }`}
+                >
+                  <span>⭐</span> Watchlist
+                </button>
+                <button
+                  onClick={() => setActiveTab("history")}
+                  className={`px-4 py-2 rounded-lg text-xs font-bold transition flex items-center gap-2 ${
+                    activeTab === "history"
+                      ? "bg-emerald-600 text-white shadow-md shadow-emerald-600/20"
+                      : "text-slate-400 hover:text-slate-200"
+                  }`}
+                >
+                  <span>📜</span> History & CSV
+                </button>
+              </>
+            )}
           </div>
         </div>
 
@@ -487,7 +538,7 @@ export default function HomePage() {
               </div>
             </div>
 
-            {loadingTerm ? (
+            {(market === "us" ? loadingUsMarket : loadingTerm) ? (
               <div className="flex items-center justify-center py-16">
                 <div className="h-7 w-7 animate-spin rounded-full border-2 border-indigo-400 border-t-transparent" />
                 <span className="ml-3 text-xs text-slate-400">Agent evaluating term duration recommendations…</span>
@@ -497,13 +548,13 @@ export default function HomePage() {
                 No term recommendations found for selected duration filter.
               </div>
             ) : (
-              <TermSingleRowTable picks={filteredTermPicks} />
+              <TermSingleRowTable picks={filteredTermPicks} currencySymbol={currencySymbol} />
             )}
           </section>
         )}
 
         {/* TAB 2: Intraday Breakouts */}
-        {!loading && activeTab === "intraday" && (
+        {!marketLoading && activeTab === "intraday" && (
           <section className="space-y-4">
             <div className="flex items-center justify-between">
               <div>
@@ -523,7 +574,7 @@ export default function HomePage() {
                 No intraday breakout picks currently active.
               </div>
             ) : (
-              <SimpleSingleRowTable picks={intradayPicks} type="intraday" />
+              <SimpleSingleRowTable picks={intradayPicks} type="intraday" currencySymbol={currencySymbol} />
             )}
           </section>
         )}
@@ -635,7 +686,7 @@ export default function HomePage() {
 }
 
 // Single-Row Table Component for Term Recommendations
-function TermSingleRowTable({ picks }: { picks: TermRecommendation[] }) {
+function TermSingleRowTable({ picks, currencySymbol }: { picks: TermRecommendation[]; currencySymbol: string }) {
   return (
     <div className="overflow-x-auto rounded-xl border border-slate-800/90 bg-[#0b1626] shadow-xl">
       <table className="w-full text-left text-xs text-slate-300 border-collapse">
@@ -646,8 +697,8 @@ function TermSingleRowTable({ picks }: { picks: TermRecommendation[] }) {
             <th className="py-3.5 px-3">Category</th>
             <th className="py-3.5 px-3">Sector</th>
             <th className="py-3.5 px-3 text-center">Action</th>
-            <th className="py-3.5 px-3 text-right">CMP (₹)</th>
-            <th className="py-3.5 px-3 text-right">Target (₹)</th>
+            <th className="py-3.5 px-3 text-right">CMP ({currencySymbol})</th>
+            <th className="py-3.5 px-3 text-right">Target ({currencySymbol})</th>
             <th className="py-3.5 px-3 text-right">Change</th>
             <th className="py-3.5 px-3 text-right">Upside</th>
             <th className="py-3.5 px-3 text-center">Flag</th>
@@ -700,12 +751,12 @@ function TermSingleRowTable({ picks }: { picks: TermRecommendation[] }) {
 
                 {/* CMP */}
                 <td className="py-3 px-3 text-right font-bold text-white font-mono">
-                  ₹{stock.price ? stock.price.toLocaleString("en-IN", { maximumFractionDigits: 1 }) : "—"}
+                  {currencySymbol}{stock.price ? stock.price.toLocaleString("en-IN", { maximumFractionDigits: 1 }) : "—"}
                 </td>
 
                 {/* Target */}
                 <td className="py-3 px-3 text-right font-bold text-cyan-300 font-mono">
-                  ₹{stock.target ? stock.target.toLocaleString("en-IN", { maximumFractionDigits: 1 }) : "—"}
+                  {currencySymbol}{stock.target ? stock.target.toLocaleString("en-IN", { maximumFractionDigits: 1 }) : "—"}
                 </td>
 
                 {/* Day Change */}
@@ -747,9 +798,11 @@ function TermSingleRowTable({ picks }: { picks: TermRecommendation[] }) {
 function SimpleSingleRowTable({
   picks,
   type,
+  currencySymbol,
 }: {
   picks: StockPick[];
   type: "intraday";
+  currencySymbol: string;
 }) {
   return (
     <div className="overflow-x-auto rounded-xl border border-slate-800/90 bg-[#0b1626] shadow-xl">
@@ -761,8 +814,8 @@ function SimpleSingleRowTable({
             <th className="py-3.5 px-3">Category</th>
             <th className="py-3.5 px-3">Sector</th>
             <th className="py-3.5 px-3 text-center">Action</th>
-            <th className="py-3.5 px-3 text-right">CMP (₹)</th>
-            <th className="py-3.5 px-3 text-right">Target (₹)</th>
+            <th className="py-3.5 px-3 text-right">CMP ({currencySymbol})</th>
+            <th className="py-3.5 px-3 text-right">Target ({currencySymbol})</th>
             <th className="py-3.5 px-3 text-right">Change</th>
             <th className="py-3.5 px-3 text-right">Upside</th>
             <th className="py-3.5 px-3 text-center">Flag</th>
@@ -803,11 +856,11 @@ function SimpleSingleRowTable({
                 </td>
 
                 <td className="py-3 px-3 text-right font-bold text-white font-mono">
-                  ₹{stock.price ? stock.price.toLocaleString("en-IN", { maximumFractionDigits: 1 }) : "—"}
+                  {currencySymbol}{stock.price ? stock.price.toLocaleString("en-IN", { maximumFractionDigits: 1 }) : "—"}
                 </td>
 
                 <td className="py-3 px-3 text-right font-bold text-cyan-300 font-mono">
-                  ₹{stock.target ? stock.target.toLocaleString("en-IN", { maximumFractionDigits: 1 }) : "—"}
+                  {currencySymbol}{stock.target ? stock.target.toLocaleString("en-IN", { maximumFractionDigits: 1 }) : "—"}
                 </td>
 
                 <td className={`py-3 px-3 text-right font-semibold font-mono ${isPos ? "text-emerald-400" : "text-rose-400"}`}>

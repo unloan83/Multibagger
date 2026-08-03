@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { readWealthRecommendationsSnapshot, type ExpertQuote } from "@/lib/expert-insights";
 import { readSnapshotFile, writeSnapshotFile } from "@/lib/snapshot-storage";
+import { readUsMarketSnapshot } from "@/lib/us-market-engine";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -22,28 +23,33 @@ export type WatchlistRecommendation = {
   notes: string;
 };
 
-const WATCHLIST_FILE = "watchlist.json";
+type Market = "india" | "us";
 
-async function getWatchlistSymbols(): Promise<string[]> {
+function watchlistFile(market: Market) {
+  return market === "us" ? "us_watchlist.json" : "watchlist.json";
+}
+
+async function getWatchlistSymbols(market: Market): Promise<string[]> {
   try {
-    const raw = await readSnapshotFile(WATCHLIST_FILE);
-    if (!raw) return ["RELIANCE.NS", "TCS.NS", "INFY.NS"];
+    const raw = await readSnapshotFile(watchlistFile(market));
+    if (!raw) return market === "us" ? ["AAPL", "MSFT", "NVDA"] : ["RELIANCE.NS", "TCS.NS", "INFY.NS"];
     const parsed = JSON.parse(raw) as { symbols?: string[] };
     return parsed.symbols || [];
   } catch {
-    return ["RELIANCE.NS", "TCS.NS", "INFY.NS"];
+    return market === "us" ? ["AAPL", "MSFT", "NVDA"] : ["RELIANCE.NS", "TCS.NS", "INFY.NS"];
   }
 }
 
-async function saveWatchlistSymbols(symbols: string[]): Promise<void> {
+async function saveWatchlistSymbols(market: Market, symbols: string[]): Promise<void> {
   const data = JSON.stringify({ symbols: Array.from(new Set(symbols)) }, null, 2);
-  await writeSnapshotFile(WATCHLIST_FILE, data);
+  await writeSnapshotFile(watchlistFile(market), data);
 }
 
-export async function GET() {
+export async function GET(request: Request) {
   try {
-    const symbols = await getWatchlistSymbols();
-    const holdings = await fetchWatchlistRecommendations(symbols);
+    const market = getMarket(new URL(request.url).searchParams.get("market"));
+    const symbols = await getWatchlistSymbols(market);
+    const holdings = await fetchWatchlistRecommendations(symbols, market);
     return NextResponse.json({ ok: true, holdings });
   } catch (err) {
     return NextResponse.json(
@@ -55,23 +61,24 @@ export async function GET() {
 
 export async function POST(request: Request) {
   try {
-    const body = (await request.json()) as { symbol?: string };
+    const body = (await request.json()) as { symbol?: string; market?: string };
+    const market = getMarket(body.market);
     let symbol = (body.symbol || "").trim().toUpperCase();
     if (!symbol) {
       return NextResponse.json({ ok: false, error: "Stock symbol is required" }, { status: 400 });
     }
 
-    if (!symbol.includes(".")) {
+    if (market === "india" && !symbol.includes(".")) {
       symbol = `${symbol}.NS`;
     }
 
-    const symbols = await getWatchlistSymbols();
+    const symbols = await getWatchlistSymbols(market);
     if (!symbols.includes(symbol)) {
       symbols.push(symbol);
-      await saveWatchlistSymbols(symbols);
+      await saveWatchlistSymbols(market, symbols);
     }
 
-    const holdings = await fetchWatchlistRecommendations(symbols);
+    const holdings = await fetchWatchlistRecommendations(symbols, market);
     return NextResponse.json({ ok: true, holdings });
   } catch (err) {
     return NextResponse.json(
@@ -83,20 +90,21 @@ export async function POST(request: Request) {
 
 export async function DELETE(request: Request) {
   try {
-    const body = (await request.json()) as { symbol?: string };
+    const body = (await request.json()) as { symbol?: string; market?: string };
+    const market = getMarket(body.market);
     const rawSymbol = (body.symbol || "").trim().toUpperCase();
     if (!rawSymbol) {
       return NextResponse.json({ ok: false, error: "Stock symbol is required" }, { status: 400 });
     }
 
-    let symbols = await getWatchlistSymbols();
+    let symbols = await getWatchlistSymbols(market);
     symbols = symbols.filter(
       (s) => s.toUpperCase() !== rawSymbol && s.replace(".NS", "").toUpperCase() !== rawSymbol
     );
 
-    await saveWatchlistSymbols(symbols);
+    await saveWatchlistSymbols(market, symbols);
 
-    const holdings = await fetchWatchlistRecommendations(symbols);
+    const holdings = await fetchWatchlistRecommendations(symbols, market);
     return NextResponse.json({ ok: true, holdings });
   } catch (err) {
     return NextResponse.json(
@@ -106,11 +114,15 @@ export async function DELETE(request: Request) {
   }
 }
 
-async function fetchWatchlistRecommendations(symbols: string[]): Promise<WatchlistRecommendation[]> {
-  const snapshotLookup = new Map<string, ExpertQuote>();
+async function fetchWatchlistRecommendations(symbols: string[], market: Market): Promise<WatchlistRecommendation[]> {
+  const snapshotLookup = new Map<string, Pick<ExpertQuote, "symbol" | "target" | "action" | "remark">>();
   try {
-    const snapshot = await readWealthRecommendationsSnapshot();
-    if (snapshot?.categories) {
+    if (market === "us") {
+      const snapshot = await readUsMarketSnapshot();
+      for (const item of snapshot.termPicks) snapshotLookup.set(item.symbol.toUpperCase(), { symbol: item.symbol, target: item.target, action: "Accumulate", remark: item.agentRationale });
+    } else {
+      const snapshot = await readWealthRecommendationsSnapshot();
+      if (snapshot?.categories) {
       for (const cat of snapshot.categories) {
         for (const item of cat.longTermUpsides || []) {
           snapshotLookup.set(item.symbol.toUpperCase(), item);
@@ -120,6 +132,7 @@ async function fetchWatchlistRecommendations(symbols: string[]): Promise<Watchli
             snapshotLookup.set(item.symbol.toUpperCase(), item);
           }
         }
+      }
       }
     }
   } catch {
@@ -227,4 +240,8 @@ async function fetchWatchlistRecommendations(symbols: string[]): Promise<Watchli
   return results
     .filter((r) => r.status === "fulfilled" && r.value !== null)
     .map((r) => (r as PromiseFulfilledResult<WatchlistRecommendation>).value);
+}
+
+function getMarket(value: string | null | undefined): Market {
+  return value?.toLowerCase() === "us" ? "us" : "india";
 }

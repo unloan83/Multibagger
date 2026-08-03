@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import fs from "node:fs/promises";
 import path from "node:path";
+import { readUsMarketSnapshot } from "@/lib/us-market-engine";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -152,6 +153,31 @@ export async function GET(request: Request) {
     const { searchParams } = new URL(request.url);
     const selectedMonth = searchParams.get("month") || "all";
     const download = searchParams.get("download") === "true";
+    const market = searchParams.get("market")?.toLowerCase() === "us" ? "us" : "india";
+
+    if (market === "us") {
+      const snapshot = await readUsMarketSnapshot();
+      const date = snapshot.asOf.slice(0, 10);
+      const month = date.slice(0, 7);
+      const label = new Date(snapshot.asOf).toLocaleDateString("en-US", { month: "long", year: "numeric", timeZone: "America/New_York" });
+      const records: HistoryRecord[] = snapshot.termPicks.map((pick) => ({
+        date,
+        stockName: pick.name,
+        symbol: pick.symbol,
+        termType: pick.durationLabel,
+        cmp: pick.price,
+        target: pick.target,
+        hitOrMiss: "IN PROGRESS",
+        hitTimeDetails: `Current US model snapshot • Score ${pick.score}/100`,
+      }));
+      const filtered = selectedMonth === "all" || selectedMonth === month ? records : [];
+      if (download) {
+        let csv = "Date,Stock Name,Symbol,Term Type,Recommended CMP (USD),Target Price (USD),Status,Details\n";
+        for (const record of filtered) csv += `"${record.date}","${record.stockName}","${record.symbol}","${record.termType}",${record.cmp},${record.target},"${record.hitOrMiss}","${record.hitTimeDetails}"\n`;
+        return new Response(csv, { headers: { "Content-Type": "text/csv; charset=utf-8", "Content-Disposition": `attachment; filename="us_recommendations_history.csv"` } });
+      }
+      return NextResponse.json({ ok: true, months: [{ value: month, label }], records: filtered });
+    }
 
     const csvPath = path.join(process.cwd(), "data", "daily_recommendations.csv");
     let rawContent = "";

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import type { TermRecommendation, TermDuration } from "@/lib/term-agent-analysis";
 
 type StockPick = {
@@ -100,6 +100,7 @@ export default function HomePage() {
   const [historyRecords, setHistoryRecords] = useState<HistoryRecord[]>([]);
   const [historyMonths, setHistoryMonths] = useState<Array<{ value: string; label: string }>>([]);
   const [selectedMonth, setSelectedMonth] = useState<string>("all");
+  const [historyMarket, setHistoryMarket] = useState<Market>("india");
   const [loadingHistory, setLoadingHistory] = useState(false);
 
   useEffect(() => {
@@ -167,9 +168,9 @@ export default function HomePage() {
   }, [isUnlocked, market, usMarketData]);
 
   // Fetch Watchlist Data when Watchlist Tab is selected
-  const fetchWatchlist = () => {
+  const fetchWatchlist = useCallback(() => {
     setLoadingWatchlist(true);
-    fetch("/api/watchlist")
+    fetch(`/api/watchlist?market=${market}`)
       .then((res) => res.json())
       .then((data) => {
         if (data.ok && Array.isArray(data.holdings)) {
@@ -178,18 +179,18 @@ export default function HomePage() {
         setLoadingWatchlist(false);
       })
       .catch(() => setLoadingWatchlist(false));
-  };
+  }, [market]);
 
   useEffect(() => {
     if (isUnlocked && activeTab === "watchlist") {
       fetchWatchlist();
     }
-  }, [isUnlocked, activeTab]);
+  }, [isUnlocked, activeTab, fetchWatchlist]);
 
   // Fetch History Data when History Tab is selected or month changes
-  const fetchHistory = (month: string) => {
+  const fetchHistory = (month: string, selectedMarket: Market) => {
     setLoadingHistory(true);
-    fetch(`/api/history?month=${encodeURIComponent(month)}`)
+    fetch(`/api/history?market=${selectedMarket}&month=${encodeURIComponent(month)}`)
       .then((res) => res.json())
       .then((data) => {
         if (data.ok) {
@@ -204,10 +205,8 @@ export default function HomePage() {
   };
 
   useEffect(() => {
-    if (isUnlocked && activeTab === "history") {
-      fetchHistory(selectedMonth);
-    }
-  }, [isUnlocked, activeTab, selectedMonth]);
+    if (isUnlocked) fetchHistory(selectedMonth, historyMarket);
+  }, [isUnlocked, selectedMonth, historyMarket]);
 
   const handlePinSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -232,7 +231,7 @@ export default function HomePage() {
       const res = await fetch("/api/watchlist", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ symbol: newSymbolInput.trim() }),
+        body: JSON.stringify({ symbol: newSymbolInput.trim(), market }),
       });
       const data = await res.json();
       if (data.ok && Array.isArray(data.holdings)) {
@@ -255,7 +254,7 @@ export default function HomePage() {
       const res = await fetch("/api/watchlist", {
         method: "DELETE",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ symbol }),
+        body: JSON.stringify({ symbol, market }),
       });
       const data = await res.json();
       if (data.ok && Array.isArray(data.holdings)) {
@@ -269,7 +268,7 @@ export default function HomePage() {
   };
 
   const handleDownloadCsv = () => {
-    window.open(`/api/history?month=${encodeURIComponent(selectedMonth)}&download=true`, "_blank");
+    window.open(`/api/history?market=${historyMarket}&month=${encodeURIComponent(selectedMonth)}&download=true`, "_blank");
   };
 
   // Lock screen if PIN is not entered
@@ -480,30 +479,16 @@ export default function HomePage() {
               <span>⚡</span> Intraday ({intradayPicks.length})
               <span className="text-[10px] opacity-75 font-normal">(Same Day)</span>
             </button>
-            {market === "india" && (
-              <>
-                <button
-                  onClick={() => setActiveTab("watchlist")}
-                  className={`px-4 py-2 rounded-lg text-xs font-bold transition flex items-center gap-2 ${
-                    activeTab === "watchlist"
-                      ? "bg-cyan-500 text-slate-950 shadow-md shadow-cyan-500/20"
-                      : "text-slate-400 hover:text-slate-200"
-                  }`}
-                >
-                  <span>⭐</span> Watchlist
-                </button>
-                <button
-                  onClick={() => setActiveTab("history")}
-                  className={`px-4 py-2 rounded-lg text-xs font-bold transition flex items-center gap-2 ${
-                    activeTab === "history"
-                      ? "bg-emerald-600 text-white shadow-md shadow-emerald-600/20"
-                      : "text-slate-400 hover:text-slate-200"
-                  }`}
-                >
-                  <span>📜</span> History & CSV
-                </button>
-              </>
-            )}
+            <button
+              onClick={() => setActiveTab("watchlist")}
+              className={`px-4 py-2 rounded-lg text-xs font-bold transition flex items-center gap-2 ${
+                activeTab === "watchlist"
+                  ? "bg-cyan-500 text-slate-950 shadow-md shadow-cyan-500/20"
+                  : "text-slate-400 hover:text-slate-200"
+              }`}
+            >
+              <span>⭐</span> {marketLabel} Watchlist
+            </button>
           </div>
         </div>
 
@@ -620,7 +605,7 @@ export default function HomePage() {
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-[#0b1626] p-4 rounded-xl border border-slate-800">
               <div>
                 <h2 className="text-base font-bold text-white flex items-center gap-2">
-                  <span>⭐</span> My Stock Watchlist
+                  <span>⭐</span> My {marketLabel} Stock Watchlist
                 </h2>
                 <p className="text-xs text-slate-400">Add stocks to track daily Intraday & 3–6 Month Term recommendations.</p>
               </div>
@@ -629,7 +614,7 @@ export default function HomePage() {
               <form onSubmit={handleAddWatchlist} className="flex items-center gap-2">
                 <input
                   type="text"
-                  placeholder="Enter Ticker (e.g. TATAMOTORS, RELIANCE)"
+                  placeholder={market === "us" ? "Enter Ticker (e.g. AAPL, NVDA)" : "Enter Ticker (e.g. TATAMOTORS, RELIANCE)"}
                   value={newSymbolInput}
                   onChange={(e) => setNewSymbolInput(e.target.value)}
                   className="bg-[#040810] border border-slate-700 rounded-lg px-3 py-2 text-xs text-white uppercase focus:outline-none focus:border-cyan-500 font-mono w-64"
@@ -660,14 +645,13 @@ export default function HomePage() {
                 Your watchlist is empty. Add a stock ticker symbol above to start tracking.
               </div>
             ) : (
-              <WatchlistSingleRowTable holdings={watchlistItems} onRemove={handleRemoveWatchlist} />
+              <WatchlistSingleRowTable holdings={watchlistItems} onRemove={handleRemoveWatchlist} currencySymbol={currencySymbol} />
             )}
           </section>
         )}
 
-        {/* TAB 4: History & CSV Download */}
-        {activeTab === "history" && (
-          <section className="space-y-4">
+        {/* Bottom History & CSV Download */}
+          <section className="space-y-4 border-t border-slate-700/70 pt-6">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-[#0b1626] p-4 rounded-xl border border-slate-800">
               <div>
                 <h2 className="text-base font-bold text-white flex items-center gap-2">
@@ -677,6 +661,15 @@ export default function HomePage() {
               </div>
 
               <div className="flex items-center gap-3">
+                <select
+                  value={historyMarket}
+                  onChange={(e) => { setHistoryMarket(e.target.value as Market); setSelectedMonth("all"); setHistoryMonths([]); }}
+                  className="bg-[#040810] border border-slate-700 rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-cyan-500"
+                  aria-label="History market"
+                >
+                  <option value="india">Indian Market</option>
+                  <option value="us">US Market</option>
+                </select>
                 {/* Month Dropdown */}
                 <select
                   value={selectedMonth}
@@ -711,10 +704,9 @@ export default function HomePage() {
                 No historical recommendations found for the selected filter.
               </div>
             ) : (
-              <HistorySingleRowTable records={historyRecords} />
+              <HistorySingleRowTable records={historyRecords} currencySymbol={historyMarket === "us" ? "$" : "₹"} />
             )}
           </section>
-        )}
       </div>
     </main>
   );
@@ -949,9 +941,11 @@ function GlossaryItem({ term, description }: { term: string; description: string
 function WatchlistSingleRowTable({
   holdings,
   onRemove,
+  currencySymbol,
 }: {
   holdings: WatchlistRecommendation[];
   onRemove: (symbol: string) => void;
+  currencySymbol: string;
 }) {
   return (
     <div className="overflow-x-auto rounded-xl border border-slate-800/90 bg-[#0b1626] shadow-xl">
@@ -959,7 +953,7 @@ function WatchlistSingleRowTable({
         <thead className="bg-[#070e1a] text-[11px] font-semibold text-slate-400 uppercase tracking-wider border-b border-slate-800">
           <tr>
             <th className="py-3.5 px-4">Symbol & Name</th>
-            <th className="py-3.5 px-3 text-right">CMP (₹)</th>
+            <th className="py-3.5 px-3 text-right">CMP ({currencySymbol})</th>
             <th className="py-3.5 px-3 text-right">Day Change</th>
             <th className="py-3.5 px-3 text-center bg-amber-950/20 border-x border-slate-800">Intraday Rec (1D)</th>
             <th className="py-3.5 px-3 text-right bg-amber-950/20 border-r border-slate-800">Intraday Target</th>
@@ -981,7 +975,7 @@ function WatchlistSingleRowTable({
                 </td>
 
                 <td className="py-3 px-3 text-right font-bold text-white font-mono">
-                  ₹{item.price ? item.price.toLocaleString("en-IN", { maximumFractionDigits: 1 }) : "—"}
+                  {currencySymbol}{item.price ? item.price.toLocaleString("en-IN", { maximumFractionDigits: 1 }) : "—"}
                 </td>
 
                 <td className={`py-3 px-3 text-right font-semibold font-mono ${isPos ? "text-emerald-400" : "text-rose-400"}`}>
@@ -996,7 +990,7 @@ function WatchlistSingleRowTable({
                 </td>
 
                 <td className="py-3 px-3 text-right font-bold text-amber-300 font-mono bg-amber-950/10 border-r border-slate-800">
-                  ₹{item.intradayTarget ? item.intradayTarget.toLocaleString("en-IN", { maximumFractionDigits: 1 }) : "—"}
+                  {currencySymbol}{item.intradayTarget ? item.intradayTarget.toLocaleString("en-IN", { maximumFractionDigits: 1 }) : "—"}
                 </td>
 
                 <td className="py-3 px-3 text-center bg-emerald-950/10 border-r border-slate-800">
@@ -1006,7 +1000,7 @@ function WatchlistSingleRowTable({
                 </td>
 
                 <td className="py-3 px-3 text-right font-bold text-cyan-300 font-mono bg-emerald-950/10 border-r border-slate-800">
-                  ₹{item.longTermTarget ? item.longTermTarget.toLocaleString("en-IN", { maximumFractionDigits: 1 }) : "—"}
+                  {currencySymbol}{item.longTermTarget ? item.longTermTarget.toLocaleString("en-IN", { maximumFractionDigits: 1 }) : "—"}
                 </td>
 
                 <td className="py-3 px-3 text-right font-bold text-cyan-400 font-mono bg-emerald-950/10 border-r border-slate-800">
@@ -1042,7 +1036,7 @@ function WatchlistSingleRowTable({
 }
 
 // Single-Row Table Component for History
-function HistorySingleRowTable({ records }: { records: HistoryRecord[] }) {
+function HistorySingleRowTable({ records, currencySymbol }: { records: HistoryRecord[]; currencySymbol: string }) {
   return (
     <div className="overflow-x-auto rounded-xl border border-slate-800/90 bg-[#0b1626] shadow-xl">
       <table className="w-full text-left text-xs text-slate-300 border-collapse">
@@ -1051,8 +1045,8 @@ function HistorySingleRowTable({ records }: { records: HistoryRecord[] }) {
             <th className="py-3.5 px-4">Date</th>
             <th className="py-3.5 px-4">Recommended Stock Name</th>
             <th className="py-3.5 px-3 text-center">Term Type</th>
-            <th className="py-3.5 px-3 text-right">Recommended CMP (₹)</th>
-            <th className="py-3.5 px-3 text-right">Target (₹)</th>
+            <th className="py-3.5 px-3 text-right">Recommended CMP ({currencySymbol})</th>
+            <th className="py-3.5 px-3 text-right">Target ({currencySymbol})</th>
             <th className="py-3.5 px-3 text-center">Hit or Miss</th>
             <th className="py-3.5 px-4">Hit Time Details</th>
           </tr>
@@ -1085,11 +1079,11 @@ function HistorySingleRowTable({ records }: { records: HistoryRecord[] }) {
                 </td>
 
                 <td className="py-3 px-3 text-right font-bold text-white font-mono">
-                  ₹{r.cmp ? r.cmp.toLocaleString("en-IN", { maximumFractionDigits: 1 }) : "—"}
+                  {currencySymbol}{r.cmp ? r.cmp.toLocaleString("en-IN", { maximumFractionDigits: 1 }) : "—"}
                 </td>
 
                 <td className="py-3 px-3 text-right font-bold text-cyan-300 font-mono">
-                  ₹{r.target ? r.target.toLocaleString("en-IN", { maximumFractionDigits: 1 }) : "—"}
+                  {currencySymbol}{r.target ? r.target.toLocaleString("en-IN", { maximumFractionDigits: 1 }) : "—"}
                 </td>
 
                 <td className="py-3 px-3 text-center">

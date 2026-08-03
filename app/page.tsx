@@ -320,7 +320,8 @@ export default function HomePage() {
 
   // Filter Term Picks by Selected Duration
   const activeTermPicks = market === "us" ? usMarketData?.termPicks || [] : termPicks;
-  const intradayPicks = market === "us" ? usMarketData?.intradayPicks || [] : indianIntradayPicks;
+  const intradayPicks = [...(market === "us" ? usMarketData?.intradayPicks || [] : indianIntradayPicks)]
+    .sort((a, b) => b.score - a.score || b.upside - a.upside);
   const filteredTermPicks = termFilter === "all"
     ? activeTermPicks
     : activeTermPicks.filter((p) => p.termDuration === termFilter);
@@ -363,10 +364,6 @@ export default function HomePage() {
           </div>
 
           <div className="flex items-center gap-3">
-            <div className="hidden text-right text-[11px] leading-5 text-slate-400 sm:block">
-              <div><span className="font-semibold text-indigo-300">Term:</span> {termUpdatedLabel}</div>
-              <div><span className="font-semibold text-amber-300">Intraday:</span> {intradayUpdatedLabel}</div>
-            </div>
             <a
               href="https://liveunloan.vercel.app/"
               className="inline-flex items-center gap-1.5 rounded-lg border border-cyan-500/30 bg-cyan-500/10 px-3 py-2 text-xs font-bold text-cyan-300 transition hover:border-cyan-400 hover:bg-cyan-500/20 hover:text-white"
@@ -375,10 +372,6 @@ export default function HomePage() {
               <span aria-hidden="true">🏠</span> Home
             </a>
           </div>
-        </div>
-        <div className="border-t border-slate-800/60 px-4 py-2 text-[10px] leading-4 text-slate-400 sm:hidden">
-          <div><span className="font-semibold text-indigo-300">Term updated:</span> {termUpdatedLabel}</div>
-          <div><span className="font-semibold text-amber-300">Intraday updated:</span> {intradayUpdatedLabel}</div>
         </div>
       </header>
 
@@ -506,23 +499,15 @@ export default function HomePage() {
               <div>
                 <h2 className="text-base font-bold text-white flex items-center gap-2">
                   <span className="h-2.5 w-2.5 rounded-full bg-indigo-400 animate-pulse" />
-                  Term Profit Recommendations (20 Curated Stocks)
+                  Term Profit Recommendations
                 </h2>
                 <p className="text-xs text-slate-400 mt-0.5">
-                  End-of-Day Agent Analysis • 5 Stocks per duration bucket (1W, 1M, 3M, 6M)
+                  End-of-Day Agent Analysis • Updated {termUpdatedLabel} • 5 stocks per duration bucket
                 </p>
               </div>
 
               {/* Term Duration Sub-Filters */}
               <div className="flex items-center gap-1.5 bg-[#060e1a] p-1 rounded-lg border border-slate-800 text-xs font-semibold">
-                <button
-                  onClick={() => setTermFilter("all")}
-                  className={`px-3 py-1 rounded transition ${
-                    termFilter === "all" ? "bg-indigo-600 text-white" : "text-slate-400 hover:text-slate-200"
-                  }`}
-                >
-                  All (20)
-                </button>
                 <button
                   onClick={() => setTermFilter("1week")}
                   className={`px-3 py-1 rounded transition ${
@@ -555,6 +540,14 @@ export default function HomePage() {
                 >
                   6 Months (5)
                 </button>
+                <button
+                  onClick={() => setTermFilter("all")}
+                  className={`px-3 py-1 rounded transition ${
+                    termFilter === "all" ? "bg-indigo-600 text-white" : "text-slate-400 hover:text-slate-200"
+                  }`}
+                >
+                  All (20)
+                </button>
               </div>
             </div>
 
@@ -582,7 +575,7 @@ export default function HomePage() {
                   <span className="h-2.5 w-2.5 rounded-full bg-amber-400 animate-pulse" />
                   Intraday Breakout Picks
                 </h2>
-                <p className="text-xs text-slate-400 mt-0.5">Holding Period: 1 Day • Pre-market & Volume Shock Strategy</p>
+                <p className="text-xs text-slate-400 mt-0.5">Updated {intradayUpdatedLabel} • Ranked by confidence • Pre-market & Volume Shock Strategy</p>
               </div>
               <span className="text-xs text-slate-400 font-medium bg-[#091424] px-3 py-1 rounded-lg border border-slate-800">
                 Total: <strong className="text-amber-400">{intradayPicks.length}</strong>
@@ -651,7 +644,12 @@ export default function HomePage() {
         )}
 
         {/* Bottom History & CSV Download */}
-          <section className="space-y-4 border-t border-slate-700/70 pt-6">
+          <details className="group border-t border-slate-700/70 pt-6">
+            <summary className="flex cursor-pointer list-none items-center justify-between rounded-xl border border-slate-800 bg-[#0b1626] px-4 py-4 text-base font-bold text-white transition hover:bg-slate-800/50 [&::-webkit-details-marker]:hidden">
+              <span className="flex items-center gap-2"><span>📜</span> Recommendation History</span>
+              <span className="text-xs text-cyan-300 transition-transform group-open:rotate-180">▼</span>
+            </summary>
+            <div className="mt-4 space-y-4">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-[#0b1626] p-4 rounded-xl border border-slate-800">
               <div>
                 <h2 className="text-base font-bold text-white flex items-center gap-2">
@@ -706,7 +704,8 @@ export default function HomePage() {
             ) : (
               <HistorySingleRowTable records={historyRecords} currencySymbol={historyMarket === "us" ? "$" : "₹"} />
             )}
-          </section>
+            </div>
+          </details>
       </div>
     </main>
   );
@@ -837,7 +836,7 @@ function SimpleSingleRowTable({
         <thead className="bg-[#070e1a] text-[11px] font-semibold text-slate-400 uppercase tracking-wider border-b border-slate-800">
           <tr>
             <th className="py-3.5 px-4">Symbol & Name</th>
-            <th className="py-3.5 px-3">Horizon</th>
+            <th className="py-3.5 px-3 text-center">Rank / Confidence</th>
             <th className="py-3.5 px-3">Category</th>
             <th className="py-3.5 px-3">Sector</th>
             <th className="py-3.5 px-3 text-center">Action</th>
@@ -862,9 +861,9 @@ function SimpleSingleRowTable({
                   <div className="text-[11px] text-slate-400 truncate max-w-[170px]">{stock.name}</div>
                 </td>
 
-                <td className="py-3 px-3 shrink-0">
-                  <span className="inline-block px-2 py-0.5 rounded text-[10px] font-semibold bg-amber-500/10 text-amber-400 border border-amber-500/20">
-                    Intraday (1D)
+                <td className="py-3 px-3 text-center">
+                  <span className="inline-flex items-center gap-1.5 rounded-md border border-amber-500/25 bg-amber-500/10 px-2.5 py-1 font-bold text-amber-300">
+                    #{idx + 1} <span className="text-[10px] font-medium text-slate-400">{stock.score}/100</span>
                   </span>
                 </td>
 

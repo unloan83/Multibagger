@@ -17,6 +17,10 @@
       "schedule": "30 13 * * 1-5"
     },
     {
+      "path": "/api/snapshots/term",
+      "schedule": "15 10 * * 1-5"
+    },
+    {
       "path": "/api/snapshots/wealth",
       "schedule": "30 4 * * 1-5"
     },

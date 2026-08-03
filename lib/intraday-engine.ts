@@ -1,5 +1,4 @@
-import fs from "node:fs/promises";
-import path from "node:path";
+import { readSnapshotFile, writeSnapshotFile } from "@/lib/snapshot-storage";
 
 export type IntradaySlot = "09:08" | "10:45" | "13:45";
 
@@ -47,7 +46,7 @@ export type IntradaySnapshot = {
   picks: IntradayPick[];
 };
 
-const INTRADAY_SNAPSHOT_PATH = path.join(process.cwd(), "data", "intraday_recommendations.json");
+const INTRADAY_SNAPSHOT_FILE = "intraday_recommendations.json";
 
 export const INTRADAY_SLOT_DESCRIPTIONS: Record<IntradaySlot, { label: string; timeIST: string; objective: string }> = {
   "09:08": {
@@ -254,11 +253,7 @@ export async function runIntradayPipeline(slot: IntradaySlot = "09:08"): Promise
     picks,
   };
 
-  try {
-    await fs.writeFile(INTRADAY_SNAPSHOT_PATH, JSON.stringify(snapshot, null, 2), "utf8");
-  } catch {
-    // ignore
-  }
+  await writeSnapshotFile(INTRADAY_SNAPSHOT_FILE, JSON.stringify(snapshot, null, 2));
 
   return snapshot;
 }
@@ -268,7 +263,8 @@ export async function runIntradayPipeline(slot: IntradaySlot = "09:08"): Promise
  */
 export async function readIntradayRecommendations(): Promise<IntradaySnapshot> {
   try {
-    const raw = await fs.readFile(INTRADAY_SNAPSHOT_PATH, "utf8");
+    const raw = await readSnapshotFile(INTRADAY_SNAPSHOT_FILE);
+    if (!raw) throw new Error("Intraday snapshot not found");
     const data = JSON.parse(raw) as IntradaySnapshot;
     if (data && data.picks && data.picks.length > 0) {
       return data;

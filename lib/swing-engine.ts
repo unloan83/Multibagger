@@ -1,5 +1,4 @@
-import fs from "node:fs/promises";
-import path from "node:path";
+import { readSnapshotFile, writeSnapshotFile } from "@/lib/snapshot-storage";
 
 export type SwingTermHorizon = "1week" | "1month" | "3months" | "6months";
 
@@ -40,7 +39,7 @@ export type SwingSnapshot = {
   picks: SwingPick[];
 };
 
-const SWING_SNAPSHOT_PATH = path.join(process.cwd(), "data", "swing_recommendations.json");
+const SWING_SNAPSHOT_FILE = "swing_recommendations.json";
 
 /** Seed EOD candidates with institutional quality and fundamental verification */
 const SWING_SEED_POOL: SwingPick[] = [
@@ -279,11 +278,7 @@ export async function runSwingPipeline(): Promise<SwingSnapshot> {
     picks: SWING_SEED_POOL,
   };
 
-  try {
-    await fs.writeFile(SWING_SNAPSHOT_PATH, JSON.stringify(snapshot, null, 2), "utf8");
-  } catch {
-    // ignore
-  }
+  await writeSnapshotFile(SWING_SNAPSHOT_FILE, JSON.stringify(snapshot, null, 2));
 
   return snapshot;
 }
@@ -293,7 +288,8 @@ export async function runSwingPipeline(): Promise<SwingSnapshot> {
  */
 export async function readSwingRecommendations(): Promise<SwingSnapshot> {
   try {
-    const raw = await fs.readFile(SWING_SNAPSHOT_PATH, "utf8");
+    const raw = await readSnapshotFile(SWING_SNAPSHOT_FILE);
+    if (!raw) throw new Error("Swing snapshot not found");
     const data = JSON.parse(raw) as SwingSnapshot;
     if (data && data.picks && data.picks.length > 0) {
       return data;

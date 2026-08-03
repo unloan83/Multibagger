@@ -1,6 +1,5 @@
-import fs from "node:fs/promises";
-import path from "node:path";
 import { readWealthRecommendationsSnapshot } from "@/lib/expert-insights";
+import { readSnapshotFile, writeSnapshotFile } from "@/lib/snapshot-storage";
 
 export type TermDuration = "1week" | "1month" | "3months" | "6months";
 
@@ -50,7 +49,7 @@ export type TermAnalysisResult = {
   metricDefinitions: MetricDefinition[];
 };
 
-const TERM_SNAPSHOT_PATH = path.join(process.cwd(), "data", "term_recommendations.json");
+const TERM_SNAPSHOT_FILE = "term_recommendations.json";
 
 /** Verified Backtest Metrics derived from rolling out-of-sample walk-forward validation (2021-2026) */
 export const VERIFIED_BACKTEST_METRICS: BacktestMetrics = {
@@ -180,18 +179,15 @@ export async function runTermAgentAnalysis(): Promise<TermAnalysisResult> {
     metricDefinitions: INSTITUTIONAL_METRIC_DEFINITIONS,
   };
 
-  try {
-    await fs.writeFile(TERM_SNAPSHOT_PATH, JSON.stringify(result, null, 2), "utf8");
-  } catch {
-    // ignore
-  }
+  await writeSnapshotFile(TERM_SNAPSHOT_FILE, JSON.stringify(result, null, 2));
 
   return result;
 }
 
 export async function readTermRecommendations(): Promise<TermAnalysisResult> {
   try {
-    const raw = await fs.readFile(TERM_SNAPSHOT_PATH, "utf8");
+    const raw = await readSnapshotFile(TERM_SNAPSHOT_FILE);
+    if (!raw) throw new Error("Term snapshot not found");
     const data = JSON.parse(raw) as TermAnalysisResult;
     if (data && data.picks && data.picks.length === 20) {
       return data;

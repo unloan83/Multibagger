@@ -1,7 +1,6 @@
 import { NextResponse } from "next/server";
-import fs from "node:fs/promises";
-import path from "node:path";
 import { readWealthRecommendationsSnapshot, type ExpertQuote } from "@/lib/expert-insights";
+import { readSnapshotFile, writeSnapshotFile } from "@/lib/snapshot-storage";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -23,11 +22,12 @@ export type WatchlistRecommendation = {
   notes: string;
 };
 
-const WATCHLIST_PATH = path.join(process.cwd(), "data", "watchlist.json");
+const WATCHLIST_FILE = "watchlist.json";
 
 async function getWatchlistSymbols(): Promise<string[]> {
   try {
-    const raw = await fs.readFile(WATCHLIST_PATH, "utf8");
+    const raw = await readSnapshotFile(WATCHLIST_FILE);
+    if (!raw) return ["RELIANCE.NS", "TCS.NS", "INFY.NS"];
     const parsed = JSON.parse(raw) as { symbols?: string[] };
     return parsed.symbols || [];
   } catch {
@@ -37,7 +37,7 @@ async function getWatchlistSymbols(): Promise<string[]> {
 
 async function saveWatchlistSymbols(symbols: string[]): Promise<void> {
   const data = JSON.stringify({ symbols: Array.from(new Set(symbols)) }, null, 2);
-  await fs.writeFile(WATCHLIST_PATH, data, "utf8");
+  await writeSnapshotFile(WATCHLIST_FILE, data);
 }
 
 export async function GET() {

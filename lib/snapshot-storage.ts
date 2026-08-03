@@ -13,6 +13,8 @@ function hasBlobStorage(): boolean {
 }
 
 export async function readSnapshotFile(filename: string): Promise<string | null> {
+  const candidates: string[] = [];
+
   if (hasBlobStorage()) {
     try {
       const { get } = await import("@vercel/blob");
@@ -21,7 +23,7 @@ export async function readSnapshotFile(filename: string): Promise<string | null>
         useCache: false,
       });
       if (result?.stream) {
-        return await new Response(result.stream).text();
+        candidates.push(await new Response(result.stream).text());
       }
     } catch {
       // Fall back to a seed file if Blob is temporarily unavailable.
@@ -30,12 +32,35 @@ export async function readSnapshotFile(filename: string): Promise<string | null>
 
   for (const filePath of [path.join("/tmp", filename), path.join(dataDir, filename)]) {
     try {
-      return await fs.readFile(filePath, "utf8");
+      candidates.push(await fs.readFile(filePath, "utf8"));
     } catch {
       // Try the next storage location.
     }
   }
-  return null;
+
+  if (candidates.length === 0) return null;
+
+  // Blob remains authoritative for untimestamped state such as watchlist.json.
+  // For model snapshots, guard against an old Blob object masking a newer seed
+  // deployed with the application.
+  return candidates.reduce((newest, candidate) =>
+    getSnapshotTimestamp(candidate) > getSnapshotTimestamp(newest) ? candidate : newest,
+  );
+}
+
+function getSnapshotTimestamp(content: string): number {
+  try {
+    const value = JSON.parse(content) as Record<string, unknown>;
+    for (const key of ["asOf", "generatedAt", "updatedAt"]) {
+      if (typeof value[key] === "string") {
+        const timestamp = Date.parse(value[key]);
+        if (Number.isFinite(timestamp)) return timestamp;
+      }
+    }
+  } catch {
+    // Untimestamped or non-JSON content keeps storage priority order.
+  }
+  return Number.NEGATIVE_INFINITY;
 }
 
 export async function writeSnapshotFile(filename: string, content: string): Promise<void> {

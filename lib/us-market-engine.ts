@@ -114,7 +114,15 @@ export async function readUsMarketSnapshot(): Promise<UsMarketSnapshot> {
   if (raw) {
     try {
       const snapshot = JSON.parse(raw) as UsMarketSnapshot;
-      if (snapshot.termPicks?.length === 20 && snapshot.intradayPicks?.length) return snapshot;
+      const ageMs = Date.now() - Date.parse(snapshot.asOf);
+      if (
+        snapshot.termPicks?.length === 20 &&
+        snapshot.intradayPicks?.length &&
+        Number.isFinite(ageMs) &&
+        ageMs < 30 * 60 * 1_000
+      ) {
+        return snapshot;
+      }
     } catch {
       // Generate the first snapshot below.
     }

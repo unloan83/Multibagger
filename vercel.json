@@ -27,10 +27,6 @@
     {
       "path": "/api/snapshots/long-term-universe",
       "schedule": "0 4 * * 1-5"
-    },
-    {
-      "path": "/api/snapshots/us-market",
-      "schedule": "35 13,16,18,20 * * 1-5"
     }
   ]
 }

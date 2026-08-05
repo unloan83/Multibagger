@@ -41,7 +41,21 @@ npm run universe:sync
 1. Push to GitHub
 2. Import in Vercel as a Next.js project
 3. Set optional env vars: `CRON_SECRET`, `TELEGRAM_TOKEN`, `TELEGRAM_CHAT_ID`
-4. Vercel Cron runs the wealth snapshot twice daily on market days
+4. Vercel Cron runs the model snapshots on market days. The GitHub Actions
+   `Recommendation Scheduler Backup` workflow repeats Intraday and Term checks
+   seven minutes later. Freshness guards make these checks idempotent and
+   regenerate only a missing or stale scheduled snapshot.
+
+### Automated recommendation schedule
+
+| Model | Primary run (IST) | Recovery check |
+| --- | --- | --- |
+| Intraday | 9:08 AM, 10:45 AM, 1:45 PM | 7 minutes after each slot |
+| Term | 3:45 PM | 3:52 PM |
+
+Vercel Blob is required in production. Recommendation APIs return an error
+instead of silently serving an outdated snapshot when regeneration or durable
+storage fails.
 
 ## Project Structure
 

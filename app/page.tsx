@@ -35,6 +35,7 @@ type Snapshot = {
     asOf: string;
     slot?: string;
     slotLabel?: string;
+    picks: StockPick[];
   };
 };
 
@@ -115,7 +116,7 @@ export default function HomePage() {
   // Fetch Term Recommendations (Agent Analysis)
   const fetchTermPicks = () => {
     setLoadingTerm(true);
-    fetch("/api/term-recommendations")
+    fetch("/api/term-recommendations", { cache: "no-store" })
       .then((res) => res.json())
       .then((data) => {
         if (data.ok && Array.isArray(data.picks)) {
@@ -133,7 +134,7 @@ export default function HomePage() {
 
     fetchTermPicks();
 
-    fetch("/api/recommendations")
+    fetch("/api/recommendations", { cache: "no-store" })
       .then(async (res) => {
         if (!res.ok) {
           throw new Error("Could not load recommendations.");
@@ -306,17 +307,11 @@ export default function HomePage() {
     );
   }
 
-  // Extract intraday picks from snapshot
-  const indianIntradayPicks: StockPick[] = [];
-  if (snapshot?.categories) {
-    for (const cat of snapshot.categories) {
-      const capLabel = cat.key === "largeCap" ? "Large Cap" : cat.key === "midCap" ? "Mid Cap" : "Small Cap";
-      for (const item of cat.intradayBreakouts || []) {
-        const isMb = (item.upside && item.upside >= 100) || (item.target >= 2 * item.price && item.price > 0);
-        indianIntradayPicks.push({ ...item, marketCapCategory: capLabel, isMultibagger: isMb });
-      }
-    }
-  }
+  // Keep the displayed intraday rows and timestamp on the same scheduled pipeline.
+  const indianIntradayPicks: StockPick[] = (snapshot?.intradayPipeline?.picks || []).map((item) => ({
+    ...item,
+    isMultibagger: item.upside >= 100 || (item.target >= 2 * item.price && item.price > 0),
+  }));
 
   // Filter Term Picks by Selected Duration
   const activeTermPicks = market === "us" ? usMarketData?.termPicks || [] : termPicks;

@@ -189,7 +189,7 @@ export async function readTermRecommendations(): Promise<TermAnalysisResult> {
     const raw = await readSnapshotFile(TERM_SNAPSHOT_FILE);
     if (!raw) throw new Error("Term snapshot not found");
     const data = JSON.parse(raw) as TermAnalysisResult;
-    if (data && data.picks && data.picks.length === 20) {
+    if (data && data.picks && data.picks.length === 20 && isCurrentTermSnapshot(data)) {
       return data;
     }
   } catch {
@@ -197,4 +197,36 @@ export async function readTermRecommendations(): Promise<TermAnalysisResult> {
   }
 
   return await runTermAgentAnalysis();
+}
+
+function isCurrentTermSnapshot(snapshot: TermAnalysisResult, now = new Date()): boolean {
+  const generatedAt = Date.parse(snapshot.asOf);
+  if (!Number.isFinite(generatedAt)) return false;
+
+  const formatter = new Intl.DateTimeFormat("en-CA", {
+    timeZone: "Asia/Kolkata",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  });
+  const today = formatter.format(now);
+  const generatedDay = formatter.format(new Date(generatedAt));
+  const weekday = new Intl.DateTimeFormat("en-US", {
+    timeZone: "Asia/Kolkata",
+    weekday: "short",
+  }).format(now);
+  const timeParts = new Intl.DateTimeFormat("en-GB", {
+    timeZone: "Asia/Kolkata",
+    hour: "2-digit",
+    minute: "2-digit",
+    hourCycle: "h23",
+  }).formatToParts(now);
+  const minutes = Number(timeParts.find((part) => part.type === "hour")?.value ?? 0) * 60
+    + Number(timeParts.find((part) => part.type === "minute")?.value ?? 0);
+
+  // Before the 3:45 PM run and over weekends, the prior market close remains current.
+  if (weekday === "Sat" || weekday === "Sun" || minutes < 15 * 60 + 45) {
+    return generatedAt > now.getTime() - 96 * 60 * 60 * 1000;
+  }
+  return generatedDay === today;
 }

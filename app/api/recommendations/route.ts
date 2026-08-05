@@ -20,7 +20,7 @@ export async function GET() {
       categories: snapshot?.categories || [],
       intradayPipeline: intraday,
       swingPipeline: swing,
-    });
+    }, { headers: { "Cache-Control": "no-store, max-age=0" } });
   } catch (err) {
     return NextResponse.json(
       { ok: false, error: String(err), categories: [] },

@@ -6,7 +6,10 @@ export const dynamic = "force-dynamic";
 export async function GET() {
   try {
     const data = await readTermRecommendations();
-    return NextResponse.json({ ok: true, ...data });
+    return NextResponse.json(
+      { ok: true, ...data },
+      { headers: { "Cache-Control": "no-store, max-age=0" } },
+    );
   } catch (err) {
     return NextResponse.json(
       { ok: false, error: String(err), picks: [] },

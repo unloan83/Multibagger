@@ -266,11 +266,58 @@ export async function readIntradayRecommendations(): Promise<IntradaySnapshot> {
     const raw = await readSnapshotFile(INTRADAY_SNAPSHOT_FILE);
     if (!raw) throw new Error("Intraday snapshot not found");
     const data = JSON.parse(raw) as IntradaySnapshot;
-    if (data && data.picks && data.picks.length > 0) {
+    if (data && data.picks && data.picks.length > 0 && isCurrentIntradaySnapshot(data)) {
       return data;
     }
   } catch {
     // fallback to running fresh default slot
   }
-  return runIntradayPipeline("09:08");
+  return runIntradayPipeline(getLatestIntradaySlot());
+}
+
+function getLatestIntradaySlot(now = new Date()): IntradaySlot {
+  const parts = new Intl.DateTimeFormat("en-GB", {
+    timeZone: "Asia/Kolkata",
+    hour: "2-digit",
+    minute: "2-digit",
+    hourCycle: "h23",
+  }).formatToParts(now);
+  const hour = Number(parts.find((part) => part.type === "hour")?.value ?? 0);
+  const minute = Number(parts.find((part) => part.type === "minute")?.value ?? 0);
+  const minutes = hour * 60 + minute;
+
+  if (minutes >= 13 * 60 + 45) return "13:45";
+  if (minutes >= 10 * 60 + 45) return "10:45";
+  return "09:08";
+}
+
+function isCurrentIntradaySnapshot(snapshot: IntradaySnapshot, now = new Date()): boolean {
+  const generatedAt = Date.parse(snapshot.asOf);
+  if (!Number.isFinite(generatedAt)) return false;
+
+  const weekday = new Intl.DateTimeFormat("en-US", {
+    timeZone: "Asia/Kolkata",
+    weekday: "short",
+  }).format(now);
+  const ageMs = now.getTime() - generatedAt;
+  if (weekday === "Sat" || weekday === "Sun") return ageMs < 96 * 60 * 60 * 1000;
+
+  const timeParts = new Intl.DateTimeFormat("en-GB", {
+    timeZone: "Asia/Kolkata",
+    hour: "2-digit",
+    minute: "2-digit",
+    hourCycle: "h23",
+  }).formatToParts(now);
+  const minutes = Number(timeParts.find((part) => part.type === "hour")?.value ?? 0) * 60
+    + Number(timeParts.find((part) => part.type === "minute")?.value ?? 0);
+  if (minutes < 9 * 60 + 8) return ageMs < 96 * 60 * 60 * 1000;
+
+  const istDay = new Intl.DateTimeFormat("en-CA", {
+    timeZone: "Asia/Kolkata",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  });
+  const sameMarketDay = istDay.format(new Date(generatedAt)) === istDay.format(now);
+  return sameMarketDay && snapshot.slot === getLatestIntradaySlot(now);
 }

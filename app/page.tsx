@@ -2,6 +2,8 @@
 
 import { useCallback, useEffect, useState } from "react";
 import type { TermRecommendation, TermDuration } from "@/lib/term-agent-analysis";
+import type { CandleViewResult } from "@/lib/candle-view";
+import type { CandleScanSnapshot } from "@/lib/candle-scanner";
 
 type StockPick = {
   symbol: string;
@@ -80,10 +82,17 @@ export default function HomePage() {
   const [snapshot, setSnapshot] = useState<Snapshot | null>(null);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState<"term" | "intraday" | "watchlist" | "history">("term");
+  const [activeTab, setActiveTab] = useState<"term" | "intraday" | "candle" | "watchlist" | "history">("term");
   const [market, setMarket] = useState<Market>("india");
   const [usMarketData, setUsMarketData] = useState<UsMarketData | null>(null);
   const [loadingUsMarket, setLoadingUsMarket] = useState(false);
+  const [candleSymbol, setCandleSymbol] = useState("");
+  const [candleResult, setCandleResult] = useState<CandleViewResult | null>(null);
+  const [candleError, setCandleError] = useState("");
+  const [loadingCandle, setLoadingCandle] = useState(false);
+  const [candleScan, setCandleScan] = useState<CandleScanSnapshot | null>(null);
+  const [loadingCandleScan, setLoadingCandleScan] = useState(false);
+  const [candleScanError, setCandleScanError] = useState("");
 
   // Term Recommendations State (20 total stocks, 5 per duration)
   const [termPicks, setTermPicks] = useState<TermRecommendation[]>([]);
@@ -221,6 +230,43 @@ export default function HomePage() {
       setPinError("Incorrect PIN. Please enter 1083 to unlock Stock Planner.");
     }
   };
+
+  const handleCandleEvaluation = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!candleSymbol.trim()) return;
+    setLoadingCandle(true);
+    setCandleError("");
+    setCandleResult(null);
+    try {
+      const response = await fetch(`/api/candle-view?market=${market}&symbol=${encodeURIComponent(candleSymbol.trim())}`, { cache: "no-store" });
+      const data = await response.json();
+      if (!response.ok || !data.ok) throw new Error(data.error || "Candle evaluation failed.");
+      setCandleResult(data.result);
+    } catch (err) {
+      setCandleError(err instanceof Error ? err.message : "Candle evaluation failed.");
+    } finally {
+      setLoadingCandle(false);
+    }
+  };
+
+  const fetchCandleScan = useCallback(async (refresh = false) => {
+    setLoadingCandleScan(true);
+    setCandleScanError("");
+    try {
+      const response = await fetch(`/api/candle-view/scan?market=${market}`, { method: refresh ? "POST" : "GET", cache: "no-store" });
+      const data = await response.json();
+      if (!response.ok || !data.ok) throw new Error(data.error || "Market scan failed.");
+      setCandleScan(data.snapshot || null);
+    } catch (err) {
+      setCandleScanError(err instanceof Error ? err.message : "Market scan failed.");
+    } finally {
+      setLoadingCandleScan(false);
+    }
+  }, [market]);
+
+  useEffect(() => {
+    if (isUnlocked && activeTab === "candle") fetchCandleScan(false);
+  }, [isUnlocked, activeTab, fetchCandleScan]);
 
   const handleAddWatchlist = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -468,6 +514,17 @@ export default function HomePage() {
               <span className="text-[10px] opacity-75 font-normal">(Same Day)</span>
             </button>
             <button
+              onClick={() => setActiveTab("candle")}
+              className={`px-4 py-2 rounded-lg text-xs font-bold transition flex items-center gap-2 ${
+                activeTab === "candle"
+                  ? "bg-emerald-500 text-slate-950 shadow-md shadow-emerald-500/20"
+                  : "text-slate-400 hover:text-slate-200"
+              }`}
+            >
+              <span>🕯️</span> Candle View
+              <span className="text-[10px] opacity-75 font-normal">(OHL)</span>
+            </button>
+            <button
               onClick={() => setActiveTab("watchlist")}
               className={`px-4 py-2 rounded-lg text-xs font-bold transition flex items-center gap-2 ${
                 activeTab === "watchlist"
@@ -587,7 +644,72 @@ export default function HomePage() {
           </section>
         )}
 
-        {/* TAB 3: Watchlist */}
+        {/* TAB 3: Strict Early Morning OHL Momentum */}
+        {activeTab === "candle" && (
+          <section className="space-y-4">
+            <div className="rounded-2xl border border-cyan-500/20 bg-gradient-to-r from-[#0a192f] to-[#0b1626] p-4">
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                <div>
+                  <h2 className="text-base font-bold text-white">🔎 Automatic Market Shortlist</h2>
+                  <p className="mt-1 text-xs text-slate-400">Scans {market === "india" ? "the configured NSE cash universe" : "the liquid US momentum universe"} and returns only stocks passing every OHL rule.</p>
+                </div>
+                <button onClick={() => fetchCandleScan(true)} disabled={loadingCandleScan} className="rounded-lg bg-cyan-500 px-5 py-2.5 text-xs font-bold text-slate-950 transition hover:bg-cyan-400 disabled:opacity-50">
+                  {loadingCandleScan ? "Scanning market…" : "Run Fresh Scan"}
+                </button>
+              </div>
+              {candleScan && (
+                <div className="mt-4 grid gap-2 sm:grid-cols-4">
+                  <MetricCard label="Last Scan" value={formatUpdatedAt(candleScan.asOf)} />
+                  <MetricCard label="Universe" value={candleScan.universeSize.toLocaleString("en-IN")} note={candleScan.universeName} />
+                  <MetricCard label="Evaluated" value={candleScan.evaluated.toLocaleString("en-IN")} note={`${candleScan.unavailable} unavailable`} />
+                  <MetricCard label="Shortlisted" value={candleScan.shortlisted.length.toLocaleString("en-IN")} note="All gates passed" />
+                </div>
+              )}
+            </div>
+
+            {candleScanError && <div className="rounded-xl border border-rose-800 bg-rose-950/40 p-4 text-xs text-rose-300">⚠️ {candleScanError}</div>}
+            {loadingCandleScan && !candleScan && <div className="rounded-xl border border-slate-800 bg-[#08111e] p-8 text-center text-sm text-slate-400">Scanning opening candles and historical volume across the market…</div>}
+            {candleScan && candleScan.shortlisted.length === 0 && (
+              <div className="rounded-xl border border-amber-500/20 bg-amber-500/5 p-6 text-center text-sm text-amber-200">No stocks passed every mandatory gate in the latest scan. This is a valid NO TRADE market result.</div>
+            )}
+            {candleScan && candleScan.shortlisted.length > 0 && (
+              <div className="space-y-4">
+                <h3 className="text-sm font-bold text-emerald-300">Top 10 qualified stocks ({candleScan.shortlisted.length})</h3>
+                <CandleShortlistTable results={candleScan.shortlisted} market={market} />
+              </div>
+            )}
+
+            <div className="rounded-2xl border border-emerald-500/20 bg-[#0b1626] p-4">
+              <h2 className="text-base font-bold text-white flex items-center gap-2"><span>🕯️</span> Manual Ticker Validation</h2>
+              <p className="mt-1 text-xs leading-relaxed text-slate-400">
+                Strict {market === "india" ? "NSE 9:15–9:30 AM IST" : "US 9:30–9:45 AM ET"} first-candle validation. Requires a {currencySymbol}50–{currencySymbol}500 price, &gt;1M average daily shares, Open=Low or Open=High, ≥2× same-period volume, and ≤40% combined shadows.
+              </p>
+              <form onSubmit={handleCandleEvaluation} className="mt-4 flex flex-col gap-2 sm:flex-row">
+                <input
+                  value={candleSymbol}
+                  onChange={(e) => setCandleSymbol(e.target.value.toUpperCase())}
+                  placeholder={market === "india" ? "NSE ticker, e.g. SUZLON" : "US ticker, e.g. PLTR"}
+                  className="w-full rounded-lg border border-slate-700 bg-[#040810] px-3 py-2.5 text-sm font-mono text-white uppercase focus:border-emerald-500 focus:outline-none sm:max-w-sm"
+                  aria-label="Stock ticker for candle evaluation"
+                />
+                <button disabled={loadingCandle || !candleSymbol.trim()} className="rounded-lg bg-emerald-500 px-5 py-2.5 text-xs font-bold text-slate-950 transition hover:bg-emerald-400 disabled:opacity-50">
+                  {loadingCandle ? "Evaluating…" : "Evaluate First Candle"}
+                </button>
+              </form>
+            </div>
+
+            {candleError && <div className="rounded-xl border border-rose-800 bg-rose-950/40 p-4 text-xs text-rose-300">⚠️ {candleError}</div>}
+            {candleResult && <CandleStrategyAlert result={candleResult} />}
+
+            {!candleResult && !candleError && !loadingCandle && (
+              <div className="rounded-xl border border-dashed border-slate-700 bg-[#08111e] p-8 text-center text-sm text-slate-400">
+                Enter a ticker after its first 15-minute candle has completed. The result will be BUY, SELL, or NO TRADE with exact trigger, ATR target, stop-loss, failed gates, and time-risk guardrail.
+              </div>
+            )}
+          </section>
+        )}
+
+        {/* TAB 4: Watchlist */}
         {activeTab === "watchlist" && (
           <section className="space-y-4">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-[#0b1626] p-4 rounded-xl border border-slate-800">
@@ -920,6 +1042,125 @@ function getIntradayRemark(stock: StockPick): string {
     return stock.remark;
   }
   return `Intraday momentum candidate ranked ${stock.score}/100 with ${stock.changePercent >= 0 ? "+" : ""}${stock.changePercent.toFixed(1)}% session movement and ${stock.upside.toFixed(1)}% modelled upside. Confirm live VWAP, relative volume and stop-loss before entry.`;
+}
+
+function CandleShortlistTable({ results, market }: { results: CandleViewResult[]; market: Market }) {
+  const currency = market === "india" ? "₹" : "$";
+  const entryTime = market === "india" ? "9:30–10:15 AM IST" : "9:45–10:30 AM ET";
+  const exitTime = market === "india" ? "Target or 10:30 AM IST" : "Target or 10:45 AM ET";
+  const formatPrice = (value: number | null | undefined) => value == null
+    ? "—"
+    : `${currency}${value.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+
+  return (
+    <div className="table-scroll rounded-xl border border-slate-800/90 bg-[#0b1626] shadow-xl" tabIndex={0} aria-label="Top ten candle momentum stocks">
+      <table className="w-full border-collapse text-left text-xs text-slate-300">
+        <thead className="border-b border-slate-800 bg-[#070e1a] text-[11px] font-semibold uppercase tracking-wider text-slate-400">
+          <tr>
+            <th className="px-3 py-3.5 text-center">Rank</th>
+            <th className="px-4 py-3.5">Stock</th>
+            <th className="px-3 py-3.5 text-center">Signal</th>
+            <th className="px-3 py-3.5 text-right">CMP</th>
+            <th className="px-3 py-3.5 text-right">Entry Price</th>
+            <th className="px-3 py-3.5 text-right">Target Price</th>
+            <th className="px-3 py-3.5 text-right">Stop-Loss</th>
+            <th className="px-3 py-3.5">Entry Time</th>
+            <th className="px-3 py-3.5">Exit Time</th>
+            <th className="px-3 py-3.5 text-right">Volume Spike</th>
+          </tr>
+        </thead>
+        <tbody className="divide-y divide-slate-800/60">
+          {results.slice(0, 10).map((result, index) => (
+            <tr key={`${result.symbol}-${result.sessionDate}`} className="transition-colors hover:bg-[#0e1c30]">
+              <td className="px-3 py-3 text-center font-bold text-cyan-300">#{index + 1}</td>
+              <td className="px-4 py-3">
+                <div className="font-bold text-white">{result.symbol}</div>
+                <div className="max-w-[190px] truncate text-[10px] text-slate-500">{result.name}</div>
+              </td>
+              <td className="px-3 py-3 text-center">
+                <span className={`rounded-md border px-2.5 py-1 text-[10px] font-bold ${result.signalBias === "BUY" ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-300" : "border-rose-500/30 bg-rose-500/10 text-rose-300"}`}>{result.signalBias}</span>
+              </td>
+              <td className="px-3 py-3 text-right font-mono font-bold text-white">{formatPrice(result.currentPrice ?? result.close)}</td>
+              <td className="px-3 py-3 text-right font-mono font-bold text-amber-300">{formatPrice(result.entryTrigger)}</td>
+              <td className="px-3 py-3 text-right font-mono font-bold text-emerald-300">{formatPrice(result.target)}</td>
+              <td className="px-3 py-3 text-right font-mono font-bold text-rose-300">{formatPrice(result.stopLoss)}</td>
+              <td className="px-3 py-3 text-slate-300">{entryTime}</td>
+              <td className="px-3 py-3 text-amber-200">{exitTime}</td>
+              <td className="px-3 py-3 text-right font-mono font-bold text-cyan-300">{result.volumeMultiple.toFixed(2)}×</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
+function CandleStrategyAlert({ result }: { result: CandleViewResult }) {
+  const symbol = result.currency === "INR" ? "₹" : "$";
+  const signalStyle = result.signalBias === "BUY"
+    ? "border-emerald-500/40 bg-emerald-500/10 text-emerald-300"
+    : result.signalBias === "SELL"
+      ? "border-rose-500/40 bg-rose-500/10 text-rose-300"
+      : "border-amber-500/40 bg-amber-500/10 text-amber-300";
+  const price = (value: number | null) => value == null ? "—" : `${symbol}${value.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+  const checks = [
+    ["Price", result.passed.price], ["Liquidity", result.passed.liquidity], ["OHL Pattern", result.passed.pattern],
+    ["2× Volume", result.passed.volume], ["Wick ≤40%", result.passed.wick],
+  ] as const;
+
+  return (
+    <article className="overflow-hidden rounded-2xl border border-slate-700 bg-[#0b1626] shadow-xl">
+      <div className="flex flex-col gap-3 border-b border-slate-800 bg-[#07111f] p-5 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <h3 className="text-lg font-bold text-white">🚨 STRATEGY ALERT: {result.symbol}</h3>
+          <p className="mt-1 text-xs text-slate-400">{result.name} • {result.sessionDate} • {result.candleWindow}</p>
+        </div>
+        <span className={`w-fit rounded-lg border px-4 py-2 text-sm font-black ${signalStyle}`}>{result.signalBias}</span>
+      </div>
+      <div className="space-y-5 p-5">
+        <div>
+          <p className="text-xs font-bold uppercase tracking-wider text-slate-500">Pattern Match</p>
+          <p className="mt-1 text-sm font-semibold text-white">{result.patternMatch}</p>
+        </div>
+        <div className="grid gap-2 sm:grid-cols-5">
+          {checks.map(([label, passed]) => (
+            <div key={label} className={`rounded-lg border p-2.5 text-center text-xs font-bold ${passed ? "border-emerald-500/25 bg-emerald-500/5 text-emerald-300" : "border-rose-500/25 bg-rose-500/5 text-rose-300"}`}>
+              {passed ? "✓" : "✕"} {label}
+            </div>
+          ))}
+        </div>
+        <div>
+          <h4 className="mb-3 text-sm font-bold text-cyan-300">📊 Trade Parameters</h4>
+          <div className="grid gap-3 sm:grid-cols-3">
+            <MetricCard label="Entry Trigger Price" value={price(result.entryTrigger)} note="Break of 15-min high/low" />
+            <MetricCard label="Profit Target Price" value={price(result.target)} note={`Entry ± 1× ATR (${price(result.atr15m)})`} />
+            <MetricCard label="Stop-Loss Price" value={price(result.stopLoss)} note="Opening-candle invalidation" />
+          </div>
+        </div>
+        <div className="grid gap-3 text-xs sm:grid-cols-2 lg:grid-cols-4">
+          <MetricCard label="O / H / L / C" value={`${price(result.open)} / ${price(result.high)} / ${price(result.low)} / ${price(result.close)}`} />
+          <MetricCard label="First-Candle Volume" value={result.firstCandleVolume.toLocaleString("en-IN")} note={`${result.volumeMultiple.toFixed(2)}× 10-day same-period average`} />
+          <MetricCard label="Average Daily Volume" value={result.averageDailyVolume.toLocaleString("en-IN")} note="Prior 10 sessions" />
+          <MetricCard label="Combined Shadows" value={`${result.wickPercent.toFixed(2)}%`} note="Maximum allowed: 40%" />
+        </div>
+        {result.rejectionReasons.length > 0 && (
+          <div className="rounded-xl border border-rose-500/20 bg-rose-500/5 p-4">
+            <p className="text-xs font-bold text-rose-300">NO TRADE — Failed validation</p>
+            <ul className="mt-2 list-disc space-y-1 pl-5 text-xs text-rose-200/80">
+              {result.rejectionReasons.map((reason) => <li key={reason}>{reason}</li>)}
+            </ul>
+          </div>
+        )}
+        <div className="rounded-xl border border-amber-500/20 bg-amber-500/5 p-4 text-xs leading-relaxed text-amber-200/90">
+          <strong>⚠️ Active Guardrail Note:</strong> {result.guardrailNote}
+        </div>
+      </div>
+    </article>
+  );
+}
+
+function MetricCard({ label, value, note }: { label: string; value: string; note?: string }) {
+  return <div className="rounded-xl border border-slate-800 bg-[#07111f] p-3"><p className="text-[10px] font-bold uppercase tracking-wider text-slate-500">{label}</p><p className="mt-1 break-words font-mono text-sm font-bold text-white">{value}</p>{note && <p className="mt-1 text-[10px] text-slate-500">{note}</p>}</div>;
 }
 
 function GlossaryItem({ term, description }: { term: string; description: string }) {

@@ -21,6 +21,10 @@
       "schedule": "15 5 * * 1-5"
     },
     {
+      "path": "/api/snapshots/dhan-paper-test",
+      "schedule": "10 5 * * 1-5"
+    },
+    {
       "path": "/api/snapshots/intraday?slot=13:45",
       "schedule": "15 8 * * 1-5"
     },

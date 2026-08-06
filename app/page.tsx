@@ -68,6 +68,18 @@ type HistoryRecord = {
 };
 
 type Market = "india" | "us";
+type PaperSession = {
+  mode: "PAPER_ONLY";
+  startedAt: string;
+  endsAt: string;
+  updatedAt: string;
+  status: "ACTIVE" | "COMPLETED";
+  initialCapital: number;
+  realizedPnl: number;
+  dhanConnected: boolean;
+  lastError: string | null;
+  trades: Array<{ id: string; symbol: string; side: "BUY" | "SELL"; quantity: number; entryPrice: number; exitPrice: number | null; status: string; pnl: number; source: string }>;
+};
 type UsMarketData = {
   asOf: string;
   termPicks: TermRecommendation[];
@@ -93,6 +105,10 @@ export default function HomePage() {
   const [candleScan, setCandleScan] = useState<CandleScanSnapshot | null>(null);
   const [loadingCandleScan, setLoadingCandleScan] = useState(false);
   const [candleScanError, setCandleScanError] = useState("");
+  const [paperSession, setPaperSession] = useState<PaperSession | null>(null);
+  const [paperConfigured, setPaperConfigured] = useState(false);
+  const [paperLoading, setPaperLoading] = useState(false);
+  const [paperError, setPaperError] = useState("");
 
   // Term Recommendations State (20 total stocks, 5 per duration)
   const [termPicks, setTermPicks] = useState<TermRecommendation[]>([]);
@@ -264,9 +280,33 @@ export default function HomePage() {
     }
   }, [market]);
 
+  const fetchPaperSession = useCallback(async (action?: "start" | "cycle") => {
+    setPaperLoading(true);
+    setPaperError("");
+    try {
+      const response = await fetch("/api/candle-view/paper-test", {
+        method: action ? "POST" : "GET",
+        headers: action ? { "Content-Type": "application/json" } : undefined,
+        body: action ? JSON.stringify({ action }) : undefined,
+        cache: "no-store",
+      });
+      const data = await response.json();
+      if (!response.ok || !data.ok) throw new Error(data.error || "Paper test request failed.");
+      setPaperSession(data.session || null);
+      setPaperConfigured(Boolean(data.configured));
+    } catch (err) {
+      setPaperError(err instanceof Error ? err.message : "Paper test request failed.");
+    } finally {
+      setPaperLoading(false);
+    }
+  }, []);
+
   useEffect(() => {
-    if (isUnlocked && activeTab === "candle") fetchCandleScan(false);
-  }, [isUnlocked, activeTab, fetchCandleScan]);
+    if (isUnlocked && activeTab === "candle") {
+      fetchCandleScan(false);
+      fetchPaperSession();
+    }
+  }, [isUnlocked, activeTab, fetchCandleScan, fetchPaperSession]);
 
   const handleAddWatchlist = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -679,6 +719,28 @@ export default function HomePage() {
               </div>
             )}
 
+            {market === "india" && (
+              <div className="rounded-2xl border border-violet-500/25 bg-[#0b1626] p-4">
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                  <div>
+                    <h2 className="text-base font-bold text-white">🧪 Dhan Seven-Day Paper Test</h2>
+                    <p className="mt-1 text-xs text-slate-400">Paper orders only—this environment cannot place live Dhan orders. Maximum simulated position ₹10,000; maximum five open positions.</p>
+                  </div>
+                  <div className="flex gap-2">
+                    {!paperSession && <button onClick={() => fetchPaperSession("start")} disabled={paperLoading} className="rounded-lg bg-violet-500 px-4 py-2.5 text-xs font-bold text-white disabled:opacity-50">Start 7-Day Test</button>}
+                    {paperSession?.status === "ACTIVE" && <button onClick={() => fetchPaperSession("cycle")} disabled={paperLoading} className="rounded-lg bg-cyan-500 px-4 py-2.5 text-xs font-bold text-slate-950 disabled:opacity-50">{paperLoading ? "Running…" : "Run Paper Cycle"}</button>}
+                  </div>
+                </div>
+                <div className="mt-3 grid gap-2 sm:grid-cols-4">
+                  <MetricCard label="Dhan Data" value={paperConfigured && paperSession?.dhanConnected ? "Connected" : paperConfigured ? "Configured" : "Credentials needed"} note="Live orders permanently disabled" />
+                  <MetricCard label="Test Status" value={paperSession?.status || "Not started"} note={paperSession ? `Ends ${formatUpdatedAt(paperSession.endsAt)}` : "Seven calendar days"} />
+                  <MetricCard label="Paper Trades" value={(paperSession?.trades.length || 0).toLocaleString("en-IN")} note={`${paperSession?.trades.filter((trade) => trade.status === "OPEN").length || 0} open`} />
+                  <MetricCard label="Realized P&L" value={`₹${(paperSession?.realizedPnl || 0).toLocaleString("en-IN", { maximumFractionDigits: 2 })}`} note="Before fees and slippage" />
+                </div>
+                {(paperError || paperSession?.lastError) && <p className="mt-3 text-xs text-amber-300">⚠️ {paperError || paperSession?.lastError}</p>}
+              </div>
+            )}
+
             <div className="rounded-2xl border border-emerald-500/20 bg-[#0b1626] p-4">
               <h2 className="text-base font-bold text-white flex items-center gap-2"><span>🕯️</span> Manual Ticker Validation</h2>
               <p className="mt-1 text-xs leading-relaxed text-slate-400">
@@ -693,7 +755,7 @@ export default function HomePage() {
                   aria-label="Stock ticker for candle evaluation"
                 />
                 <button disabled={loadingCandle || !candleSymbol.trim()} className="rounded-lg bg-emerald-500 px-5 py-2.5 text-xs font-bold text-slate-950 transition hover:bg-emerald-400 disabled:opacity-50">
-                  {loadingCandle ? "Evaluating…" : "Evaluate First Candle"}
+                  {loadingCandle ? "Evaluating…" : "Evaluate Latest Candle"}
                 </button>
               </form>
             </div>
@@ -703,7 +765,7 @@ export default function HomePage() {
 
             {!candleResult && !candleError && !loadingCandle && (
               <div className="rounded-xl border border-dashed border-slate-700 bg-[#08111e] p-8 text-center text-sm text-slate-400">
-                Enter a ticker after its first 15-minute candle has completed. The result will be BUY, SELL, or NO TRADE with exact trigger, ATR target, stop-loss, failed gates, and time-risk guardrail.
+                Enter a ticker after a 15-minute candle has completed. The result will be BUY, SELL, or NO TRADE with an exact trigger, target, stop-loss, failed gates, and time-risk guardrail.
               </div>
             )}
           </section>

@@ -57,6 +57,26 @@ Vercel Blob is required in production. Recommendation APIs return an error
 instead of silently serving an outdated snapshot when regeneration or durable
 storage fails.
 
+## Dhan seven-day paper test
+
+The Candle View includes a strictly simulated seven-day paper ledger. It never
+calls Dhan order endpoints. Dhan is used only to confirm NSE fill and exit prices
+through the Market Quote API; when credentials are absent or expired, the ledger
+labels fills as scanner fallbacks.
+
+Configure these server-only environment variables in Vercel:
+
+```bash
+DHAN_CLIENT_ID=your_client_id
+DHAN_ACCESS_TOKEN=your_access_token
+```
+
+Dhan Web access tokens are valid for 24 hours, so replace the token daily during
+the test. Never expose either value through `NEXT_PUBLIC_*`. Start the session in
+the Candle View and use **Run Paper Cycle** during market hours. A weekday cron
+runs one additional daily cycle at 10:40 AM IST. The ledger is stored in the
+connected private Vercel Blob store.
+
 ## Project Structure
 
 ```

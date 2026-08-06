@@ -155,40 +155,56 @@ async function fetchDhanLtp(symbols: string[]): Promise<Map<string, number>> {
 }
 
 async function resolveNseInstruments(symbols: string[]): Promise<Map<string, string>> {
-  const response = await fetch("https://images.dhan.co/api-data/api-scrip-master.csv", { cache: "force-cache", signal: AbortSignal.timeout(15_000) });
+  const response = await fetch("https://images.dhan.co/api-data/api-scrip-master.csv", { cache: "no-store", signal: AbortSignal.timeout(30_000) });
   if (!response.ok) throw new Error("Dhan instrument master is unavailable.");
-  const rows = parseCsv(await response.text());
-  const header = rows.shift() || [];
-  const index = (name: string) => header.indexOf(name);
-  const securityIndex = index("SEM_SMST_SECURITY_ID");
-  const symbolIndex = index("SEM_TRADING_SYMBOL");
-  const exchangeIndex = index("SEM_EXM_EXCH_ID");
-  const segmentIndex = index("SEM_SEGMENT");
-  if ([securityIndex, symbolIndex, exchangeIndex, segmentIndex].some((value) => value < 0)) throw new Error("Dhan instrument master format changed.");
   const wanted = new Set(symbols.map((symbol) => symbol.toUpperCase()));
   const result = new Map<string, string>();
-  for (const row of rows) {
-    const symbol = row[symbolIndex]?.toUpperCase();
-    if (wanted.has(symbol) && row[exchangeIndex] === "NSE" && row[segmentIndex] === "E") result.set(symbol, row[securityIndex]);
+  const reader = response.body?.getReader();
+  if (!reader) throw new Error("Dhan instrument master response cannot be streamed.");
+  const decoder = new TextDecoder();
+  let buffer = "";
+  let indexes: { security: number; symbol: number; exchange: number; segment: number } | null = null;
+  let done = false;
+  while (!done && result.size < wanted.size) {
+    const chunk = await reader.read();
+    done = chunk.done;
+    buffer += decoder.decode(chunk.value, { stream: !done });
+    const lines = buffer.split(/\r?\n/);
+    buffer = lines.pop() || "";
+    for (const line of lines) {
+      if (!line) continue;
+      const row = parseCsvLine(line);
+      if (!indexes) {
+        row[0] = row[0]?.replace(/^\uFEFF/, "");
+        indexes = {
+          security: row.indexOf("SEM_SMST_SECURITY_ID"),
+          symbol: row.indexOf("SEM_TRADING_SYMBOL"),
+          exchange: row.indexOf("SEM_EXM_EXCH_ID"),
+          segment: row.indexOf("SEM_SEGMENT"),
+        };
+        if (Object.values(indexes).some((value) => value < 0)) throw new Error("Dhan instrument master format changed.");
+        continue;
+      }
+      const symbol = row[indexes.symbol]?.toUpperCase();
+      if (wanted.has(symbol) && row[indexes.exchange] === "NSE" && row[indexes.segment] === "E") result.set(symbol, row[indexes.security]);
+    }
   }
+  await reader.cancel().catch(() => undefined);
   return result;
 }
 
-function parseCsv(input: string): string[][] {
-  const rows: string[][] = [];
-  let row: string[] = [], field = "", quoted = false;
-  for (let index = 0; index < input.length; index++) {
-    const character = input[index];
-    if (character === '"' && quoted && input[index + 1] === '"') { field += '"'; index++; }
+function parseCsvLine(line: string): string[] {
+  const fields: string[] = [];
+  let field = "", quoted = false;
+  for (let index = 0; index < line.length; index++) {
+    const character = line[index];
+    if (character === '"' && quoted && line[index + 1] === '"') { field += '"'; index++; }
     else if (character === '"') quoted = !quoted;
-    else if (character === "," && !quoted) { row.push(field); field = ""; }
-    else if ((character === "\n" || character === "\r") && !quoted) {
-      if (character === "\r" && input[index + 1] === "\n") index++;
-      row.push(field); if (row.some(Boolean)) rows.push(row); row = []; field = "";
-    } else field += character;
+    else if (character === "," && !quoted) { fields.push(field); field = ""; }
+    else field += character;
   }
-  if (field || row.length) { row.push(field); rows.push(row); }
-  return rows;
+  fields.push(field);
+  return fields;
 }
 
 function normalizeSession(session: PaperSession): PaperSession {

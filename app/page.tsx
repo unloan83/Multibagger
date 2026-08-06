@@ -290,6 +290,8 @@ export default function HomePage() {
         body: action ? JSON.stringify({ action }) : undefined,
         cache: "no-store",
       });
+      const contentType = response.headers.get("content-type") || "";
+      if (!contentType.includes("application/json")) throw new Error(`Paper-test service returned HTTP ${response.status}. Please retry after the deployment is healthy.`);
       const data = await response.json();
       if (!response.ok || !data.ok) throw new Error(data.error || "Paper test request failed.");
       setPaperSession(data.session || null);

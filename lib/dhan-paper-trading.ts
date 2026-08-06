@@ -1,4 +1,4 @@
-import { runCandleScanner } from "@/lib/candle-scanner";
+import { runCandleScanner, type CandleScannerCandidate } from "@/lib/candle-scanner";
 import { readSnapshotFile, writeSnapshotFile } from "@/lib/snapshot-storage";
 
 const STATE_FILE = "dhan_paper_session.json";
@@ -56,7 +56,8 @@ export async function runPaperCycle(): Promise<PaperSession> {
   if (!session) throw new Error("Start the seven-day paper session first.");
   const now = new Date(); const expired = now >= new Date(session.endsAt);
   const open = session.trades.filter((trade) => trade.status === "OPEN");
-  const scan = await runCandleScanner("india");
+  const liveUniverse = await fetchLiveNsePaperUniverse();
+  const scan = await runCandleScanner("india", liveUniverse, false);
   const symbols = [...new Set([...open.map((trade) => trade.symbol), ...scan.shortlisted.map((result) => result.symbol)])];
   const { quotes, unavailable } = await fetchFreeLiveQuotes(symbols, now);
 
@@ -105,6 +106,22 @@ async function fetchFreeLiveQuotes(symbols: string[], now: Date): Promise<{ quot
   return { quotes, unavailable };
 }
 
+async function fetchLiveNsePaperUniverse(): Promise<CandleScannerCandidate[]> {
+  const response = await fetch("https://www.nseindia.com/api/live-analysis-variations?index=gainers", {
+    headers: { "User-Agent": "Mozilla/5.0", Accept: "application/json", Referer: "https://www.nseindia.com/market-data/top-gainers-losers" },
+    cache: "no-store", signal: AbortSignal.timeout(12_000),
+  });
+  if (!response.ok) throw new Error(`NSE live-gainer discovery returned ${response.status}; no paper cycle was created.`);
+  const payload = await response.json() as { allSec?: { data?: Array<{ symbol?: string; series?: string; ltp?: number | string; trade_quantity?: number | string }> } };
+  const rows = payload.allSec?.data;
+  if (!Array.isArray(rows)) throw new Error("NSE live-gainer discovery returned no usable rows; no paper cycle was created.");
+  return rows.flatMap((row) => {
+    const symbol = String(row.symbol || "").trim(); const price = numeric(row.ltp); const volume = numeric(row.trade_quantity);
+    return symbol && row.series === "EQ" && price >= 150 && price <= 3_000 && volume >= 100_000
+      ? [{ symbol: `${symbol}.NS`, name: symbol }] : [];
+  });
+}
+
 async function fetchYahooIntradayQuote(symbol: string, now: Date): Promise<LiveQuote> {
   const ticker = symbol.endsWith(".NS") ? symbol : `${symbol}.NS`;
   const response = await fetch(`https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(ticker)}?range=1d&interval=1m&includePrePost=false`, {
@@ -142,5 +159,6 @@ function newSession(startedAt: Date): PaperSession {
     lastError: null, trades: [], cycles: [] };
 }
 function indiaDate(value: string) { return new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Kolkata", year: "numeric", month: "2-digit", day: "2-digit" }).format(new Date(value)); }
+function numeric(value: unknown) { const parsed = typeof value === "string" ? Number(value.replaceAll(",", "")) : Number(value); return Number.isFinite(parsed) ? parsed : 0; }
 async function save(session: PaperSession) { await writeSnapshotFile(STATE_FILE, JSON.stringify(session, null, 2)); }
 function round(value: number) { return Math.round(value * 100) / 100; }

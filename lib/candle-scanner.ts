@@ -12,7 +12,7 @@ export type CandleScanSnapshot = {
   shortlisted: CandleViewResult[];
 };
 
-type Candidate = { symbol: string; name: string };
+export type CandleScannerCandidate = { symbol: string; name: string };
 type YahooResult = {
   meta?: { longName?: string; shortName?: string };
   timestamp?: number[];
@@ -28,10 +28,10 @@ const US_SYMBOLS = [
   "SCHW", "SIRI", "SNOW", "SQ", "TME", "U", "VALE", "WBA", "WMB", "XOM",
 ];
 
-export async function runCandleScanner(market: CandleMarket): Promise<CandleScanSnapshot> {
-  const candidates: Candidate[] = market === "india"
+export async function runCandleScanner(market: CandleMarket, liveCandidates?: CandleScannerCandidate[], persist = true): Promise<CandleScanSnapshot> {
+  const candidates: CandleScannerCandidate[] = liveCandidates || (market === "india"
     ? indiaUniverse.map((row) => ({ symbol: `${row.symbol}.NS`, name: row.company || row.symbol }))
-    : US_SYMBOLS.map((symbol) => ({ symbol, name: symbol }));
+    : US_SYMBOLS.map((symbol) => ({ symbol, name: symbol })));
   const results = await mapConcurrent(candidates, 16, (candidate) => scanCandidate(candidate, market));
   const evaluated = results.filter((result) => result !== undefined).length;
   const shortlisted = results
@@ -40,10 +40,10 @@ export async function runCandleScanner(market: CandleMarket): Promise<CandleScan
     .slice(0, 10);
   const snapshot: CandleScanSnapshot = {
     asOf: new Date().toISOString(), market,
-    universeName: market === "india" ? "Configured NSE cash universe" : "Liquid US momentum universe",
+    universeName: liveCandidates ? "Live NSE top-gainer universe" : market === "india" ? "Configured NSE cash universe" : "Liquid US momentum universe",
     universeSize: candidates.length, evaluated, unavailable: candidates.length - evaluated, shortlisted,
   };
-  await writeSnapshotFile(snapshotFile(market), JSON.stringify(snapshot, null, 2));
+  if (persist) await writeSnapshotFile(snapshotFile(market), JSON.stringify(snapshot, null, 2));
   return snapshot;
 }
 
@@ -56,7 +56,7 @@ export async function readCandleScan(market: CandleMarket): Promise<CandleScanSn
   } catch { return null; }
 }
 
-async function scanCandidate(candidate: Candidate, market: CandleMarket): Promise<CandleViewResult | undefined> {
+async function scanCandidate(candidate: CandleScannerCandidate, market: CandleMarket): Promise<CandleViewResult | undefined> {
   try {
     const chart = await fetchChart(candidate.symbol);
     const bars = toBars(chart);

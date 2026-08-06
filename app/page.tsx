@@ -78,7 +78,8 @@ type PaperSession = {
   realizedPnl: number;
   dhanConnected: boolean;
   lastError: string | null;
-  trades: Array<{ id: string; symbol: string; side: "BUY" | "SELL"; quantity: number; entryPrice: number; exitPrice: number | null; status: string; pnl: number; source: string }>;
+  trades: Array<{ id: string; symbol: string; side: "BUY" | "SELL"; quantity: number; entryPrice: number; exitPrice: number | null; openedAt: string; closedAt: string | null; status: string; pnl: number; source: string }>;
+  cycles: Array<{ runAt: string; actions: Array<{ symbol: string; signalPrice: number; outcome: string }> }>;
 };
 type UsMarketData = {
   asOf: string;
@@ -740,6 +741,40 @@ export default function HomePage() {
                   <MetricCard label="Realized P&L" value={`₹${(paperSession?.realizedPnl || 0).toLocaleString("en-IN", { maximumFractionDigits: 2 })}`} note="Before fees and slippage" />
                 </div>
                 {(paperError || paperSession?.lastError) && <p className="mt-3 text-xs text-amber-300">⚠️ {paperError || paperSession?.lastError}</p>}
+                {paperSession && paperSession.trades.length > 0 && (
+                  <div className="table-scroll mt-4 rounded-xl border border-slate-800" tabIndex={0} aria-label="Paper trading activity">
+                    <table className="w-full border-collapse text-left text-xs text-slate-300">
+                      <thead className="bg-[#070e1a] text-[10px] uppercase tracking-wider text-slate-400">
+                        <tr>
+                          <th className="px-3 py-3">Stock</th><th className="px-3 py-3">Shortlisted / Bought</th><th className="px-3 py-3 text-right">Qty</th><th className="px-3 py-3 text-right">Buy Price</th><th className="px-3 py-3">Sold</th><th className="px-3 py-3 text-right">Sell Price</th><th className="px-3 py-3">Status</th><th className="px-3 py-3">Price Source</th><th className="px-3 py-3 text-right">P&amp;L</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-slate-800/70">
+                        {[...paperSession.trades].reverse().map((trade) => (
+                          <tr key={trade.id} className="hover:bg-slate-800/30">
+                            <td className="px-3 py-3 font-bold text-white">{trade.symbol}</td>
+                            <td className="px-3 py-3">{formatUpdatedAt(trade.openedAt)}</td>
+                            <td className="px-3 py-3 text-right font-mono">{trade.quantity}</td>
+                            <td className="px-3 py-3 text-right font-mono">₹{trade.entryPrice.toLocaleString("en-IN", { maximumFractionDigits: 2 })}</td>
+                            <td className="px-3 py-3">{trade.closedAt ? formatUpdatedAt(trade.closedAt) : "—"}</td>
+                            <td className="px-3 py-3 text-right font-mono">{trade.exitPrice == null ? "—" : `₹${trade.exitPrice.toLocaleString("en-IN", { maximumFractionDigits: 2 })}`}</td>
+                            <td className="px-3 py-3 font-bold text-cyan-300">{trade.status}</td>
+                            <td className="px-3 py-3">{trade.source === "DHAN" ? "Dhan" : "Scanner fallback"}</td>
+                            <td className={`px-3 py-3 text-right font-mono font-bold ${trade.pnl >= 0 ? "text-emerald-300" : "text-rose-300"}`}>₹{trade.pnl.toLocaleString("en-IN", { maximumFractionDigits: 2 })}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+                {paperSession && (paperSession.cycles?.at(-1)?.actions.length || 0) > 0 && (
+                  <div className="mt-4">
+                    <p className="mb-2 text-xs font-bold text-violet-300">Latest shortlist cycle • {formatUpdatedAt(paperSession.cycles.at(-1)!.runAt)}</p>
+                    <div className="flex flex-wrap gap-2">
+                      {paperSession.cycles.at(-1)!.actions.map((action) => <span key={action.symbol} className="rounded-md border border-slate-700 bg-slate-900/60 px-2.5 py-1 text-[10px] text-slate-300">{action.symbol} • {action.outcome.replaceAll("_", " ")}</span>)}
+                    </div>
+                  </div>
+                )}
               </div>
             )}
 

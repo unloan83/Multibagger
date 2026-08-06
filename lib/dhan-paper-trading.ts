@@ -25,6 +25,17 @@ export type PaperTrade = PaperPosition & {
   pnl: number;
 };
 
+export type PaperShortlistAction = {
+  symbol: string;
+  signalPrice: number;
+  outcome: "BOUGHT" | "ALREADY_TRADED" | "POSITION_LIMIT" | "INVALID_PRICE";
+};
+
+export type PaperCycle = {
+  runAt: string;
+  actions: PaperShortlistAction[];
+};
+
 export type PaperSession = {
   mode: "PAPER_ONLY";
   startedAt: string;
@@ -36,6 +47,7 @@ export type PaperSession = {
   dhanConnected: boolean;
   lastError: string | null;
   trades: PaperTrade[];
+  cycles: PaperCycle[];
 };
 
 export async function getPaperSession(): Promise<PaperSession | null> {
@@ -59,6 +71,7 @@ export async function startPaperSession(): Promise<PaperSession> {
     dhanConnected: false,
     lastError: null,
     trades: [],
+    cycles: [],
   };
   await save(session);
   return session;
@@ -92,11 +105,21 @@ export async function runPaperCycle(): Promise<PaperSession> {
   }
 
   if (!expired) {
+    const cycle: PaperCycle = { runAt: now.toISOString(), actions: [] };
     for (const signal of scan.shortlisted) {
-      if (session.trades.some((trade) => trade.symbol === signal.symbol && trade.openedAt.slice(0, 10) === now.toISOString().slice(0, 10))) continue;
-      if (session.trades.filter((trade) => trade.status === "OPEN").length >= 5) break;
+      const action: PaperShortlistAction = { symbol: signal.symbol, signalPrice: signal.currentPrice, outcome: "INVALID_PRICE" };
+      cycle.actions.push(action);
+      if (session.trades.some((trade) => trade.symbol === signal.symbol && trade.openedAt.slice(0, 10) === now.toISOString().slice(0, 10))) {
+        action.outcome = "ALREADY_TRADED";
+        continue;
+      }
+      if (session.trades.filter((trade) => trade.status === "OPEN").length >= 5) {
+        action.outcome = "POSITION_LIMIT";
+        continue;
+      }
       const entryPrice = quotes.get(signal.symbol) ?? (dhanConfigured ? null : signal.currentPrice);
       if (!entryPrice || signal.target == null || signal.stopLoss == null || signal.signalBias !== "BUY") continue;
+      action.outcome = "BOUGHT";
       const quantity = Math.max(1, Math.floor(MAX_POSITION_VALUE / entryPrice));
       session.trades.push({
         id: `${now.getTime()}-${signal.symbol}`,
@@ -114,6 +137,7 @@ export async function runPaperCycle(): Promise<PaperSession> {
         pnl: 0,
       });
     }
+    session.cycles = [...session.cycles, cycle].slice(-50);
   }
 
   session.realizedPnl = round(session.trades.reduce((sum, trade) => sum + trade.pnl, 0));
@@ -213,6 +237,7 @@ function parseCsvLine(line: string): string[] {
 }
 
 function normalizeSession(session: PaperSession): PaperSession {
+  session.cycles ||= [];
   if (session.status === "ACTIVE" && Date.now() >= Date.parse(session.endsAt)) session.status = "COMPLETED";
   return session;
 }

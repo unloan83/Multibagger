@@ -79,6 +79,7 @@ type IntradayPredictionPrior = {
 };
 
 export type ExpertActionMatrix = {
+  modelVersion: "live-fail-closed-v2";
   title: string;
   verified: string;
   source: string;
@@ -180,6 +181,7 @@ export async function generateExpertActionMatrix(): Promise<ExpertActionMatrix> 
     .slice(0, 12);
 
   return {
+    modelVersion: "live-fail-closed-v2",
     title: "Multi-Factor Wealth Discovery Matrix",
     verified:
       "NIFTY 500 core plus NSE cap-bucket overlays, price trend, sector-relative strength, revenue and earnings growth, profitability, leverage, valuation, liquidity, news catalysts and risk",
@@ -480,7 +482,7 @@ export async function readWealthRecommendationsSnapshot(): Promise<ExpertActionM
     const weekday = new Intl.DateTimeFormat("en-US", { timeZone: "Asia/Kolkata", weekday: "short" }).format();
     const maximumAge = weekday === "Sat" || weekday === "Sun" ? 96 * 60 * 60_000 : 36 * 60 * 60_000;
     if (!Number.isFinite(age) || age < 0 || age > maximumAge) return null;
-    if (!snapshot.source || !snapshot.source.includes("Yahoo") || !Array.isArray(snapshot.categories)) return null;
+    if (snapshot.modelVersion !== "live-fail-closed-v2" || !snapshot.source || !snapshot.source.includes("Yahoo") || !Array.isArray(snapshot.categories)) return null;
     return snapshot;
   } catch {
     return null;
@@ -489,6 +491,7 @@ export async function readWealthRecommendationsSnapshot(): Promise<ExpertActionM
 
 function unavailableMatrix(reason: string): ExpertActionMatrix {
   return {
+    modelVersion: "live-fail-closed-v2",
     title: "Multi-Factor Wealth Discovery Matrix",
     verified: "No recommendation published without a fresh validated snapshot.",
     source: "Official NIFTY 500 plus NSE cap-bucket universe; scheduled safety-gated screening",

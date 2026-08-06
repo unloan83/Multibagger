@@ -121,7 +121,7 @@ async function analyseMover(row: NseMover, slot: IntradaySlot): Promise<{ screen
     if (reasons.length) return { screened: { ...base, status: "REJECTED", reasons }, pick: null };
     const vwapDistancePercent = ((price - vwap) / vwap) * 100;
     const score = Math.min(100, Math.round(45 + Math.min(changePercent, 15) * 1.4 + Math.min(rvol, 4) * 5 + Math.min(Math.max(rsi5m - 52, 0), 15) * .5 + (macdHistogram >= 0 ? 8 : 0)));
-    const target = round(Math.min(price * 1.1, price + Math.max(atr * 2, price * .025)));
+    const target = round(price * 1.03);
     const stopLoss = round(Math.min(price * .98, Math.max(vwap || 0, price - atr * 1.5)));
     const pick: IntradayPick = {
       symbol, name: chart.name || symbol, price, previousClose, changePercent: round(changePercent), rvol: round(rvol), vwap: round(vwap),

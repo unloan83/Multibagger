@@ -126,7 +126,7 @@ export async function runPaperCycle(): Promise<PaperSession> {
         side: signal.signalBias,
         quantity,
         entryPrice,
-        target: entryPrice * 1.1,
+        target: entryPrice * 1.03,
         stopLoss: signal.stopLoss,
         openedAt: now.toISOString(),
         source: "DHAN",

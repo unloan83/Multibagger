@@ -75,6 +75,7 @@ export async function runPaperCycle(): Promise<PaperSession> {
   let quotes = new Map<string, number>();
   let dhanConnected = false;
   let lastError: string | null = null;
+  const dhanConfigured = hasDhanCredentials();
   try {
     quotes = await fetchDhanLtp(symbols);
     dhanConnected = true;
@@ -94,7 +95,7 @@ export async function runPaperCycle(): Promise<PaperSession> {
     for (const signal of scan.shortlisted) {
       if (session.trades.some((trade) => trade.symbol === signal.symbol && trade.openedAt.slice(0, 10) === now.toISOString().slice(0, 10))) continue;
       if (session.trades.filter((trade) => trade.status === "OPEN").length >= 5) break;
-      const entryPrice = quotes.get(signal.symbol) ?? signal.currentPrice;
+      const entryPrice = quotes.get(signal.symbol) ?? (dhanConfigured ? null : signal.currentPrice);
       if (!entryPrice || signal.target == null || signal.stopLoss == null || signal.signalBias !== "BUY") continue;
       const quantity = Math.max(1, Math.floor(MAX_POSITION_VALUE / entryPrice));
       session.trades.push({
@@ -132,8 +133,8 @@ function closeTrade(trade: PaperTrade, price: number, status: "TARGET" | "STOP" 
 }
 
 async function fetchDhanLtp(symbols: string[]): Promise<Map<string, number>> {
-  const clientId = process.env.DHAN_CLIENT_ID;
-  const token = process.env.DHAN_ACCESS_TOKEN;
+  const clientId = cleanCredential(process.env.DHAN_CLIENT_ID);
+  const token = cleanCredential(process.env.DHAN_ACCESS_TOKEN);
   if (!clientId || !token) throw new Error("Dhan credentials are not configured; fills use scanner prices.");
   if (symbols.length === 0) return new Map();
   const instruments = await resolveNseInstruments(symbols);
@@ -144,7 +145,11 @@ async function fetchDhanLtp(symbols: string[]): Promise<Map<string, number>> {
     cache: "no-store",
     signal: AbortSignal.timeout(10_000),
   });
-  if (!response.ok) throw new Error(`Dhan quote API returned ${response.status}.`);
+  if (!response.ok) {
+    if (response.status === 401) throw new Error("Dhan authentication failed (401). Generate a fresh Access Token in Dhan Web and confirm DHAN_CLIENT_ID belongs to the same account, then redeploy.");
+    const error = await response.json().catch(() => null) as { errorMessage?: string } | null;
+    throw new Error(error?.errorMessage || `Dhan quote API returned ${response.status}.`);
+  }
   const payload = await response.json() as { data?: { NSE_EQ?: Record<string, { last_price?: number }> }; status?: string };
   const prices = new Map<string, number>();
   for (const [symbol, securityId] of instruments) {
@@ -211,5 +216,7 @@ function normalizeSession(session: PaperSession): PaperSession {
   if (session.status === "ACTIVE" && Date.now() >= Date.parse(session.endsAt)) session.status = "COMPLETED";
   return session;
 }
+export function hasDhanCredentials() { return Boolean(cleanCredential(process.env.DHAN_CLIENT_ID) && cleanCredential(process.env.DHAN_ACCESS_TOKEN)); }
+function cleanCredential(value: string | undefined) { return value?.trim().replace(/^['"]|['"]$/g, "") || ""; }
 async function save(session: PaperSession) { await writeSnapshotFile(STATE_FILE, JSON.stringify(session, null, 2)); }
 function round(value: number) { return Math.round(value * 100) / 100; }

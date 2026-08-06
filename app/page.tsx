@@ -668,7 +668,7 @@ export default function HomePage() {
             </div>
 
             {candleScanError && <div className="rounded-xl border border-rose-800 bg-rose-950/40 p-4 text-xs text-rose-300">⚠️ {candleScanError}</div>}
-            {loadingCandleScan && !candleScan && <div className="rounded-xl border border-slate-800 bg-[#08111e] p-8 text-center text-sm text-slate-400">Scanning opening candles and historical volume across the market…</div>}
+            {loadingCandleScan && !candleScan && <div className="rounded-xl border border-slate-800 bg-[#08111e] p-8 text-center text-sm text-slate-400">Scanning completed 15-minute candles, trend, VWAP, and historical volume across the market…</div>}
             {candleScan && candleScan.shortlisted.length === 0 && (
               <div className="rounded-xl border border-amber-500/20 bg-amber-500/5 p-6 text-center text-sm text-amber-200">No stocks passed every mandatory gate in the latest scan. This is a valid NO TRADE market result.</div>
             )}
@@ -682,7 +682,7 @@ export default function HomePage() {
             <div className="rounded-2xl border border-emerald-500/20 bg-[#0b1626] p-4">
               <h2 className="text-base font-bold text-white flex items-center gap-2"><span>🕯️</span> Manual Ticker Validation</h2>
               <p className="mt-1 text-xs leading-relaxed text-slate-400">
-                Strict {market === "india" ? "NSE 9:15–9:30 AM IST" : "US 9:30–9:45 AM ET"} first-candle validation. Requires a {currencySymbol}150–{currencySymbol}3,000 price, ≥1 lakh average daily shares, Open=Low or Open=High, ≥2× same-period volume, and ≤40% combined shadows. Targets are +10% for BUY and −3% for SELL.
+                Rolling 15-minute validation during the regular session. Requires a {currencySymbol}150–{currencySymbol}3,000 price, ≥1 lakh average daily shares, a three-candle breakout or breakdown, VWAP and EMA 9/20 alignment, ≥2× same-period volume, ≤40% combined shadows, and a signal no older than 30 minutes. Targets are +10% for BUY and −3% for SELL.
               </p>
               <form onSubmit={handleCandleEvaluation} className="mt-4 flex flex-col gap-2 sm:flex-row">
                 <input
@@ -1046,8 +1046,8 @@ function getIntradayRemark(stock: StockPick): string {
 
 function CandleShortlistTable({ results, market }: { results: CandleViewResult[]; market: Market }) {
   const currency = market === "india" ? "₹" : "$";
-  const entryTime = market === "india" ? "9:30–10:15 AM IST" : "9:45–10:30 AM ET";
-  const exitTime = market === "india" ? "Target or 10:30 AM IST" : "Target or 10:45 AM ET";
+  const entryTime = "Latest completed 15m candle";
+  const exitTime = "Target, stop, or session close";
   const formatPrice = (value: number | null | undefined) => value == null
     ? "—"
     : `${currency}${value.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
@@ -1104,8 +1104,9 @@ function CandleStrategyAlert({ result }: { result: CandleViewResult }) {
       : "border-amber-500/40 bg-amber-500/10 text-amber-300";
   const price = (value: number | null) => value == null ? "—" : `${symbol}${value.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
   const checks = [
-    ["Price", result.passed.price], ["Liquidity", result.passed.liquidity], ["OHL Pattern", result.passed.pattern],
-    ["2× Volume", result.passed.volume], ["Wick ≤40%", result.passed.wick],
+    ["Price", result.passed.price], ["Liquidity", result.passed.liquidity], ["Directional Candle", result.passed.pattern],
+    ["3-Bar Break", result.passed.breakout], ["VWAP", result.passed.vwap], ["EMA 9/20", result.passed.trend],
+    ["2× Volume", result.passed.volume], ["Wick ≤40%", result.passed.wick], ["Fresh ≤30m", result.passed.freshness],
   ] as const;
 
   return (
@@ -1122,7 +1123,7 @@ function CandleStrategyAlert({ result }: { result: CandleViewResult }) {
           <p className="text-xs font-bold uppercase tracking-wider text-slate-500">Pattern Match</p>
           <p className="mt-1 text-sm font-semibold text-white">{result.patternMatch}</p>
         </div>
-        <div className="grid gap-2 sm:grid-cols-5">
+        <div className="grid gap-2 sm:grid-cols-3 lg:grid-cols-9">
           {checks.map(([label, passed]) => (
             <div key={label} className={`rounded-lg border p-2.5 text-center text-xs font-bold ${passed ? "border-emerald-500/25 bg-emerald-500/5 text-emerald-300" : "border-rose-500/25 bg-rose-500/5 text-rose-300"}`}>
               {passed ? "✓" : "✕"} {label}
@@ -1134,14 +1135,14 @@ function CandleStrategyAlert({ result }: { result: CandleViewResult }) {
           <div className="grid gap-3 sm:grid-cols-3">
             <MetricCard label="Entry Trigger Price" value={price(result.entryTrigger)} note="Break of 15-min high/low" />
             <MetricCard label="Profit Target Price" value={price(result.target)} note={result.signalBias === "SELL" ? "Entry − 3% sell target" : "Entry + 10% expected day gain"} />
-            <MetricCard label="Stop-Loss Price" value={price(result.stopLoss)} note="Opening-candle invalidation" />
+            <MetricCard label="Stop-Loss Price" value={price(result.stopLoss)} note="Signal-candle invalidation" />
           </div>
         </div>
         <div className="grid gap-3 text-xs sm:grid-cols-2 lg:grid-cols-4">
           <MetricCard label="O / H / L / C" value={`${price(result.open)} / ${price(result.high)} / ${price(result.low)} / ${price(result.close)}`} />
-          <MetricCard label="First-Candle Volume" value={result.firstCandleVolume.toLocaleString("en-IN")} note={`${result.volumeMultiple.toFixed(2)}× 10-day same-period average`} />
+          <MetricCard label="Signal-Candle Volume" value={result.firstCandleVolume.toLocaleString("en-IN")} note={`${result.volumeMultiple.toFixed(2)}× 10-day same-period average`} />
           <MetricCard label="Average Daily Volume" value={result.averageDailyVolume.toLocaleString("en-IN")} note="Prior 10 sessions" />
-          <MetricCard label="Combined Shadows" value={`${result.wickPercent.toFixed(2)}%`} note="Maximum allowed: 40%" />
+          <MetricCard label="VWAP / EMA 9 / EMA 20" value={`${price(result.vwap)} / ${price(result.ema9)} / ${price(result.ema20)}`} note={`Shadows: ${result.wickPercent.toFixed(2)}% (max 40%)`} />
         </div>
         {result.rejectionReasons.length > 0 && (
           <div className="rounded-xl border border-rose-500/20 bg-rose-500/5 p-4">

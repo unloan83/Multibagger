@@ -25,12 +25,19 @@ export type CandleViewResult = {
   volumeMultiple: number;
   averageDailyVolume: number;
   wickPercent: number;
+  vwap: number | null;
+  ema9: number | null;
+  ema20: number | null;
   passed: {
     price: boolean;
     liquidity: boolean;
     volume: boolean;
     wick: boolean;
     pattern: boolean;
+    breakout: boolean;
+    vwap: boolean;
+    trend: boolean;
+    freshness: boolean;
   };
   rejectionReasons: string[];
   guardrailNote: string;
@@ -44,7 +51,7 @@ const MIN_AVERAGE_DAILY_VOLUME = 100_000;
 const EXPECTED_BUY_GAIN_PERCENT = 10;
 const SELL_TARGET_PERCENT = 3;
 
-export function evaluateOpeningCandle(input: {
+export function evaluateCandleSignal(input: {
   symbol: string;
   name?: string;
   market: CandleMarket;
@@ -53,42 +60,66 @@ export function evaluateOpeningCandle(input: {
   now?: Date;
 }): CandleViewResult {
   const config = input.market === "india"
-    ? { zone: "Asia/Kolkata", hour: 9, minute: 15, window: "9:15–9:30 AM IST", currency: "INR" as const }
-    : { zone: "America/New_York", hour: 9, minute: 30, window: "9:30–9:45 AM ET", currency: "USD" as const };
+    ? { zone: "Asia/Kolkata", openMinute: 9 * 60 + 15, closeMinute: 15 * 60 + 30, suffix: "IST", currency: "INR" as const }
+    : { zone: "America/New_York", openMinute: 9 * 60 + 30, closeMinute: 16 * 60, suffix: "ET", currency: "USD" as const };
+  const now = input.now || new Date();
   const candidates = input.bars15m.filter((bar) => {
     const parts = localParts(bar.timestamp, config.zone);
-    return parts.hour === config.hour && parts.minute === config.minute;
+    const minuteOfDay = parts.hour * 60 + parts.minute;
+    return minuteOfDay >= config.openMinute && minuteOfDay < config.closeMinute && (bar.timestamp + 15 * 60) * 1000 <= now.getTime();
   });
   const first = candidates.at(-1);
-  if (!first) throw new Error(`No completed ${config.window} candle is available yet.`);
+  if (!first) throw new Error("No completed regular-session 15-minute candle is available yet.");
 
   const firstDate = localParts(first.timestamp, config.zone).date;
-  const earlierSamePeriod = candidates.filter((bar) => localParts(bar.timestamp, config.zone).date !== firstDate).slice(-10);
+  const firstParts = localParts(first.timestamp, config.zone);
+  const earlierSamePeriod = candidates.filter((bar) => {
+    const parts = localParts(bar.timestamp, config.zone);
+    return parts.date !== firstDate && parts.hour === firstParts.hour && parts.minute === firstParts.minute;
+  }).slice(-10);
   const samePeriodAverageVolume10d = average(earlierSamePeriod.map((bar) => bar.volume));
   const averageDailyVolume = average(input.dailyVolumes.filter((value) => value > 0).slice(-10));
   const volumeMultiple = samePeriodAverageVolume10d > 0 ? first.volume / samePeriodAverageVolume10d : 0;
   const range = first.high - first.low;
   const wickPercent = range > 0 ? ((range - Math.abs(first.close - first.open)) / range) * 100 : 100;
   const tolerance = 0.0051;
-  const openLow = Math.abs(first.open - first.low) <= tolerance;
-  const openHigh = Math.abs(first.open - first.high) <= tolerance;
-  const direction: CandleSignal = openLow && !openHigh ? "BUY" : openHigh && !openLow ? "SELL" : "NO TRADE";
+  const bullishCandle = first.close > first.open && Math.abs(first.open - first.low) <= tolerance;
+  const bearishCandle = first.close < first.open && Math.abs(first.open - first.high) <= tolerance;
+  const sessionBars = candidates.filter((bar) => localParts(bar.timestamp, config.zone).date === firstDate && bar.timestamp <= first.timestamp);
+  const previousBars = sessionBars.slice(-4, -1);
+  const breakoutHigh = previousBars.length === 3 ? Math.max(...previousBars.map((bar) => bar.high)) : Number.POSITIVE_INFINITY;
+  const breakdownLow = previousBars.length === 3 ? Math.min(...previousBars.map((bar) => bar.low)) : Number.NEGATIVE_INFINITY;
+  const vwap = calculateVwap(sessionBars);
+  const closes = candidates.filter((bar) => bar.timestamp <= first.timestamp).map((bar) => bar.close);
+  const ema9 = calculateEma(closes, 9);
+  const ema20 = calculateEma(closes, 20);
+  const buySetup = bullishCandle && first.close > breakoutHigh && vwap != null && first.close > vwap && ema9 != null && ema20 != null && ema9 > ema20;
+  const sellSetup = bearishCandle && first.close < breakdownLow && vwap != null && first.close < vwap && ema9 != null && ema20 != null && ema9 < ema20;
+  const direction: CandleSignal = buySetup ? "BUY" : sellSetup ? "SELL" : "NO TRADE";
+  const freshnessMinutes = (now.getTime() / 1000 - (first.timestamp + 15 * 60)) / 60;
   const passed = {
     price: first.open >= MIN_SCANNER_PRICE && first.open <= MAX_SCANNER_PRICE,
     liquidity: averageDailyVolume >= MIN_AVERAGE_DAILY_VOLUME,
     volume: earlierSamePeriod.length >= 10 && volumeMultiple >= 2,
     wick: wickPercent <= 40,
-    pattern: direction !== "NO TRADE",
+    pattern: bullishCandle || bearishCandle,
+    breakout: bullishCandle ? first.close > breakoutHigh : bearishCandle ? first.close < breakdownLow : false,
+    vwap: bullishCandle ? vwap != null && first.close > vwap : bearishCandle ? vwap != null && first.close < vwap : false,
+    trend: bullishCandle ? ema9 != null && ema20 != null && ema9 > ema20 : bearishCandle ? ema9 != null && ema20 != null && ema9 < ema20 : false,
+    freshness: freshnessMinutes >= 0 && freshnessMinutes <= 30,
   };
   const rejectionReasons: string[] = [];
   if (!passed.price) rejectionReasons.push(`Opening price must be between ${config.currency === "INR" ? "₹" : "$"}${MIN_SCANNER_PRICE.toLocaleString("en-IN")} and ${config.currency === "INR" ? "₹" : "$"}${MAX_SCANNER_PRICE.toLocaleString("en-IN")}, inclusive.`);
   if (!passed.liquidity) rejectionReasons.push(`10-session average daily volume is below ${MIN_AVERAGE_DAILY_VOLUME.toLocaleString("en-IN")} shares.`);
   if (!passed.volume) rejectionReasons.push(earlierSamePeriod.length < 10 ? "Ten prior same-period candles are not available." : "First-candle volume is below 2× its 10-day same-period average.");
   if (!passed.wick) rejectionReasons.push("Combined candle shadows exceed 40% of the full candle range.");
-  if (!passed.pattern) rejectionReasons.push("The opening candle is neither Open=Low nor Open=High.");
+  if (!passed.pattern) rejectionReasons.push("The latest 15-minute candle lacks a directional Open=Low or Open=High body.");
+  if (!passed.breakout) rejectionReasons.push("The candle did not close beyond the preceding three-candle range.");
+  if (!passed.vwap) rejectionReasons.push("The candle close is not confirmed on the signal side of session VWAP.");
+  if (!passed.trend) rejectionReasons.push("EMA 9 and EMA 20 are not aligned with the signal direction.");
+  if (!passed.freshness) rejectionReasons.push("The latest completed signal candle is more than 30 minutes old.");
 
   const signalBias = rejectionReasons.length === 0 ? direction : "NO TRADE";
-  const sessionBars = input.bars15m.filter((bar) => localParts(bar.timestamp, config.zone).date === firstDate && bar.timestamp <= first.timestamp);
   const atr15m = calculateAtr(sessionBars.length >= 14 ? sessionBars : input.bars15m.filter((bar) => bar.timestamp <= first.timestamp).slice(-14));
   const entryTrigger = signalBias === "BUY" ? first.high + 0.05 : signalBias === "SELL" ? first.low - 0.05 : null;
   const target = entryTrigger == null
@@ -98,10 +129,10 @@ export function evaluateOpeningCandle(input: {
       : entryTrigger * (1 - SELL_TARGET_PERCENT / 100);
   const stopLoss = signalBias === "BUY" ? first.low : signalBias === "SELL" ? first.high : null;
   const patternMatch = direction === "BUY"
-    ? `Open=Low confirmed with ${formatMultiple(volumeMultiple)} volume spike`
+    ? `15-minute breakout above VWAP with EMA 9/20 alignment and ${formatMultiple(volumeMultiple)} relative volume`
     : direction === "SELL"
-      ? `Open=High confirmed with ${formatMultiple(volumeMultiple)} volume spike`
-      : "No valid Open=Low or Open=High configuration";
+      ? `15-minute breakdown below VWAP with EMA 9/20 alignment and ${formatMultiple(volumeMultiple)} relative volume`
+      : "No fully confirmed rolling 15-minute setup";
 
   return {
     symbol: input.symbol,
@@ -109,8 +140,8 @@ export function evaluateOpeningCandle(input: {
     market: input.market,
     currency: config.currency,
     sessionDate: firstDate,
-    candleWindow: config.window,
-    evaluatedAt: (input.now || new Date()).toISOString(),
+    candleWindow: `${formatTime(firstParts.hour, firstParts.minute)}–${formatTime(firstParts.hour, firstParts.minute + 15)} ${config.suffix}`,
+    evaluatedAt: now.toISOString(),
     signalBias,
     patternMatch,
     entryTrigger: round(entryTrigger), target: round(target), stopLoss: round(stopLoss), atr15m: round(atr15m),
@@ -121,11 +152,12 @@ export function evaluateOpeningCandle(input: {
     volumeMultiple: round(volumeMultiple) || 0,
     averageDailyVolume: Math.round(averageDailyVolume),
     wickPercent: round(wickPercent) || 0,
+    vwap: round(vwap), ema9: round(ema9), ema20: round(ema20),
     passed,
     rejectionReasons,
     guardrailNote: signalBias === "NO TRADE"
-      ? "No entry: every price, liquidity, pattern, volume and wick gate must pass. Position size—not nominal share price—governs absolute financial risk."
-      : "If the target is not hit by 10:30 AM local exchange time, trail the stop to break-even (entry). Position size—not nominal share price—governs absolute financial risk.",
+      ? "No entry: every price, liquidity, breakout, VWAP, EMA, volume, wick and freshness gate must pass. Position size—not nominal share price—governs absolute financial risk."
+      : "Use only while this completed 15-minute signal remains fresh; trail the stop to break-even after favorable continuation. Position size—not nominal share price—governs absolute financial risk.",
   };
 }
 
@@ -139,6 +171,22 @@ function calculateAtr(bars: CandleBar[]): number | null {
   return average(ranges.slice(-14));
 }
 
+function calculateVwap(bars: CandleBar[]): number | null {
+  const totals = bars.reduce((acc, bar) => ({
+    priceVolume: acc.priceVolume + ((bar.high + bar.low + bar.close) / 3) * bar.volume,
+    volume: acc.volume + bar.volume,
+  }), { priceVolume: 0, volume: 0 });
+  return totals.volume > 0 ? totals.priceVolume / totals.volume : null;
+}
+
+function calculateEma(values: number[], period: number): number | null {
+  if (values.length < period) return null;
+  const multiplier = 2 / (period + 1);
+  let value = average(values.slice(0, period));
+  for (const next of values.slice(period)) value = next * multiplier + value * (1 - multiplier);
+  return value;
+}
+
 function localParts(timestamp: number, timeZone: string) {
   const parts = new Intl.DateTimeFormat("en-CA", { timeZone, year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit", hourCycle: "h23" }).formatToParts(new Date(timestamp * 1000));
   const value = (type: Intl.DateTimeFormatPartTypes) => parts.find((part) => part.type === type)?.value || "0";
@@ -148,3 +196,8 @@ function localParts(timestamp: number, timeZone: string) {
 function average(values: number[]) { return values.length ? values.reduce((sum, value) => sum + value, 0) / values.length : 0; }
 function round(value: number | null) { return value == null || !Number.isFinite(value) ? null : Math.round(value * 100) / 100; }
 function formatMultiple(value: number) { return `${Number.isFinite(value) ? value.toFixed(2) : "0.00"}×`; }
+function formatTime(hour: number, minute: number) {
+  const normalizedHour = hour + Math.floor(minute / 60);
+  const normalizedMinute = minute % 60;
+  return `${String(normalizedHour).padStart(2, "0")}:${String(normalizedMinute).padStart(2, "0")}`;
+}

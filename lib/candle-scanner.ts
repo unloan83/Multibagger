@@ -1,5 +1,5 @@
 import indiaUniverse from "@/data/market-universe.json";
-import { evaluateOpeningCandle, type CandleBar, type CandleMarket, type CandleViewResult } from "@/lib/candle-view";
+import { evaluateCandleSignal, type CandleBar, type CandleMarket, type CandleViewResult } from "@/lib/candle-view";
 import { readSnapshotFile, writeSnapshotFile } from "@/lib/snapshot-storage";
 
 export type CandleScanSnapshot = {
@@ -67,7 +67,7 @@ async function scanCandidate(candidate: Candidate, market: CandleMarket): Promis
       byDate.set(date, (byDate.get(date) || 0) + bar.volume);
     }
     const dailyVolumes = [...byDate.values()].slice(-11, -1);
-    return evaluateOpeningCandle({
+    return evaluateCandleSignal({
       symbol: candidate.symbol.replace(/\.NS$/, ""),
       name: chart.meta?.longName || chart.meta?.shortName || candidate.name,
       market, bars15m: bars, dailyVolumes,

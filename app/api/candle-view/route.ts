@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { evaluateOpeningCandle, type CandleBar, type CandleMarket } from "@/lib/candle-view";
+import { evaluateCandleSignal, type CandleBar, type CandleMarket } from "@/lib/candle-view";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -21,7 +21,7 @@ export async function GET(request: Request) {
     const [intraday, daily] = await Promise.all([fetchChart(symbol, "1mo", "15m"), fetchChart(symbol, "1mo", "1d")]);
     const bars15m = toBars(intraday);
     const dailyVolumes = daily.indicators?.quote?.[0]?.volume?.filter((value): value is number => typeof value === "number") || [];
-    const result = evaluateOpeningCandle({ symbol: rawSymbol.replace(/\.NS$/, ""), name: intraday.meta?.longName || intraday.meta?.shortName, market, bars15m, dailyVolumes });
+    const result = evaluateCandleSignal({ symbol: rawSymbol.replace(/\.NS$/, ""), name: intraday.meta?.longName || intraday.meta?.shortName, market, bars15m, dailyVolumes });
     return NextResponse.json({ ok: true, result });
   } catch (error) {
     return NextResponse.json({ ok: false, error: error instanceof Error ? error.message : "Candle evaluation failed." }, { status: 422 });

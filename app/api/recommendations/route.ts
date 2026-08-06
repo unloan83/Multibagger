@@ -16,7 +16,7 @@ export async function GET() {
     return NextResponse.json({
       ok: true,
       asOf: snapshot?.asOf || new Date().toISOString(),
-      marketRegime: snapshot?.marketRegime || "Bull Market (Risk-On)",
+      marketRegime: snapshot?.marketRegime || "Unavailable",
       categories: snapshot?.categories || [],
       intradayPipeline: intraday,
       swingPipeline: swing,

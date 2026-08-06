@@ -5,7 +5,6 @@ import { buildMarketOverview } from "@/lib/market-overview";
 import {
   MIN_INTRADAY_POTENTIAL_PERCENT,
   MIN_LONG_TERM_POTENTIAL_PERCENT,
-  qualifiesForHighPotentialIntraday,
   qualifiesForLongTermAccumulation,
 } from "@/lib/analysis";
 import {
@@ -205,7 +204,7 @@ export async function generateExpertActionMatrix(): Promise<ExpertActionMatrix> 
       "Uniform benchmark-relative screening; no example stock receives a score adjustment or guaranteed inclusion.",
       "Mandatory gates cover data freshness, positive TTM earnings, revenue direction, ROE, leverage, valuation, liquidity, trend, price extension and market regime.",
       "News sentiment, government policy, sector direction, expert consensus and learning feedback are capped context adjustments; they cannot bypass a failed safety gate.",
-      "Each market-cap category returns exactly three ranked stocks when at least three were evaluated. Stocks that clear every gate are Accumulate ideas; deterministic backfills remain Watchlist ideas with their failed gates disclosed.",
+      "Each category publishes up to three stocks, and only when every mandatory data and safety gate passes. The model abstains instead of backfilling a quota.",
     ],
     exclusionDiagnostics,
     consecutivePicks,
@@ -240,9 +239,9 @@ export function validateRecommendationContract(matrix: ExpertActionMatrix) {
       errors.push(`Duplicate market-cap category ${category.key}.`);
     }
     seenKeys.add(category.key);
-    if (category.longTermUpsides.length !== STOCKS_PER_MARKET_CAP_CATEGORY) {
+    if (category.longTermUpsides.length > STOCKS_PER_MARKET_CAP_CATEGORY) {
       errors.push(
-        `${category.key} contains ${category.longTermUpsides.length} stocks; expected ${STOCKS_PER_MARKET_CAP_CATEGORY}.`,
+        `${category.key} contains more than ${STOCKS_PER_MARKET_CAP_CATEGORY} stocks.`,
       );
     }
     const symbols = category.longTermUpsides.map((quote) => quote.symbol);
@@ -264,16 +263,9 @@ export function buildCategory(
 ): ExpertCategory {
   const meta = categoryMeta[bucket];
   const bucketStocks = screened.filter((stock) => stock.capBucket === bucket);
-  const longTermUpsides = selectCategoryStocks(bucketStocks).map((stock) =>
-    toExpertQuote(
-      stock,
-      marketRegime,
-      "longTerm",
-      !isLongTermCandidate(stock),
-    ),
-  );
+  const longTermUpsides = selectCategoryStocks(bucketStocks).map((stock) => toExpertQuote(stock, marketRegime, "longTerm"));
   const intradayBreakouts = bucketStocks
-    .filter((stock) => isMomentumCandidate(stock, intradayPriors[stock.symbol]))
+    .filter((stock) => isMomentumCandidate(stock))
     .sort(
       (a, b) =>
         getIntradayRankScore(b, intradayPriors[b.symbol]) -
@@ -300,6 +292,7 @@ export function buildCategory(
  */
 export function selectCategoryStocks(stocks: ScreenedStock[]) {
   return [...stocks]
+    .filter(isLongTermCandidate)
     .sort((a, b) =>
       selectionTier(a) - selectionTier(b) ||
       longTermRankScore(b) - longTermRankScore(a) ||
@@ -329,7 +322,7 @@ function longTermRankScore(stock: ScreenedStock) {
 function isLongTermCandidate(stock: ScreenedStock) {
   const threshold =
     stock.capBucket === "small" ? 58 : stock.capBucket === "mid" ? 60 : 62;
-  const inCmpRange = stock.price >= 20 && stock.price <= 2500;
+  const inCmpRange = stock.price >= 150 && stock.price <= 3000;
 
   return (
     inCmpRange &&
@@ -342,16 +335,16 @@ function isLongTermCandidate(stock: ScreenedStock) {
 
 function isMomentumCandidate(
   stock: ScreenedStock,
-  prior?: IntradayPredictionPrior,
 ) {
   const minimumTurnover =
     stock.capBucket === "large" ? 10 : stock.capBucket === "mid" ? 3 : 1;
-  const inSweetSpotCmpRange = stock.price >= 20 && stock.price <= 2500;
+  const inSweetSpotCmpRange = stock.price >= 150 && stock.price <= 3000;
   const isPositiveOrBreakout = stock.changePercent >= -0.5 && stock.metrics.dayChangePercent >= -0.5;
   const hasVolumeOrMomentum = stock.metrics.volumeShock >= 0.5 || stock.factorScores.momentum >= 5;
 
   return (
     inSweetSpotCmpRange &&
+    stock.eligible &&
     isPositiveOrBreakout &&
     hasVolumeOrMomentum &&
     stock.averageDailyTurnoverCr >= minimumTurnover &&
@@ -481,7 +474,14 @@ export async function readWealthRecommendationsSnapshot(): Promise<ExpertActionM
   try {
     const json = await readSnapshotFile("wealth_recommendations.json");
     if (!json) return null;
-    return JSON.parse(json) as ExpertActionMatrix;
+    const snapshot = JSON.parse(json) as ExpertActionMatrix;
+    const generatedAt = Date.parse(snapshot.asOf);
+    const age = Date.now() - generatedAt;
+    const weekday = new Intl.DateTimeFormat("en-US", { timeZone: "Asia/Kolkata", weekday: "short" }).format();
+    const maximumAge = weekday === "Sat" || weekday === "Sun" ? 96 * 60 * 60_000 : 36 * 60 * 60_000;
+    if (!Number.isFinite(age) || age < 0 || age > maximumAge) return null;
+    if (!snapshot.source || !snapshot.source.includes("Yahoo") || !Array.isArray(snapshot.categories)) return null;
+    return snapshot;
   } catch {
     return null;
   }

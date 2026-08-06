@@ -14,7 +14,7 @@ export type PaperPosition = {
   target: number;
   stopLoss: number;
   openedAt: string;
-  source: "DHAN" | "SCANNER_FALLBACK";
+  source: "DHAN";
 };
 
 export type PaperTrade = PaperPosition & {
@@ -88,7 +88,6 @@ export async function runPaperCycle(): Promise<PaperSession> {
   let quotes = new Map<string, number>();
   let dhanConnected = false;
   let lastError: string | null = null;
-  const dhanConfigured = hasDhanCredentials();
   try {
     quotes = await fetchDhanLtp(symbols);
     dhanConnected = true;
@@ -117,7 +116,7 @@ export async function runPaperCycle(): Promise<PaperSession> {
         action.outcome = "POSITION_LIMIT";
         continue;
       }
-      const entryPrice = quotes.get(signal.symbol) ?? (dhanConfigured ? null : signal.currentPrice);
+      const entryPrice = quotes.get(signal.symbol);
       if (!entryPrice || signal.target == null || signal.stopLoss == null || signal.signalBias !== "BUY") continue;
       action.outcome = "BOUGHT";
       const quantity = Math.max(1, Math.floor(MAX_POSITION_VALUE / entryPrice));
@@ -130,7 +129,7 @@ export async function runPaperCycle(): Promise<PaperSession> {
         target: entryPrice * 1.1,
         stopLoss: signal.stopLoss,
         openedAt: now.toISOString(),
-        source: quotes.has(signal.symbol) ? "DHAN" : "SCANNER_FALLBACK",
+        source: "DHAN",
         exitPrice: null,
         closedAt: null,
         status: "OPEN",
@@ -159,7 +158,7 @@ function closeTrade(trade: PaperTrade, price: number, status: "TARGET" | "STOP" 
 async function fetchDhanLtp(symbols: string[]): Promise<Map<string, number>> {
   const clientId = cleanCredential(process.env.DHAN_CLIENT_ID);
   const token = cleanCredential(process.env.DHAN_ACCESS_TOKEN);
-  if (!clientId || !token) throw new Error("Dhan credentials are not configured; fills use scanner prices.");
+  if (!clientId || !token) throw new Error("Dhan credentials are not configured; no paper fill was created.");
   if (symbols.length === 0) return new Map();
   await validateDhanProfile(token, clientId);
   const instruments = await resolveNseInstruments(symbols);

@@ -37,6 +37,10 @@ type Snapshot = {
     asOf: string;
     slot?: string;
     slotLabel?: string;
+    source?: string;
+    isLive?: boolean;
+    reason?: string | null;
+    screened?: Array<{ symbol: string; price: number; changePercent: number; volume: number; status: string; reasons: string[] }>;
     picks: StockPick[];
   };
 };
@@ -670,7 +674,7 @@ export default function HomePage() {
                   <span className="h-2.5 w-2.5 rounded-full bg-amber-400 animate-pulse" />
                   Intraday Breakout Picks
                 </h2>
-                <p className="text-xs text-slate-400 mt-0.5">Updated {intradayUpdatedLabel} • Ranked by confidence • Pre-market & Volume Shock Strategy</p>
+                <p className="text-xs text-slate-400 mt-0.5">Updated {intradayUpdatedLabel} • Live NSE gainers • ₹150–₹3,000 • Volume ≥1 lakh • VWAP/ORB/RVOL/RSI/MACD gates</p>
               </div>
               <span className="text-xs text-slate-400 font-medium bg-[#091424] px-3 py-1 rounded-lg border border-slate-800">
                 Total: <strong className="text-amber-400">{intradayPicks.length}</strong>
@@ -679,10 +683,18 @@ export default function HomePage() {
 
             {intradayPicks.length === 0 ? (
               <div className="rounded-2xl border border-slate-800 bg-[#0b1626] p-8 text-center text-slate-400">
-                No intraday breakout picks currently active.
+                {market === "india" ? snapshot?.intradayPipeline?.reason || "No live intraday breakout picks currently active." : "No live US recommendations are published."}
               </div>
             ) : (
               <SimpleSingleRowTable picks={intradayPicks} type="intraday" currencySymbol={currencySymbol} />
+            )}
+            {market === "india" && (snapshot?.intradayPipeline?.screened?.length || 0) > 0 && (
+              <div className="overflow-x-auto rounded-xl border border-slate-800 bg-[#0b1626]">
+                <div className="border-b border-slate-800 px-4 py-3 text-xs font-bold text-slate-300">Live NSE leaders screened—not recommendations</div>
+                <table className="w-full text-xs"><thead className="bg-slate-900/70 text-slate-400"><tr><th className="px-3 py-2 text-left">Symbol</th><th className="px-3 py-2 text-right">LTP</th><th className="px-3 py-2 text-right">Day</th><th className="px-3 py-2 text-right">Volume</th><th className="px-3 py-2 text-left">Decision evidence</th></tr></thead>
+                  <tbody>{snapshot!.intradayPipeline!.screened!.map((stock) => <tr key={stock.symbol} className="border-t border-slate-800"><td className="px-3 py-2 font-bold text-white">{stock.symbol}</td><td className="px-3 py-2 text-right">₹{stock.price.toLocaleString("en-IN")}</td><td className="px-3 py-2 text-right text-emerald-300">+{stock.changePercent.toFixed(2)}%</td><td className="px-3 py-2 text-right">{stock.volume.toLocaleString("en-IN")}</td><td className="px-3 py-2 text-left"><span className={stock.status === "BUY" ? "text-emerald-300" : "text-amber-300"}>{stock.status}</span>{stock.reasons.length ? ` — ${stock.reasons.join("; ")}` : " — all gates passed"}</td></tr>)}</tbody>
+                </table>
+              </div>
             )}
           </section>
         )}
@@ -759,7 +771,7 @@ export default function HomePage() {
                             <td className="px-3 py-3">{trade.closedAt ? formatUpdatedAt(trade.closedAt) : "—"}</td>
                             <td className="px-3 py-3 text-right font-mono">{trade.exitPrice == null ? "—" : `₹${trade.exitPrice.toLocaleString("en-IN", { maximumFractionDigits: 2 })}`}</td>
                             <td className="px-3 py-3 font-bold text-cyan-300">{trade.status}</td>
-                            <td className="px-3 py-3">{trade.source === "DHAN" ? "Dhan" : "Scanner fallback"}</td>
+                            <td className="px-3 py-3">Dhan live quote</td>
                             <td className={`px-3 py-3 text-right font-mono font-bold ${trade.pnl >= 0 ? "text-emerald-300" : "text-rose-300"}`}>₹{trade.pnl.toLocaleString("en-IN", { maximumFractionDigits: 2 })}</td>
                           </tr>
                         ))}

@@ -32,11 +32,11 @@ function watchlistFile(market: Market) {
 async function getWatchlistSymbols(market: Market): Promise<string[]> {
   try {
     const raw = await readSnapshotFile(watchlistFile(market));
-    if (!raw) return market === "us" ? ["AAPL", "MSFT", "NVDA"] : ["RELIANCE.NS", "TCS.NS", "INFY.NS"];
+    if (!raw) return [];
     const parsed = JSON.parse(raw) as { symbols?: string[] };
     return parsed.symbols || [];
   } catch {
-    return market === "us" ? ["AAPL", "MSFT", "NVDA"] : ["RELIANCE.NS", "TCS.NS", "INFY.NS"];
+    return [];
   }
 }
 
@@ -180,17 +180,20 @@ async function fetchWatchlistRecommendations(symbols: string[], market: Market):
         // fallback
       }
 
-      // Check if stock is in current recommendations snapshot
+      if (!(price > 0) || !(previousClose > 0)) throw new Error(`Live quote unavailable for ${cleanSymbol}`);
+
+      // A watchlist row is not itself a recommendation. Only a matching,
+      // fresh validated model pick can carry a BUY/target.
       const match = snapshotLookup.get(cleanSymbol);
 
-      let intradayAction: "BUY" | "ACCUMULATE" | "WATCH" | "HOLD" = "WATCH";
-      let intradayTarget = price > 0 ? Math.round(price * 1.03 * 10) / 10 : 0;
-      let intradayUpside = 3.0;
+      const intradayAction: "BUY" | "ACCUMULATE" | "WATCH" | "HOLD" = "WATCH";
+      const intradayTarget = 0;
+      const intradayUpside = 0;
 
-      let longTermAction: "BUY" | "ACCUMULATE" | "WATCH" | "HOLD" = "ACCUMULATE";
-      let longTermTarget = price > 0 ? Math.round(price * 1.25 * 10) / 10 : 0;
-      let longTermUpside = 25.0;
-      let notes = "Fundamental accumulation watch | Horizon: 3-6 Months";
+      let longTermAction: "BUY" | "ACCUMULATE" | "WATCH" | "HOLD" = "WATCH";
+      let longTermTarget = 0;
+      let longTermUpside = 0;
+      let notes = "Live quote only; this stock is not a current validated recommendation.";
 
       if (match) {
         if (match.target && match.target > 0) {
@@ -205,17 +208,6 @@ async function fetchWatchlistRecommendations(symbols: string[], market: Market):
         if (match.remark) {
           notes = match.remark;
         }
-      }
-
-      // Calculate intraday targets based on momentum/change
-      if (changePercent > 1.5) {
-        intradayAction = "BUY";
-        intradayTarget = Math.round(price * 1.04 * 10) / 10;
-        intradayUpside = 4.0;
-      } else if (changePercent < -1.5) {
-        intradayAction = "HOLD";
-        intradayTarget = price;
-        intradayUpside = 0;
       }
 
       const isMultibagger = longTermUpside >= 100 || (longTermTarget >= 2 * price && price > 0);

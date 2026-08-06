@@ -1,301 +1,47 @@
-import { readSnapshotFile, writeSnapshotFile } from "@/lib/snapshot-storage";
+import { runTermAgentAnalysis, type TermDuration } from "@/lib/term-agent-analysis";
+import { writeSnapshotFile } from "@/lib/snapshot-storage";
 
-export type SwingTermHorizon = "1week" | "1month" | "3months" | "6months";
-
+export type SwingTermHorizon = TermDuration;
 export type SwingPick = {
-  symbol: string;
-  name: string;
-  price: number;
-  previousClose: number;
-  changePercent: number;
-  target: number;
-  stopLoss: number;
-  upside: number;
-  score: number;
-  termHorizon: SwingTermHorizon;
-  horizonLabel: string;
-  debtToEquity: number;
-  cfoNetIncomeRatio: number;
-  roePercent: number;
-  fiiDiiHoldingChangeQoQ: number;
-  promoterPledgePercent: number;
-  relativeStrengthVsNifty: number;
-  sector: string;
-  theme: string;
-  marketCapCategory: string;
-  isMultibagger: boolean;
-  action: "BUY" | "ACCUMULATE";
-  agentRationale: string;
+  symbol: string; name: string; price: number; previousClose: number; changePercent: number; target: number;
+  stopLoss: number; upside: number; score: number; termHorizon: SwingTermHorizon; horizonLabel: string;
+  debtToEquity: null; cfoNetIncomeRatio: null; roePercent: null; fiiDiiHoldingChangeQoQ: null;
+  promoterPledgePercent: null; relativeStrengthVsNifty: null; sector: string; theme: string;
+  marketCapCategory: string; isMultibagger: boolean; action: "BUY" | "ACCUMULATE"; agentRationale: string;
 };
-
 export type SwingSnapshot = {
-  asOf: string;
-  runTimeIST: string;
-  executionSlot: string;
-  marketRegime: string;
-  evaluatedUniverseSize: number;
-  eligiblePicksCount: number;
-  picksByHorizon: Record<SwingTermHorizon, SwingPick[]>;
-  picks: SwingPick[];
+  asOf: string; sourceAsOf: string | null; source: "LIVE_TERM_SCREEN" | "UNAVAILABLE"; abstained: boolean;
+  reason: string | null; runTimeIST: string; executionSlot: string; marketRegime: string;
+  evaluatedUniverseSize: number; eligiblePicksCount: number;
+  picksByHorizon: Record<SwingTermHorizon, SwingPick[]>; picks: SwingPick[];
 };
-
 const SWING_SNAPSHOT_FILE = "swing_recommendations.json";
 
-/** Seed EOD candidates with institutional quality and fundamental verification */
-const SWING_SEED_POOL: SwingPick[] = [
-  // 1-Week Horizon
-  {
-    symbol: "SUZLON",
-    name: "Suzlon Energy Ltd",
-    price: 68.4,
-    previousClose: 66.2,
-    changePercent: 3.32,
-    target: 74.5,
-    stopLoss: 63.5,
-    upside: 8.9,
-    score: 88,
-    termHorizon: "1week",
-    horizonLabel: "1 Week (Tactical)",
-    debtToEquity: 0.12,
-    cfoNetIncomeRatio: 1.45,
-    roePercent: 28.4,
-    fiiDiiHoldingChangeQoQ: 1.8,
-    promoterPledgePercent: 0.0,
-    relativeStrengthVsNifty: 14.2,
-    sector: "Capital Goods",
-    theme: "Renewable Energy",
-    marketCapCategory: "Mid Cap",
-    isMultibagger: false,
-    action: "BUY",
-    agentRationale: "EOD EMA20 breakout with RS 14.2% over benchmark. Zero promoter pledge with positive FII accumulation.",
-  },
-  {
-    symbol: "IREDA",
-    name: "Indian Renewable Energy Dev Agency",
-    price: 212.5,
-    previousClose: 205.1,
-    changePercent: 3.6,
-    target: 228.0,
-    stopLoss: 198.0,
-    upside: 7.3,
-    score: 86,
-    termHorizon: "1week",
-    horizonLabel: "1 Week (Tactical)",
-    debtToEquity: 0.45,
-    cfoNetIncomeRatio: 1.18,
-    roePercent: 18.2,
-    fiiDiiHoldingChangeQoQ: 1.2,
-    promoterPledgePercent: 0.0,
-    relativeStrengthVsNifty: 12.8,
-    sector: "Financials",
-    theme: "Green Finance",
-    marketCapCategory: "Mid Cap",
-    isMultibagger: false,
-    action: "BUY",
-    agentRationale: "EOD consolidation breakout with D/E < 0.50 cap compliance and 1.2% QoQ institutional buildup.",
-  },
-
-  // 1-Month Horizon
-  {
-    symbol: "POLYCAB",
-    name: "Polycab India Limited",
-    price: 6850.0,
-    previousClose: 6680.0,
-    changePercent: 2.54,
-    target: 7750.0,
-    stopLoss: 6350.0,
-    upside: 13.1,
-    score: 90,
-    termHorizon: "1month",
-    horizonLabel: "1 Month (Positional)",
-    debtToEquity: 0.04,
-    cfoNetIncomeRatio: 1.32,
-    roePercent: 22.1,
-    fiiDiiHoldingChangeQoQ: 0.8,
-    promoterPledgePercent: 0.0,
-    relativeStrengthVsNifty: 18.5,
-    sector: "Capital Goods",
-    theme: "Wires & Cables",
-    marketCapCategory: "Large Cap",
-    isMultibagger: false,
-    action: "ACCUMULATE",
-    agentRationale: "Institutional quality grade: D/E 0.04, ROE 22.1%, zero pledge. EOD trend continuation target ₹7,750.",
-  },
-  {
-    symbol: "HAL",
-    name: "Hindustan Aeronautics Limited",
-    price: 4750.0,
-    previousClose: 4640.0,
-    changePercent: 2.37,
-    target: 5400.0,
-    stopLoss: 4380.0,
-    upside: 13.7,
-    score: 89,
-    termHorizon: "1month",
-    horizonLabel: "1 Month (Positional)",
-    debtToEquity: 0.00,
-    cfoNetIncomeRatio: 1.12,
-    roePercent: 25.8,
-    fiiDiiHoldingChangeQoQ: 2.1,
-    promoterPledgePercent: 0.0,
-    relativeStrengthVsNifty: 21.0,
-    sector: "Aerospace & Defense",
-    theme: "Defense Manufacturing",
-    marketCapCategory: "Large Cap",
-    isMultibagger: false,
-    action: "ACCUMULATE",
-    agentRationale: "Zero debt (D/E 0.00), CFO conversion 1.12x, FII/DII +2.1% QoQ. Positional target ₹5,400.",
-  },
-
-  // 3-Month Horizon
-  {
-    symbol: "BEL",
-    name: "Bharat Electronics Limited",
-    price: 310.0,
-    previousClose: 302.5,
-    changePercent: 2.48,
-    target: 385.0,
-    stopLoss: 285.0,
-    upside: 24.2,
-    score: 92,
-    termHorizon: "3months",
-    horizonLabel: "3 Months (Strategic)",
-    debtToEquity: 0.00,
-    cfoNetIncomeRatio: 1.25,
-    roePercent: 26.3,
-    fiiDiiHoldingChangeQoQ: 1.6,
-    promoterPledgePercent: 0.0,
-    relativeStrengthVsNifty: 24.5,
-    sector: "Defense",
-    theme: "Defense Radar & Avionics",
-    marketCapCategory: "Large Cap",
-    isMultibagger: false,
-    action: "ACCUMULATE",
-    agentRationale: "Positional 3-month target ₹385 based on quarterly revenue growth +24%, ROE 26.3%, D/E 0.00.",
-  },
-  {
-    symbol: "NAVINFLUOR",
-    name: "Navin Fluorine International",
-    price: 7522.0,
-    previousClose: 7646.5,
-    changePercent: -1.63,
-    target: 9400.0,
-    stopLoss: 6900.0,
-    upside: 25.0,
-    score: 88,
-    termHorizon: "3months",
-    horizonLabel: "3 Months (Strategic)",
-    debtToEquity: 0.32,
-    cfoNetIncomeRatio: 1.35,
-    roePercent: 16.4,
-    fiiDiiHoldingChangeQoQ: 0.9,
-    promoterPledgePercent: 0.0,
-    relativeStrengthVsNifty: 11.2,
-    sector: "Chemicals",
-    theme: "Specialty Chemicals",
-    marketCapCategory: "Mid Cap",
-    isMultibagger: false,
-    action: "ACCUMULATE",
-    agentRationale: "EOD fundamental recovery pick. TTM earnings +129%, CFO/Net Income 1.35x, D/E 0.32.",
-  },
-
-  // 6-Month Horizon (Multibagger Candidates)
-  {
-    symbol: "TATAELXSI",
-    name: "Tata Elxsi Limited",
-    price: 6950.0,
-    previousClose: 6820.0,
-    changePercent: 1.91,
-    target: 14200.0,
-    stopLoss: 6200.0,
-    upside: 104.3,
-    score: 95,
-    termHorizon: "6months",
-    horizonLabel: "6 Months (Multibagger)",
-    debtToEquity: 0.00,
-    cfoNetIncomeRatio: 1.15,
-    roePercent: 35.2,
-    fiiDiiHoldingChangeQoQ: 2.4,
-    promoterPledgePercent: 0.0,
-    relativeStrengthVsNifty: 32.0,
-    sector: "Information Technology",
-    theme: "Autonomous & ER&D",
-    marketCapCategory: "Mid Cap",
-    isMultibagger: true,
-    action: "ACCUMULATE",
-    agentRationale: "🚀 MULTIBAGGER: ROE 35.2%, D/E 0.00, zero promoter pledge with 104% upside to ₹14,200.",
-  },
-  {
-    symbol: "KALYANKJIL",
-    name: "Kalyan Jewellers India Ltd",
-    price: 540.0,
-    previousClose: 524.0,
-    changePercent: 3.05,
-    target: 1100.0,
-    stopLoss: 480.0,
-    upside: 103.7,
-    score: 94,
-    termHorizon: "6months",
-    horizonLabel: "6 Months (Multibagger)",
-    debtToEquity: 0.38,
-    cfoNetIncomeRatio: 1.08,
-    roePercent: 21.4,
-    fiiDiiHoldingChangeQoQ: 3.1,
-    promoterPledgePercent: 0.0,
-    relativeStrengthVsNifty: 38.5,
-    sector: "Consumer Discretionary",
-    theme: "Retail Expansion",
-    marketCapCategory: "Mid Cap",
-    isMultibagger: true,
-    action: "ACCUMULATE",
-    agentRationale: "🚀 MULTIBAGGER: Store footprint 2x expansion, EPS revision +14.2% driving target ₹1,100.",
-  },
-];
-
-/**
- * Runs the Swing / Positional EOD Pipeline (7:00 PM IST)
- */
 export async function runSwingPipeline(): Promise<SwingSnapshot> {
-  const byHorizon: Record<SwingTermHorizon, SwingPick[]> = {
-    "1week": [],
-    "1month": [],
-    "3months": [],
-    "6months": [],
-  };
-
-  for (const item of SWING_SEED_POOL) {
-    byHorizon[item.termHorizon].push(item);
-  }
-
+  const term = await runTermAgentAnalysis();
+  const picks = term.picks.map((item): SwingPick => ({
+    symbol: item.symbol, name: item.name, price: item.price, previousClose: item.previousClose,
+    changePercent: item.changePercent, target: item.target, stopLoss: round(item.price * .92), upside: item.upside,
+    score: item.score, termHorizon: item.termDuration, horizonLabel: item.durationLabel,
+    debtToEquity: null, cfoNetIncomeRatio: null, roePercent: null, fiiDiiHoldingChangeQoQ: null,
+    promoterPledgePercent: null, relativeStrengthVsNifty: null, sector: item.sector, theme: item.theme,
+    marketCapCategory: item.marketCapCategory, isMultibagger: item.isMultibagger, action: item.action,
+    agentRationale: item.agentRationale,
+  }));
+  const picksByHorizon: Record<SwingTermHorizon, SwingPick[]> = { "1week": [], "1month": [], "3months": [], "6months": [] };
+  for (const pick of picks) picksByHorizon[pick.termHorizon].push(pick);
   const snapshot: SwingSnapshot = {
-    asOf: new Date().toISOString(),
-    runTimeIST: "7:00 PM IST",
-    executionSlot: "Post-Market EOD Run",
-    marketRegime: "Bull Market (Risk-On)",
-    evaluatedUniverseSize: 500,
-    eligiblePicksCount: SWING_SEED_POOL.length,
-    picksByHorizon: byHorizon,
-    picks: SWING_SEED_POOL,
+    asOf: new Date().toISOString(), sourceAsOf: term.sourceAsOf, source: term.abstained ? "UNAVAILABLE" : "LIVE_TERM_SCREEN",
+    abstained: term.abstained, reason: term.reason, runTimeIST: "Latest live snapshot", executionSlot: "Validated live market run",
+    marketRegime: term.abstained ? "Unavailable" : "Live screened", evaluatedUniverseSize: term.totalPicks,
+    eligiblePicksCount: picks.length, picksByHorizon, picks,
   };
-
   await writeSnapshotFile(SWING_SNAPSHOT_FILE, JSON.stringify(snapshot, null, 2));
-
   return snapshot;
 }
 
-/**
- * Reads existing Swing EOD Snapshot from data/swing_recommendations.json
- */
 export async function readSwingRecommendations(): Promise<SwingSnapshot> {
-  try {
-    const raw = await readSnapshotFile(SWING_SNAPSHOT_FILE);
-    if (!raw) throw new Error("Swing snapshot not found");
-    const data = JSON.parse(raw) as SwingSnapshot;
-    if (data && data.picks && data.picks.length > 0) {
-      return data;
-    }
-  } catch {
-    // fallback
-  }
+  // Never serve the legacy seeded swing snapshot.
   return runSwingPipeline();
 }
+function round(value: number) { return Math.round(value * 100) / 100; }

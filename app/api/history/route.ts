@@ -65,87 +65,9 @@ function deriveTermType(category: string, segment: string, source: string, notes
 
 /** Helper to evaluate Hit/Miss status and generate Hit Time Details */
 function evaluateHitStatus(
-  dateStr: string,
-  cmp: number,
   rawTarget: number,
-  termType: string,
-  rowIndex: number,
-  changePercent: number
 ): { target: number; hitOrMiss: "HIT" | "MISS" | "IN PROGRESS"; hitTimeDetails: string } {
-  let target = rawTarget;
-  if (target <= 0 && cmp > 0) {
-    const mult = termType === "Intraday" ? 1.07 : termType === "1 Week" ? 1.10 : 1.18;
-    target = Number((cmp * mult).toFixed(1));
-  }
-
-  const recDate = new Date(dateStr);
-  const now = new Date();
-  const diffDays = Math.max(0, Math.floor((now.getTime() - recDate.getTime()) / (1000 * 60 * 60 * 24)));
-
-  // Seeded / deterministic logic for realistic backtested status
-  const hitSeed = (cmp * 10 + rowIndex * 7) % 100;
-
-  if (diffDays === 0) {
-    if (termType === "Intraday" && (changePercent >= 3.0 || hitSeed > 40)) {
-      return {
-        target,
-        hitOrMiss: "HIT",
-        hitTimeDetails: "Hit in 3.5 hrs (Slot 2, 10:45 AM IST)",
-      };
-    }
-    return {
-      target,
-      hitOrMiss: "IN PROGRESS",
-      hitTimeDetails: "Active signal (T+0 days, live market track)",
-    };
-  }
-
-  if (termType === "Intraday") {
-    if (hitSeed > 25 || changePercent > 2.0) {
-      return {
-        target,
-        hitOrMiss: "HIT",
-        hitTimeDetails: `Hit same day (${dateStr} at 1:45 PM IST)`,
-      };
-    }
-    return {
-      target,
-      hitOrMiss: "MISS",
-      hitTimeDetails: `Stop loss triggered on ${dateStr}`,
-    };
-  }
-
-  if (diffDays >= 1 && diffDays <= 7) {
-    if (hitSeed > 30) {
-      const daysToHit = Math.min(diffDays, (rowIndex % 3) + 1);
-      return {
-        target,
-        hitOrMiss: "HIT",
-        hitTimeDetails: `Hit in ${daysToHit} day${daysToHit > 1 ? "s" : ""} (T+${daysToHit})`,
-      };
-    }
-    return {
-      target,
-      hitOrMiss: "IN PROGRESS",
-      hitTimeDetails: `In Progress (T+${diffDays} days, Target ₹${target.toLocaleString("en-IN")})`,
-    };
-  }
-
-  // Older than 7 days
-  if (hitSeed > 20) {
-    const daysToHit = (rowIndex % 12) + 2;
-    return {
-      target,
-      hitOrMiss: "HIT",
-      hitTimeDetails: `Hit in ${daysToHit} days (Achieved Target ₹${target.toLocaleString("en-IN")})`,
-    };
-  }
-
-  return {
-    target,
-    hitOrMiss: "MISS",
-    hitTimeDetails: `Target missed (Expired after ${diffDays} days)`,
-  };
+  return { target: rawTarget > 0 ? rawTarget : 0, hitOrMiss: "IN PROGRESS", hitTimeDetails: "Outcome not independently verified against live historical candles." };
 }
 
 export async function GET(request: Request) {
@@ -200,7 +122,6 @@ export async function GET(request: Request) {
     const sourceIdx = header.indexOf("source");
     const segmentIdx = header.indexOf("segment");
     const cmpIdx = header.indexOf("cmp");
-    const changeIdx = header.indexOf("change_percent");
     const targetIdx = header.indexOf("target");
     const notesIdx = header.indexOf("notes");
 
@@ -231,21 +152,13 @@ export async function GET(request: Request) {
       const source = row[sourceIdx] || "";
       const segment = row[segmentIdx] || "";
       const notes = row[notesIdx] || "";
+      if (/seed|portfolio-analysis/i.test(`${source} ${notes}`)) continue;
       const stockName = row[nameIdx] || "";
       const symbol = row[symbolIdx] || "";
       const cmp = parseFloat(row[cmpIdx]) || 0;
       const rawTarget = parseFloat(row[targetIdx]) || 0;
-      const changePercent = parseFloat(row[changeIdx]) || 0;
-
       const termType = deriveTermType(category, segment, source, notes);
-      const { target, hitOrMiss, hitTimeDetails } = evaluateHitStatus(
-        dateStr,
-        cmp,
-        rawTarget,
-        termType,
-        i,
-        changePercent
-      );
+      const { target, hitOrMiss, hitTimeDetails } = evaluateHitStatus(rawTarget);
 
       rawRecords.push({
         date: dateStr,

@@ -46,9 +46,13 @@ export async function GET(request: Request) {
       asOf: snapshot.asOf,
       slot: snapshot.slot,
       slotLabel: snapshot.slotLabel,
+      source: snapshot.source,
+      isLive: snapshot.isLive,
+      reason: snapshot.reason,
       marketBreadth: snapshot.marketBreadth,
       indexTrend: snapshot.indexTrend,
       totalPicks: snapshot.picks.length,
+      screened: snapshot.screened,
       picks: snapshot.picks,
       durationMs,
     });

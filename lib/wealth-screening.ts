@@ -505,8 +505,8 @@ export function evaluateSafetyGates({
             ? 72
             : 70;
 
-  if (row.price < 20 || row.price > 2500) {
-    failures.push("Current market price is outside the ₹20–₹2,500 range limit.");
+  if (row.price < 150 || row.price > 3000) {
+    failures.push("Current market price is outside the ₹150–₹3,000 range limit.");
   }
   if (row.bars.length < 100) failures.push("Insufficient price history.");
   const rowSources = (row.stock.source ?? "")

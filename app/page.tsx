@@ -693,7 +693,7 @@ export default function HomePage() {
               <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                 <div>
                   <h2 className="text-base font-bold text-white">🔎 Automatic Market Shortlist</h2>
-                  <p className="mt-1 text-xs text-slate-400">Scans {market === "india" ? "the configured NSE cash universe" : "the liquid US momentum universe"} and returns only stocks passing every OHL rule.</p>
+                  <p className="mt-1 text-xs text-slate-400">Scans {market === "india" ? "the configured NSE cash universe" : "the liquid US momentum universe"} and returns only confirmed long-only BUY setups.</p>
                 </div>
                 <button onClick={() => fetchCandleScan(true)} disabled={loadingCandleScan} className="rounded-lg bg-cyan-500 px-5 py-2.5 text-xs font-bold text-slate-950 transition hover:bg-cyan-400 disabled:opacity-50">
                   {loadingCandleScan ? "Scanning market…" : "Run Fresh Scan"}
@@ -746,7 +746,7 @@ export default function HomePage() {
             <div className="rounded-2xl border border-emerald-500/20 bg-[#0b1626] p-4">
               <h2 className="text-base font-bold text-white flex items-center gap-2"><span>🕯️</span> Manual Ticker Validation</h2>
               <p className="mt-1 text-xs leading-relaxed text-slate-400">
-                Rolling 15-minute validation during the regular session. Requires a {currencySymbol}150–{currencySymbol}3,000 price, ≥1 lakh average daily shares, a three-candle breakout or breakdown, VWAP and EMA 9/20 alignment, ≥2× same-period volume, ≤40% combined shadows, and a signal no older than 30 minutes. Targets are +10% for BUY and −3% for SELL.
+                Long-only rolling 15-minute validation during the regular session. Requires a {currencySymbol}150–{currencySymbol}3,000 price, ≥1 lakh average daily shares, a bullish three-candle breakout, price above VWAP, EMA 9 above EMA 20, ≥2× same-period volume, ≤40% combined shadows, and a signal no older than 30 minutes. BUY target: +10%.
               </p>
               <form onSubmit={handleCandleEvaluation} className="mt-4 flex flex-col gap-2 sm:flex-row">
                 <input
@@ -767,7 +767,7 @@ export default function HomePage() {
 
             {!candleResult && !candleError && !loadingCandle && (
               <div className="rounded-xl border border-dashed border-slate-700 bg-[#08111e] p-8 text-center text-sm text-slate-400">
-                Enter a ticker after a 15-minute candle has completed. The result will be BUY, SELL, or NO TRADE with an exact trigger, target, stop-loss, failed gates, and time-risk guardrail.
+                Enter a ticker after a 15-minute candle has completed. The result will be BUY or NO TRADE with an exact trigger, target, stop-loss, failed gates, and time-risk guardrail.
               </div>
             )}
           </section>
@@ -1142,7 +1142,7 @@ function CandleShortlistTable({ results, market }: { results: CandleViewResult[]
                 <div className="max-w-[190px] truncate text-[10px] text-slate-500">{result.name}</div>
               </td>
               <td className="px-3 py-3 text-center">
-                <span className={`rounded-md border px-2.5 py-1 text-[10px] font-bold ${result.signalBias === "BUY" ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-300" : "border-rose-500/30 bg-rose-500/10 text-rose-300"}`}>{result.signalBias}</span>
+                <span className="rounded-md border border-emerald-500/30 bg-emerald-500/10 px-2.5 py-1 text-[10px] font-bold text-emerald-300">BUY</span>
               </td>
               <td className="px-3 py-3 text-right font-mono font-bold text-white">{formatPrice(result.currentPrice ?? result.close)}</td>
               <td className="px-3 py-3 text-right font-mono font-bold text-amber-300">{formatPrice(result.entryTrigger)}</td>
@@ -1163,9 +1163,7 @@ function CandleStrategyAlert({ result }: { result: CandleViewResult }) {
   const symbol = result.currency === "INR" ? "₹" : "$";
   const signalStyle = result.signalBias === "BUY"
     ? "border-emerald-500/40 bg-emerald-500/10 text-emerald-300"
-    : result.signalBias === "SELL"
-      ? "border-rose-500/40 bg-rose-500/10 text-rose-300"
-      : "border-amber-500/40 bg-amber-500/10 text-amber-300";
+    : "border-amber-500/40 bg-amber-500/10 text-amber-300";
   const price = (value: number | null) => value == null ? "—" : `${symbol}${value.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
   const checks = [
     ["Price", result.passed.price], ["Liquidity", result.passed.liquidity], ["Directional Candle", result.passed.pattern],
@@ -1198,7 +1196,7 @@ function CandleStrategyAlert({ result }: { result: CandleViewResult }) {
           <h4 className="mb-3 text-sm font-bold text-cyan-300">📊 Trade Parameters</h4>
           <div className="grid gap-3 sm:grid-cols-3">
             <MetricCard label="Entry Trigger Price" value={price(result.entryTrigger)} note="Break of 15-min high/low" />
-            <MetricCard label="Profit Target Price" value={price(result.target)} note={result.signalBias === "SELL" ? "Entry − 3% sell target" : "Entry + 10% expected day gain"} />
+            <MetricCard label="Profit Target Price" value={price(result.target)} note="Entry + 10% expected day gain" />
             <MetricCard label="Stop-Loss Price" value={price(result.stopLoss)} note="Signal-candle invalidation" />
           </div>
         </div>

@@ -35,7 +35,7 @@ export async function runCandleScanner(market: CandleMarket): Promise<CandleScan
   const results = await mapConcurrent(candidates, 16, (candidate) => scanCandidate(candidate, market));
   const evaluated = results.filter((result) => result !== undefined).length;
   const shortlisted = results
-    .filter((result): result is CandleViewResult => Boolean(result && result.signalBias !== "NO TRADE"))
+    .filter((result): result is CandleViewResult => result?.signalBias === "BUY")
     .sort((a, b) => b.volumeMultiple - a.volumeMultiple || a.wickPercent - b.wickPercent)
     .slice(0, 10);
   const snapshot: CandleScanSnapshot = {
@@ -52,7 +52,7 @@ export async function readCandleScan(market: CandleMarket): Promise<CandleScanSn
   if (!raw) return null;
   try {
     const snapshot = JSON.parse(raw) as CandleScanSnapshot;
-    return { ...snapshot, shortlisted: (snapshot.shortlisted || []).slice(0, 10) };
+    return { ...snapshot, shortlisted: (snapshot.shortlisted || []).filter((result) => result.signalBias === "BUY").slice(0, 10) };
   } catch { return null; }
 }
 

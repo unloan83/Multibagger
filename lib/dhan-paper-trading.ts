@@ -95,7 +95,7 @@ export async function runPaperCycle(): Promise<PaperSession> {
       if (session.trades.some((trade) => trade.symbol === signal.symbol && trade.openedAt.slice(0, 10) === now.toISOString().slice(0, 10))) continue;
       if (session.trades.filter((trade) => trade.status === "OPEN").length >= 5) break;
       const entryPrice = quotes.get(signal.symbol) ?? signal.currentPrice;
-      if (!entryPrice || signal.target == null || signal.stopLoss == null || signal.signalBias === "NO TRADE") continue;
+      if (!entryPrice || signal.target == null || signal.stopLoss == null || signal.signalBias !== "BUY") continue;
       const quantity = Math.max(1, Math.floor(MAX_POSITION_VALUE / entryPrice));
       session.trades.push({
         id: `${now.getTime()}-${signal.symbol}`,
@@ -103,7 +103,7 @@ export async function runPaperCycle(): Promise<PaperSession> {
         side: signal.signalBias,
         quantity,
         entryPrice,
-        target: signal.signalBias === "BUY" ? entryPrice * 1.1 : entryPrice * 0.97,
+        target: entryPrice * 1.1,
         stopLoss: signal.stopLoss,
         openedAt: now.toISOString(),
         source: quotes.has(signal.symbol) ? "DHAN" : "SCANNER_FALLBACK",

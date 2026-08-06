@@ -1,5 +1,5 @@
 export type CandleMarket = "india" | "us";
-export type CandleSignal = "BUY" | "SELL" | "NO TRADE";
+export type CandleSignal = "BUY" | "NO TRADE";
 
 export type CandleViewResult = {
   symbol: string;
@@ -49,7 +49,6 @@ const MIN_SCANNER_PRICE = 150;
 const MAX_SCANNER_PRICE = 3_000;
 const MIN_AVERAGE_DAILY_VOLUME = 100_000;
 const EXPECTED_BUY_GAIN_PERCENT = 10;
-const SELL_TARGET_PERCENT = 3;
 
 export function evaluateCandleSignal(input: {
   symbol: string;
@@ -84,28 +83,25 @@ export function evaluateCandleSignal(input: {
   const wickPercent = range > 0 ? ((range - Math.abs(first.close - first.open)) / range) * 100 : 100;
   const tolerance = 0.0051;
   const bullishCandle = first.close > first.open && Math.abs(first.open - first.low) <= tolerance;
-  const bearishCandle = first.close < first.open && Math.abs(first.open - first.high) <= tolerance;
   const sessionBars = candidates.filter((bar) => localParts(bar.timestamp, config.zone).date === firstDate && bar.timestamp <= first.timestamp);
   const previousBars = sessionBars.slice(-4, -1);
   const breakoutHigh = previousBars.length === 3 ? Math.max(...previousBars.map((bar) => bar.high)) : Number.POSITIVE_INFINITY;
-  const breakdownLow = previousBars.length === 3 ? Math.min(...previousBars.map((bar) => bar.low)) : Number.NEGATIVE_INFINITY;
   const vwap = calculateVwap(sessionBars);
   const closes = candidates.filter((bar) => bar.timestamp <= first.timestamp).map((bar) => bar.close);
   const ema9 = calculateEma(closes, 9);
   const ema20 = calculateEma(closes, 20);
   const buySetup = bullishCandle && first.close > breakoutHigh && vwap != null && first.close > vwap && ema9 != null && ema20 != null && ema9 > ema20;
-  const sellSetup = bearishCandle && first.close < breakdownLow && vwap != null && first.close < vwap && ema9 != null && ema20 != null && ema9 < ema20;
-  const direction: CandleSignal = buySetup ? "BUY" : sellSetup ? "SELL" : "NO TRADE";
+  const direction: CandleSignal = buySetup ? "BUY" : "NO TRADE";
   const freshnessMinutes = (now.getTime() / 1000 - (first.timestamp + 15 * 60)) / 60;
   const passed = {
     price: first.open >= MIN_SCANNER_PRICE && first.open <= MAX_SCANNER_PRICE,
     liquidity: averageDailyVolume >= MIN_AVERAGE_DAILY_VOLUME,
     volume: earlierSamePeriod.length >= 10 && volumeMultiple >= 2,
     wick: wickPercent <= 40,
-    pattern: bullishCandle || bearishCandle,
-    breakout: bullishCandle ? first.close > breakoutHigh : bearishCandle ? first.close < breakdownLow : false,
-    vwap: bullishCandle ? vwap != null && first.close > vwap : bearishCandle ? vwap != null && first.close < vwap : false,
-    trend: bullishCandle ? ema9 != null && ema20 != null && ema9 > ema20 : bearishCandle ? ema9 != null && ema20 != null && ema9 < ema20 : false,
+    pattern: bullishCandle,
+    breakout: bullishCandle && first.close > breakoutHigh,
+    vwap: bullishCandle && vwap != null && first.close > vwap,
+    trend: bullishCandle && ema9 != null && ema20 != null && ema9 > ema20,
     freshness: freshnessMinutes >= 0 && freshnessMinutes <= 30,
   };
   const rejectionReasons: string[] = [];
@@ -113,26 +109,22 @@ export function evaluateCandleSignal(input: {
   if (!passed.liquidity) rejectionReasons.push(`10-session average daily volume is below ${MIN_AVERAGE_DAILY_VOLUME.toLocaleString("en-IN")} shares.`);
   if (!passed.volume) rejectionReasons.push(earlierSamePeriod.length < 10 ? "Ten prior same-period candles are not available." : "First-candle volume is below 2× its 10-day same-period average.");
   if (!passed.wick) rejectionReasons.push("Combined candle shadows exceed 40% of the full candle range.");
-  if (!passed.pattern) rejectionReasons.push("The latest 15-minute candle lacks a directional Open=Low or Open=High body.");
-  if (!passed.breakout) rejectionReasons.push("The candle did not close beyond the preceding three-candle range.");
-  if (!passed.vwap) rejectionReasons.push("The candle close is not confirmed on the signal side of session VWAP.");
-  if (!passed.trend) rejectionReasons.push("EMA 9 and EMA 20 are not aligned with the signal direction.");
+  if (!passed.pattern) rejectionReasons.push("The latest 15-minute candle is not a bullish Open=Low candle.");
+  if (!passed.breakout) rejectionReasons.push("The candle did not close above the preceding three-candle range.");
+  if (!passed.vwap) rejectionReasons.push("The candle did not close above session VWAP.");
+  if (!passed.trend) rejectionReasons.push("EMA 9 is not above EMA 20.");
   if (!passed.freshness) rejectionReasons.push("The latest completed signal candle is more than 30 minutes old.");
 
   const signalBias = rejectionReasons.length === 0 ? direction : "NO TRADE";
   const atr15m = calculateAtr(sessionBars.length >= 14 ? sessionBars : input.bars15m.filter((bar) => bar.timestamp <= first.timestamp).slice(-14));
-  const entryTrigger = signalBias === "BUY" ? first.high + 0.05 : signalBias === "SELL" ? first.low - 0.05 : null;
+  const entryTrigger = signalBias === "BUY" ? first.high + 0.05 : null;
   const target = entryTrigger == null
     ? null
-    : signalBias === "BUY"
-      ? entryTrigger * (1 + EXPECTED_BUY_GAIN_PERCENT / 100)
-      : entryTrigger * (1 - SELL_TARGET_PERCENT / 100);
-  const stopLoss = signalBias === "BUY" ? first.low : signalBias === "SELL" ? first.high : null;
+    : entryTrigger * (1 + EXPECTED_BUY_GAIN_PERCENT / 100);
+  const stopLoss = signalBias === "BUY" ? first.low : null;
   const patternMatch = direction === "BUY"
     ? `15-minute breakout above VWAP with EMA 9/20 alignment and ${formatMultiple(volumeMultiple)} relative volume`
-    : direction === "SELL"
-      ? `15-minute breakdown below VWAP with EMA 9/20 alignment and ${formatMultiple(volumeMultiple)} relative volume`
-      : "No fully confirmed rolling 15-minute setup";
+    : "No fully confirmed rolling 15-minute BUY setup";
 
   return {
     symbol: input.symbol,

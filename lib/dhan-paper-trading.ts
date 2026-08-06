@@ -161,6 +161,7 @@ async function fetchDhanLtp(symbols: string[]): Promise<Map<string, number>> {
   const token = cleanCredential(process.env.DHAN_ACCESS_TOKEN);
   if (!clientId || !token) throw new Error("Dhan credentials are not configured; fills use scanner prices.");
   if (symbols.length === 0) return new Map();
+  await validateDhanProfile(token, clientId);
   const instruments = await resolveNseInstruments(symbols);
   const response = await fetch("https://api.dhan.co/v2/marketfeed/ltp", {
     method: "POST",
@@ -181,6 +182,23 @@ async function fetchDhanLtp(symbols: string[]): Promise<Map<string, number>> {
     if (typeof price === "number" && price > 0) prices.set(symbol, price);
   }
   return prices;
+}
+
+async function validateDhanProfile(token: string, configuredClientId: string) {
+  const response = await fetch("https://api.dhan.co/v2/profile", {
+    headers: { Accept: "application/json", "access-token": token },
+    cache: "no-store",
+    signal: AbortSignal.timeout(10_000),
+  });
+  if (response.status === 401) throw new Error("Dhan access token is invalid or expired. Generate the 24-hour Access Token—not an API key, secret, or token ID—and redeploy.");
+  if (!response.ok) throw new Error(`Dhan profile validation returned ${response.status}.`);
+  const profile = await response.json() as { dhanClientId?: string; dataPlan?: string; tokenValidity?: string };
+  if (profile.dhanClientId && profile.dhanClientId.trim() !== configuredClientId) {
+    throw new Error("DHAN_CLIENT_ID does not match the account that issued DHAN_ACCESS_TOKEN. Copy dhanClientId from the token/profile response.");
+  }
+  if (profile.dataPlan && profile.dataPlan.toLowerCase() !== "active") {
+    throw new Error(`Dhan token is valid, but the Data API plan is ${profile.dataPlan}. Activate Dhan Data APIs to use live Market Quote prices.`);
+  }
 }
 
 async function resolveNseInstruments(symbols: string[]): Promise<Map<string, string>> {

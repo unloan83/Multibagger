@@ -682,7 +682,7 @@ export default function HomePage() {
             <div className="rounded-2xl border border-emerald-500/20 bg-[#0b1626] p-4">
               <h2 className="text-base font-bold text-white flex items-center gap-2"><span>🕯️</span> Manual Ticker Validation</h2>
               <p className="mt-1 text-xs leading-relaxed text-slate-400">
-                Strict {market === "india" ? "NSE 9:15–9:30 AM IST" : "US 9:30–9:45 AM ET"} first-candle validation. Requires a {currencySymbol}50–{currencySymbol}500 price, &gt;1M average daily shares, Open=Low or Open=High, ≥2× same-period volume, and ≤40% combined shadows.
+                Strict {market === "india" ? "NSE 9:15–9:30 AM IST" : "US 9:30–9:45 AM ET"} first-candle validation. Requires a {currencySymbol}150–{currencySymbol}3,000 price, ≥1 lakh average daily shares, Open=Low or Open=High, ≥2× same-period volume, and ≤40% combined shadows. Targets are +10% for BUY and −3% for SELL.
               </p>
               <form onSubmit={handleCandleEvaluation} className="mt-4 flex flex-col gap-2 sm:flex-row">
                 <input
@@ -1133,7 +1133,7 @@ function CandleStrategyAlert({ result }: { result: CandleViewResult }) {
           <h4 className="mb-3 text-sm font-bold text-cyan-300">📊 Trade Parameters</h4>
           <div className="grid gap-3 sm:grid-cols-3">
             <MetricCard label="Entry Trigger Price" value={price(result.entryTrigger)} note="Break of 15-min high/low" />
-            <MetricCard label="Profit Target Price" value={price(result.target)} note={`Entry ± 1× ATR (${price(result.atr15m)})`} />
+            <MetricCard label="Profit Target Price" value={price(result.target)} note={result.signalBias === "SELL" ? "Entry − 3% sell target" : "Entry + 10% expected day gain"} />
             <MetricCard label="Stop-Loss Price" value={price(result.stopLoss)} note="Opening-candle invalidation" />
           </div>
         </div>

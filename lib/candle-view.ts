@@ -38,6 +38,12 @@ export type CandleViewResult = {
 
 export type CandleBar = { timestamp: number; open: number; high: number; low: number; close: number; volume: number };
 
+const MIN_SCANNER_PRICE = 150;
+const MAX_SCANNER_PRICE = 3_000;
+const MIN_AVERAGE_DAILY_VOLUME = 100_000;
+const EXPECTED_BUY_GAIN_PERCENT = 10;
+const SELL_TARGET_PERCENT = 3;
+
 export function evaluateOpeningCandle(input: {
   symbol: string;
   name?: string;
@@ -68,15 +74,15 @@ export function evaluateOpeningCandle(input: {
   const openHigh = Math.abs(first.open - first.high) <= tolerance;
   const direction: CandleSignal = openLow && !openHigh ? "BUY" : openHigh && !openLow ? "SELL" : "NO TRADE";
   const passed = {
-    price: first.open > 50 && first.open < 500,
-    liquidity: averageDailyVolume > 1_000_000,
+    price: first.open >= MIN_SCANNER_PRICE && first.open <= MAX_SCANNER_PRICE,
+    liquidity: averageDailyVolume >= MIN_AVERAGE_DAILY_VOLUME,
     volume: earlierSamePeriod.length >= 10 && volumeMultiple >= 2,
     wick: wickPercent <= 40,
     pattern: direction !== "NO TRADE",
   };
   const rejectionReasons: string[] = [];
-  if (!passed.price) rejectionReasons.push(`Opening price must be strictly between ${config.currency === "INR" ? "₹" : "$"}50 and ${config.currency === "INR" ? "₹" : "$"}500.`);
-  if (!passed.liquidity) rejectionReasons.push("10-session average daily volume does not exceed 1,000,000 shares.");
+  if (!passed.price) rejectionReasons.push(`Opening price must be between ${config.currency === "INR" ? "₹" : "$"}${MIN_SCANNER_PRICE.toLocaleString("en-IN")} and ${config.currency === "INR" ? "₹" : "$"}${MAX_SCANNER_PRICE.toLocaleString("en-IN")}, inclusive.`);
+  if (!passed.liquidity) rejectionReasons.push(`10-session average daily volume is below ${MIN_AVERAGE_DAILY_VOLUME.toLocaleString("en-IN")} shares.`);
   if (!passed.volume) rejectionReasons.push(earlierSamePeriod.length < 10 ? "Ten prior same-period candles are not available." : "First-candle volume is below 2× its 10-day same-period average.");
   if (!passed.wick) rejectionReasons.push("Combined candle shadows exceed 40% of the full candle range.");
   if (!passed.pattern) rejectionReasons.push("The opening candle is neither Open=Low nor Open=High.");
@@ -85,7 +91,11 @@ export function evaluateOpeningCandle(input: {
   const sessionBars = input.bars15m.filter((bar) => localParts(bar.timestamp, config.zone).date === firstDate && bar.timestamp <= first.timestamp);
   const atr15m = calculateAtr(sessionBars.length >= 14 ? sessionBars : input.bars15m.filter((bar) => bar.timestamp <= first.timestamp).slice(-14));
   const entryTrigger = signalBias === "BUY" ? first.high + 0.05 : signalBias === "SELL" ? first.low - 0.05 : null;
-  const target = entryTrigger == null || atr15m == null ? null : signalBias === "BUY" ? entryTrigger + atr15m : entryTrigger - atr15m;
+  const target = entryTrigger == null
+    ? null
+    : signalBias === "BUY"
+      ? entryTrigger * (1 + EXPECTED_BUY_GAIN_PERCENT / 100)
+      : entryTrigger * (1 - SELL_TARGET_PERCENT / 100);
   const stopLoss = signalBias === "BUY" ? first.low : signalBias === "SELL" ? first.high : null;
   const patternMatch = direction === "BUY"
     ? `Open=Low confirmed with ${formatMultiple(volumeMultiple)} volume spike`

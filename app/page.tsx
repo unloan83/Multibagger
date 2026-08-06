@@ -73,6 +73,7 @@ type HistoryRecord = {
 
 type Market = "india" | "us";
 type PaperSession = {
+  paperModelVersion: "free-quotes-v1";
   mode: "PAPER_ONLY";
   startedAt: string;
   endsAt: string;

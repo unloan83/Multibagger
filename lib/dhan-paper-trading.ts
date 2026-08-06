@@ -6,6 +6,7 @@ const SESSION_DAYS = 7;
 const INITIAL_CAPITAL = 100_000;
 const MAX_POSITION_VALUE = 10_000;
 const MAX_QUOTE_AGE_MS = 20 * 60_000;
+const PAPER_MODEL_VERSION = "free-quotes-v1";
 
 export type PaperQuoteSource = "YAHOO_INTRADAY_FREE" | "DHAN";
 export type PaperPosition = {
@@ -22,7 +23,7 @@ export type PaperShortlistAction = {
 };
 export type PaperCycle = { runAt: string; quoteProvider: "YAHOO_INTRADAY_FREE"; actions: PaperShortlistAction[] };
 export type PaperSession = {
-  mode: "PAPER_ONLY"; startedAt: string; endsAt: string; updatedAt: string; status: "ACTIVE" | "COMPLETED";
+  paperModelVersion: "free-quotes-v1"; mode: "PAPER_ONLY"; startedAt: string; endsAt: string; updatedAt: string; status: "ACTIVE" | "COMPLETED";
   initialCapital: number; realizedPnl: number; quoteProvider: "YAHOO_INTRADAY_FREE"; quoteFeedLive: boolean;
   lastError: string | null; trades: PaperTrade[]; cycles: PaperCycle[];
 };
@@ -31,18 +32,21 @@ type LiveQuote = { price: number; asOf: string; source: "YAHOO_INTRADAY_FREE" };
 export async function getPaperSession(): Promise<PaperSession | null> {
   const raw = await readSnapshotFile(STATE_FILE);
   if (!raw) return null;
-  try { return normalizeSession(JSON.parse(raw) as Partial<PaperSession> & { trades?: PaperTrade[] }); } catch { return null; }
+  try {
+    const parsed = JSON.parse(raw) as Partial<PaperSession> & { trades?: PaperTrade[] };
+    if (parsed.paperModelVersion !== PAPER_MODEL_VERSION) {
+      const migrated = newSession(new Date());
+      await save(migrated);
+      return migrated;
+    }
+    return normalizeSession(parsed);
+  } catch { return null; }
 }
 
 export async function startPaperSession(): Promise<PaperSession> {
   const existing = await getPaperSession();
   if (existing?.status === "ACTIVE") return existing;
-  const startedAt = new Date();
-  const session: PaperSession = {
-    mode: "PAPER_ONLY", startedAt: startedAt.toISOString(), endsAt: new Date(startedAt.getTime() + SESSION_DAYS * 86_400_000).toISOString(),
-    updatedAt: startedAt.toISOString(), status: "ACTIVE", initialCapital: INITIAL_CAPITAL, realizedPnl: 0,
-    quoteProvider: "YAHOO_INTRADAY_FREE", quoteFeedLive: false, lastError: null, trades: [], cycles: [],
-  };
+  const session = newSession(new Date());
   await save(session);
   return session;
 }
@@ -130,6 +134,12 @@ function normalizeSession(value: Partial<PaperSession> & { trades?: PaperTrade[]
   session.trades = (session.trades || []).map((trade) => ({ ...trade, openedQuoteAt: trade.openedQuoteAt || trade.openedAt, closedQuoteAt: trade.closedQuoteAt || trade.closedAt || null }));
   if (session.status === "ACTIVE" && now.getTime() >= Date.parse(session.endsAt)) session.status = "COMPLETED";
   return session;
+}
+function newSession(startedAt: Date): PaperSession {
+  return { paperModelVersion: PAPER_MODEL_VERSION, mode: "PAPER_ONLY", startedAt: startedAt.toISOString(),
+    endsAt: new Date(startedAt.getTime() + SESSION_DAYS * 86_400_000).toISOString(), updatedAt: startedAt.toISOString(), status: "ACTIVE",
+    initialCapital: INITIAL_CAPITAL, realizedPnl: 0, quoteProvider: "YAHOO_INTRADAY_FREE", quoteFeedLive: false,
+    lastError: null, trades: [], cycles: [] };
 }
 function indiaDate(value: string) { return new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Kolkata", year: "numeric", month: "2-digit", day: "2-digit" }).format(new Date(value)); }
 async function save(session: PaperSession) { await writeSnapshotFile(STATE_FILE, JSON.stringify(session, null, 2)); }

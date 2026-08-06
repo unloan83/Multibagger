@@ -6,11 +6,15 @@
     },
     {
       "path": "/api/snapshots/candle-view?market=india",
-      "schedule": "3,18,33,48 4-9 * * 1-5"
+      "schedule": "3 5 * * 1-5"
     },
     {
       "path": "/api/snapshots/candle-view?market=us",
-      "schedule": "3,18,33,48 13-20 * * 1-5"
+      "schedule": "33 14 * * 1-5"
+    },
+    {
+      "path": "/api/snapshots/candle-view?market=us",
+      "schedule": "33 15 * * 1-5"
     },
     {
       "path": "/api/snapshots/intraday?slot=10:45",

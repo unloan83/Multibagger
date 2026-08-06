@@ -85,7 +85,7 @@ type PaperSession = {
   quoteFeedLive: boolean;
   lastError: string | null;
   trades: Array<{ id: string; symbol: string; side: "BUY" | "SELL"; quantity: number; entryPrice: number; exitPrice: number | null; openedAt: string; closedAt: string | null; status: string; pnl: number; source: string }>;
-  cycles: Array<{ runAt: string; actions: Array<{ symbol: string; signalPrice: number; outcome: string }> }>;
+  cycles: Array<{ runAt: string; universeSize: number; evaluated: number; unavailable: number; qualified: number; outcome: "TRADES_OPENED" | "NO_TRADE"; actions: Array<{ symbol: string; signalPrice: number; outcome: string }> }>;
 };
 type UsMarketData = {
   asOf: string;
@@ -781,14 +781,23 @@ export default function HomePage() {
                     </table>
                   </div>
                 )}
-                {paperSession && (paperSession.cycles?.at(-1)?.actions.length || 0) > 0 && (
-                  <div className="mt-4">
-                    <p className="mb-2 text-xs font-bold text-violet-300">Latest shortlist cycle • {formatUpdatedAt(paperSession.cycles.at(-1)!.runAt)}</p>
-                    <div className="flex flex-wrap gap-2">
-                      {paperSession.cycles.at(-1)!.actions.map((action) => <span key={action.symbol} className="rounded-md border border-slate-700 bg-slate-900/60 px-2.5 py-1 text-[10px] text-slate-300">{action.symbol} • {action.outcome.replaceAll("_", " ")}</span>)}
+                {paperSession && paperSession.cycles.length > 0 && (() => {
+                  const cycle = paperSession.cycles.at(-1)!;
+                  return <div className="mt-4 rounded-xl border border-slate-800 bg-[#08111e] p-4">
+                    <div className="flex flex-wrap items-center justify-between gap-2">
+                      <p className="text-xs font-bold text-violet-300">Latest paper cycle • {formatUpdatedAt(cycle.runAt)}</p>
+                      <span className={`rounded-full px-2.5 py-1 text-[10px] font-bold ${cycle.outcome === "TRADES_OPENED" ? "bg-emerald-500/15 text-emerald-300" : "bg-amber-500/15 text-amber-300"}`}>{cycle.outcome.replaceAll("_", " ")}</span>
                     </div>
-                  </div>
-                )}
+                    <div className="mt-3 grid grid-cols-2 gap-2 text-[11px] sm:grid-cols-4">
+                      <span className="rounded-md bg-slate-900/70 p-2">Live universe <strong className="float-right text-white">{cycle.universeSize}</strong></span>
+                      <span className="rounded-md bg-slate-900/70 p-2">Evaluated <strong className="float-right text-white">{cycle.evaluated}</strong></span>
+                      <span className="rounded-md bg-slate-900/70 p-2">Unavailable <strong className="float-right text-white">{cycle.unavailable}</strong></span>
+                      <span className="rounded-md bg-slate-900/70 p-2">Qualified <strong className="float-right text-white">{cycle.qualified}</strong></span>
+                    </div>
+                    {cycle.actions.length > 0 ? <div className="mt-3 flex flex-wrap gap-2">{cycle.actions.map((action) => <span key={action.symbol} className="rounded-md border border-slate-700 bg-slate-900/60 px-2.5 py-1 text-[10px] text-slate-300">{action.symbol} • {action.outcome.replaceAll("_", " ")}</span>)}</div>
+                      : <p className="mt-3 text-xs text-amber-200">NO TRADE — the live NSE candidates were evaluated, but none passed every candle, liquidity, volume and freshness gate.</p>}
+                  </div>;
+                })()}
               </div>
             )}
 

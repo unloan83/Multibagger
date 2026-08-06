@@ -21,7 +21,10 @@ export type PaperShortlistAction = {
   symbol: string; signalPrice: number;
   outcome: "BOUGHT" | "ALREADY_TRADED" | "POSITION_LIMIT" | "STALE_QUOTE" | "RISK_INVALID";
 };
-export type PaperCycle = { runAt: string; quoteProvider: "YAHOO_INTRADAY_FREE"; actions: PaperShortlistAction[] };
+export type PaperCycle = {
+  runAt: string; quoteProvider: "YAHOO_INTRADAY_FREE"; universeSize: number; evaluated: number;
+  unavailable: number; qualified: number; outcome: "TRADES_OPENED" | "NO_TRADE"; actions: PaperShortlistAction[];
+};
 export type PaperSession = {
   paperModelVersion: "free-quotes-v1"; mode: "PAPER_ONLY"; startedAt: string; endsAt: string; updatedAt: string; status: "ACTIVE" | "COMPLETED";
   initialCapital: number; realizedPnl: number; quoteProvider: "YAHOO_INTRADAY_FREE"; quoteFeedLive: boolean;
@@ -69,7 +72,8 @@ export async function runPaperCycle(): Promise<PaperSession> {
   }
 
   if (!expired) {
-    const cycle: PaperCycle = { runAt: now.toISOString(), quoteProvider: "YAHOO_INTRADAY_FREE", actions: [] };
+    const cycle: PaperCycle = { runAt: now.toISOString(), quoteProvider: "YAHOO_INTRADAY_FREE", universeSize: scan.universeSize,
+      evaluated: scan.evaluated, unavailable: scan.unavailable, qualified: scan.shortlisted.length, outcome: "NO_TRADE", actions: [] };
     for (const signal of scan.shortlisted) {
       const action: PaperShortlistAction = { symbol: signal.symbol, signalPrice: signal.currentPrice, outcome: "STALE_QUOTE" };
       cycle.actions.push(action);
@@ -86,12 +90,13 @@ export async function runPaperCycle(): Promise<PaperSession> {
         source: quote.source, exitPrice: null, closedAt: null, closedQuoteAt: null, status: "OPEN", pnl: 0,
       });
     }
+    if (cycle.actions.some((action) => action.outcome === "BOUGHT")) cycle.outcome = "TRADES_OPENED";
     session.cycles = [...session.cycles, cycle].slice(-50);
   }
 
   session.realizedPnl = round(session.trades.reduce((sum, trade) => sum + trade.pnl, 0));
   session.status = expired ? "COMPLETED" : "ACTIVE"; session.updatedAt = now.toISOString();
-  session.quoteProvider = "YAHOO_INTRADAY_FREE"; session.quoteFeedLive = symbols.length === 0 || quotes.size > 0;
+  session.quoteProvider = "YAHOO_INTRADAY_FREE"; session.quoteFeedLive = scan.evaluated > 0 && (symbols.length === 0 || quotes.size > 0);
   session.lastError = unavailable.length ? `No fresh free-market quote for: ${unavailable.join(", ")}. No fill was created for those symbols.` : null;
   await save(session);
   return session;
@@ -146,8 +151,12 @@ function closeTrade(trade: PaperTrade, quote: LiveQuote, status: "TARGET" | "STO
 function normalizeSession(value: Partial<PaperSession> & { trades?: PaperTrade[] }): PaperSession {
   const now = new Date();
   const session = value as PaperSession;
-  session.mode = "PAPER_ONLY"; session.quoteProvider = "YAHOO_INTRADAY_FREE"; session.quoteFeedLive = false; session.lastError = null;
-  session.cycles = (session.cycles || []).map((cycle) => ({ ...cycle, quoteProvider: "YAHOO_INTRADAY_FREE" }));
+  session.mode = "PAPER_ONLY"; session.quoteProvider = "YAHOO_INTRADAY_FREE";
+  session.quoteFeedLive = typeof value.quoteFeedLive === "boolean" ? value.quoteFeedLive : false;
+  session.lastError = value.lastError || null;
+  session.cycles = (session.cycles || []).map((cycle) => ({ ...cycle, quoteProvider: "YAHOO_INTRADAY_FREE",
+    universeSize: cycle.universeSize ?? 0, evaluated: cycle.evaluated ?? 0, unavailable: cycle.unavailable ?? 0,
+    qualified: cycle.qualified ?? cycle.actions.length, outcome: cycle.outcome ?? (cycle.actions.some((action) => action.outcome === "BOUGHT") ? "TRADES_OPENED" : "NO_TRADE") }));
   session.trades = (session.trades || []).map((trade) => ({ ...trade, openedQuoteAt: trade.openedQuoteAt || trade.openedAt, closedQuoteAt: trade.closedQuoteAt || trade.closedAt || null }));
   if (session.status === "ACTIVE" && now.getTime() >= Date.parse(session.endsAt)) session.status = "COMPLETED";
   return session;

@@ -5,55 +5,33 @@ const STATE_FILE = "dhan_paper_session.json";
 const SESSION_DAYS = 7;
 const INITIAL_CAPITAL = 100_000;
 const MAX_POSITION_VALUE = 10_000;
+const MAX_QUOTE_AGE_MS = 20 * 60_000;
 
+export type PaperQuoteSource = "YAHOO_INTRADAY_FREE" | "DHAN";
 export type PaperPosition = {
-  symbol: string;
-  side: "BUY" | "SELL";
-  quantity: number;
-  entryPrice: number;
-  target: number;
-  stopLoss: number;
-  openedAt: string;
-  source: "DHAN";
+  symbol: string; side: "BUY"; quantity: number; entryPrice: number; target: number; stopLoss: number;
+  openedAt: string; openedQuoteAt: string; source: PaperQuoteSource;
 };
-
 export type PaperTrade = PaperPosition & {
-  id: string;
-  exitPrice: number | null;
-  closedAt: string | null;
-  status: "OPEN" | "TARGET" | "STOP" | "SESSION_END";
-  pnl: number;
+  id: string; exitPrice: number | null; closedAt: string | null; closedQuoteAt: string | null;
+  status: "OPEN" | "TARGET" | "STOP" | "SESSION_END"; pnl: number;
 };
-
 export type PaperShortlistAction = {
-  symbol: string;
-  signalPrice: number;
-  outcome: "BOUGHT" | "ALREADY_TRADED" | "POSITION_LIMIT" | "INVALID_PRICE";
+  symbol: string; signalPrice: number;
+  outcome: "BOUGHT" | "ALREADY_TRADED" | "POSITION_LIMIT" | "STALE_QUOTE" | "RISK_INVALID";
 };
-
-export type PaperCycle = {
-  runAt: string;
-  actions: PaperShortlistAction[];
-};
-
+export type PaperCycle = { runAt: string; quoteProvider: "YAHOO_INTRADAY_FREE"; actions: PaperShortlistAction[] };
 export type PaperSession = {
-  mode: "PAPER_ONLY";
-  startedAt: string;
-  endsAt: string;
-  updatedAt: string;
-  status: "ACTIVE" | "COMPLETED";
-  initialCapital: number;
-  realizedPnl: number;
-  dhanConnected: boolean;
-  lastError: string | null;
-  trades: PaperTrade[];
-  cycles: PaperCycle[];
+  mode: "PAPER_ONLY"; startedAt: string; endsAt: string; updatedAt: string; status: "ACTIVE" | "COMPLETED";
+  initialCapital: number; realizedPnl: number; quoteProvider: "YAHOO_INTRADAY_FREE"; quoteFeedLive: boolean;
+  lastError: string | null; trades: PaperTrade[]; cycles: PaperCycle[];
 };
+type LiveQuote = { price: number; asOf: string; source: "YAHOO_INTRADAY_FREE" };
 
 export async function getPaperSession(): Promise<PaperSession | null> {
   const raw = await readSnapshotFile(STATE_FILE);
   if (!raw) return null;
-  try { return normalizeSession(JSON.parse(raw) as PaperSession); } catch { return null; }
+  try { return normalizeSession(JSON.parse(raw) as Partial<PaperSession> & { trades?: PaperTrade[] }); } catch { return null; }
 }
 
 export async function startPaperSession(): Promise<PaperSession> {
@@ -61,17 +39,9 @@ export async function startPaperSession(): Promise<PaperSession> {
   if (existing?.status === "ACTIVE") return existing;
   const startedAt = new Date();
   const session: PaperSession = {
-    mode: "PAPER_ONLY",
-    startedAt: startedAt.toISOString(),
-    endsAt: new Date(startedAt.getTime() + SESSION_DAYS * 24 * 60 * 60 * 1000).toISOString(),
-    updatedAt: startedAt.toISOString(),
-    status: "ACTIVE",
-    initialCapital: INITIAL_CAPITAL,
-    realizedPnl: 0,
-    dhanConnected: false,
-    lastError: null,
-    trades: [],
-    cycles: [],
+    mode: "PAPER_ONLY", startedAt: startedAt.toISOString(), endsAt: new Date(startedAt.getTime() + SESSION_DAYS * 86_400_000).toISOString(),
+    updatedAt: startedAt.toISOString(), status: "ACTIVE", initialCapital: INITIAL_CAPITAL, realizedPnl: 0,
+    quoteProvider: "YAHOO_INTRADAY_FREE", quoteFeedLive: false, lastError: null, trades: [], cycles: [],
   };
   await save(session);
   return session;
@@ -80,185 +50,87 @@ export async function startPaperSession(): Promise<PaperSession> {
 export async function runPaperCycle(): Promise<PaperSession> {
   const session = await getPaperSession();
   if (!session) throw new Error("Start the seven-day paper session first.");
-  const now = new Date();
-  const expired = now >= new Date(session.endsAt);
+  const now = new Date(); const expired = now >= new Date(session.endsAt);
   const open = session.trades.filter((trade) => trade.status === "OPEN");
   const scan = await runCandleScanner("india");
   const symbols = [...new Set([...open.map((trade) => trade.symbol), ...scan.shortlisted.map((result) => result.symbol)])];
-  let quotes = new Map<string, number>();
-  let dhanConnected = false;
-  let lastError: string | null = null;
-  try {
-    quotes = await fetchDhanLtp(symbols);
-    dhanConnected = true;
-  } catch (error) {
-    lastError = error instanceof Error ? error.message : "Dhan quote lookup failed.";
-  }
+  const { quotes, unavailable } = await fetchFreeLiveQuotes(symbols, now);
 
   for (const trade of open) {
-    const price = quotes.get(trade.symbol);
-    if (price == null) continue;
-    const targetHit = trade.side === "BUY" ? price >= trade.target : price <= trade.target;
-    const stopHit = trade.side === "BUY" ? price <= trade.stopLoss : price >= trade.stopLoss;
-    if (targetHit || stopHit || expired) closeTrade(trade, price, targetHit ? "TARGET" : stopHit ? "STOP" : "SESSION_END", now);
+    const quote = quotes.get(trade.symbol);
+    if (!quote) continue;
+    const targetHit = quote.price >= trade.target; const stopHit = quote.price <= trade.stopLoss;
+    if (targetHit || stopHit || expired) closeTrade(trade, quote, targetHit ? "TARGET" : stopHit ? "STOP" : "SESSION_END", now);
   }
 
   if (!expired) {
-    const cycle: PaperCycle = { runAt: now.toISOString(), actions: [] };
+    const cycle: PaperCycle = { runAt: now.toISOString(), quoteProvider: "YAHOO_INTRADAY_FREE", actions: [] };
     for (const signal of scan.shortlisted) {
-      const action: PaperShortlistAction = { symbol: signal.symbol, signalPrice: signal.currentPrice, outcome: "INVALID_PRICE" };
+      const action: PaperShortlistAction = { symbol: signal.symbol, signalPrice: signal.currentPrice, outcome: "STALE_QUOTE" };
       cycle.actions.push(action);
-      if (session.trades.some((trade) => trade.symbol === signal.symbol && trade.openedAt.slice(0, 10) === now.toISOString().slice(0, 10))) {
-        action.outcome = "ALREADY_TRADED";
-        continue;
-      }
-      if (session.trades.filter((trade) => trade.status === "OPEN").length >= 5) {
-        action.outcome = "POSITION_LIMIT";
-        continue;
-      }
-      const entryPrice = quotes.get(signal.symbol);
-      if (!entryPrice || signal.target == null || signal.stopLoss == null || signal.signalBias !== "BUY") continue;
+      if (session.trades.some((trade) => trade.symbol === signal.symbol && indiaDate(trade.openedAt) === indiaDate(now.toISOString()))) { action.outcome = "ALREADY_TRADED"; continue; }
+      if (session.trades.filter((trade) => trade.status === "OPEN").length >= 5) { action.outcome = "POSITION_LIMIT"; continue; }
+      const quote = quotes.get(signal.symbol);
+      if (!quote || signal.stopLoss == null || signal.signalBias !== "BUY") continue;
+      if (!(signal.stopLoss < quote.price)) { action.outcome = "RISK_INVALID"; continue; }
       action.outcome = "BOUGHT";
-      const quantity = Math.max(1, Math.floor(MAX_POSITION_VALUE / entryPrice));
+      const quantity = Math.max(1, Math.floor(MAX_POSITION_VALUE / quote.price));
       session.trades.push({
-        id: `${now.getTime()}-${signal.symbol}`,
-        symbol: signal.symbol,
-        side: signal.signalBias,
-        quantity,
-        entryPrice,
-        target: entryPrice * 1.03,
-        stopLoss: signal.stopLoss,
-        openedAt: now.toISOString(),
-        source: "DHAN",
-        exitPrice: null,
-        closedAt: null,
-        status: "OPEN",
-        pnl: 0,
+        id: `${now.getTime()}-${signal.symbol}`, symbol: signal.symbol, side: "BUY", quantity, entryPrice: quote.price,
+        target: round(quote.price * 1.03), stopLoss: signal.stopLoss, openedAt: now.toISOString(), openedQuoteAt: quote.asOf,
+        source: quote.source, exitPrice: null, closedAt: null, closedQuoteAt: null, status: "OPEN", pnl: 0,
       });
     }
     session.cycles = [...session.cycles, cycle].slice(-50);
   }
 
   session.realizedPnl = round(session.trades.reduce((sum, trade) => sum + trade.pnl, 0));
-  session.status = expired ? "COMPLETED" : "ACTIVE";
-  session.updatedAt = now.toISOString();
-  session.dhanConnected = dhanConnected;
-  session.lastError = lastError;
+  session.status = expired ? "COMPLETED" : "ACTIVE"; session.updatedAt = now.toISOString();
+  session.quoteProvider = "YAHOO_INTRADAY_FREE"; session.quoteFeedLive = symbols.length === 0 || quotes.size > 0;
+  session.lastError = unavailable.length ? `No fresh free-market quote for: ${unavailable.join(", ")}. No fill was created for those symbols.` : null;
   await save(session);
   return session;
 }
 
-function closeTrade(trade: PaperTrade, price: number, status: "TARGET" | "STOP" | "SESSION_END", now: Date) {
-  trade.exitPrice = price;
-  trade.closedAt = now.toISOString();
-  trade.status = status;
-  trade.pnl = round((trade.side === "BUY" ? price - trade.entryPrice : trade.entryPrice - price) * trade.quantity);
+async function fetchFreeLiveQuotes(symbols: string[], now: Date): Promise<{ quotes: Map<string, LiveQuote>; unavailable: string[] }> {
+  const results = await Promise.all(symbols.map(async (symbol) => {
+    try { return [symbol, await fetchYahooIntradayQuote(symbol, now)] as const; } catch { return [symbol, null] as const; }
+  }));
+  const quotes = new Map<string, LiveQuote>(); const unavailable: string[] = [];
+  for (const [symbol, quote] of results) { if (quote) quotes.set(symbol, quote); else unavailable.push(symbol); }
+  return { quotes, unavailable };
 }
 
-async function fetchDhanLtp(symbols: string[]): Promise<Map<string, number>> {
-  const clientId = cleanCredential(process.env.DHAN_CLIENT_ID);
-  const token = cleanCredential(process.env.DHAN_ACCESS_TOKEN);
-  if (!clientId || !token) throw new Error("Dhan credentials are not configured; no paper fill was created.");
-  if (symbols.length === 0) return new Map();
-  await validateDhanProfile(token, clientId);
-  const instruments = await resolveNseInstruments(symbols);
-  const response = await fetch("https://api.dhan.co/v2/marketfeed/ltp", {
-    method: "POST",
-    headers: { "Content-Type": "application/json", Accept: "application/json", "access-token": token, "client-id": clientId },
-    body: JSON.stringify({ NSE_EQ: [...instruments.values()].map(Number) }),
-    cache: "no-store",
-    signal: AbortSignal.timeout(10_000),
+async function fetchYahooIntradayQuote(symbol: string, now: Date): Promise<LiveQuote> {
+  const ticker = symbol.endsWith(".NS") ? symbol : `${symbol}.NS`;
+  const response = await fetch(`https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(ticker)}?range=1d&interval=1m&includePrePost=false`, {
+    headers: { "User-Agent": "Mozilla/5.0" }, cache: "no-store", signal: AbortSignal.timeout(10_000),
   });
-  if (!response.ok) {
-    if (response.status === 401) throw new Error("Dhan authentication failed (401). Generate a fresh Access Token in Dhan Web and confirm DHAN_CLIENT_ID belongs to the same account, then redeploy.");
-    const error = await response.json().catch(() => null) as { errorMessage?: string } | null;
-    throw new Error(error?.errorMessage || `Dhan quote API returned ${response.status}.`);
-  }
-  const payload = await response.json() as { data?: { NSE_EQ?: Record<string, { last_price?: number }> }; status?: string };
-  const prices = new Map<string, number>();
-  for (const [symbol, securityId] of instruments) {
-    const price = payload.data?.NSE_EQ?.[securityId]?.last_price;
-    if (typeof price === "number" && price > 0) prices.set(symbol, price);
-  }
-  return prices;
+  if (!response.ok) throw new Error(`Quote returned ${response.status}`);
+  const payload = await response.json() as { chart?: { result?: Array<{ timestamp?: number[]; indicators?: { quote?: Array<{ close?: Array<number | null> }> } }> } };
+  const result = payload.chart?.result?.[0]; const timestamps = result?.timestamp || []; const closes = result?.indicators?.quote?.[0]?.close || [];
+  let index = Math.min(timestamps.length, closes.length) - 1;
+  while (index >= 0 && !(typeof closes[index] === "number" && closes[index]! > 0)) index--;
+  if (index < 0) throw new Error("No intraday quote");
+  const quoteTime = new Date(timestamps[index] * 1000); const age = now.getTime() - quoteTime.getTime();
+  if (age < -60_000 || age > MAX_QUOTE_AGE_MS || indiaDate(quoteTime.toISOString()) !== indiaDate(now.toISOString())) throw new Error("Quote is stale");
+  return { price: round(closes[index]!), asOf: quoteTime.toISOString(), source: "YAHOO_INTRADAY_FREE" };
 }
 
-async function validateDhanProfile(token: string, configuredClientId: string) {
-  const response = await fetch("https://api.dhan.co/v2/profile", {
-    headers: { Accept: "application/json", "access-token": token },
-    cache: "no-store",
-    signal: AbortSignal.timeout(10_000),
-  });
-  if (response.status === 401) throw new Error("Dhan access token is invalid or expired. Generate the 24-hour Access Token—not an API key, secret, or token ID—and redeploy.");
-  if (!response.ok) throw new Error(`Dhan profile validation returned ${response.status}.`);
-  const profile = await response.json() as { dhanClientId?: string; dataPlan?: string; tokenValidity?: string };
-  if (profile.dhanClientId && profile.dhanClientId.trim() !== configuredClientId) {
-    throw new Error("DHAN_CLIENT_ID does not match the account that issued DHAN_ACCESS_TOKEN. Copy dhanClientId from the token/profile response.");
-  }
-  if (profile.dataPlan && profile.dataPlan.toLowerCase() !== "active") {
-    throw new Error(`Dhan token is valid, but the Data API plan is ${profile.dataPlan}. Activate Dhan Data APIs to use live Market Quote prices.`);
-  }
+function closeTrade(trade: PaperTrade, quote: LiveQuote, status: "TARGET" | "STOP" | "SESSION_END", now: Date) {
+  trade.exitPrice = quote.price; trade.closedAt = now.toISOString(); trade.closedQuoteAt = quote.asOf; trade.status = status;
+  trade.pnl = round((quote.price - trade.entryPrice) * trade.quantity);
 }
 
-async function resolveNseInstruments(symbols: string[]): Promise<Map<string, string>> {
-  const response = await fetch("https://images.dhan.co/api-data/api-scrip-master.csv", { cache: "no-store", signal: AbortSignal.timeout(30_000) });
-  if (!response.ok) throw new Error("Dhan instrument master is unavailable.");
-  const wanted = new Set(symbols.map((symbol) => symbol.toUpperCase()));
-  const result = new Map<string, string>();
-  const reader = response.body?.getReader();
-  if (!reader) throw new Error("Dhan instrument master response cannot be streamed.");
-  const decoder = new TextDecoder();
-  let buffer = "";
-  let indexes: { security: number; symbol: number; exchange: number; segment: number } | null = null;
-  let done = false;
-  while (!done && result.size < wanted.size) {
-    const chunk = await reader.read();
-    done = chunk.done;
-    buffer += decoder.decode(chunk.value, { stream: !done });
-    const lines = buffer.split(/\r?\n/);
-    buffer = lines.pop() || "";
-    for (const line of lines) {
-      if (!line) continue;
-      const row = parseCsvLine(line);
-      if (!indexes) {
-        row[0] = row[0]?.replace(/^\uFEFF/, "");
-        indexes = {
-          security: row.indexOf("SEM_SMST_SECURITY_ID"),
-          symbol: row.indexOf("SEM_TRADING_SYMBOL"),
-          exchange: row.indexOf("SEM_EXM_EXCH_ID"),
-          segment: row.indexOf("SEM_SEGMENT"),
-        };
-        if (Object.values(indexes).some((value) => value < 0)) throw new Error("Dhan instrument master format changed.");
-        continue;
-      }
-      const symbol = row[indexes.symbol]?.toUpperCase();
-      if (wanted.has(symbol) && row[indexes.exchange] === "NSE" && row[indexes.segment] === "E") result.set(symbol, row[indexes.security]);
-    }
-  }
-  await reader.cancel().catch(() => undefined);
-  return result;
-}
-
-function parseCsvLine(line: string): string[] {
-  const fields: string[] = [];
-  let field = "", quoted = false;
-  for (let index = 0; index < line.length; index++) {
-    const character = line[index];
-    if (character === '"' && quoted && line[index + 1] === '"') { field += '"'; index++; }
-    else if (character === '"') quoted = !quoted;
-    else if (character === "," && !quoted) { fields.push(field); field = ""; }
-    else field += character;
-  }
-  fields.push(field);
-  return fields;
-}
-
-function normalizeSession(session: PaperSession): PaperSession {
-  session.cycles ||= [];
-  if (session.status === "ACTIVE" && Date.now() >= Date.parse(session.endsAt)) session.status = "COMPLETED";
+function normalizeSession(value: Partial<PaperSession> & { trades?: PaperTrade[] }): PaperSession {
+  const now = new Date();
+  const session = value as PaperSession;
+  session.mode = "PAPER_ONLY"; session.quoteProvider = "YAHOO_INTRADAY_FREE"; session.quoteFeedLive = false; session.lastError = null;
+  session.cycles = (session.cycles || []).map((cycle) => ({ ...cycle, quoteProvider: "YAHOO_INTRADAY_FREE" }));
+  session.trades = (session.trades || []).map((trade) => ({ ...trade, openedQuoteAt: trade.openedQuoteAt || trade.openedAt, closedQuoteAt: trade.closedQuoteAt || trade.closedAt || null }));
+  if (session.status === "ACTIVE" && now.getTime() >= Date.parse(session.endsAt)) session.status = "COMPLETED";
   return session;
 }
-export function hasDhanCredentials() { return Boolean(cleanCredential(process.env.DHAN_CLIENT_ID) && cleanCredential(process.env.DHAN_ACCESS_TOKEN)); }
-function cleanCredential(value: string | undefined) { return value?.trim().replace(/^['"]|['"]$/g, "") || ""; }
+function indiaDate(value: string) { return new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Kolkata", year: "numeric", month: "2-digit", day: "2-digit" }).format(new Date(value)); }
 async function save(session: PaperSession) { await writeSnapshotFile(STATE_FILE, JSON.stringify(session, null, 2)); }
 function round(value: number) { return Math.round(value * 100) / 100; }

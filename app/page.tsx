@@ -80,7 +80,8 @@ type PaperSession = {
   status: "ACTIVE" | "COMPLETED";
   initialCapital: number;
   realizedPnl: number;
-  dhanConnected: boolean;
+  quoteProvider: "YAHOO_INTRADAY_FREE";
+  quoteFeedLive: boolean;
   lastError: string | null;
   trades: Array<{ id: string; symbol: string; side: "BUY" | "SELL"; quantity: number; entryPrice: number; exitPrice: number | null; openedAt: string; closedAt: string | null; status: string; pnl: number; source: string }>;
   cycles: Array<{ runAt: string; actions: Array<{ symbol: string; signalPrice: number; outcome: string }> }>;
@@ -738,8 +739,8 @@ export default function HomePage() {
               <div className="rounded-2xl border border-violet-500/25 bg-[#0b1626] p-4">
                 <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                   <div>
-                    <h2 className="text-base font-bold text-white">🧪 Dhan Seven-Day Paper Test</h2>
-                    <p className="mt-1 text-xs text-slate-400">Paper orders only—this environment cannot place live Dhan orders. Maximum simulated position ₹10,000; maximum five open positions.</p>
+                    <h2 className="text-base font-bold text-white">🧪 Seven-Day Paper Test</h2>
+                    <p className="mt-1 text-xs text-slate-400">Paper orders use fresh free Yahoo intraday quotes—no Dhan Data plan or live orders. Maximum simulated position ₹10,000; maximum five open positions.</p>
                   </div>
                   <div className="flex gap-2">
                     {!paperSession && <button onClick={() => fetchPaperSession("start")} disabled={paperLoading} className="rounded-lg bg-violet-500 px-4 py-2.5 text-xs font-bold text-white disabled:opacity-50">Start 7-Day Test</button>}
@@ -747,7 +748,7 @@ export default function HomePage() {
                   </div>
                 </div>
                 <div className="mt-3 grid gap-2 sm:grid-cols-4">
-                  <MetricCard label="Dhan Data" value={paperConfigured && paperSession?.dhanConnected ? "Connected" : paperConfigured ? "Configured" : "Credentials needed"} note="Live orders permanently disabled" />
+                  <MetricCard label="Free Quote Feed" value={paperSession?.quoteFeedLive ? "Live" : paperConfigured ? "Ready" : "Unavailable"} note="Yahoo intraday • ≤20 min freshness" />
                   <MetricCard label="Test Status" value={paperSession?.status || "Not started"} note={paperSession ? `Ends ${formatUpdatedAt(paperSession.endsAt)}` : "Seven calendar days"} />
                   <MetricCard label="Paper Trades" value={(paperSession?.trades.length || 0).toLocaleString("en-IN")} note={`${paperSession?.trades.filter((trade) => trade.status === "OPEN").length || 0} open`} />
                   <MetricCard label="Realized P&L" value={`₹${(paperSession?.realizedPnl || 0).toLocaleString("en-IN", { maximumFractionDigits: 2 })}`} note="Before fees and slippage" />
@@ -771,7 +772,7 @@ export default function HomePage() {
                             <td className="px-3 py-3">{trade.closedAt ? formatUpdatedAt(trade.closedAt) : "—"}</td>
                             <td className="px-3 py-3 text-right font-mono">{trade.exitPrice == null ? "—" : `₹${trade.exitPrice.toLocaleString("en-IN", { maximumFractionDigits: 2 })}`}</td>
                             <td className="px-3 py-3 font-bold text-cyan-300">{trade.status}</td>
-                            <td className="px-3 py-3">Dhan live quote</td>
+                            <td className="px-3 py-3">{trade.source === "YAHOO_INTRADAY_FREE" ? "Yahoo intraday (free)" : "Legacy Dhan quote"}</td>
                             <td className={`px-3 py-3 text-right font-mono font-bold ${trade.pnl >= 0 ? "text-emerald-300" : "text-rose-300"}`}>₹{trade.pnl.toLocaleString("en-IN", { maximumFractionDigits: 2 })}</td>
                           </tr>
                         ))}

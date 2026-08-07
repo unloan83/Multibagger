@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { runIntradayPipeline, type IntradaySlot } from "@/lib/intraday-engine";
 import { logRecommendationsToSheet } from "@/lib/google-sheets";
+import { RECOMMENDATION_PUBLICATION } from "@/lib/recommendation-publication";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -11,6 +12,7 @@ export const maxDuration = 300;
  * Triggers the Intraday Real-Time Recommendation Pipeline for 9:08 AM, 10:45 AM, or 1:45 PM IST.
  */
 export async function GET(request: Request) {
+  if (!RECOMMENDATION_PUBLICATION.enabled) return NextResponse.json({ ok: true, skipped: true, publication: RECOMMENDATION_PUBLICATION });
   const { searchParams } = new URL(request.url);
   const slotParam = searchParams.get("slot") as IntradaySlot | null;
   const slot: IntradaySlot = slotParam && ["09:08", "10:45", "13:45"].includes(slotParam) ? slotParam : "09:08";

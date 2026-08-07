@@ -1,7 +1,6 @@
 import { NextResponse } from "next/server";
-import { readWealthRecommendationsSnapshot, type ExpertQuote } from "@/lib/expert-insights";
 import { readSnapshotFile, writeSnapshotFile } from "@/lib/snapshot-storage";
-import { readUsMarketSnapshot } from "@/lib/us-market-engine";
+import { RECOMMENDATION_PUBLICATION } from "@/lib/recommendation-publication";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -11,15 +10,6 @@ export type WatchlistRecommendation = {
   name: string;
   price: number;
   changePercent: number;
-  // Intraday recommendation
-  intradayAction: "BUY" | "ACCUMULATE" | "WATCH" | "HOLD";
-  intradayTarget: number;
-  intradayUpside: number;
-  // Long-term recommendation (3-6 Months)
-  longTermAction: "BUY" | "ACCUMULATE" | "WATCH" | "HOLD";
-  longTermTarget: number;
-  longTermUpside: number;
-  isMultibagger: boolean;
   notes: string;
 };
 
@@ -49,8 +39,8 @@ export async function GET(request: Request) {
   try {
     const market = getMarket(new URL(request.url).searchParams.get("market"));
     const symbols = await getWatchlistSymbols(market);
-    const holdings = await fetchWatchlistRecommendations(symbols, market);
-    return NextResponse.json({ ok: true, holdings });
+    const holdings = await fetchWatchlistRecommendations(symbols);
+    return NextResponse.json({ ok: true, publication: RECOMMENDATION_PUBLICATION, holdings });
   } catch (err) {
     return NextResponse.json(
       { ok: false, error: String(err), holdings: [] },
@@ -78,8 +68,8 @@ export async function POST(request: Request) {
       await saveWatchlistSymbols(market, symbols);
     }
 
-    const holdings = await fetchWatchlistRecommendations(symbols, market);
-    return NextResponse.json({ ok: true, holdings });
+    const holdings = await fetchWatchlistRecommendations(symbols);
+    return NextResponse.json({ ok: true, publication: RECOMMENDATION_PUBLICATION, holdings });
   } catch (err) {
     return NextResponse.json(
       { ok: false, error: String(err) },
@@ -104,8 +94,8 @@ export async function DELETE(request: Request) {
 
     await saveWatchlistSymbols(market, symbols);
 
-    const holdings = await fetchWatchlistRecommendations(symbols, market);
-    return NextResponse.json({ ok: true, holdings });
+    const holdings = await fetchWatchlistRecommendations(symbols);
+    return NextResponse.json({ ok: true, publication: RECOMMENDATION_PUBLICATION, holdings });
   } catch (err) {
     return NextResponse.json(
       { ok: false, error: String(err) },
@@ -114,31 +104,7 @@ export async function DELETE(request: Request) {
   }
 }
 
-async function fetchWatchlistRecommendations(symbols: string[], market: Market): Promise<WatchlistRecommendation[]> {
-  const snapshotLookup = new Map<string, Pick<ExpertQuote, "symbol" | "target" | "action" | "remark">>();
-  try {
-    if (market === "us") {
-      const snapshot = await readUsMarketSnapshot();
-      for (const item of snapshot.termPicks) snapshotLookup.set(item.symbol.toUpperCase(), { symbol: item.symbol, target: item.target, action: "Accumulate", remark: item.agentRationale });
-    } else {
-      const snapshot = await readWealthRecommendationsSnapshot();
-      if (snapshot?.categories) {
-      for (const cat of snapshot.categories) {
-        for (const item of cat.longTermUpsides || []) {
-          snapshotLookup.set(item.symbol.toUpperCase(), item);
-        }
-        for (const item of cat.intradayBreakouts || []) {
-          if (!snapshotLookup.has(item.symbol.toUpperCase())) {
-            snapshotLookup.set(item.symbol.toUpperCase(), item);
-          }
-        }
-      }
-      }
-    }
-  } catch {
-    // fallback
-  }
-
+async function fetchWatchlistRecommendations(symbols: string[]): Promise<WatchlistRecommendation[]> {
   const results = await Promise.allSettled(
     symbols.map(async (fullSymbol) => {
       const cleanSymbol = fullSymbol.replace(".NS", "").toUpperCase();
@@ -182,48 +148,13 @@ async function fetchWatchlistRecommendations(symbols: string[], market: Market):
 
       if (!(price > 0) || !(previousClose > 0)) throw new Error(`Live quote unavailable for ${cleanSymbol}`);
 
-      // A watchlist row is not itself a recommendation. Only a matching,
-      // fresh validated model pick can carry a BUY/target.
-      const match = snapshotLookup.get(cleanSymbol);
-
-      const intradayAction: "BUY" | "ACCUMULATE" | "WATCH" | "HOLD" = "WATCH";
-      const intradayTarget = 0;
-      const intradayUpside = 0;
-
-      let longTermAction: "BUY" | "ACCUMULATE" | "WATCH" | "HOLD" = "WATCH";
-      let longTermTarget = 0;
-      let longTermUpside = 0;
-      let notes = "Live quote only; this stock is not a current validated recommendation.";
-
-      if (match) {
-        if (match.target && match.target > 0) {
-          longTermTarget = match.target;
-          if (price > 0) {
-            longTermUpside = Math.round(((match.target - price) / price) * 1000) / 10;
-          }
-        }
-        if (match.action) {
-          longTermAction = match.action === "Accumulate" ? "BUY" : "WATCH";
-        }
-        if (match.remark) {
-          notes = match.remark;
-        }
-      }
-
-      const isMultibagger = longTermUpside >= 100 || (longTermTarget >= 2 * price && price > 0);
+      const notes = "Live quote only; recommendation publishing is withheld.";
 
       return {
         symbol: cleanSymbol,
         name,
         price,
         changePercent,
-        intradayAction,
-        intradayTarget,
-        intradayUpside,
-        longTermAction,
-        longTermTarget,
-        longTermUpside,
-        isMultibagger,
         notes,
       } as WatchlistRecommendation;
     })

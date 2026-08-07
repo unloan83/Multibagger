@@ -1,5 +1,6 @@
 import { readWealthRecommendationsSnapshot, type ExpertQuote } from "@/lib/expert-insights";
 import { writeSnapshotFile } from "@/lib/snapshot-storage";
+import { assertRecommendationPublicationEnabled } from "@/lib/recommendation-publication";
 
 export type TermDuration = "1week" | "1month" | "3months" | "6months";
 export type TermRecommendation = {
@@ -22,6 +23,7 @@ export const VERIFIED_BACKTEST_METRICS: BacktestMetrics = null;
 export const INSTITUTIONAL_METRIC_DEFINITIONS: MetricDefinition[] = [];
 
 export async function runTermAgentAnalysis(): Promise<TermAnalysisResult> {
+  assertRecommendationPublicationEnabled();
   const source = await readWealthRecommendationsSnapshot();
   const age = source ? Date.now() - Date.parse(source.asOf) : Number.POSITIVE_INFINITY;
   const sourceIsFresh = Boolean(source && Number.isFinite(age) && age >= 0 && age <= 36 * 60 * 60_000 && !source.abstained);

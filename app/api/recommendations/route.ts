@@ -1,25 +1,15 @@
 import { NextResponse } from "next/server";
-import { readWealthRecommendationsSnapshot } from "@/lib/expert-insights";
-import { readIntradayRecommendations } from "@/lib/intraday-engine";
-import { readSwingRecommendations } from "@/lib/swing-engine";
+import { RECOMMENDATION_PUBLICATION } from "@/lib/recommendation-publication";
 
 export const dynamic = "force-dynamic";
 
 export async function GET() {
   try {
-    const [snapshot, intraday, swing] = await Promise.all([
-      readWealthRecommendationsSnapshot(),
-      readIntradayRecommendations(),
-      readSwingRecommendations(),
-    ]);
-
     return NextResponse.json({
       ok: true,
-      asOf: snapshot?.asOf || new Date().toISOString(),
-      marketRegime: snapshot?.marketRegime || "Unavailable",
-      categories: snapshot?.categories || [],
-      intradayPipeline: intraday,
-      swingPipeline: swing,
+      asOf: new Date().toISOString(), publication: RECOMMENDATION_PUBLICATION, marketRegime: "Unavailable", categories: [],
+      intradayPipeline: { asOf: new Date().toISOString(), source: "UNAVAILABLE", isLive: false, reason: RECOMMENDATION_PUBLICATION.reason, evaluatedUniverseSize: 0, screened: [], picks: [] },
+      swingPipeline: { asOf: new Date().toISOString(), source: "UNAVAILABLE", abstained: true, reason: RECOMMENDATION_PUBLICATION.reason, picksByHorizon: { "1week": [], "1month": [], "3months": [], "6months": [] }, picks: [] },
     }, { headers: { "Cache-Control": "no-store, max-age=0" } });
   } catch (err) {
     return NextResponse.json(

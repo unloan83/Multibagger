@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { runTermAgentAnalysis } from "@/lib/term-agent-analysis";
+import { RECOMMENDATION_PUBLICATION } from "@/lib/recommendation-publication";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -7,6 +8,7 @@ export const maxDuration = 300;
 
 /** Refreshes the term-analysis snapshot after the Indian market closes. */
 export async function GET(request: Request) {
+  if (!RECOMMENDATION_PUBLICATION.enabled) return NextResponse.json({ ok: true, skipped: true, publication: RECOMMENDATION_PUBLICATION });
   if (!canRunSnapshot(request)) {
     return NextResponse.json({ ok: false, error: "Unauthorized" }, { status: 401 });
   }

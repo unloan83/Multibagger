@@ -1,4 +1,5 @@
 import { readSnapshotFile, writeSnapshotFile } from "@/lib/snapshot-storage";
+import { assertRecommendationPublicationEnabled } from "@/lib/recommendation-publication";
 
 export type IntradaySlot = "09:08" | "10:45" | "13:45";
 
@@ -40,6 +41,7 @@ type Bar = { time: number; open: number; high: number; low: number; close: numbe
 type YahooChartPayload = { chart?: { result?: Array<{ meta?: { longName?: string; shortName?: string }; timestamp?: number[]; indicators?: { quote?: Array<{ open?: unknown[]; high?: unknown[]; low?: unknown[]; close?: unknown[]; volume?: unknown[] }> } }> } };
 
 export async function runIntradayPipeline(slot: IntradaySlot = "09:08"): Promise<IntradaySnapshot> {
+  assertRecommendationPublicationEnabled();
   const [gainers, losers, nifty, bankNifty] = await Promise.all([
     loadNseMovers("gainers"), loadNseMovers("loosers"), loadIndexChange("%5ENSEI"), loadIndexChange("%5ENSEBANK"),
   ]);

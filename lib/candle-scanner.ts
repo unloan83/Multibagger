@@ -1,6 +1,7 @@
 import indiaUniverse from "@/data/market-universe.json";
 import { evaluateCandleSignal, type CandleBar, type CandleMarket, type CandleViewResult } from "@/lib/candle-view";
 import { readSnapshotFile, writeSnapshotFile } from "@/lib/snapshot-storage";
+import { assertRecommendationPublicationEnabled } from "@/lib/recommendation-publication";
 
 export type CandleScanSnapshot = {
   asOf: string;
@@ -29,6 +30,7 @@ const US_SYMBOLS = [
 ];
 
 export async function runCandleScanner(market: CandleMarket, liveCandidates?: CandleScannerCandidate[], persist = true): Promise<CandleScanSnapshot> {
+  assertRecommendationPublicationEnabled();
   const candidates: CandleScannerCandidate[] = liveCandidates || (market === "india"
     ? indiaUniverse.map((row) => ({ symbol: `${row.symbol}.NS`, name: row.company || row.symbol }))
     : US_SYMBOLS.map((symbol) => ({ symbol, name: symbol })));

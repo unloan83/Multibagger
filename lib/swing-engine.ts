@@ -1,5 +1,6 @@
 import { runTermAgentAnalysis, type TermDuration } from "@/lib/term-agent-analysis";
 import { writeSnapshotFile } from "@/lib/snapshot-storage";
+import { assertRecommendationPublicationEnabled } from "@/lib/recommendation-publication";
 
 export type SwingTermHorizon = TermDuration;
 export type SwingPick = {
@@ -18,6 +19,7 @@ export type SwingSnapshot = {
 const SWING_SNAPSHOT_FILE = "swing_recommendations.json";
 
 export async function runSwingPipeline(): Promise<SwingSnapshot> {
+  assertRecommendationPublicationEnabled();
   const term = await runTermAgentAnalysis();
   const picks = term.picks.map((item): SwingPick => ({
     symbol: item.symbol, name: item.name, price: item.price, previousClose: item.previousClose,

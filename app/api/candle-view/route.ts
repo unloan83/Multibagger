@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { evaluateCandleSignal, type CandleBar, type CandleMarket } from "@/lib/candle-view";
+import { RECOMMENDATION_PUBLICATION } from "@/lib/recommendation-publication";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -11,6 +12,7 @@ type YahooResult = {
 };
 
 export async function GET(request: Request) {
+  if (!RECOMMENDATION_PUBLICATION.enabled) return NextResponse.json({ ok: false, publication: RECOMMENDATION_PUBLICATION, error: RECOMMENDATION_PUBLICATION.reason }, { status: 423 });
   const params = new URL(request.url).searchParams;
   const market: CandleMarket = params.get("market") === "us" ? "us" : "india";
   const rawSymbol = (params.get("symbol") || "").trim().toUpperCase().replace(/[^A-Z0-9.\-^]/g, "");

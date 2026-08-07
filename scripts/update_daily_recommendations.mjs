@@ -1,6 +1,12 @@
 import fs from "node:fs/promises";
 import path from "node:path";
 
+const recommendationPublicationEnabled = false;
+if (!recommendationPublicationEnabled) {
+  console.log("Recommendation publishing is withheld; no CSV rows were generated.");
+  process.exit(0);
+}
+
 const repoRoot = process.cwd();
 const outputPath = path.join(repoRoot, "data", "daily_recommendations.csv");
 const snapshotPath = path.join(repoRoot, "data", "wealth_recommendations.json");

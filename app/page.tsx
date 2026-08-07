@@ -32,6 +32,7 @@ type Category = {
 type Snapshot = {
   asOf: string;
   marketRegime: string;
+  publication?: { enabled: boolean; status: "WITHHELD"; reason: string; allowedOutput: string; requirements: string[] };
   categories: Category[];
   intradayPipeline?: {
     asOf: string;
@@ -50,13 +51,6 @@ type WatchlistRecommendation = {
   name: string;
   price: number;
   changePercent: number;
-  intradayAction: string;
-  intradayTarget: number;
-  intradayUpside: number;
-  longTermAction: string;
-  longTermTarget: number;
-  longTermUpside: number;
-  isMultibagger: boolean;
   notes: string;
 };
 
@@ -119,7 +113,6 @@ export default function HomePage() {
 
   // Term Recommendations State (20 total stocks, 5 per duration)
   const [termPicks, setTermPicks] = useState<TermRecommendation[]>([]);
-  const [termUpdatedAt, setTermUpdatedAt] = useState<string | null>(null);
   const [termFilter, setTermFilter] = useState<TermDuration | "all">("all");
   const [loadingTerm, setLoadingTerm] = useState(false);
 
@@ -153,7 +146,6 @@ export default function HomePage() {
       .then((data) => {
         if (data.ok && Array.isArray(data.picks)) {
           setTermPicks(data.picks);
-          setTermUpdatedAt(typeof data.asOf === "string" ? data.asOf : null);
         }
         setLoadingTerm(false);
       })
@@ -428,11 +420,12 @@ export default function HomePage() {
       }) + " IST"
       : "Awaiting first run";
 
-  const termUpdatedLabel = formatUpdatedAt(market === "us" ? usMarketData?.asOf : termUpdatedAt);
   const intradayUpdatedLabel = formatUpdatedAt(market === "us" ? usMarketData?.asOf : snapshot?.intradayPipeline?.asOf);
   const currencySymbol = market === "us" ? "$" : "₹";
   const marketLabel = market === "us" ? "US" : "Indian";
   const marketLoading = market === "us" ? loadingUsMarket : loading;
+  const recommendationsWithheld = snapshot?.publication?.enabled !== true;
+  const publicationReason = snapshot?.publication?.reason || "Recommendation publishing is withheld until the model meets its data and validation requirements.";
 
   return (
     <main className="min-h-screen bg-[#060d17] text-slate-100 font-sans pb-12">
@@ -447,7 +440,7 @@ export default function HomePage() {
               <h1 className="text-xl font-bold tracking-tight text-white flex items-center gap-2">
                 Multibagger
                 <span className="rounded-full bg-cyan-500/10 px-2 py-0.5 text-[11px] font-semibold text-cyan-400 border border-cyan-500/20">
-                  Stock Intelligence Agent
+                  Live Market Research
                 </span>
               </h1>
             </div>
@@ -466,6 +459,11 @@ export default function HomePage() {
       </header>
 
       <div className="mx-auto max-w-7xl px-4 py-6 sm:px-6 space-y-6">
+        <div className="rounded-2xl border border-rose-500/35 bg-rose-950/30 p-4">
+          <div className="flex items-start gap-3"><span className="text-lg">⛔</span><div><h2 className="text-sm font-bold text-rose-200">Recommendation publishing withheld</h2>
+            <p className="mt-1 text-xs leading-relaxed text-rose-100/80">{publicationReason}</p>
+            <p className="mt-2 text-[11px] text-slate-400">The portal may display current market quotes and screening diagnostics, but it will not publish BUY, ACCUMULATE, targets, candle calls or paper trades.</p></div></div>
+        </div>
         <div className="inline-flex items-center gap-1.5 rounded-xl border border-slate-700 bg-[#0b1626] p-1.5 shadow-lg" aria-label="Select stock market">
           <button
             onClick={() => { setMarket("india"); setActiveTab("term"); }}
@@ -489,10 +487,10 @@ export default function HomePage() {
                 <span>🤖</span> {marketLabel} Market Analysis Schedule & Rules
               </span>
               <p className="text-slate-300 leading-relaxed">
-                <strong className="text-indigo-400">Term Recommendations (20 Stocks):</strong> Evaluated daily post-market at <span className="text-white font-mono font-semibold">{market === "us" ? "4:30 PM ET" : "3:45 PM – 5:00 PM IST"}</span> (5 picks each for 1W, 1M, 3M, 6M).
+                <strong className="text-indigo-400">Term model:</strong> Publication disabled; no quota or duration bucket will be backfilled.
               </p>
               <p className="text-slate-300 leading-relaxed">
-                <strong className="text-amber-400">Intraday Breakout Picks:</strong> Calculated at <span className="text-white font-mono font-semibold">{market === "us" ? "9:35 AM, 12:00 PM & 2:30 PM ET" : "9:08 AM, 10:45 AM & 1:45 PM IST"}</span> for session momentum.
+                <strong className="text-amber-400">Intraday data:</strong> Live screening diagnostics may be shown, but no trade recommendation is published.
               </p>
             </div>
             <div className="shrink-0 bg-[#060e1a] border border-slate-800 rounded-xl p-2.5 text-slate-400 text-[11px] space-y-1">
@@ -502,7 +500,15 @@ export default function HomePage() {
           </div>
         </div>
 
-        <details className="group rounded-2xl border border-slate-700/80 bg-[#0b1626] shadow-lg">
+        {recommendationsWithheld && (
+          <div className="rounded-2xl border border-slate-700/80 bg-[#0b1626] p-4 shadow-lg">
+            <h2 className="text-sm font-bold text-white">Publication requirements</h2>
+            <ul className="mt-3 grid gap-2 text-xs text-slate-400 md:grid-cols-2">
+              {(snapshot?.publication?.requirements || []).map((requirement) => <li key={requirement} className="rounded-lg border border-slate-800 bg-[#07111f] p-3">• {requirement}</li>)}
+            </ul>
+          </div>
+        )}
+        <details className={`${recommendationsWithheld ? "hidden" : ""} group rounded-2xl border border-slate-700/80 bg-[#0b1626] shadow-lg`}>
           <summary className="flex cursor-pointer list-none items-center justify-between gap-4 px-4 py-3.5 text-sm font-bold text-white transition hover:bg-slate-800/40 [&::-webkit-details-marker]:hidden">
             <span className="flex items-center gap-2">
               <span aria-hidden="true">📖</span>
@@ -548,7 +554,7 @@ export default function HomePage() {
                   : "text-slate-400 hover:text-slate-200"
               }`}
             >
-              <span>🎯</span> Term Recommendations ({activeTermPicks.length})
+              <span>🎯</span> Term Model (Withheld)
               <span className="text-[10px] opacity-75 font-normal">(1W, 1M, 3M, 6M)</span>
             </button>
             <button
@@ -559,7 +565,7 @@ export default function HomePage() {
                   : "text-slate-400 hover:text-slate-200"
               }`}
             >
-              <span>⚡</span> Intraday ({intradayPicks.length})
+              <span>⚡</span> Intraday Data
               <span className="text-[10px] opacity-75 font-normal">(Same Day)</span>
             </button>
             <button
@@ -600,22 +606,22 @@ export default function HomePage() {
               <div>
                 <h2 className="text-base font-bold text-white flex items-center gap-2">
                   <span className="h-2.5 w-2.5 rounded-full bg-indigo-400 animate-pulse" />
-                  Term Profit Recommendations
+                  Term Recommendations Withheld
                 </h2>
                 <p className="text-xs text-slate-400 mt-0.5">
-                  End-of-Day Agent Analysis • Updated {termUpdatedLabel} • 5 stocks per duration bucket
+                  No recommendation quota, backfill or modelled target is being published.
                 </p>
               </div>
 
               {/* Term Duration Sub-Filters */}
-              <div className="flex items-center gap-1.5 bg-[#060e1a] p-1 rounded-lg border border-slate-800 text-xs font-semibold">
+              <div className={`${recommendationsWithheld ? "hidden" : "flex"} items-center gap-1.5 bg-[#060e1a] p-1 rounded-lg border border-slate-800 text-xs font-semibold`}>
                 <button
                   onClick={() => setTermFilter("1week")}
                   className={`px-3 py-1 rounded transition ${
                     termFilter === "1week" ? "bg-amber-500 text-slate-950" : "text-slate-400 hover:text-slate-200"
                   }`}
                 >
-                  1 Week (5)
+                  1 Week
                 </button>
                 <button
                   onClick={() => setTermFilter("1month")}
@@ -623,7 +629,7 @@ export default function HomePage() {
                     termFilter === "1month" ? "bg-blue-600 text-white" : "text-slate-400 hover:text-slate-200"
                   }`}
                 >
-                  1 Month (5)
+                  1 Month
                 </button>
                 <button
                   onClick={() => setTermFilter("3months")}
@@ -631,7 +637,7 @@ export default function HomePage() {
                     termFilter === "3months" ? "bg-emerald-600 text-white" : "text-slate-400 hover:text-slate-200"
                   }`}
                 >
-                  3 Months (5)
+                  3 Months
                 </button>
                 <button
                   onClick={() => setTermFilter("6months")}
@@ -639,7 +645,7 @@ export default function HomePage() {
                     termFilter === "6months" ? "bg-purple-600 text-white" : "text-slate-400 hover:text-slate-200"
                   }`}
                 >
-                  6 Months (5)
+                  6 Months
                 </button>
                 <button
                   onClick={() => setTermFilter("all")}
@@ -647,7 +653,7 @@ export default function HomePage() {
                     termFilter === "all" ? "bg-indigo-600 text-white" : "text-slate-400 hover:text-slate-200"
                   }`}
                 >
-                  All (20)
+                  All
                 </button>
               </div>
             </div>
@@ -655,11 +661,11 @@ export default function HomePage() {
             {(market === "us" ? loadingUsMarket : loadingTerm) ? (
               <div className="flex items-center justify-center py-16">
                 <div className="h-7 w-7 animate-spin rounded-full border-2 border-indigo-400 border-t-transparent" />
-                <span className="ml-3 text-xs text-slate-400">Agent evaluating term duration recommendations…</span>
+                <span className="ml-3 text-xs text-slate-400">Loading current market status…</span>
               </div>
             ) : filteredTermPicks.length === 0 ? (
               <div className="rounded-xl border border-slate-800 bg-[#0b1626] p-8 text-center text-slate-400">
-                No term recommendations found for selected duration filter.
+                {publicationReason}
               </div>
             ) : (
               <TermSingleRowTable picks={filteredTermPicks} currencySymbol={currencySymbol} />
@@ -674,7 +680,7 @@ export default function HomePage() {
               <div>
                 <h2 className="text-base font-bold text-white flex items-center gap-2">
                   <span className="h-2.5 w-2.5 rounded-full bg-amber-400 animate-pulse" />
-                  Intraday Breakout Picks
+                  Intraday Market Screen
                 </h2>
                 <p className="text-xs text-slate-400 mt-0.5">Updated {intradayUpdatedLabel} • Live NSE gainers • ₹150–₹3,000 • Volume ≥1 lakh • VWAP/ORB/RVOL/RSI/MACD gates</p>
               </div>
@@ -685,7 +691,7 @@ export default function HomePage() {
 
             {intradayPicks.length === 0 ? (
               <div className="rounded-2xl border border-slate-800 bg-[#0b1626] p-8 text-center text-slate-400">
-                {market === "india" ? snapshot?.intradayPipeline?.reason || "No live intraday breakout picks currently active." : "No live US recommendations are published."}
+                {publicationReason}
               </div>
             ) : (
               <SimpleSingleRowTable picks={intradayPicks} type="intraday" currencySymbol={currencySymbol} />
@@ -704,14 +710,20 @@ export default function HomePage() {
         {/* TAB 3: Strict Early Morning OHL Momentum */}
         {activeTab === "candle" && (
           <section className="space-y-4">
+            {recommendationsWithheld ? (
+              <div className="rounded-2xl border border-rose-500/30 bg-rose-950/20 p-8 text-center">
+                <h2 className="text-base font-bold text-rose-200">Candle recommendations and paper trading are withheld</h2>
+                <p className="mx-auto mt-2 max-w-2xl text-xs leading-relaxed text-slate-400">{publicationReason} No scanner, manual candle call, simulated entry, exit, target, or archived result is presented as actionable output.</p>
+              </div>
+            ) : (<>
             <div className="rounded-2xl border border-cyan-500/20 bg-gradient-to-r from-[#0a192f] to-[#0b1626] p-4">
               <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                 <div>
                   <h2 className="text-base font-bold text-white">🔎 Automatic Market Shortlist</h2>
-                  <p className="mt-1 text-xs text-slate-400">Scans {market === "india" ? "the configured NSE cash universe" : "the liquid US momentum universe"} and returns only confirmed long-only BUY setups.</p>
+                  <p className="mt-1 text-xs text-slate-400">Scans the live market universe only when the publication gate is enabled.</p>
                 </div>
-                <button onClick={() => fetchCandleScan(true)} disabled={loadingCandleScan} className="rounded-lg bg-cyan-500 px-5 py-2.5 text-xs font-bold text-slate-950 transition hover:bg-cyan-400 disabled:opacity-50">
-                  {loadingCandleScan ? "Scanning market…" : "Run Fresh Scan"}
+                <button onClick={() => fetchCandleScan(true)} disabled={loadingCandleScan || recommendationsWithheld} className="rounded-lg bg-cyan-500 px-5 py-2.5 text-xs font-bold text-slate-950 transition hover:bg-cyan-400 disabled:opacity-50">
+                  {recommendationsWithheld ? "Scanner Withheld" : loadingCandleScan ? "Scanning market…" : "Run Fresh Scan"}
                 </button>
               </div>
               {candleScan && (
@@ -744,8 +756,8 @@ export default function HomePage() {
                     <p className="mt-1 text-xs text-slate-400">Paper orders use fresh free Yahoo intraday quotes—no Dhan Data plan or live orders. Maximum simulated position ₹10,000; maximum five open positions.</p>
                   </div>
                   <div className="flex gap-2">
-                    {!paperSession && <button onClick={() => fetchPaperSession("start")} disabled={paperLoading} className="rounded-lg bg-violet-500 px-4 py-2.5 text-xs font-bold text-white disabled:opacity-50">Start 7-Day Test</button>}
-                    {paperSession?.status === "ACTIVE" && <button onClick={() => fetchPaperSession("cycle")} disabled={paperLoading} className="rounded-lg bg-cyan-500 px-4 py-2.5 text-xs font-bold text-slate-950 disabled:opacity-50">{paperLoading ? "Running…" : "Run Paper Cycle"}</button>}
+                    {!paperSession && <button onClick={() => fetchPaperSession("start")} disabled={paperLoading || recommendationsWithheld} className="rounded-lg bg-violet-500 px-4 py-2.5 text-xs font-bold text-white disabled:opacity-50">Paper Test Withheld</button>}
+                    {paperSession?.status === "ACTIVE" && <button onClick={() => fetchPaperSession("cycle")} disabled={paperLoading || recommendationsWithheld} className="rounded-lg bg-cyan-500 px-4 py-2.5 text-xs font-bold text-slate-950 disabled:opacity-50">{recommendationsWithheld ? "Paper Cycles Withheld" : paperLoading ? "Running…" : "Run Paper Cycle"}</button>}
                   </div>
                 </div>
                 <div className="mt-3 grid gap-2 sm:grid-cols-4">
@@ -814,8 +826,8 @@ export default function HomePage() {
                   className="w-full rounded-lg border border-slate-700 bg-[#040810] px-3 py-2.5 text-sm font-mono text-white uppercase focus:border-emerald-500 focus:outline-none sm:max-w-sm"
                   aria-label="Stock ticker for candle evaluation"
                 />
-                <button disabled={loadingCandle || !candleSymbol.trim()} className="rounded-lg bg-emerald-500 px-5 py-2.5 text-xs font-bold text-slate-950 transition hover:bg-emerald-400 disabled:opacity-50">
-                  {loadingCandle ? "Evaluating…" : "Evaluate Latest Candle"}
+                <button disabled={recommendationsWithheld || loadingCandle || !candleSymbol.trim()} className="rounded-lg bg-emerald-500 px-5 py-2.5 text-xs font-bold text-slate-950 transition hover:bg-emerald-400 disabled:opacity-50">
+                  {recommendationsWithheld ? "Candle Calls Withheld" : loadingCandle ? "Evaluating…" : "Evaluate Latest Candle"}
                 </button>
               </form>
             </div>
@@ -828,6 +840,7 @@ export default function HomePage() {
                 Enter a ticker after a 15-minute candle has completed. The result will be BUY or NO TRADE with an exact trigger, target, stop-loss, failed gates, and time-risk guardrail.
               </div>
             )}
+            </>)}
           </section>
         )}
 
@@ -839,7 +852,7 @@ export default function HomePage() {
                 <h2 className="text-base font-bold text-white flex items-center gap-2">
                   <span>⭐</span> My {marketLabel} Stock Watchlist
                 </h2>
-                <p className="text-xs text-slate-400">Add stocks to track daily Intraday & 3–6 Month Term recommendations.</p>
+                <p className="text-xs text-slate-400">Add stocks to track current quotes only. Recommendation labels and targets are withheld.</p>
               </div>
 
               {/* Add Stock Form */}
@@ -1311,12 +1324,7 @@ function WatchlistSingleRowTable({
             <th className="py-3.5 px-4">Symbol & Name</th>
             <th className="py-3.5 px-3 text-right">CMP ({currencySymbol})</th>
             <th className="py-3.5 px-3 text-right">Day Change</th>
-            <th className="py-3.5 px-3 text-center bg-amber-950/20 border-x border-slate-800">Intraday Rec (1D)</th>
-            <th className="py-3.5 px-3 text-right bg-amber-950/20 border-r border-slate-800">Intraday Target</th>
-            <th className="py-3.5 px-3 text-center bg-emerald-950/20 border-r border-slate-800">Term Rec (3–6M)</th>
-            <th className="py-3.5 px-3 text-right bg-emerald-950/20 border-r border-slate-800">Term Target</th>
-            <th className="py-3.5 px-3 text-right bg-emerald-950/20 border-r border-slate-800">Term Upside</th>
-            <th className="py-3.5 px-3 text-center">Flag</th>
+            <th className="py-3.5 px-3">Data Status</th>
             <th className="py-3.5 px-4 text-center">Remove</th>
           </tr>
         </thead>
@@ -1339,39 +1347,7 @@ function WatchlistSingleRowTable({
                   {item.changePercent ? item.changePercent.toFixed(1) : "0.0"}%
                 </td>
 
-                <td className="py-3 px-3 text-center bg-amber-950/10 border-x border-slate-800">
-                  <span className="inline-block px-2.5 py-0.5 rounded text-[11px] font-bold uppercase bg-amber-500/20 text-amber-300 border border-amber-500/30">
-                    {item.intradayAction}
-                  </span>
-                </td>
-
-                <td className="py-3 px-3 text-right font-bold text-amber-300 font-mono bg-amber-950/10 border-r border-slate-800">
-                  {currencySymbol}{item.intradayTarget ? item.intradayTarget.toLocaleString("en-IN", { maximumFractionDigits: 1 }) : "—"}
-                </td>
-
-                <td className="py-3 px-3 text-center bg-emerald-950/10 border-r border-slate-800">
-                  <span className="inline-block px-2.5 py-0.5 rounded text-[11px] font-bold uppercase bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
-                    {item.longTermAction}
-                  </span>
-                </td>
-
-                <td className="py-3 px-3 text-right font-bold text-cyan-300 font-mono bg-emerald-950/10 border-r border-slate-800">
-                  {currencySymbol}{item.longTermTarget ? item.longTermTarget.toLocaleString("en-IN", { maximumFractionDigits: 1 }) : "—"}
-                </td>
-
-                <td className="py-3 px-3 text-right font-bold text-cyan-400 font-mono bg-emerald-950/10 border-r border-slate-800">
-                  +{item.longTermUpside ? item.longTermUpside.toFixed(1) : "0"}%
-                </td>
-
-                <td className="py-3 px-3 text-center">
-                  {item.isMultibagger ? (
-                    <span className="inline-flex items-center gap-1 rounded-full bg-purple-500/20 px-2.5 py-0.5 text-[10px] font-bold text-purple-300 border border-purple-500/40 animate-pulse">
-                      🚀 MULTIBAGGER
-                    </span>
-                  ) : (
-                    <span className="text-slate-600 text-[10px]">—</span>
-                  )}
-                </td>
+                <td className="py-3 px-3 text-slate-400">{item.notes}</td>
 
                 <td className="py-3 px-4 text-center">
                   <button

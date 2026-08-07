@@ -4,6 +4,7 @@ import {
   writeExpertActionMatrixSnapshot,
 } from "@/lib/expert-insights";
 import { logRecommendationsToSheet } from "@/lib/google-sheets";
+import { RECOMMENDATION_PUBLICATION } from "@/lib/recommendation-publication";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -18,6 +19,7 @@ export const maxDuration = 300;
  * Called by Vercel Cron or manually via the local runner script.
  */
 export async function GET(request: Request) {
+  if (!RECOMMENDATION_PUBLICATION.enabled) return NextResponse.json({ ok: true, skipped: true, publication: RECOMMENDATION_PUBLICATION });
   if (!canRunSnapshot(request)) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }

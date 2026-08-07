@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
-import { readCandleScan, runCandleScanner } from "@/lib/candle-scanner";
+import { runCandleScanner } from "@/lib/candle-scanner";
 import type { CandleMarket } from "@/lib/candle-view";
+import { RECOMMENDATION_PUBLICATION } from "@/lib/recommendation-publication";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -9,11 +10,12 @@ export const maxDuration = 300;
 function marketOf(request: Request): CandleMarket { return new URL(request.url).searchParams.get("market") === "us" ? "us" : "india"; }
 
 export async function GET(request: Request) {
-  const snapshot = await readCandleScan(marketOf(request));
-  return NextResponse.json({ ok: true, snapshot });
+  void request;
+  return NextResponse.json({ ok: true, publication: RECOMMENDATION_PUBLICATION, snapshot: null });
 }
 
 export async function POST(request: Request) {
+  if (!RECOMMENDATION_PUBLICATION.enabled) return NextResponse.json({ ok: false, publication: RECOMMENDATION_PUBLICATION, error: RECOMMENDATION_PUBLICATION.reason }, { status: 423 });
   try {
     return NextResponse.json({ ok: true, snapshot: await runCandleScanner(marketOf(request)) });
   } catch (error) {

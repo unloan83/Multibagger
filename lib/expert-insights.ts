@@ -133,6 +133,8 @@ export async function buildExpertActionMatrix(): Promise<ExpertActionMatrix> {
 }
 
 export async function generateExpertActionMatrix(): Promise<ExpertActionMatrix> {
+  const { assertRecommendationPublicationEnabled } = await import("@/lib/recommendation-publication");
+  assertRecommendationPublicationEnabled();
   const market = await buildMarketOverview();
   const marketRegime = getMarketRegime(
     market.sentiment,

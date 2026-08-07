@@ -1,13 +1,12 @@
 import { NextResponse } from "next/server";
-import { readTermRecommendations } from "@/lib/term-agent-analysis";
+import { RECOMMENDATION_PUBLICATION } from "@/lib/recommendation-publication";
 
 export const dynamic = "force-dynamic";
 
 export async function GET() {
   try {
-    const data = await readTermRecommendations();
     return NextResponse.json(
-      { ok: true, ...data },
+      { ok: true, asOf: new Date().toISOString(), publication: RECOMMENDATION_PUBLICATION, abstained: true, reason: RECOMMENDATION_PUBLICATION.reason, totalPicks: 0, picks: [], byDuration: { "1week": [], "1month": [], "3months": [], "6months": [] } },
       { headers: { "Cache-Control": "no-store, max-age=0" } },
     );
   } catch (err) {

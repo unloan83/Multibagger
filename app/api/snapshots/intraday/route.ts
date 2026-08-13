@@ -1,67 +1,10 @@
 import { NextResponse } from "next/server";
-import { runIntradayPipeline, type IntradaySlot } from "@/lib/intraday-engine";
-import { logRecommendationsToSheet } from "@/lib/google-sheets";
-import { RECOMMENDATION_PUBLICATION } from "@/lib/recommendation-publication";
+import { readPaperSignals } from "@/lib/intraday-engine";
 
 export const dynamic = "force-dynamic";
-export const runtime = "nodejs";
-export const maxDuration = 300;
 
-/**
- * GET /api/snapshots/intraday?slot=09:08
- * Triggers the Intraday Real-Time Recommendation Pipeline for 9:08 AM, 10:45 AM, or 1:45 PM IST.
- */
-export async function GET(request: Request) {
-  if (!RECOMMENDATION_PUBLICATION.enabled) return NextResponse.json({ ok: true, skipped: true, publication: RECOMMENDATION_PUBLICATION });
-  const { searchParams } = new URL(request.url);
-  const slotParam = searchParams.get("slot") as IntradaySlot | null;
-  const slot: IntradaySlot = slotParam && ["09:08", "10:45", "13:45"].includes(slotParam) ? slotParam : "09:08";
-
-  const startedAt = new Date();
-
-  try {
-    const snapshot = await runIntradayPipeline(slot);
-
-    // Optional Google Sheets logging
-    if (process.env.GOOGLE_SHEET_ID) {
-      const recs = snapshot.picks.map((pick) => ({
-        source: `intraday-snapshot-${slot}`,
-        category: pick.marketCapCategory,
-        type: "intraday" as const,
-        symbol: pick.symbol,
-        name: pick.name,
-        action: pick.action,
-        score: pick.score,
-        price: pick.price,
-        target: pick.target,
-        upside: pick.upside,
-        sector: pick.sector,
-        marketRegime: snapshot.indexTrend.trend,
-      }));
-      logRecommendationsToSheet(recs).catch(() => {});
-    }
-
-    const durationMs = Date.now() - startedAt.getTime();
-
-    return NextResponse.json({
-      ok: true,
-      asOf: snapshot.asOf,
-      slot: snapshot.slot,
-      slotLabel: snapshot.slotLabel,
-      source: snapshot.source,
-      isLive: snapshot.isLive,
-      reason: snapshot.reason,
-      marketBreadth: snapshot.marketBreadth,
-      indexTrend: snapshot.indexTrend,
-      totalPicks: snapshot.picks.length,
-      screened: snapshot.screened,
-      picks: snapshot.picks,
-      durationMs,
-    });
-  } catch (err) {
-    return NextResponse.json(
-      { ok: false, error: "Intraday pipeline execution failed.", detail: String(err) },
-      { status: 500 },
-    );
-  }
+// Read-only by design. Collection and scanning run out of band, never in a page request.
+export async function GET() {
+  const snapshot = await readPaperSignals();
+  return NextResponse.json({ ok: true, ...snapshot }, { headers: { "Cache-Control": "no-store, max-age=0" } });
 }

@@ -77,7 +77,7 @@ export async function GET(request: Request) {
     const selectedMonth = searchParams.get("month") || "all";
     const download = searchParams.get("download") === "true";
     const market = searchParams.get("market")?.toLowerCase() === "us" ? "us" : "india";
-    if (!RECOMMENDATION_PUBLICATION.enabled) {
+    if (!RECOMMENDATION_PUBLICATION.legacyEnabled) {
       if (download) return new Response("Date,Stock Name,Symbol,Term Type,Recommended CMP,Target Price,Status,Details\n", { headers: { "Content-Type": "text/csv; charset=utf-8" } });
       return NextResponse.json({ ok: true, publication: RECOMMENDATION_PUBLICATION, months: [], records: [] });
     }

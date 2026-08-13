@@ -12,7 +12,7 @@ export const maxDuration = 300;
  * Triggers the Swing/Positional EOD Pipeline (7:00 PM IST)
  */
 export async function GET() {
-  if (!RECOMMENDATION_PUBLICATION.enabled) return NextResponse.json({ ok: true, skipped: true, publication: RECOMMENDATION_PUBLICATION });
+  if (!RECOMMENDATION_PUBLICATION.legacyEnabled) return NextResponse.json({ ok: true, skipped: true, publication: RECOMMENDATION_PUBLICATION });
   const startedAt = new Date();
 
   try {

@@ -1,0 +1,5 @@
+breeze-connect>=1.0.69,<2
+duckdb>=1.4,<2
+numpy>=2.0,<3
+pandas>=2.2,<3
+ta>=0.11,<1

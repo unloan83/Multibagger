@@ -12,7 +12,7 @@ type YahooResult = {
 };
 
 export async function GET(request: Request) {
-  if (!RECOMMENDATION_PUBLICATION.enabled) return NextResponse.json({ ok: false, publication: RECOMMENDATION_PUBLICATION, error: RECOMMENDATION_PUBLICATION.reason }, { status: 423 });
+  if (!RECOMMENDATION_PUBLICATION.legacyEnabled) return NextResponse.json({ ok: false, publication: RECOMMENDATION_PUBLICATION, error: RECOMMENDATION_PUBLICATION.reason }, { status: 423 });
   const params = new URL(request.url).searchParams;
   const market: CandleMarket = params.get("market") === "us" ? "us" : "india";
   const rawSymbol = (params.get("symbol") || "").trim().toUpperCase().replace(/[^A-Z0-9.\-^]/g, "");

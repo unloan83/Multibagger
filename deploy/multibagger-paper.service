@@ -1,0 +1,34 @@
+[Unit]
+Description=Multibagger Breeze paper-trading market-data worker
+Wants=network-online.target tailscaled.service
+After=network-online.target tailscaled.service
+
+[Service]
+Type=simple
+User=breeze
+Group=breeze
+WorkingDirectory=/var/lib/multibagger
+EnvironmentFile=/etc/breeze/breeze.env
+EnvironmentFile=/etc/multibagger/worker.env
+Environment=PYTHONPATH=/opt/multibagger
+Environment=ENABLE_LIVE_TRADING=false
+Environment=MARKET_DATA_PROVIDER=breeze
+Environment=PYTHONDONTWRITEBYTECODE=1
+Environment=OPENBLAS_NUM_THREADS=1
+Environment=OMP_NUM_THREADS=1
+ExecStart=/opt/breeze/venv/bin/python -m scripts.market_engine worker --scan-interval 60
+Restart=on-failure
+RestartSec=30
+UMask=0077
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/var/lib/multibagger
+CapabilityBoundingSet=
+LockPersonality=true
+MemoryDenyWriteExecute=true
+MemoryMax=750M
+
+[Install]
+WantedBy=multi-user.target

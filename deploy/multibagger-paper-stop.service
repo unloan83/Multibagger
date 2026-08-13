@@ -1,0 +1,6 @@
+[Unit]
+Description=Stop Multibagger paper worker after the NSE session
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/systemctl stop multibagger-paper.service

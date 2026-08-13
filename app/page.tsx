@@ -32,7 +32,7 @@ type Category = {
 type Snapshot = {
   asOf: string;
   marketRegime: string;
-  publication?: { enabled: boolean; status: "WITHHELD"; reason: string; allowedOutput: string; requirements: string[] };
+  publication?: { enabled: boolean; status: string; reason: string; allowedOutput: string; requirements: string[] };
   categories: Category[];
   intradayPipeline?: {
     asOf: string;

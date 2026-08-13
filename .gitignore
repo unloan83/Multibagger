@@ -1,4 +1,10 @@
 node_modules
+.python-packages/
+*.duckdb
+*.duckdb.wal
+data/paper_signals.json
+__pycache__/
+*.pyc
 .next
 out
 dist

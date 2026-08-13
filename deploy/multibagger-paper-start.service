@@ -1,0 +1,6 @@
+[Unit]
+Description=Start Multibagger paper worker for the NSE session
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/systemctl start multibagger-paper.service

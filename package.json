@@ -13,7 +13,14 @@
     "csv:market-close": "node scripts/update_daily_recommendations.mjs --slot market-close",
     "csv:morning": "node scripts/update_daily_recommendations.mjs --slot morning",
     "csv:afternoon": "node scripts/update_daily_recommendations.mjs --slot afternoon",
-    "universe:sync": "node scripts/sync_nifty500_universe.mjs"
+    "universe:sync": "node scripts/sync_nifty500_universe.mjs",
+    "engine:scan": "PYTHONPATH=.python-packages python3 -m scripts.market_engine scan",
+    "engine:collect": "PYTHONPATH=.python-packages python3 -m scripts.market_engine collect",
+    "engine:worker": "PYTHONPATH=.python-packages python3 -m scripts.market_engine worker",
+    "engine:breeze-warmup": "PYTHONPATH=.python-packages python3 -m scripts.market_engine breeze-warmup --days 8",
+    "engine:backfill": "PYTHONPATH=.python-packages python3 -m scripts.market_engine backfill --start 2022-01-01",
+    "engine:backtest": "PYTHONPATH=.python-packages python3 -m scripts.market_engine backtest",
+    "engine:test": "PYTHONPATH=.python-packages python3 -m pytest tests"
   },
   "dependencies": {
     "@radix-ui/react-slot": "^1.1.0",

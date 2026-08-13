@@ -1,0 +1,10 @@
+[Unit]
+Description=Stop Multibagger paper worker after NSE closes
+
+[Timer]
+OnCalendar=Mon..Fri *-*-* 10:05:00 UTC
+Persistent=true
+Unit=multibagger-paper-stop.service
+
+[Install]
+WantedBy=timers.target

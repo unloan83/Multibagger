@@ -1,0 +1,71 @@
+{
+  "asOf": "2026-08-14T09:15:00.000Z",
+  "sandboxMode": true,
+  "defaultExecutionMode": "USER_DRIVEN",
+  "recommendations": [
+    {
+      "id": "upstox-rec-001",
+      "symbol": "RELIANCE",
+      "name": "Reliance Industries Ltd",
+      "instrumentKey": "NSE_EQ|INE002A01018",
+      "cmp": 2450.0,
+      "target": 2600.0,
+      "stopLoss": 2380.0,
+      "signal": "BUY",
+      "score": 92,
+      "executionMode": "USER_DRIVEN",
+      "status": "PENDING",
+      "orderId": null,
+      "remark": "EMA20 breakout with positive relative strength.",
+      "timestamp": "2026-08-14T09:15:00Z"
+    },
+    {
+      "id": "upstox-rec-002",
+      "symbol": "TATAMOTORS",
+      "name": "Tata Motors Ltd",
+      "instrumentKey": "NSE_EQ|INE155A01022",
+      "cmp": 980.0,
+      "target": 1050.0,
+      "stopLoss": 940.0,
+      "signal": "BUY",
+      "score": 89,
+      "executionMode": "AUTOMATIC",
+      "status": "PENDING",
+      "orderId": null,
+      "remark": "Strong RVOL accumulation above VWAP.",
+      "timestamp": "2026-08-14T09:15:00Z"
+    },
+    {
+      "id": "upstox-rec-003",
+      "symbol": "INFY",
+      "name": "Infosys Ltd",
+      "instrumentKey": "NSE_EQ|INE009A01021",
+      "cmp": 1820.0,
+      "target": 1950.0,
+      "stopLoss": 1760.0,
+      "signal": "BUY",
+      "score": 86,
+      "executionMode": "USER_DRIVEN",
+      "status": "PENDING",
+      "orderId": null,
+      "remark": "Consolidation pattern near 52-week high.",
+      "timestamp": "2026-08-14T09:15:00Z"
+    },
+    {
+      "id": "upstox-rec-004",
+      "symbol": "HDFCBANK",
+      "name": "HDFC Bank Ltd",
+      "instrumentKey": "NSE_EQ|INE040A01034",
+      "cmp": 1640.0,
+      "target": 1750.0,
+      "stopLoss": 1590.0,
+      "signal": "BUY",
+      "score": 84,
+      "executionMode": "USER_DRIVEN",
+      "status": "PENDING",
+      "orderId": null,
+      "remark": "Banking sector relative strength outperformance.",
+      "timestamp": "2026-08-14T09:15:00Z"
+    }
+  ]
+}

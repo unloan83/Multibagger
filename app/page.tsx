@@ -4,6 +4,8 @@ import { useCallback, useEffect, useState } from "react";
 import type { TermRecommendation, TermDuration } from "@/lib/term-agent-analysis";
 import type { CandleViewResult } from "@/lib/candle-view";
 import type { CandleScanSnapshot } from "@/lib/candle-scanner";
+import UpstoxRecommendationsTab from "@/components/UpstoxRecommendationsTab";
+
 
 type StockPick = {
   symbol: string;
@@ -95,7 +97,7 @@ export default function HomePage() {
   const [snapshot, setSnapshot] = useState<Snapshot | null>(null);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState<"term" | "intraday" | "candle" | "watchlist" | "history">("term");
+  const [activeTab, setActiveTab] = useState<"term" | "intraday" | "upstox-recommendations" | "candle" | "watchlist" | "history">("term");
   const [market, setMarket] = useState<Market>("india");
   const [usMarketData, setUsMarketData] = useState<UsMarketData | null>(null);
   const [loadingUsMarket, setLoadingUsMarket] = useState(false);
@@ -569,6 +571,18 @@ export default function HomePage() {
               <span className="text-[10px] opacity-75 font-normal">(Same Day)</span>
             </button>
             <button
+              onClick={() => setActiveTab("upstox-recommendations")}
+              className={`px-4 py-2 rounded-lg text-xs font-bold transition flex items-center gap-2 ${
+                activeTab === "upstox-recommendations"
+                  ? "bg-purple-600 text-white shadow-md shadow-purple-600/20"
+                  : "text-slate-400 hover:text-slate-200"
+              }`}
+            >
+              <span>🚀</span> Upstox Recommendations
+              <span className="text-[10px] opacity-75 font-normal">(Sandbox)</span>
+            </button>
+
+            <button
               onClick={() => setActiveTab("candle")}
               className={`px-4 py-2 rounded-lg text-xs font-bold transition flex items-center gap-2 ${
                 activeTab === "candle"
@@ -707,7 +721,15 @@ export default function HomePage() {
           </section>
         )}
 
+        {/* TAB: Upstox Recommendations */}
+        {activeTab === "upstox-recommendations" && (
+          <section className="space-y-4">
+            <UpstoxRecommendationsTab />
+          </section>
+        )}
+
         {/* TAB 3: Strict Early Morning OHL Momentum */}
+
         {activeTab === "candle" && (
           <section className="space-y-4">
             {recommendationsWithheld ? (

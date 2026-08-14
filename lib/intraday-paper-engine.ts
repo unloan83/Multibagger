@@ -5,18 +5,15 @@ function getWritableFilePath(filename: string): string {
   const tmpPath = path.join("/tmp", filename);
   const cwdPath = path.join(process.cwd(), "data", filename);
 
-  if (fs.existsSync(tmpPath)) return tmpPath;
-  if (fs.existsSync(cwdPath)) {
+  if (!fs.existsSync(tmpPath) && fs.existsSync(cwdPath)) {
     try {
       fs.mkdirSync("/tmp", { recursive: true });
       fs.copyFileSync(cwdPath, tmpPath);
-      return tmpPath;
-    } catch {
-      return cwdPath;
-    }
+    } catch {}
   }
   return tmpPath;
 }
+
 
 const TRADES_FILE = getWritableFilePath("intraday_paper_trades.json");
 const DAILY_HISTORY_FILE = getWritableFilePath("intraday_daily_history.json");

@@ -231,9 +231,9 @@ export default function UpstoxRecommendationsTab() {
                 const isPending = rec.status === "PENDING" || rec.status === "TELEGRAM_SENT";
                 const isBuyExecuted = rec.status === "BUY_EXECUTED";
                 const isSellExecuted = rec.status === "SELL_EXECUTED";
-                const isSkipped = rec.status === "SKIPPED";
                 const isAuto = rec.executionMode === "AUTOMATIC";
                 const timer = calculateTimeRemaining(rec.timestamp);
+
 
                 return (
                   <tr key={rec.id} className="hover:bg-slate-800/40 transition">

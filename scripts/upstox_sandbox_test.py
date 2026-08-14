@@ -18,13 +18,21 @@ pkg_dir = os.path.join(BASE_DIR, ".python-packages")
 if os.path.exists(pkg_dir) and pkg_dir not in sys.path:
     sys.path.insert(0, pkg_dir)
 
-# Import local env loader if present
-try:
-    from dotenv import load_dotenv
-    load_dotenv(os.path.join(BASE_DIR, ".env.local"))
-    load_dotenv(os.path.join(BASE_DIR, ".env"))
-except ImportError:
-    pass
+def _load_env_file(filepath: str) -> None:
+    if os.path.exists(filepath):
+        with open(filepath, "r", encoding="utf-8") as f:
+            for line in f:
+                line = line.strip()
+                if line and not line.startswith("#") and "=" in line:
+                    key, val = line.split("=", 1)
+                    key = key.strip()
+                    val = val.strip().strip("'\"")
+                    if key and val:
+                        os.environ[key] = val
+
+_load_env_file(os.path.join(BASE_DIR, ".env.local"))
+_load_env_file(os.path.join(BASE_DIR, ".env"))
+
 
 from engine.upstox_sandbox import (
     run_full_sandbox_lifecycle_test,

@@ -28,6 +28,26 @@ if not logger.handlers:
     logger.addHandler(handler)
     logger.setLevel(logging.INFO)
 
+
+def _auto_load_env() -> None:
+    base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    for env_file in [".env.local", ".env"]:
+        filepath = os.path.join(base_dir, env_file)
+        if os.path.exists(filepath):
+            with open(filepath, "r", encoding="utf-8") as f:
+                for line in f:
+                    line = line.strip()
+                    if line and not line.startswith("#") and "=" in line:
+                        key, val = line.split("=", 1)
+                        key = key.strip()
+                        val = val.strip().strip("'\"")
+                        if key and val and key not in os.environ:
+                            os.environ[key] = val
+
+
+_auto_load_env()
+
+
 # Default test security (Liquid NSE equity used ONLY for testing)
 DEFAULT_TEST_SYMBOL = "RELIANCE"
 DEFAULT_TEST_INSTRUMENT_KEY = "NSE_EQ|INE002A01018"
@@ -177,10 +197,16 @@ def verify_sandbox_order(
     order_api = get_sandbox_order_api(access_token=access_token)
 
     logger.info(sanitize_log_message(f"VERIFYING SANDBOX ORDER | Order ID: {order_id}"))
-    res = order_api.get_order_details(api_version="2.0", order_id=order_id)
-    
-    logger.info(sanitize_log_message(f"SANDBOX ORDER VERIFIED | Order ID: {order_id}"))
-    return {"status": "SUCCESS", "order_id": order_id, "raw_response": res}
+    try:
+        res = order_api.get_order_details(api_version="2.0", order_id=order_id)
+        logger.info(sanitize_log_message(f"SANDBOX ORDER VERIFIED | Order ID: {order_id}"))
+        return {"status": "SUCCESS", "order_id": order_id, "raw_response": res}
+    except Exception as e:
+        err_msg = str(e)
+        if "not available in sandbox mode" in err_msg.lower():
+            logger.info(sanitize_log_message(f"SANDBOX GET QUERY SKIPPED (Not supported by Upstox Sandbox API) | Order ID: {order_id}"))
+            return {"status": "SKIPPED_NOT_SUPPORTED_BY_SANDBOX", "order_id": order_id, "message": err_msg}
+        raise
 
 
 def modify_sandbox_order(
@@ -305,3 +331,4 @@ def run_full_sandbox_lifecycle_test(
         results["errors"].append(error_msg)
 
     return results
+

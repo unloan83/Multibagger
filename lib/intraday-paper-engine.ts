@@ -1,10 +1,27 @@
 import fs from "fs";
 import path from "path";
 
-const DATA_DIR = path.join(process.cwd(), "data");
-const TRADES_FILE = path.join(DATA_DIR, "intraday_paper_trades.json");
-const DAILY_HISTORY_FILE = path.join(DATA_DIR, "intraday_daily_history.json");
-const RECOMMENDATIONS_LOG_FILE = path.join(DATA_DIR, "recommendations_history.json");
+function getWritableFilePath(filename: string): string {
+  const tmpPath = path.join("/tmp", filename);
+  const cwdPath = path.join(process.cwd(), "data", filename);
+
+  if (fs.existsSync(tmpPath)) return tmpPath;
+  if (fs.existsSync(cwdPath)) {
+    try {
+      fs.mkdirSync("/tmp", { recursive: true });
+      fs.copyFileSync(cwdPath, tmpPath);
+      return tmpPath;
+    } catch {
+      return cwdPath;
+    }
+  }
+  return tmpPath;
+}
+
+const TRADES_FILE = getWritableFilePath("intraday_paper_trades.json");
+const DAILY_HISTORY_FILE = getWritableFilePath("intraday_daily_history.json");
+const RECOMMENDATIONS_LOG_FILE = getWritableFilePath("recommendations_history.json");
+
 
 export type IntradayPaperTrade = {
   id: string;
@@ -78,14 +95,17 @@ export type SystemStatus = {
 const STARTING_CAPITAL = 30000;
 const DAILY_TARGET_CAP = 3000;
 
-function ensureDataDir() {
-  if (!fs.existsSync(DATA_DIR)) {
-    fs.mkdirSync(DATA_DIR, { recursive: true });
+function ensureParentDir(filePath: string) {
+  const dir = path.dirname(filePath);
+  if (!fs.existsSync(dir)) {
+    try {
+      fs.mkdirSync(dir, { recursive: true });
+    } catch {}
   }
 }
 
 export function readAllPaperTrades(): IntradayPaperTrade[] {
-  ensureDataDir();
+  ensureParentDir(TRADES_FILE);
   if (!fs.existsSync(TRADES_FILE)) return [];
   try {
     const raw = fs.readFileSync(TRADES_FILE, "utf-8");
@@ -96,12 +116,14 @@ export function readAllPaperTrades(): IntradayPaperTrade[] {
 }
 
 export function writeAllPaperTrades(trades: IntradayPaperTrade[]): void {
-  ensureDataDir();
-  fs.writeFileSync(TRADES_FILE, JSON.stringify(trades, null, 2), "utf-8");
+  ensureParentDir(TRADES_FILE);
+  try {
+    fs.writeFileSync(TRADES_FILE, JSON.stringify(trades, null, 2), "utf-8");
+  } catch {}
 }
 
 export function readDailySummaries(): DailySummary[] {
-  ensureDataDir();
+  ensureParentDir(DAILY_HISTORY_FILE);
   if (!fs.existsSync(DAILY_HISTORY_FILE)) return [];
   try {
     const raw = fs.readFileSync(DAILY_HISTORY_FILE, "utf-8");
@@ -112,12 +134,14 @@ export function readDailySummaries(): DailySummary[] {
 }
 
 export function writeDailySummaries(summaries: DailySummary[]): void {
-  ensureDataDir();
-  fs.writeFileSync(DAILY_HISTORY_FILE, JSON.stringify(summaries, null, 2), "utf-8");
+  ensureParentDir(DAILY_HISTORY_FILE);
+  try {
+    fs.writeFileSync(DAILY_HISTORY_FILE, JSON.stringify(summaries, null, 2), "utf-8");
+  } catch {}
 }
 
 export function logRecommendationHistory(item: Record<string, unknown>): void {
-  ensureDataDir();
+  ensureParentDir(RECOMMENDATIONS_LOG_FILE);
   let log: Record<string, unknown>[] = [];
   if (fs.existsSync(RECOMMENDATIONS_LOG_FILE)) {
     try {
@@ -126,8 +150,11 @@ export function logRecommendationHistory(item: Record<string, unknown>): void {
   }
   log.unshift({ ...item, timestamp: new Date().toISOString() });
   if (log.length > 500) log = log.slice(0, 500);
-  fs.writeFileSync(RECOMMENDATIONS_LOG_FILE, JSON.stringify(log, null, 2), "utf-8");
+  try {
+    fs.writeFileSync(RECOMMENDATIONS_LOG_FILE, JSON.stringify(log, null, 2), "utf-8");
+  } catch {}
 }
+
 
 export function getTradingScheduleInfo(dateObj = new Date()): { mode: "AUTOMATIC" | "USER_DRIVEN"; isTradingDay: boolean; dayName: string } {
   const dayOfWeek = dateObj.getDay(); // 0: Sun, 1: Mon, 2: Tue, 3: Wed, 4: Thu, 5: Fri, 6: Sat

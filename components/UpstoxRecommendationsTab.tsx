@@ -136,6 +136,18 @@ export default function UpstoxRecommendationsTab() {
             <p className="text-xs text-slate-300 leading-relaxed">
               Segregated Sandbox model predictions and trade execution workflow. Choose between <strong className="text-cyan-300">AUTOMATIC</strong> (model-driven sandbox trade) or <strong className="text-amber-300">USER DRIVEN</strong> (Telegram notification with Buy/Sell/Skip buttons).
             </p>
+            <div className="pt-1 flex flex-wrap gap-2 text-[11px]">
+              <span className="rounded bg-slate-900/80 px-2 py-0.5 font-medium text-cyan-300 border border-cyan-500/20">
+                CMP: ₹150 - ₹3,000
+              </span>
+              <span className="rounded bg-slate-900/80 px-2 py-0.5 font-medium text-emerald-300 border border-emerald-500/20">
+                Target Upside: &gt;10% Intraday Surge
+              </span>
+              <span className="rounded bg-slate-900/80 px-2 py-0.5 font-medium text-purple-300 border border-purple-500/20">
+                RVOL Spike: &ge; 2.5x
+              </span>
+            </div>
+
           </div>
 
           <div className="shrink-0 flex flex-col items-end gap-1.5 text-right">

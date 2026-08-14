@@ -63,8 +63,8 @@ export default function UpstoxRecommendationsTab() {
       } else {
         setError(data.error || "Failed to update mode.");
       }
-    } catch (err: any) {
-      setError(err.message || "Error updating mode.");
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : "Error updating mode.");
     } finally {
       setActionLoading(null);
     }
@@ -87,8 +87,8 @@ export default function UpstoxRecommendationsTab() {
       } else {
         setError(data.error || "Failed to send Telegram alert.");
       }
-    } catch (err: any) {
-      setError(err.message || "Error sending Telegram alert.");
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : "Error sending Telegram alert.");
     } finally {
       setActionLoading(null);
     }
@@ -112,12 +112,13 @@ export default function UpstoxRecommendationsTab() {
       } else {
         setError(data.error || "Failed to process action.");
       }
-    } catch (err: any) {
-      setError(err.message || "Error processing action.");
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : "Error processing action.");
     } finally {
       setActionLoading(null);
     }
   };
+
 
   return (
     <div className="space-y-6">

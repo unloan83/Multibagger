@@ -1,0 +1,100 @@
+{
+  "asOf": "2026-08-14",
+  "methodology": "Sector context contributes 20% of the final Multibagger Score. Company fundamentals, valuation, governance, liquidity and trend contribute 80%. Sector support cannot bypass a failed company safety gate.",
+  "sectors": [
+    {
+      "sector": "Capital Goods, Infrastructure & Defence",
+      "aliases": ["capital goods", "construction", "infrastructure", "defence", "aerospace", "industrial"],
+      "reformScore": 84,
+      "governmentInitiativeScore": 88,
+      "globalImpactScore": 70,
+      "outlook": "Strong domestic capital expenditure and defence indigenisation support order visibility; execution, working-capital and commodity-cost risks remain important.",
+      "evidence": [
+        { "title": "Union Budget 2026–27 defence allocation and domestic procurement", "url": "https://www.pib.gov.in/PressReleasePage.aspx?PRID=2221612" },
+        { "title": "DAP 2026 procurement reform proposal", "url": "https://www.pib.gov.in/PressReleasePage.aspx?PRID=2227775" }
+      ]
+    },
+    {
+      "sector": "Power, Renewables & Utilities",
+      "aliases": ["power", "renewable", "utilities", "energy", "solar", "wind"],
+      "reformScore": 82,
+      "governmentInitiativeScore": 88,
+      "globalImpactScore": 78,
+      "outlook": "Grid expansion and renewable integration create a multi-year opportunity, balanced against tariff, leverage, curtailment and equipment-cycle risks.",
+      "evidence": [
+        { "title": "Government renewable-grid integration programme", "url": "https://www.pib.gov.in/PressReleasePage.aspx?PRID=2240739" },
+        { "title": "IEA Electricity 2026 India supply outlook", "url": "https://www.iea.org/reports/electricity-2026/supply" }
+      ]
+    },
+    {
+      "sector": "Automobile, EV & Components",
+      "aliases": ["automobile", "auto components", "electric vehicle", "battery", "mobility"],
+      "reformScore": 78,
+      "governmentInitiativeScore": 84,
+      "globalImpactScore": 64,
+      "outlook": "PLI-Auto, battery manufacturing and charging infrastructure support localisation; global demand, rare-earth supply and technology transitions add risk.",
+      "evidence": [
+        { "title": "PLI Auto and ACC implementation status", "url": "https://www.pib.gov.in/PressReleasePage.aspx?PRID=2287137" },
+        { "title": "PM E-DRIVE charging infrastructure programme", "url": "https://www.pib.gov.in/PressReleasePage.aspx?PRID=2260368" }
+      ]
+    },
+    {
+      "sector": "Healthcare & Pharmaceuticals",
+      "aliases": ["healthcare", "pharmaceutical", "pharma", "medical", "hospital", "diagnostic"],
+      "reformScore": 76,
+      "governmentInitiativeScore": 82,
+      "globalImpactScore": 72,
+      "outlook": "Bulk-drug, medical-device and biopharma programmes support domestic capability and exports; regulatory compliance and product concentration remain key risks.",
+      "evidence": [
+        { "title": "Pharma and medical-device manufacturing initiatives", "url": "https://www.pib.gov.in/PressReleasePage.aspx?PRID=2274104" },
+        { "title": "Bulk Drug PLI and PRIP research programme", "url": "https://www.pib.gov.in/PressReleasePage.aspx?PRID=2246061" }
+      ]
+    },
+    {
+      "sector": "Technology, Electronics & Digital Services",
+      "aliases": ["information technology", "technology", "it services", "electronics", "semiconductor", "software", "telecom"],
+      "reformScore": 79,
+      "governmentInitiativeScore": 83,
+      "globalImpactScore": 76,
+      "outlook": "Semiconductor support, electronics supply-chain diversification and AI demand are positive, while global technology spending and trade restrictions can increase volatility.",
+      "evidence": [
+        { "title": "Union Budget 2026–27 semiconductor programme outcomes", "url": "https://www.indiabudget.gov.in/doc/OutcomeBudgetE2026_2027.pdf" },
+        { "title": "IMF July 2026 global technology and trade outlook", "url": "https://www.imf.org/en/publications/weo/issues/2026/07/08/world-economic-outlook-update-july-2026" }
+      ]
+    },
+    {
+      "sector": "Metals, Mining & Materials",
+      "aliases": ["metals", "mining", "steel", "mineral", "materials", "cement", "chemicals"],
+      "reformScore": 72,
+      "governmentInitiativeScore": 76,
+      "globalImpactScore": 54,
+      "outlook": "Specialty-steel localisation and domestic infrastructure demand are supportive, but China, commodity prices, energy costs and global trade remain major cyclical risks.",
+      "evidence": [
+        { "title": "Specialty Steel PLI 1.2", "url": "https://www.pib.gov.in/PressReleasePage.aspx?PRID=2225503" },
+        { "title": "IMF July 2026 global growth and trade outlook", "url": "https://www.imf.org/en/publications/weo/issues/2026/07/08/world-economic-outlook-update-july-2026" }
+      ]
+    },
+    {
+      "sector": "Financial Services",
+      "aliases": ["financial", "bank", "insurance", "capital markets", "fintech"],
+      "reformScore": 66,
+      "governmentInitiativeScore": 64,
+      "globalImpactScore": 62,
+      "outlook": "Formalisation, digital adoption and domestic growth are supportive; credit quality, funding costs, regulation and global financial conditions require sector-specific checks.",
+      "evidence": [
+        { "title": "IMF July 2026 India and global financial outlook", "url": "https://www.imf.org/en/publications/weo/issues/2026/07/08/world-economic-outlook-update-july-2026" }
+      ]
+    },
+    {
+      "sector": "Consumer & Diversified",
+      "aliases": ["consumer", "consumer services", "retail", "fmcg", "hospitality", "media", "textile", "diversified"],
+      "reformScore": 62,
+      "governmentInitiativeScore": 60,
+      "globalImpactScore": 64,
+      "outlook": "Domestic consumption is supportive, but input costs, rural/urban demand dispersion, competition and discretionary spending cycles can materially change outcomes.",
+      "evidence": [
+        { "title": "IMF July 2026 India consumption outlook", "url": "https://www.imf.org/en/publications/weo/issues/2026/07/08/world-economic-outlook-update-july-2026" }
+      ]
+    }
+  ]
+}

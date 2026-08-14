@@ -27,16 +27,35 @@ export default function BreezeMultibaggerTab() {
         <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
           <div>
             <h2 className="text-base font-bold text-white">Breeze Multibagger</h2>
-            <p className="mt-1 text-xs text-slate-400">6–24+ month investment discovery • NSE/BSE equities, ETFs and IPOs • CMP/issue price up to ₹1,000</p>
+            <p className="mt-1 text-xs text-slate-400">6–24+ month investment discovery • maximum 4 qualified stocks per sector • sector-wise ETFs • CMP/issue price up to ₹1,000</p>
           </div>
           <span className="rounded-lg border border-emerald-500/20 bg-emerald-500/10 px-3 py-1.5 text-xs font-bold text-emerald-300">RESEARCH ONLY</span>
         </div>
         <p className="mt-3 text-[11px] text-slate-500">Updated {new Date(snapshot.asOf).toLocaleString("en-IN", { timeZone: "Asia/Kolkata" })} IST • {snapshot.universe.registered.toLocaleString("en-IN")} NSE/BSE securities registered • {snapshot.historyCount.toLocaleString("en-IN")} recommendations permanently tracked • no automatic trade placement</p>
       </div>
 
-      <CandidateSection title="Top Multibagger Candidates" rows={snapshot.topCandidates} empty="No equity currently meets the display criteria." />
+      <div className="space-y-4">
+        <div><h3 className="text-sm font-bold text-white">Sector-wise Stock Shortlists</h3><p className="mt-1 text-[11px] text-slate-500">Four is a cap, not a quota; sectors remain below four when company-level evidence is insufficient.</p></div>
+        {snapshot.sectorShortlists.filter((group) => group.stocks.length > 0).map((group) => (
+          <div key={`stocks-${group.sector}`} className="space-y-2">
+            <div>
+              <h4 className="text-xs font-bold text-cyan-300">{group.sector} <span className="font-normal text-slate-500">• sector context {group.contextScore}/100 • up to 4 stocks</span></h4>
+              <p className="mt-1 text-[11px] leading-relaxed text-slate-500">{group.outlook}</p>
+            </div>
+            <CandidateSection title="" rows={group.stocks} empty="No stock currently clears this sector's research gates." />
+          </div>
+        ))}
+      </div>
       <CandidateSection title="Upcoming IPO Opportunities" rows={snapshot.upcomingIpos} empty="No upcoming or newly listed IPO has enough verified official information to publish yet." />
-      <CandidateSection title="ETF Opportunities" rows={snapshot.etfOpportunities} empty="ETF market data is awaiting the next scheduled refresh." />
+      <div className="space-y-4">
+        <h3 className="text-sm font-bold text-white">Sector-wise ETF Opportunities</h3>
+        {snapshot.sectorShortlists.filter((group) => group.etfs.length > 0).map((group) => (
+          <div key={`etfs-${group.sector}`} className="space-y-2">
+            <h4 className="text-xs font-bold text-cyan-300">{group.sector} <span className="font-normal text-slate-500">• up to 4 ETFs</span></h4>
+            <CandidateSection title="" rows={group.etfs} empty="No ETF currently clears this sector's research gates." />
+          </div>
+        ))}
+      </div>
     </section>
   );
 }
@@ -44,7 +63,7 @@ export default function BreezeMultibaggerTab() {
 function CandidateSection({ title, rows, empty }: { title: string; rows: MultibaggerCandidate[]; empty: string }) {
   return (
     <div className="space-y-2">
-      <h3 className="text-sm font-bold text-white">{title}</h3>
+      {title && <h3 className="text-sm font-bold text-white">{title}</h3>}
       {rows.length === 0 ? (
         <div className="rounded-xl border border-slate-800 bg-[#0b1626] p-6 text-center text-xs text-slate-400">{empty}</div>
       ) : (

@@ -11,6 +11,7 @@ export type MultibaggerCandidate = {
   name: string;
   kind: MultibaggerKind;
   exchange: "NSE" | "BSE" | "NSE/BSE";
+  sector: string;
   price: number;
   score: number;
   classification: "Strong Candidate" | "Watch Closely" | "Emerging" | "Avoid/Monitor";
@@ -47,7 +48,7 @@ export type MultibaggerHistoryRecord = {
 };
 
 export type BreezeMultibaggerSnapshot = {
-  modelVersion: "breeze-multibagger-v1";
+  modelVersion: "breeze-multibagger-v2";
   mode: "RESEARCH_ONLY";
   automaticTrading: false;
   asOf: string;
@@ -61,10 +62,19 @@ export type BreezeMultibaggerSnapshot = {
     evaluated: number;
     registryAsOf: string | null;
   };
+  sectorShortlists: SectorShortlist[];
   topCandidates: MultibaggerCandidate[];
   upcomingIpos: MultibaggerCandidate[];
   etfOpportunities: MultibaggerCandidate[];
   historyCount: number;
+};
+
+export type SectorShortlist = {
+  sector: string;
+  outlook: string;
+  contextScore: number;
+  stocks: MultibaggerCandidate[];
+  etfs: MultibaggerCandidate[];
 };
 
 type IpoSeed = {
@@ -88,9 +98,26 @@ type UniverseRegistry = {
   counts: { uniqueSecurities: number; stocks: number; etfs: number };
 };
 
+type LongTermUniverseSeed = {
+  sectors: Array<{ slots: Record<string, Array<ExpertQuote & { eligible?: boolean; thematicSectorTitle?: string }>> }>;
+};
+
+type SectorContext = {
+  sector: string;
+  aliases: string[];
+  reformScore: number;
+  governmentInitiativeScore: number;
+  globalImpactScore: number;
+  outlook: string;
+  evidence: Array<{ title: string; url: string }>;
+};
+
+type SectorContextFile = { asOf: string; methodology: string; sectors: SectorContext[] };
+
 const SNAPSHOT_FILE = "breeze_multibagger.json";
 const HISTORY_FILE = "breeze_multibagger_history.json";
 const IPO_FILE = "ipo-opportunities.json";
+const SECTOR_CONTEXT_FILE = "sector-context.json";
 const ETF_SYMBOLS = [
   "NIFTYBEES", "JUNIORBEES", "MID150BEES", "MON100", "GOLDBEES", "SILVERBEES",
   "ITBEES", "BANKBEES", "PHARMABEES", "AUTOBEES", "CPSEETF", "MAFANG",
@@ -110,19 +137,34 @@ export function actionForScore(score: number): MultibaggerAction {
   return "AVOID";
 }
 
+export function combineCompanyAndSectorScore(companyScore: number, sectorScore: number) {
+  return Math.round(clamp(companyScore, 0, 100) * 0.8 + clamp(sectorScore, 0, 100) * 0.2);
+}
+
 export async function buildBreezeMultibaggerSnapshot(options: { refreshEtfs?: boolean } = {}): Promise<BreezeMultibaggerSnapshot> {
-  const [wealth, ipoSeeds, etfs, registry] = await Promise.all([
+  const [wealth, longTerm, ipoSeeds, rawEtfs, registry, contextFile] = await Promise.all([
     readJson<ExpertActionMatrix>("wealth_recommendations.json"),
+    readJson<LongTermUniverseSeed>("long_term_universe.json"),
     readJson<IpoSeed[]>(IPO_FILE),
     options.refreshEtfs ? evaluateEtfs() : readExistingEtfs(),
     readJson<UniverseRegistry>("multibagger-universe.json"),
+    readJson<SectorContextFile>(SECTOR_CONTEXT_FILE),
   ]);
-  const topCandidates = (wealth?.categories ?? [])
-    .flatMap((category) => category.longTermUpsides)
+  const contexts = contextFile?.sectors ?? [];
+  const stockPool = dedupeStocks([
+    ...(wealth?.categories ?? []).flatMap((category) => category.longTermUpsides),
+    ...(longTerm?.sectors ?? []).flatMap((sector) => Object.values(sector.slots).flat()),
+  ]);
+  const rankedStocks = stockPool
     .filter((quote) => quote.price > 0 && quote.price <= 1000)
-    .map(toStockCandidate)
-    .sort(rankCandidates)
-    .slice(0, 25);
+    .map((quote) => toStockCandidate(quote, findSectorContext(stockSector(quote), contexts)))
+    .sort(rankCandidates);
+  const etfs = rawEtfs.map((etf) => {
+    const sector = etfSector(etf.symbol);
+    return applySectorContext({ ...etf, sector }, findSectorContext(sector, contexts));
+  });
+  const sectorShortlists = buildSectorShortlists(rankedStocks, etfs, contexts);
+  const topCandidates = sectorShortlists.flatMap((group) => group.stocks);
   const upcomingIpos = (ipoSeeds ?? [])
     .filter((ipo) => ipo.issuePrice > 0 && ipo.issuePrice <= 1000)
     .map(toIpoCandidate)
@@ -130,7 +172,7 @@ export async function buildBreezeMultibaggerSnapshot(options: { refreshEtfs?: bo
   const all = [...topCandidates, ...upcomingIpos, ...etfs];
   const history = await recordRecommendationHistory(all);
   return {
-    modelVersion: "breeze-multibagger-v1",
+    modelVersion: "breeze-multibagger-v2",
     mode: "RESEARCH_ONLY",
     automaticTrading: false,
     asOf: new Date().toISOString(),
@@ -144,6 +186,7 @@ export async function buildBreezeMultibaggerSnapshot(options: { refreshEtfs?: bo
       evaluated: wealth?.evaluatedSize ?? topCandidates.length,
       registryAsOf: registry?.asOf ?? null,
     },
+    sectorShortlists,
     topCandidates,
     upcomingIpos,
     etfOpportunities: etfs.sort(rankCandidates).slice(0, 12),
@@ -153,7 +196,7 @@ export async function buildBreezeMultibaggerSnapshot(options: { refreshEtfs?: bo
 
 export async function getBreezeMultibaggerSnapshot(): Promise<BreezeMultibaggerSnapshot> {
   const existing = await readJson<BreezeMultibaggerSnapshot>(SNAPSHOT_FILE);
-  if (existing?.modelVersion === "breeze-multibagger-v1") return existing;
+  if (existing?.modelVersion === "breeze-multibagger-v2") return existing;
   const snapshot = await buildBreezeMultibaggerSnapshot({ refreshEtfs: true });
   await writeBreezeMultibaggerSnapshot(snapshot);
   return snapshot;
@@ -172,28 +215,35 @@ export function assertResearchOnlySnapshot(snapshot: BreezeMultibaggerSnapshot) 
     if (candidate.price <= 0 || candidate.price > 1000) throw new Error(`${candidate.symbol} violates the ₹1,000 price ceiling.`);
     if (candidate.score < 0 || candidate.score > 100) throw new Error(`${candidate.symbol} has an invalid score.`);
   }
+  for (const group of snapshot.sectorShortlists) {
+    if (group.stocks.length > 4 || group.etfs.length > 4) throw new Error(`${group.sector} exceeds the four-security sector limit.`);
+  }
 }
 
-function toStockCandidate(quote: ExpertQuote): MultibaggerCandidate {
+function toStockCandidate(quote: ExpertQuote & { eligible?: boolean }, context: SectorContext): MultibaggerCandidate {
   const risk = riskFromQuote(quote);
-  const score = Math.max(0, Math.min(100, Math.round(quote.score)));
+  const companyScore = Math.max(0, Math.min(100, Math.round(quote.score)));
+  const contextScore = sectorContextScore(context);
+  const score = combineCompanyAndSectorScore(companyScore, contextScore);
   const revenueGrowth = numericFactor(quote, "revenueGrowthPercent");
   const earningsGrowth = numericFactor(quote, "earningsGrowthPercent");
   const reason = quote.reasons?.slice(0, 3).join(" ") || `Growth, quality, valuation, momentum and liquidity combine for a ${score}/100 research score.`;
-  const action = quote.action === "Accumulate" ? actionForScore(score) : score >= 70 ? "WATCH" : score >= 55 ? "WAIT" : "AVOID";
+  const companyGatePassed = quote.eligible === true || (quote.eligible === undefined && quote.action === "Accumulate");
+  const action = companyGatePassed ? actionForScore(score) : score >= 70 ? "WATCH" : score >= 55 ? "WAIT" : "AVOID";
   return {
     id: `STOCK:${quote.symbol}`,
     symbol: quote.symbol,
     name: quote.name,
     kind: "STOCK",
     exchange: "NSE",
+    sector: context.sector,
     price: round2(quote.price),
     score,
     classification: classifyScore(score),
     growthPotential: score >= 85 ? "High" : score >= 70 ? "Moderate–High" : score >= 55 ? "Developing" : "Limited",
     horizon: score >= 85 ? "12–24 months" : "18–24+ months",
     risk,
-    keyReason: reason,
+    keyReason: `${reason} Sector context: ${context.outlook}`,
     action,
     outlook6To12: quote.metrics?.return120Percent > 15 ? "Positive momentum; monitor valuation and results." : "Needs earnings and price confirmation.",
     outlook12To24: score >= 70 ? "Potential compounding candidate if growth and cash flow persist." : "Monitor for stronger fundamental evidence.",
@@ -209,6 +259,13 @@ function toStockCandidate(quote: ExpertQuote): MultibaggerCandidate {
       liquidity: quote.factorScores?.liquidity ?? null,
       governanceReviewRequired: true,
       catalyst: quote.catalystSummary || null,
+      companyScore,
+      sectorContextScore: contextScore,
+      sectorReformScore: context.reformScore,
+      governmentInitiativeScore: context.governmentInitiativeScore,
+      globalImpactScore: context.globalImpactScore,
+      sectorEvidence: context.evidence.map((item) => item.url).join(" | "),
+      companySafetyGatePassed: companyGatePassed,
     },
   };
 }
@@ -221,6 +278,7 @@ function toIpoCandidate(ipo: IpoSeed): MultibaggerCandidate {
     name: ipo.name,
     kind: ipo.kind,
     exchange: ipo.exchange ?? "NSE/BSE",
+    sector: typeof ipo.factors.sector === "string" ? ipo.factors.sector : "IPO Opportunities",
     price: round2(ipo.issuePrice),
     score,
     classification: classifyScore(score),
@@ -272,6 +330,7 @@ async function evaluateEtf(symbol: string): Promise<MultibaggerCandidate | null>
       name: result?.meta?.longName ?? result?.meta?.shortName ?? symbol,
       kind: "ETF",
       exchange: "NSE",
+      sector: etfSector(symbol),
       price: round2(price),
       score,
       classification: classifyScore(score),
@@ -289,6 +348,89 @@ async function evaluateEtf(symbol: string): Promise<MultibaggerCandidate | null>
   } catch {
     return null;
   }
+}
+
+function buildSectorShortlists(stocks: MultibaggerCandidate[], etfs: MultibaggerCandidate[], contexts: SectorContext[]): SectorShortlist[] {
+  const sectors = [...new Set([...stocks.map((stock) => stock.sector), ...etfs.map((etf) => etf.sector)])];
+  return sectors.map((sector) => {
+    const context = findSectorContext(sector, contexts);
+    return {
+      sector,
+      outlook: context.outlook,
+      contextScore: sectorContextScore(context),
+      stocks: stocks.filter((stock) => stock.sector === sector).sort(rankCandidates).slice(0, 4),
+      etfs: etfs.filter((etf) => etf.sector === sector).sort(rankCandidates).slice(0, 4),
+    };
+  }).filter((group) => group.stocks.length > 0 || group.etfs.length > 0)
+    .sort((a, b) => b.contextScore - a.contextScore || a.sector.localeCompare(b.sector));
+}
+
+function applySectorContext(candidate: MultibaggerCandidate, context: SectorContext): MultibaggerCandidate {
+  const marketScore = candidate.score;
+  const contextScore = sectorContextScore(context);
+  const score = combineCompanyAndSectorScore(marketScore, contextScore);
+  return {
+    ...candidate,
+    sector: context.sector,
+    score,
+    classification: classifyScore(score),
+    action: actionForScore(score),
+    keyReason: `${candidate.keyReason} Sector context: ${context.outlook}`,
+    factors: {
+      ...candidate.factors,
+      marketScore,
+      sectorContextScore: contextScore,
+      sectorReformScore: context.reformScore,
+      governmentInitiativeScore: context.governmentInitiativeScore,
+      globalImpactScore: context.globalImpactScore,
+      sectorEvidence: context.evidence.map((item) => item.url).join(" | "),
+    },
+  };
+}
+
+function findSectorContext(rawSector: string | undefined, contexts: SectorContext[]): SectorContext {
+  const normalized = (rawSector || "").toLowerCase();
+  const exact = contexts.find((context) => context.sector.toLowerCase() === normalized);
+  return exact ?? contexts.find((context) => context.aliases.some((alias) => normalized.includes(alias))) ?? {
+    sector: rawSector || "Other Sectors",
+    aliases: [], reformScore: 50, governmentInitiativeScore: 50, globalImpactScore: 50,
+    outlook: "No verified sector-specific policy advantage is applied; company fundamentals and risk controls dominate.", evidence: [],
+  };
+}
+
+function stockSector(stock: ExpertQuote) {
+  const symbolMap: Record<string, string> = {
+    INDHOTEL: "Consumer & Diversified", JSWINFRA: "Capital Goods, Infrastructure & Defence",
+    SAGILITY: "Technology, Electronics & Digital Services", LATENTVIEW: "Technology, Electronics & Digital Services", RATEGAIN: "Technology, Electronics & Digital Services",
+    SKIPPER: "Capital Goods, Infrastructure & Defence", PREMIERENE: "Capital Goods, Infrastructure & Defence",
+    THYROCARE: "Healthcare & Pharmaceuticals", SHILPAMED: "Healthcare & Pharmaceuticals",
+    MINDACORP: "Automobile, EV & Components", ASKAUTOLTD: "Automobile, EV & Components", SONACOMS: "Automobile, EV & Components",
+    ASHAPURMIN: "Metals, Mining & Materials", INOXGREEN: "Power, Renewables & Utilities",
+  };
+  return symbolMap[stock.symbol] || stock.sector || stock.theme || "Other Sectors";
+}
+
+function sectorContextScore(context: SectorContext) {
+  return Math.round(context.reformScore * 0.3 + context.governmentInitiativeScore * 0.4 + context.globalImpactScore * 0.3);
+}
+
+function dedupeStocks<T extends ExpertQuote & { eligible?: boolean }>(stocks: T[]): T[] {
+  const bySymbol = new Map<string, T>();
+  for (const stock of stocks) {
+    const current = bySymbol.get(stock.symbol);
+    if (!current || Number(Boolean(stock.eligible)) > Number(Boolean(current.eligible)) || stock.score > current.score) bySymbol.set(stock.symbol, stock);
+  }
+  return [...bySymbol.values()];
+}
+
+function etfSector(symbol: string) {
+  const sectors: Record<string, string> = {
+    ITBEES: "Technology, Electronics & Digital Services", MAFANG: "Technology, Electronics & Digital Services", MON100: "Technology, Electronics & Digital Services",
+    BANKBEES: "Financial Services", PHARMABEES: "Healthcare & Pharmaceuticals", AUTOBEES: "Automobile, EV & Components",
+    CPSEETF: "Capital Goods, Infrastructure & Defence", GOLDBEES: "Metals, Mining & Materials", SILVERBEES: "Metals, Mining & Materials",
+    NIFTYBEES: "Consumer & Diversified", JUNIORBEES: "Consumer & Diversified", MID150BEES: "Consumer & Diversified",
+  };
+  return sectors[symbol] || "Consumer & Diversified";
 }
 
 async function recordRecommendationHistory(candidates: MultibaggerCandidate[]): Promise<MultibaggerHistoryRecord[]> {

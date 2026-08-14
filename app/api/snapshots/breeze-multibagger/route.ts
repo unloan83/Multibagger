@@ -10,7 +10,7 @@ export async function GET(request: Request) {
   try {
     const snapshot = await buildBreezeMultibaggerSnapshot({ refreshEtfs: true });
     await writeBreezeMultibaggerSnapshot(snapshot);
-    return NextResponse.json({ ok: true, asOf: snapshot.asOf, stocks: snapshot.topCandidates.length, etfs: snapshot.etfOpportunities.length, ipos: snapshot.upcomingIpos.length, history: snapshot.historyCount });
+    return NextResponse.json({ ok: true, asOf: snapshot.asOf, sectors: snapshot.sectorShortlists.length, stocks: snapshot.topCandidates.length, etfs: snapshot.etfOpportunities.length, ipos: snapshot.upcomingIpos.length, history: snapshot.historyCount });
   } catch (error) {
     return NextResponse.json({ ok: false, error: "Refresh failed.", detail: String(error) }, { status: 500 });
   }

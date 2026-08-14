@@ -5,6 +5,7 @@ import type { TermRecommendation, TermDuration } from "@/lib/term-agent-analysis
 import type { CandleViewResult } from "@/lib/candle-view";
 import type { CandleScanSnapshot } from "@/lib/candle-scanner";
 import UpstoxRecommendationsTab from "@/components/UpstoxRecommendationsTab";
+import BreezeMultibaggerTab from "@/components/BreezeMultibaggerTab";
 
 
 
@@ -98,8 +99,7 @@ export default function HomePage() {
 
   const [snapshot, setSnapshot] = useState<Snapshot | null>(null);
   const [error, setError] = useState("");
-  const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState<"term" | "intraday" | "upstox-recommendations" | "candle" | "watchlist" | "history">("term");
+  const [activeTab, setActiveTab] = useState<"term" | "breeze-multibagger" | "upstox-recommendations" | "candle" | "watchlist" | "history">("term");
   const [market, setMarket] = useState<Market>("india");
   const [usMarketData, setUsMarketData] = useState<UsMarketData | null>(null);
   const [loadingUsMarket, setLoadingUsMarket] = useState(false);
@@ -135,6 +135,10 @@ export default function HomePage() {
 
   useEffect(() => {
     if (typeof window !== "undefined") {
+      if (new URLSearchParams(window.location.search).get("tab") === "breeze-multibagger") {
+        setMarket("india");
+        setActiveTab("breeze-multibagger");
+      }
       const storedPin = sessionStorage.getItem("stock_planner_pin");
       if (storedPin === "1083") {
         setIsUnlocked(true);
@@ -171,11 +175,9 @@ export default function HomePage() {
       })
       .then((data) => {
         setSnapshot(data);
-        setLoading(false);
       })
       .catch((err) => {
         setError(err.message || "Failed to load recommendations.");
-        setLoading(false);
       });
   }, [isUnlocked]);
 
@@ -398,16 +400,8 @@ export default function HomePage() {
     );
   }
 
-  // Keep the displayed intraday rows and timestamp on the same scheduled pipeline.
-  const indianIntradayPicks: StockPick[] = (snapshot?.intradayPipeline?.picks || []).map((item) => ({
-    ...item,
-    isMultibagger: item.upside >= 100 || (item.target >= 2 * item.price && item.price > 0),
-  }));
-
   // Filter Term Picks by Selected Duration
   const activeTermPicks = market === "us" ? usMarketData?.termPicks || [] : termPicks;
-  const intradayPicks = [...(market === "us" ? usMarketData?.intradayPicks || [] : indianIntradayPicks)]
-    .sort((a, b) => b.score - a.score || b.upside - a.upside);
   const filteredTermPicks = termFilter === "all"
     ? activeTermPicks
     : activeTermPicks.filter((p) => p.termDuration === termFilter);
@@ -424,10 +418,8 @@ export default function HomePage() {
       }) + " IST"
       : "Awaiting first run";
 
-  const intradayUpdatedLabel = formatUpdatedAt(market === "us" ? usMarketData?.asOf : snapshot?.intradayPipeline?.asOf);
   const currencySymbol = market === "us" ? "$" : "₹";
   const marketLabel = market === "us" ? "US" : "Indian";
-  const marketLoading = market === "us" ? loadingUsMarket : loading;
   const recommendationsWithheld = snapshot?.publication?.enabled !== true;
   const publicationReason = snapshot?.publication?.reason || "Recommendation publishing is withheld until the model meets its data and validation requirements.";
 
@@ -464,9 +456,9 @@ export default function HomePage() {
 
       <div className="mx-auto max-w-7xl px-4 py-6 sm:px-6 space-y-6">
         <div className="rounded-2xl border border-rose-500/35 bg-rose-950/30 p-4">
-          <div className="flex items-start gap-3"><span className="text-lg">⛔</span><div><h2 className="text-sm font-bold text-rose-200">Recommendation publishing withheld</h2>
+          <div className="flex items-start gap-3"><span className="text-lg">⛔</span><div><h2 className="text-sm font-bold text-rose-200">Legacy trading recommendations withheld</h2>
             <p className="mt-1 text-xs leading-relaxed text-rose-100/80">{publicationReason}</p>
-            <p className="mt-2 text-[11px] text-slate-400">The portal may display current market quotes and screening diagnostics, but it will not publish BUY, ACCUMULATE, targets, candle calls or paper trades.</p></div></div>
+            <p className="mt-2 text-[11px] text-slate-400">Breeze Multibagger may publish research classifications such as ACCUMULATE or WATCH, but it has no order-placement path. Upstox experimentation remains paper-only.</p></div></div>
         </div>
         <div className="inline-flex items-center gap-1.5 rounded-xl border border-slate-700 bg-[#0b1626] p-1.5 shadow-lg" aria-label="Select stock market">
           <button
@@ -494,7 +486,7 @@ export default function HomePage() {
                 <strong className="text-indigo-400">Term model:</strong> Publication disabled; no quota or duration bucket will be backfilled.
               </p>
               <p className="text-slate-300 leading-relaxed">
-                <strong className="text-amber-400">Intraday data:</strong> Live screening diagnostics may be shown, but no trade recommendation is published.
+                <strong className="text-amber-400">Breeze Multibagger:</strong> Research-only discovery for 6–24+ month opportunities; it never places trades.
               </p>
             </div>
             <div className="shrink-0 bg-[#060e1a] border border-slate-800 rounded-xl p-2.5 text-slate-400 text-[11px] space-y-1">
@@ -522,7 +514,7 @@ export default function HomePage() {
           </summary>
           <div className="border-t border-slate-700/70 px-4 py-4 text-xs leading-relaxed text-slate-300">
             <p className="mb-4 text-slate-400">
-              The {marketLabel} market engine ranks candidates using market data, momentum, liquidity, business quality and risk. Scores are comparative screening scores—not probabilities or guaranteed returns. Term and intraday recommendations use different gates.
+              The {marketLabel} market engine ranks candidates using market data, momentum, liquidity, business quality and risk. Scores are comparative screening scores—not probabilities or guaranteed returns. Breeze research and Upstox paper-trading use separate data contracts.
             </p>
             <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
               <GlossaryItem term="Recommendation Score (0–100)" description="Weighted rank combining growth, quality, valuation, momentum, sector strength, liquidity, catalysts, data quality and risk. A higher score means stronger evidence relative to the screened universe." />
@@ -538,7 +530,7 @@ export default function HomePage() {
               <GlossaryItem term="CMP, Target & Upside" description="CMP is the current market price. Target is the modelled price objective for the displayed horizon. Upside is (Target − CMP) ÷ CMP × 100 and can change as prices refresh." />
               <GlossaryItem term="BUY / ACCUMULATE / WATCH" description="BUY marks a stronger near-term setup; ACCUMULATE indicates staged entry over the stated horizon; WATCH means evidence or confirmation is incomplete and is not an entry signal." />
               <GlossaryItem term="Term Logic" description="Prioritises business growth, earnings quality, leverage, valuation, medium-term trend, sector strength, liquidity and risk across 1-week, 1-month, 3-month and 6-month buckets." />
-              <GlossaryItem term="Intraday Logic" description="Prioritises session movement, relative volume, VWAP position, short-term momentum, liquidity and volatility. Long-term fundamental exclusions are not reused as intraday rationale." />
+              <GlossaryItem term="Breeze Multibagger Logic" description="Prioritises revenue and earnings growth, capital efficiency, cash flow, leverage, valuation, ownership and governance checks, sector outlook, catalysts, liquidity and medium-term price/volume confirmation." />
               <GlossaryItem term="Multibagger Flag" description="Displayed only when modelled upside is at least 100%. It is a scenario flag, not a prediction or assurance that the stock will double." />
             </div>
             <p className="mt-4 rounded-lg border border-amber-500/20 bg-amber-500/5 px-3 py-2 text-[11px] text-amber-200/80">
@@ -562,15 +554,15 @@ export default function HomePage() {
               <span className="text-[10px] opacity-75 font-normal">(1W, 1M, 3M, 6M)</span>
             </button>
             <button
-              onClick={() => setActiveTab("intraday")}
+              onClick={() => setActiveTab("breeze-multibagger")}
               className={`px-4 py-2 rounded-lg text-xs font-bold transition flex items-center gap-2 ${
-                activeTab === "intraday"
+                activeTab === "breeze-multibagger"
                   ? "bg-amber-500 text-slate-950 shadow-md shadow-amber-500/20"
                   : "text-slate-400 hover:text-slate-200"
               }`}
             >
-              <span>⚡</span> Intraday Data
-              <span className="text-[10px] opacity-75 font-normal">(Same Day)</span>
+              <span>🌱</span> Breeze Multibagger
+              <span className="text-[10px] opacity-75 font-normal">(6–24+ Months)</span>
             </button>
             <button
               onClick={() => setActiveTab("upstox-recommendations")}
@@ -691,31 +683,8 @@ export default function HomePage() {
           </section>
         )}
 
-        {/* TAB 2: Intraday Breakouts */}
-        {!marketLoading && activeTab === "intraday" && (
-          <section className="space-y-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <h2 className="text-base font-bold text-white flex items-center gap-2">
-                  <span className="h-2.5 w-2.5 rounded-full bg-amber-400 animate-pulse" />
-                  Intraday Market Screen
-                </h2>
-                <p className="text-xs text-slate-400 mt-0.5">Updated {intradayUpdatedLabel} • NIFTY 500 • ₹150–₹750 CMP • VWAP/ORB/RVOL/liquidity/spread gates</p>
-              </div>
-              <span className="text-xs text-slate-400 font-medium bg-[#091424] px-3 py-1 rounded-lg border border-slate-800">
-                Total: <strong className="text-amber-400">{intradayPicks.length}</strong>
-              </span>
-            </div>
-
-            {intradayPicks.length === 0 ? (
-              <div className="rounded-2xl border border-slate-800 bg-[#0b1626] p-8 text-center text-slate-400">
-                {publicationReason}
-              </div>
-            ) : (
-              <SimpleSingleRowTable picks={intradayPicks} type="intraday" currencySymbol={currencySymbol} />
-            )}
-          </section>
-        )}
+        {/* TAB 2: Breeze long-horizon research (no trade execution) */}
+        {activeTab === "breeze-multibagger" && <BreezeMultibaggerTab />}
 
         {/* TAB: Upstox Recommendations & Paper Trading */}
         {activeTab === "upstox-recommendations" && (
@@ -1090,113 +1059,6 @@ function TermSingleRowTable({ picks, currencySymbol }: { picks: TermRecommendati
       </table>
     </div>
   );
-}
-
-// Single-Row Table Component for Intraday Recommendations
-function SimpleSingleRowTable({
-  picks,
-  type,
-  currencySymbol,
-}: {
-  picks: StockPick[];
-  type: "intraday";
-  currencySymbol: string;
-}) {
-  return (
-    <div className="overflow-x-auto rounded-xl border border-slate-800/90 bg-[#0b1626] shadow-xl">
-      <table className="w-full text-left text-xs text-slate-300 border-collapse">
-        <thead className="bg-[#070e1a] text-[11px] font-semibold text-slate-400 uppercase tracking-wider border-b border-slate-800">
-          <tr>
-            <th className="py-3.5 px-4">Symbol & Name</th>
-            <th className="py-3.5 px-3 text-center">Rank / Confidence</th>
-            <th className="py-3.5 px-3">Category</th>
-            <th className="py-3.5 px-3">Sector</th>
-            <th className="py-3.5 px-3 text-center">Action</th>
-            <th className="py-3.5 px-3 text-right">CMP ({currencySymbol})</th>
-            <th className="py-3.5 px-3 text-right">Target ({currencySymbol})</th>
-            <th className="py-3.5 px-3 text-right">Change</th>
-            <th className="py-3.5 px-3 text-right">Upside</th>
-            <th className="py-3.5 px-3 text-center">Flag</th>
-            <th className="py-3.5 px-4 min-w-[220px]">Rationale / Remark</th>
-          </tr>
-        </thead>
-        <tbody className="divide-y divide-slate-800/60 font-sans">
-          {picks.map((stock, idx) => {
-            const isPos = stock.changePercent >= 0;
-            return (
-              <tr
-                key={`${type}-${stock.symbol}-${idx}`}
-                className="hover:bg-[#0e1c30] transition-colors duration-150"
-              >
-                <td className="py-3 px-4">
-                  <div className="font-bold text-white text-sm tracking-wide">{stock.symbol}</div>
-                  <div className="text-[11px] text-slate-400 truncate max-w-[170px]">{stock.name}</div>
-                </td>
-
-                <td className="py-3 px-3 text-center">
-                  <span className="inline-flex items-center gap-1.5 rounded-md border border-amber-500/25 bg-amber-500/10 px-2.5 py-1 font-bold text-amber-300">
-                    #{idx + 1} <span className="text-[10px] font-medium text-slate-400">{stock.score}/100</span>
-                  </span>
-                </td>
-
-                <td className="py-3 px-3 text-slate-300 font-medium">
-                  {stock.marketCapCategory || "NIFTY 500"}
-                </td>
-
-                <td className="py-3 px-3 text-slate-400">
-                  {stock.sector || stock.theme || "General"}
-                </td>
-
-                <td className="py-3 px-3 text-center">
-                  <span className="inline-block px-2.5 py-1 rounded-md text-[11px] font-bold uppercase tracking-wider bg-amber-500/20 text-amber-300 border border-amber-500/30">
-                    {stock.action === "Accumulate" ? "BUY" : stock.action}
-                  </span>
-                </td>
-
-                <td className="py-3 px-3 text-right font-bold text-white font-mono">
-                  {currencySymbol}{stock.price ? stock.price.toLocaleString("en-IN", { maximumFractionDigits: 1 }) : "—"}
-                </td>
-
-                <td className="py-3 px-3 text-right font-bold text-cyan-300 font-mono">
-                  {currencySymbol}{stock.target ? stock.target.toLocaleString("en-IN", { maximumFractionDigits: 1 }) : "—"}
-                </td>
-
-                <td className={`py-3 px-3 text-right font-semibold font-mono ${isPos ? "text-emerald-400" : "text-rose-400"}`}>
-                  {isPos ? "+" : ""}
-                  {stock.changePercent ? stock.changePercent.toFixed(1) : "0.0"}%
-                </td>
-
-                <td className="py-3 px-3 text-right font-bold text-cyan-400 font-mono">
-                  +{stock.upside ? stock.upside.toFixed(1) : "0"}%
-                </td>
-
-                <td className="py-3 px-3 text-center">
-                  {stock.isMultibagger ? (
-                    <span className="inline-flex items-center gap-1 rounded-full bg-purple-500/20 px-2.5 py-0.5 text-[10px] font-bold text-purple-300 border border-purple-500/40 shadow-sm animate-pulse">
-                      🚀 MULTIBAGGER
-                    </span>
-                  ) : (
-                    <span className="text-slate-600 text-[10px]">—</span>
-                  )}
-                </td>
-
-                <td className="py-3 px-4 text-[11px] text-slate-400 leading-tight">
-                  {getIntradayRemark(stock)}
-                </td>
-              </tr>
-            );
-          })}
-        </tbody>
-      </table>
-    </div>
-  );
-}
-
-function getIntradayRemark(stock: StockPick): string {
-  if (stock.remark && !stock.remark.trim().toLowerCase().startsWith("not recommended")) {
-    return stock.remark;
-  }
-  return `Intraday momentum candidate ranked ${stock.score}/100 with ${stock.changePercent >= 0 ? "+" : ""}${stock.changePercent.toFixed(1)}% session movement and ${stock.upside.toFixed(1)}% modelled upside. Confirm live VWAP, relative volume and stop-loss before entry.`;
 }
 
 function CandleShortlistTable({ results, market }: { results: CandleViewResult[]; market: Market }) {

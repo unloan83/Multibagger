@@ -1,0 +1,36 @@
+name: Refresh Multibagger Universe
+
+on:
+  schedule:
+    - cron: "20 2 * * 1-5"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: multibagger-universe-refresh
+  cancel-in-progress: false
+
+jobs:
+  refresh:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Sync official NSE and BSE registries
+        run: node scripts/sync_multibagger_universe.mjs
+      - name: Commit only verified universe changes
+        run: |
+          if git diff --quiet -- data/multibagger-universe.json; then
+            echo "Official security registry is unchanged."
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add data/multibagger-universe.json
+          git commit -m "data: refresh official multibagger universe"
+          git push

@@ -12,6 +12,9 @@ from .store import MarketStore
 from .strategies import Candidate, scan_symbol
 
 
+SCAN_BATCH_SIZE = 50
+
+
 def run_scan(settings: Settings) -> dict:
     if os.getenv("ENABLE_LIVE_TRADING", "false").lower() != "false":
         raise RuntimeError("Live trading is prohibited")
@@ -21,17 +24,20 @@ def run_scan(settings: Settings) -> dict:
     symbols = settings.symbols()
     candidates: list[Candidate] = []
     fresh = 0
-    frames = store.bars_for_symbols(symbols)
-    grouped = {symbol: frame.reset_index(drop=True) for symbol, frame in frames.groupby("symbol")} if not frames.empty else {}
     with store.connect() as con:
         con.execute("INSERT INTO scanner_runs (run_id, started_at, status, universe_size) VALUES (?, ?, 'RUNNING', ?)", [run_id, now, len(symbols)])
     try:
-        for symbol in symbols:
-            frame = grouped.get(symbol, frames.iloc[0:0])
-            found = scan_symbol(frame, settings, now)
-            if len(frame) and found:
-                fresh += 1
-            candidates.extend(found)
+        for offset in range(0, len(symbols), SCAN_BATCH_SIZE):
+            batch = symbols[offset:offset + SCAN_BATCH_SIZE]
+            frames = store.bars_for_symbols(batch)
+            grouped = {symbol: frame.reset_index(drop=True) for symbol, frame in frames.groupby("symbol")} if not frames.empty else {}
+            empty = frames.iloc[0:0]
+            for symbol in batch:
+                frame = grouped.get(symbol, empty)
+                found = scan_symbol(frame, settings, now)
+                if len(frame) and found:
+                    fresh += 1
+                candidates.extend(found)
         candidates.sort(key=lambda item: item.rank_score, reverse=True)
         with store.connect() as con:
             for item in candidates:

@@ -17,7 +17,7 @@ Environment=MARKET_DATA_PROVIDER=breeze
 Environment=PYTHONDONTWRITEBYTECODE=1
 Environment=OPENBLAS_NUM_THREADS=1
 Environment=OMP_NUM_THREADS=1
-ExecStart=/opt/breeze/venv/bin/python -m scripts.market_engine breeze-warmup --days 8
+ExecStart=/opt/breeze/venv/bin/python -m scripts.market_engine breeze-warmup --days 3
 UMask=0077
 NoNewPrivileges=true
 PrivateTmp=true

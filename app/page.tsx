@@ -682,7 +682,7 @@ export default function HomePage() {
                   <span className="h-2.5 w-2.5 rounded-full bg-amber-400 animate-pulse" />
                   Intraday Market Screen
                 </h2>
-                <p className="text-xs text-slate-400 mt-0.5">Updated {intradayUpdatedLabel} • Live NSE gainers • ₹150–₹3,000 • Volume ≥1 lakh • VWAP/ORB/RVOL/RSI/MACD gates</p>
+                <p className="text-xs text-slate-400 mt-0.5">Updated {intradayUpdatedLabel} • NIFTY 500 • ₹150–₹750 CMP • VWAP/ORB/RVOL/liquidity/spread gates</p>
               </div>
               <span className="text-xs text-slate-400 font-medium bg-[#091424] px-3 py-1 rounded-lg border border-slate-800">
                 Total: <strong className="text-amber-400">{intradayPicks.length}</strong>

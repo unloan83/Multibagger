@@ -33,9 +33,17 @@ def warmup_breeze(settings: Settings, days: int = 8) -> dict[str, int]:
     instruments = resolve_breeze_instruments(client, settings, store)
     end = datetime.now(timezone.utc).date()
     start = end - timedelta(days=days)
-    totals = {"symbols": len(instruments), "requests": 0, "bars": 0, "failed": 0}
+    with store.connect() as con:
+        session_counts = dict(con.execute("""
+          SELECT symbol, count(DISTINCT CAST(ts AT TIME ZONE 'Asia/Kolkata' AS DATE))
+          FROM minute_bars GROUP BY symbol
+        """).fetchall())
+    totals = {"symbols": len(instruments), "skipped": 0, "requests": 0, "bars": 0, "failed": 0}
 
     for token, item in instruments.items():
+        if int(session_counts.get(item["symbol"], 0)) >= 3:
+            totals["skipped"] += 1
+            continue
         for chunk_start, chunk_end in _two_day_chunks(start, end):
             try:
                 result = _request_with_retry(client, item["stock_code"], chunk_start, chunk_end)

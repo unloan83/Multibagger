@@ -28,7 +28,7 @@ SIGNAL_INGEST_URL=https://your-portal.example/api/recommendations
 BLOB_READ_WRITE_TOKEN=... # portal/Vercel durable snapshot storage
 ```
 
-Optional tuning/storage variables: `MARKET_DATA_DB`, `SIGNAL_SNAPSHOT_PATH`, `NSE_UNIVERSE_PATH`, `NSE_UNIVERSE_SIZE` (default 200), `MAX_DATA_AGE_SECONDS`, `MAX_SIGNAL_SNAPSHOT_AGE_SECONDS`, `MIN_DAILY_VALUE_INR`, `MIN_RELATIVE_VOLUME`, and `MAX_SPREAD_BPS`.
+Optional tuning/storage variables: `MARKET_DATA_DB`, `SIGNAL_SNAPSHOT_PATH`, `NSE_UNIVERSE_PATH`, `NSE_UNIVERSE_SIZE` (default and hard maximum 500), `MIN_PRICE_INR` (default 150), `MAX_PRICE_INR` (default 750), `MAX_DATA_AGE_SECONDS`, `MAX_SIGNAL_SNAPSHOT_AGE_SECONDS`, `MIN_DAILY_VALUE_INR`, `MIN_RELATIVE_VOLUME`, and `MAX_SPREAD_BPS`.
 
 ## Run
 
@@ -40,11 +40,11 @@ npm run engine:scan
 python3 -m scripts.market_engine backtest --start 2026-01-01 --end 2026-06-30
 ```
 
-The collector subscribes to the configured NSE cash universe and resolves symbols using the selected provider's instrument master. It refuses materially incomplete resolution. The scanner uses only 15-minute opening-range breakouts and VWAP pullback/continuations, with value-liquidity, relative-volume, bid/ask spread, freshness, and ATR risk gates. `rank_score` is a deterministic ranking score, not a confidence or probability.
+The collector subscribes to at most the official NIFTY 500 NSE cash universe and resolves symbols using the selected provider's instrument master. It refuses materially incomplete resolution. The scanner accepts only stocks whose latest close is within the configured ₹150–₹750 CMP band, then applies 15-minute opening-range breakout and VWAP pullback/continuation rules with value-liquidity, relative-volume, bid/ask spread, freshness, and ATR risk gates. `rank_score` is a deterministic ranking score, not a confidence or probability.
 
-On `VM.Standard.E2.1.Micro`, deploy `deploy/multibagger-paper.service` and begin with `NSE_UNIVERSE_SIZE=50` from `deploy/worker.env.example`. Credentials belong only in `/etc/breeze/breeze.env`; worker settings belong in `/etc/multibagger/worker.env`. The service hard-codes `ENABLE_LIVE_TRADING=false`, contains no order call, and writes state only under `/var/lib/multibagger`.
+On `VM.Standard.E2.1.Micro`, deploy `deploy/multibagger-paper.service` with the hard-capped `NSE_UNIVERSE_SIZE=500` from `deploy/worker.env.example`. The worker batches candle writes, retains only 14 days of minute bars, and systemd enforces `MemoryMax=750M`. Those controls protect the existing 1 GB Always Free VM; the application does not create or resize OCI resources. Credentials belong only in `/etc/breeze/breeze.env`; worker settings belong in `/etc/multibagger/worker.env`. The service hard-codes `ENABLE_LIVE_TRADING=false`, contains no order call, and writes state only under `/var/lib/multibagger`.
 
-The OCI deployment uses `multibagger-paper-start.timer` at 09:05 IST and `multibagger-paper-stop.timer` at 15:35 IST on weekdays. Before each trading day, generate a fresh Breeze `API_Session`, update the local `Breeze_Credentials.env`, and run `/home/user/projects/sync-breeze-credentials.sh`. The helper uploads the protected file and starts/restarts only the paper worker. Run `multibagger-paper-warmup.service` after a new deployment to seed recent historical candles.
+The OCI deployment uses `multibagger-paper-start.timer` at 09:05 IST and `multibagger-paper-stop.timer` at 15:35 IST on weekdays. Before each trading day, generate a fresh Breeze `API_Session`, update the local `Breeze_Credentials.env`, and run `/home/user/projects/sync-breeze-credentials.sh`. The helper uploads the protected file and starts/restarts only the paper worker. Run `multibagger-paper-warmup.service` after a new deployment to seed three days of recent historical candles; it skips symbols that already have at least three sessions.
 
 ## Verify
 

@@ -9,7 +9,7 @@ from engine.store import MarketStore
 
 def test_both_strategies_run_through_pybroker(tmp_path):
     universe = tmp_path / "universe.json"
-    universe.write_text('[{"symbol":"TEST","sources":["NIFTY 200"]}]')
+    universe.write_text('[{"symbol":"TEST","sources":["NIFTY 500"]}]')
     settings = Settings("", tmp_path / "market.duckdb", tmp_path / "signals.json", universe, max_symbols=1)
     store = MarketStore(settings.db_path)
     rows = []

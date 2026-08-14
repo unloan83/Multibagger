@@ -58,7 +58,7 @@ def scan_symbol(frame: pd.DataFrame, settings: Settings, now: datetime | None = 
     minute = len(session) - 1
     comparable = prior.groupby("session").nth(minute).volume if len(prior) else pd.Series(dtype=float)
     rvol = float(last.volume) / float(comparable.tail(5).mean()) if len(comparable) and comparable.tail(5).mean() > 0 else 0
-    if float(last.close) < settings.min_price or daily_value < settings.min_daily_value or rvol < settings.min_relative_volume or spread_bps > settings.max_spread_bps:
+    if not settings.min_price <= float(last.close) <= settings.max_price or daily_value < settings.min_daily_value or rvol < settings.min_relative_volume or spread_bps > settings.max_spread_bps:
         return []
     entry, atr = float(ask), float(last.atr)
     stop = entry - settings.atr_stop_multiple * atr

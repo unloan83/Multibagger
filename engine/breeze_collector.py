@@ -21,7 +21,18 @@ LOG = logging.getLogger("multibagger.breeze")
 def resolve_breeze_instruments(client: Any, settings: Settings, store: MarketStore) -> dict[str, dict[str, str]]:
     """Resolve NSE symbols through the SDK's bundled ICICI instrument master."""
     resolved: dict[str, dict[str, str]] = {}
+    with store.connect() as con:
+        cached_rows = con.execute("""
+          SELECT instrument_key, symbol, name FROM instruments
+          WHERE exchange='NSE' AND updated_at >= now() - INTERVAL '30 days'
+        """).fetchall()
+    cached = {str(symbol): (str(token), str(stock_code)) for token, symbol, stock_code in cached_rows
+              if stock_code and re.fullmatch(r"4\.1!\d+", str(token))}
     for symbol in settings.symbols():
+        if symbol in cached:
+            token, stock_code = cached[symbol]
+            resolved[token] = {"symbol": symbol, "stock_code": stock_code}
+            continue
         result = client.get_names(exchange_code="NSE", stock_code=symbol)
         if not isinstance(result, dict) or not result.get("isec_token_level1") or not result.get("isec_stock_code"):
             LOG.warning("Breeze could not resolve NSE symbol %s", symbol)
@@ -56,6 +67,8 @@ class BreezeTickWriter:
         self.by_token = instruments
         self.by_code = {item["stock_code"]: (token, item["symbol"]) for token, item in instruments.items()}
         self.latest_quotes: dict[str, tuple[float | None, float | None]] = {}
+        self.pending_bars: dict[tuple[str, datetime], dict[str, Any]] = {}
+        self.pending_lock = threading.Lock()
         self.received = 0
 
     def on_ticks(self, tick: dict[str, Any]) -> None:
@@ -86,7 +99,7 @@ class BreezeTickWriter:
             return
         timestamp = _india_timestamp(str(tick.get("datetime", "")))
         bid, ask = self.latest_quotes.get(symbol, (None, None))
-        self.store.upsert_bar({
+        row = {
             "instrument_key": token,
             "symbol": symbol,
             "ts": timestamp,
@@ -98,8 +111,24 @@ class BreezeTickWriter:
             "bid": bid,
             "ask": ask,
             "received_at": datetime.now(timezone.utc),
-        })
+        }
+        with self.pending_lock:
+            self.pending_bars[(token, timestamp)] = row
         self.received += 1
+
+    def flush(self) -> int:
+        with self.pending_lock:
+            rows = list(self.pending_bars.values())
+            self.pending_bars.clear()
+        if not rows:
+            return 0
+        try:
+            return self.store.upsert_bars(pd.DataFrame(rows))
+        except Exception:
+            with self.pending_lock:
+                for row in rows:
+                    self.pending_bars[(row["instrument_key"], row["ts"])] = row
+            raise
 
 
 def collect_breeze(settings: Settings) -> None:
@@ -138,8 +167,16 @@ def collect_breeze(settings: Settings) -> None:
 
     signal.signal(signal.SIGTERM, request_stop)
     signal.signal(signal.SIGINT, request_stop)
-    while not stop.wait(60):
-        LOG.info("Breeze paper feed healthy; processed ticks=%d", writer.received)
+    last_health_log = time.monotonic()
+    while not stop.wait(1):
+        try:
+            writer.flush()
+        except Exception:
+            LOG.exception("Breeze candle batch flush failed")
+        if time.monotonic() - last_health_log >= 60:
+            LOG.info("Breeze paper feed healthy; processed ticks=%d", writer.received)
+            last_health_log = time.monotonic()
+    writer.flush()
     ohlc_client.disconnect()
     client.ws_disconnect()
 

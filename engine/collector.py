@@ -75,6 +75,9 @@ def run_worker(settings: Settings, scan_interval: int = 60) -> None:
     """Persistent local process: collect continuously and publish paper scans periodically."""
     if scan_interval < 30:
         raise ValueError("scan interval must be at least 30 seconds")
+    removed = MarketStore(settings.db_path).prune(14)
+    if removed:
+        logging.info("pruned %d minute bars older than 14 days", removed)
     stop = threading.Event()
 
     def scanner_loop() -> None:

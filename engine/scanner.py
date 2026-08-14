@@ -21,11 +21,13 @@ def run_scan(settings: Settings) -> dict:
     symbols = settings.symbols()
     candidates: list[Candidate] = []
     fresh = 0
+    frames = store.bars_for_symbols(symbols)
+    grouped = {symbol: frame.reset_index(drop=True) for symbol, frame in frames.groupby("symbol")} if not frames.empty else {}
     with store.connect() as con:
         con.execute("INSERT INTO scanner_runs (run_id, started_at, status, universe_size) VALUES (?, ?, 'RUNNING', ?)", [run_id, now, len(symbols)])
     try:
         for symbol in symbols:
-            frame = store.bars(symbol)
+            frame = grouped.get(symbol, frames.iloc[0:0])
             found = scan_symbol(frame, settings, now)
             if len(frame) and found:
                 fresh += 1

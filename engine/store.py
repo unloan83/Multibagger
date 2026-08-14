@@ -62,7 +62,7 @@ class MarketStore:
     def upsert_bar(self, row: dict) -> None:
         with self.connect() as con:
             con.execute("DELETE FROM minute_bars WHERE instrument_key=? AND ts=?", [row["instrument_key"], row["ts"]])
-            con.execute("""INSERT INTO minute_bars VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""", [
+            con.execute("""INSERT INTO minute_bars VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""", [
                 row[k] for k in ("instrument_key", "symbol", "ts", "open", "high", "low", "close", "volume", "bid", "ask", "received_at")
             ])
 
@@ -84,3 +84,22 @@ class MarketStore:
               SELECT * FROM minute_bars WHERE symbol=? AND ts >= now() - (? * INTERVAL '1 day')
               ORDER BY ts
             """, [symbol, days]).df()
+
+    def bars_for_symbols(self, symbols: list[str], days: int = 10) -> pd.DataFrame:
+        if not symbols:
+            return pd.DataFrame()
+        with self.connect() as con:
+            return con.execute("""
+              SELECT * FROM minute_bars
+              WHERE symbol IN (SELECT unnest(?)) AND ts >= now() - (? * INTERVAL '1 day')
+              ORDER BY symbol, ts
+            """, [symbols, days]).df()
+
+    def prune(self, retention_days: int = 14) -> int:
+        if retention_days < 10:
+            raise ValueError("minute-bar retention must be at least 10 days")
+        with self.connect() as con:
+            before = con.execute("SELECT count(*) FROM minute_bars").fetchone()[0]
+            con.execute("DELETE FROM minute_bars WHERE ts < now() - (? * INTERVAL '1 day')", [retention_days])
+            after = con.execute("SELECT count(*) FROM minute_bars").fetchone()[0]
+        return before - after

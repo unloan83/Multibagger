@@ -7,6 +7,8 @@ import type { CandleScanSnapshot } from "@/lib/candle-scanner";
 import UpstoxRecommendationsTab from "@/components/UpstoxRecommendationsTab";
 
 
+
+
 type StockPick = {
   symbol: string;
   name: string;
@@ -579,8 +581,10 @@ export default function HomePage() {
               }`}
             >
               <span>🚀</span> Upstox Recommendations
-              <span className="text-[10px] opacity-75 font-normal">(Sandbox)</span>
+              <span className="text-[10px] opacity-75 font-normal">(Paper Trading)</span>
             </button>
+
+
 
             <button
               onClick={() => setActiveTab("candle")}
@@ -710,23 +714,17 @@ export default function HomePage() {
             ) : (
               <SimpleSingleRowTable picks={intradayPicks} type="intraday" currencySymbol={currencySymbol} />
             )}
-            {market === "india" && (snapshot?.intradayPipeline?.screened?.length || 0) > 0 && (
-              <div className="overflow-x-auto rounded-xl border border-slate-800 bg-[#0b1626]">
-                <div className="border-b border-slate-800 px-4 py-3 text-xs font-bold text-slate-300">Live NSE leaders screened—not recommendations</div>
-                <table className="w-full text-xs"><thead className="bg-slate-900/70 text-slate-400"><tr><th className="px-3 py-2 text-left">Symbol</th><th className="px-3 py-2 text-right">LTP</th><th className="px-3 py-2 text-right">Day</th><th className="px-3 py-2 text-right">Volume</th><th className="px-3 py-2 text-left">Decision evidence</th></tr></thead>
-                  <tbody>{snapshot!.intradayPipeline!.screened!.map((stock) => <tr key={stock.symbol} className="border-t border-slate-800"><td className="px-3 py-2 font-bold text-white">{stock.symbol}</td><td className="px-3 py-2 text-right">₹{stock.price.toLocaleString("en-IN")}</td><td className="px-3 py-2 text-right text-emerald-300">+{stock.changePercent.toFixed(2)}%</td><td className="px-3 py-2 text-right">{stock.volume.toLocaleString("en-IN")}</td><td className="px-3 py-2 text-left"><span className={stock.status === "BUY" ? "text-emerald-300" : "text-amber-300"}>{stock.status}</span>{stock.reasons.length ? ` — ${stock.reasons.join("; ")}` : " — all gates passed"}</td></tr>)}</tbody>
-                </table>
-              </div>
-            )}
           </section>
         )}
 
-        {/* TAB: Upstox Recommendations */}
+        {/* TAB: Upstox Recommendations & Paper Trading */}
         {activeTab === "upstox-recommendations" && (
           <section className="space-y-4">
             <UpstoxRecommendationsTab />
           </section>
         )}
+
+
 
         {/* TAB 3: Strict Early Morning OHL Momentum */}
 

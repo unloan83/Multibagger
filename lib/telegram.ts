@@ -1,3 +1,5 @@
+import fs from "fs";
+import path from "path";
 import {
   createCipheriv,
   createDecipheriv,
@@ -18,8 +20,45 @@ type DigestRecord = {
   timestamp: string;
 };
 
+
 export function getTelegramBotToken() {
-  return process.env.TELEGRAM_TOKEN?.trim() || process.env.TELEGRAM_BOT_TOKEN?.trim() || "";
+  let token = process.env.TELEGRAM_TOKEN?.trim() || process.env.TELEGRAM_BOT_TOKEN?.trim() || "";
+  if (!token) {
+    try {
+      const localEnvPath = path.join(process.cwd(), ".env.local");
+      if (fs.existsSync(localEnvPath)) {
+        const content = fs.readFileSync(localEnvPath, "utf-8");
+        for (const line of content.split("\n")) {
+          const trimmed = line.trim();
+          if (trimmed.startsWith("TELEGRAM_TOKEN=") || trimmed.startsWith("TELEGRAM_BOT_TOKEN=")) {
+            token = trimmed.split("=", 2)[1].trim().replace(/^["']|["']$/g, "");
+            if (token) break;
+          }
+        }
+      }
+    } catch {}
+  }
+  return token;
+}
+
+export function getTelegramChatId() {
+  let chatId = process.env.TELEGRAM_CHAT_ID?.trim() || "";
+  if (!chatId) {
+    try {
+      const localEnvPath = path.join(process.cwd(), ".env.local");
+      if (fs.existsSync(localEnvPath)) {
+        const content = fs.readFileSync(localEnvPath, "utf-8");
+        for (const line of content.split("\n")) {
+          const trimmed = line.trim();
+          if (trimmed.startsWith("TELEGRAM_CHAT_ID=")) {
+            chatId = trimmed.split("=", 2)[1].trim().replace(/^["']|["']$/g, "");
+            if (chatId) break;
+          }
+        }
+      }
+    } catch {}
+  }
+  return chatId;
 }
 
 export function isValidTelegramBotToken(value: string) {
@@ -29,6 +68,7 @@ export function isValidTelegramBotToken(value: string) {
 export function isValidTelegramChatId(value: string) {
   return /^-?\d{5,20}$/u.test(value.trim());
 }
+
 
 export async function sendTelegramMessage({
   chatId,

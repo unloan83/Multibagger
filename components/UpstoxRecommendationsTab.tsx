@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 
 export type UpstoxRec = {
   id: string;
@@ -27,8 +27,15 @@ export default function UpstoxRecommendationsTab() {
   const [telegramConfigured, setTelegramConfigured] = useState(false);
   const [actionLoading, setActionLoading] = useState<string | null>(null);
 
-  const fetchRecommendations = () => {
-    setLoading(true);
+  // Live timer tick state
+  const [currentTime, setCurrentTime] = useState<number>(Date.now());
+
+  useEffect(() => {
+    const timer = setInterval(() => setCurrentTime(Date.now()), 1000);
+    return () => clearInterval(timer);
+  }, []);
+
+  const fetchRecommendations = useCallback(() => {
     fetch("/api/upstox/recommendations", { cache: "no-store" })
       .then((res) => res.json())
       .then((data) => {
@@ -38,18 +45,24 @@ export default function UpstoxRecommendationsTab() {
         }
         setLoading(false);
       })
-      .catch((err) => {
-        setError(err.message || "Failed to load Upstox recommendations.");
+      .catch((err: unknown) => {
+        const errorMsg = err instanceof Error ? err.message : "Failed to load Upstox recommendations.";
+        setError(errorMsg);
         setLoading(false);
       });
-  };
+  }, []);
 
   useEffect(() => {
     fetchRecommendations();
-  }, []);
+    // Auto-refresh recommendations list every 15 seconds to sync timer status
+    const interval = setInterval(fetchRecommendations, 15_000);
+    return () => clearInterval(interval);
+  }, [fetchRecommendations]);
 
   const handleModeChange = async (id: string, newMode: "AUTOMATIC" | "USER_DRIVEN") => {
     setActionLoading(id);
+    setMsg("");
+    setError("");
     try {
       const res = await fetch("/api/upstox/recommendations", {
         method: "POST",
@@ -59,7 +72,7 @@ export default function UpstoxRecommendationsTab() {
       const data = await res.json();
       if (data.ok && data.data?.recommendations) {
         setRecommendations(data.data.recommendations);
-        setMsg(data.message);
+        setMsg(data.message || `Updated mode to ${newMode}`);
       } else {
         setError(data.error || "Failed to update mode.");
       }
@@ -83,7 +96,7 @@ export default function UpstoxRecommendationsTab() {
       const data = await res.json();
       if (data.ok && data.data?.recommendations) {
         setRecommendations(data.data.recommendations);
-        setMsg(data.message);
+        setMsg(data.message || "Telegram interactive alert sent!");
       } else {
         setError(data.error || "Failed to send Telegram alert.");
       }
@@ -108,17 +121,32 @@ export default function UpstoxRecommendationsTab() {
       const data = await res.json();
       if (data.ok && data.data?.recommendations) {
         setRecommendations(data.data.recommendations);
-        setMsg(data.message);
+        setMsg(data.message || `Trade ${decision} processed successfully.`);
       } else {
-        setError(data.error || "Failed to process action.");
+        setError(data.error || "Failed to process trade action.");
       }
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : "Error processing action.");
+      setError(err instanceof Error ? err.message : "Error processing trade action.");
     } finally {
       setActionLoading(null);
     }
   };
 
+  const calculateTimeRemaining = (timestamp: string): { text: string; isExpired: boolean } => {
+    const start = new Date(timestamp).getTime();
+    const elapsedSeconds = Math.floor((currentTime - start) / 1000);
+    const totalSeconds = 5 * 60; // 5 minutes
+    const remaining = totalSeconds - elapsedSeconds;
+
+    if (remaining <= 0) {
+      return { text: "00:00 (Auto-Executing...)", isExpired: true };
+    }
+
+    const mins = Math.floor(remaining / 60);
+    const secs = remaining % 60;
+    const formatted = `${String(mins).padStart(2, "0")}:${String(secs).padStart(2, "0")}`;
+    return { text: `${formatted} remaining`, isExpired: false };
+  };
 
   return (
     <div className="space-y-6">
@@ -127,27 +155,29 @@ export default function UpstoxRecommendationsTab() {
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
           <div className="space-y-1">
             <div className="flex items-center gap-2">
-              <span className="text-xl">📈</span>
+              <span className="text-xl">🚀</span>
               <h2 className="text-lg font-bold text-purple-200">Upstox Model Recommendations</h2>
               <span className="rounded-full bg-purple-500/20 px-2.5 py-0.5 text-xs font-semibold text-purple-300 border border-purple-500/30">
                 Sandbox Mode
               </span>
             </div>
             <p className="text-xs text-slate-300 leading-relaxed">
-              Segregated Sandbox model predictions and trade execution workflow. Choose between <strong className="text-cyan-300">AUTOMATIC</strong> (model-driven sandbox trade) or <strong className="text-amber-300">USER DRIVEN</strong> (Telegram notification with Buy/Sell/Skip buttons).
+              Scans every 15 minutes during market hours. Choose between <strong className="text-cyan-300">AUTOMATIC</strong> or <strong className="text-amber-300">USER DRIVEN</strong>. If no action is taken within <strong className="text-rose-300">5 minutes</strong>, the system auto-executes the recommendation.
             </p>
             <div className="pt-1 flex flex-wrap gap-2 text-[11px]">
               <span className="rounded bg-slate-900/80 px-2 py-0.5 font-medium text-cyan-300 border border-cyan-500/20">
                 CMP: ₹150 - ₹3,000
               </span>
               <span className="rounded bg-slate-900/80 px-2 py-0.5 font-medium text-emerald-300 border border-emerald-500/20">
-                Target Upside: &gt;10% Intraday Surge
+                Target Upside: &gt;10% Day Surge
               </span>
               <span className="rounded bg-slate-900/80 px-2 py-0.5 font-medium text-purple-300 border border-purple-500/20">
                 RVOL Spike: &ge; 2.5x
               </span>
+              <span className="rounded bg-slate-900/80 px-2 py-0.5 font-medium text-amber-300 border border-amber-500/20">
+                Auto-Timer: 5 Mins
+              </span>
             </div>
-
           </div>
 
           <div className="shrink-0 flex flex-col items-end gap-1.5 text-right">
@@ -156,7 +186,7 @@ export default function UpstoxRecommendationsTab() {
               Upstox Sandbox Connected
             </div>
             <div className="text-[11px] text-slate-400">
-              Telegram Bot: {telegramConfigured ? <span className="text-cyan-400 font-semibold">Active ✓</span> : <span className="text-amber-400">Not Configured</span>}
+              Telegram Bot: {telegramConfigured ? <span className="text-cyan-400 font-semibold">Active ✓ (Connected)</span> : <span className="text-amber-400">Not Connected</span>}
             </div>
           </div>
         </div>
@@ -176,176 +206,181 @@ export default function UpstoxRecommendationsTab() {
         </div>
       )}
 
-      {/* Recommendations Grid */}
+      {/* Simple Tabular Format */}
       {loading ? (
-        <div className="py-12 text-center text-xs text-slate-400">Loading Upstox recommendations...</div>
+        <div className="py-12 text-center text-xs text-slate-400">Loading Upstox recommendations table...</div>
       ) : recommendations.length === 0 ? (
         <div className="py-12 text-center text-xs text-slate-400">No shortlisted Upstox recommendations available at this time.</div>
       ) : (
-        <div className="grid gap-4 md:grid-cols-2">
-          {recommendations.map((rec) => {
-            const isPending = rec.status === "PENDING" || rec.status === "TELEGRAM_SENT";
-            const isBuyExecuted = rec.status === "BUY_EXECUTED";
-            const isSellExecuted = rec.status === "SELL_EXECUTED";
-            const isSkipped = rec.status === "SKIPPED";
-            const isAuto = rec.executionMode === "AUTOMATIC";
+        <div className="overflow-x-auto rounded-2xl border border-slate-800 bg-[#091526] shadow-xl">
+          <table className="w-full text-left text-xs">
+            <thead className="bg-[#060e1a] text-slate-400 uppercase tracking-wider text-[11px] border-b border-slate-800">
+              <tr>
+                <th className="px-4 py-3.5 font-bold">Stock</th>
+                <th className="px-4 py-3.5 font-bold text-right">CMP (₹)</th>
+                <th className="px-4 py-3.5 font-bold text-right">Signal & Target</th>
+                <th className="px-4 py-3.5 font-bold text-right">Stop Loss</th>
+                <th className="px-4 py-3.5 font-bold text-center">Score</th>
+                <th className="px-4 py-3.5 font-bold text-center">Execution Mode Option</th>
+                <th className="px-4 py-3.5 font-bold text-center">5-Min Timer / Status</th>
+                <th className="px-4 py-3.5 font-bold text-center">Actions</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-800/80 font-medium">
+              {recommendations.map((rec) => {
+                const isPending = rec.status === "PENDING" || rec.status === "TELEGRAM_SENT";
+                const isBuyExecuted = rec.status === "BUY_EXECUTED";
+                const isSellExecuted = rec.status === "SELL_EXECUTED";
+                const isSkipped = rec.status === "SKIPPED";
+                const isAuto = rec.executionMode === "AUTOMATIC";
+                const timer = calculateTimeRemaining(rec.timestamp);
 
-            return (
-              <div
-                key={rec.id}
-                className="rounded-2xl border border-slate-800 bg-[#091526] p-5 shadow-lg flex flex-col justify-between space-y-4 hover:border-slate-700 transition"
-              >
-                {/* Stock Info */}
-                <div className="space-y-3">
-                  <div className="flex items-start justify-between">
-                    <div>
-                      <div className="flex items-center gap-2">
-                        <h3 className="text-base font-bold text-white">{rec.symbol}</h3>
-                        <span className="text-[10px] font-mono text-slate-400 bg-slate-800 px-2 py-0.5 rounded">
-                          {rec.instrumentKey}
-                        </span>
-                      </div>
-                      <p className="text-xs text-slate-400 mt-0.5">{rec.name}</p>
-                    </div>
-                    <div className="text-right">
-                      <span className="inline-block rounded-full bg-emerald-500/10 px-2.5 py-1 text-xs font-bold text-emerald-400 border border-emerald-500/20">
-                        {rec.signal} @ ₹{rec.cmp.toLocaleString("en-IN")}
-                      </span>
-                      <div className="text-[11px] text-slate-400 mt-1">Score: <strong className="text-cyan-400">{rec.score}</strong>/100</div>
-                    </div>
-                  </div>
+                return (
+                  <tr key={rec.id} className="hover:bg-slate-800/40 transition">
+                    {/* Stock Symbol */}
+                    <td className="px-4 py-3.5">
+                      <div className="font-bold text-white text-sm">{rec.symbol}</div>
+                      <div className="text-[11px] text-slate-400 font-mono">{rec.instrumentKey}</div>
+                    </td>
 
-                  {/* Target & Stop Loss */}
-                  <div className="grid grid-cols-2 gap-2 text-xs bg-[#060e1a] p-3 rounded-xl border border-slate-800/80">
-                    <div>
-                      <span className="text-slate-400 block text-[11px]">Target Objective</span>
-                      <span className="font-bold text-emerald-400">₹{rec.target.toLocaleString("en-IN")}</span>
-                    </div>
-                    <div>
-                      <span className="text-slate-400 block text-[11px]">Stop Loss</span>
-                      <span className="font-bold text-rose-400">₹{rec.stopLoss.toLocaleString("en-IN")}</span>
-                    </div>
-                  </div>
+                    {/* CMP */}
+                    <td className="px-4 py-3.5 text-right font-bold text-slate-200">
+                      ₹{rec.cmp.toLocaleString("en-IN", { minimumFractionDigits: 2 })}
+                    </td>
 
-                  {/* Remark */}
-                  <p className="text-xs text-slate-300 bg-slate-900/60 p-2.5 rounded-lg border border-slate-800/60">
-                    💡 <strong className="text-purple-300">Model Rationale:</strong> {rec.remark}
-                  </p>
-                </div>
+                    {/* Signal & Target */}
+                    <td className="px-4 py-3.5 text-right">
+                      <span className="inline-block rounded bg-emerald-500/10 px-2 py-0.5 text-[11px] font-bold text-emerald-400 border border-emerald-500/20 mr-1.5">
+                        {rec.signal}
+                      </span>
+                      <span className="font-bold text-emerald-300">
+                        ₹{rec.target.toLocaleString("en-IN", { minimumFractionDigits: 2 })}
+                      </span>
+                    </td>
 
-                {/* Execution Mode & Action Section */}
-                <div className="pt-3 border-t border-slate-800 space-y-3">
-                  {/* Mode Option Selection */}
-                  <div className="flex items-center justify-between text-xs">
-                    <span className="text-slate-400 font-medium">Recommended Action Option:</span>
-                    <div className="inline-flex rounded-lg border border-slate-800 bg-[#060e1a] p-1">
-                      <button
-                        onClick={() => handleModeChange(rec.id, "AUTOMATIC")}
-                        disabled={actionLoading === rec.id}
-                        className={`px-2.5 py-1 rounded text-[11px] font-bold transition ${
-                          rec.executionMode === "AUTOMATIC"
-                            ? "bg-cyan-500 text-slate-950 shadow"
-                            : "text-slate-400 hover:text-white"
-                        }`}
-                      >
-                        🤖 Automatic
-                      </button>
-                      <button
-                        onClick={() => handleModeChange(rec.id, "USER_DRIVEN")}
-                        disabled={actionLoading === rec.id}
-                        className={`px-2.5 py-1 rounded text-[11px] font-bold transition ${
-                          rec.executionMode === "USER_DRIVEN"
-                            ? "bg-amber-500 text-slate-950 shadow"
-                            : "text-slate-400 hover:text-white"
-                        }`}
-                      >
-                        👤 User Driven
-                      </button>
-                    </div>
-                  </div>
+                    {/* Stop Loss */}
+                    <td className="px-4 py-3.5 text-right font-bold text-rose-400">
+                      ₹{rec.stopLoss.toLocaleString("en-IN", { minimumFractionDigits: 2 })}
+                    </td>
 
-                  {/* Status Badge */}
-                  <div className="flex items-center justify-between text-xs">
-                    <span className="text-slate-400">Execution Status:</span>
-                    {isBuyExecuted && (
-                      <span className="rounded-full bg-emerald-500/20 px-2.5 py-1 text-[11px] font-bold text-emerald-300 border border-emerald-500/30">
-                        ✓ BUY EXECUTED (ID: {rec.orderId})
+                    {/* Score */}
+                    <td className="px-4 py-3.5 text-center">
+                      <span className="rounded-full bg-purple-500/10 px-2.5 py-1 text-xs font-bold text-purple-300 border border-purple-500/20">
+                        {rec.score}/100
                       </span>
-                    )}
-                    {isSellExecuted && (
-                      <span className="rounded-full bg-rose-500/20 px-2.5 py-1 text-[11px] font-bold text-rose-300 border border-rose-500/30">
-                        ✓ SELL EXECUTED (ID: {rec.orderId})
-                      </span>
-                    )}
-                    {isSkipped && (
-                      <span className="rounded-full bg-slate-800 px-2.5 py-1 text-[11px] font-bold text-slate-400 border border-slate-700">
-                        ⏭️ SKIPPED
-                      </span>
-                    )}
-                    {rec.status === "TELEGRAM_SENT" && (
-                      <span className="rounded-full bg-cyan-500/20 px-2.5 py-1 text-[11px] font-bold text-cyan-300 border border-cyan-500/30">
-                        📱 TELEGRAM SENT (Awaiting Button Action)
-                      </span>
-                    )}
-                    {rec.status === "PENDING" && (
-                      <span className="rounded-full bg-amber-500/20 px-2.5 py-1 text-[11px] font-bold text-amber-300 border border-amber-500/30">
-                        ⏳ PENDING
-                      </span>
-                    )}
-                  </div>
+                    </td>
 
-                  {/* Action Buttons */}
-                  {isPending && (
-                    <div className="space-y-2 pt-1">
-                      {isAuto ? (
+                    {/* Execution Mode Option Toggle */}
+                    <td className="px-4 py-3.5 text-center">
+                      <div className="inline-flex rounded-lg border border-slate-800 bg-[#060e1a] p-1">
                         <button
-                          onClick={() => handleActionDecision(rec.id, rec.signal, true)}
+                          onClick={() => handleModeChange(rec.id, "AUTOMATIC")}
                           disabled={actionLoading === rec.id}
-                          className="w-full rounded-xl bg-gradient-to-r from-cyan-600 to-blue-600 py-2.5 text-xs font-bold text-white shadow-md hover:from-cyan-500 hover:to-blue-500 transition disabled:opacity-50"
+                          className={`px-2.5 py-1 rounded text-[11px] font-bold transition ${
+                            rec.executionMode === "AUTOMATIC"
+                              ? "bg-cyan-500 text-slate-950 shadow"
+                              : "text-slate-400 hover:text-white"
+                          }`}
                         >
-                          {actionLoading === rec.id ? "Executing Model Sandbox Trade..." : "🤖 Let Model Execute Sandbox Decision"}
+                          🤖 Automatic
                         </button>
-                      ) : (
-                        <div className="space-y-2">
-                          <button
-                            onClick={() => handleSendTelegram(rec.id)}
-                            disabled={actionLoading === rec.id}
-                            className="w-full rounded-xl border border-cyan-500/40 bg-cyan-500/10 py-2 text-xs font-bold text-cyan-300 hover:bg-cyan-500/20 hover:text-white transition flex items-center justify-center gap-1.5 disabled:opacity-50"
-                          >
-                            <span>📱</span> Send Telegram Alert with Interactive Action Buttons
-                          </button>
+                        <button
+                          onClick={() => handleModeChange(rec.id, "USER_DRIVEN")}
+                          disabled={actionLoading === rec.id}
+                          className={`px-2.5 py-1 rounded text-[11px] font-bold transition ${
+                            rec.executionMode === "USER_DRIVEN"
+                              ? "bg-amber-500 text-slate-950 shadow"
+                              : "text-slate-400 hover:text-white"
+                          }`}
+                        >
+                          👤 User Driven
+                        </button>
+                      </div>
+                    </td>
 
-                          <div className="grid grid-cols-3 gap-2">
+                    {/* 5-Min Timer / Status */}
+                    <td className="px-4 py-3.5 text-center">
+                      {isPending ? (
+                        <div className="space-y-1">
+                          <span className={`inline-block rounded-full px-2.5 py-0.5 text-[11px] font-bold ${
+                            timer.isExpired ? "bg-rose-500/20 text-rose-300 animate-pulse" : "bg-amber-500/20 text-amber-300"
+                          }`}>
+                            ⏳ {timer.text}
+                          </span>
+                          <div className="text-[10px] text-slate-400">
+                            {rec.status === "TELEGRAM_SENT" ? "Telegram Sent" : "Pending Action"}
+                          </div>
+                        </div>
+                      ) : isBuyExecuted ? (
+                        <span className="rounded-full bg-emerald-500/20 px-2.5 py-1 text-[11px] font-bold text-emerald-300 border border-emerald-500/30">
+                          ✓ BUY EXECUTED
+                        </span>
+                      ) : isSellExecuted ? (
+                        <span className="rounded-full bg-rose-500/20 px-2.5 py-1 text-[11px] font-bold text-rose-300 border border-rose-500/30">
+                          ✓ SELL EXECUTED
+                        </span>
+                      ) : (
+                        <span className="rounded-full bg-slate-800 px-2.5 py-1 text-[11px] font-bold text-slate-400">
+                          ⏭️ SKIPPED
+                        </span>
+                      )}
+                    </td>
+
+                    {/* Action Buttons */}
+                    <td className="px-4 py-3.5 text-center">
+                      {isPending ? (
+                        isAuto ? (
+                          <button
+                            onClick={() => handleActionDecision(rec.id, rec.signal, true)}
+                            disabled={actionLoading === rec.id}
+                            className="rounded-lg bg-cyan-600 px-3 py-1.5 text-[11px] font-bold text-white hover:bg-cyan-500 transition disabled:opacity-50"
+                          >
+                            {actionLoading === rec.id ? "Executing..." : "🤖 Auto Execute"}
+                          </button>
+                        ) : (
+                          <div className="flex items-center justify-center gap-1.5">
+                            <button
+                              onClick={() => handleSendTelegram(rec.id)}
+                              disabled={actionLoading === rec.id}
+                              title="Send interactive Telegram alert with Buy/Sell/Skip buttons"
+                              className="rounded-lg border border-cyan-500/40 bg-cyan-500/10 px-2.5 py-1 text-[11px] font-bold text-cyan-300 hover:bg-cyan-500/20 hover:text-white transition disabled:opacity-50"
+                            >
+                              📱 Alert
+                            </button>
                             <button
                               onClick={() => handleActionDecision(rec.id, "BUY")}
                               disabled={actionLoading === rec.id}
-                              className="rounded-lg bg-emerald-600/90 py-2 text-xs font-bold text-white hover:bg-emerald-500 transition disabled:opacity-50"
+                              className="rounded-lg bg-emerald-600 px-2.5 py-1 text-[11px] font-bold text-white hover:bg-emerald-500 transition disabled:opacity-50"
                             >
                               🛒 Buy
                             </button>
                             <button
                               onClick={() => handleActionDecision(rec.id, "SELL")}
                               disabled={actionLoading === rec.id}
-                              className="rounded-lg bg-rose-600/90 py-2 text-xs font-bold text-white hover:bg-rose-500 transition disabled:opacity-50"
+                              className="rounded-lg bg-rose-600 px-2.5 py-1 text-[11px] font-bold text-white hover:bg-rose-500 transition disabled:opacity-50"
                             >
                               🔻 Sell
                             </button>
                             <button
                               onClick={() => handleActionDecision(rec.id, "SKIP")}
                               disabled={actionLoading === rec.id}
-                              className="rounded-lg bg-slate-800 py-2 text-xs font-bold text-slate-300 hover:bg-slate-700 transition disabled:opacity-50"
+                              className="rounded-lg bg-slate-800 px-2 py-1 text-[11px] font-bold text-slate-300 hover:bg-slate-700 transition disabled:opacity-50"
                             >
-                              ⏭️ Skip
+                              Skip
                             </button>
                           </div>
-                        </div>
+                        )
+                      ) : (
+                        <span className="text-[11px] text-slate-400 font-mono">
+                          {rec.orderId || "Completed"}
+                        </span>
                       )}
-                    </div>
-                  )}
-                </div>
-              </div>
-            );
-          })}
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
         </div>
       )}
     </div>

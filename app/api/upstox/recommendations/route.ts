@@ -3,7 +3,7 @@ import fs from "fs";
 import path from "path";
 import { exec } from "child_process";
 import { promisify } from "util";
-import { sendTelegramInteractiveAlert, getTelegramBotToken } from "@/lib/telegram";
+import { sendTelegramInteractiveAlert, getTelegramBotToken, getTelegramChatId } from "@/lib/telegram";
 
 const execAsync = promisify(exec);
 
@@ -58,7 +58,31 @@ function writeData(data: RecommendationsStore) {
 export async function GET() {
   try {
     const data = readData();
-    const telegramConfigured = Boolean(getTelegramBotToken() && process.env.TELEGRAM_CHAT_ID);
+    const now = Date.now();
+    let modified = false;
+
+    // Check for 5-minute auto-execution timer on pending USER_DRIVEN recommendations
+    for (const rec of data.recommendations) {
+      if (rec.executionMode === "USER_DRIVEN" && (rec.status === "PENDING" || rec.status === "TELEGRAM_SENT")) {
+        const recTime = new Date(rec.timestamp).getTime();
+        const elapsedMinutes = (now - recTime) / (1000 * 60);
+
+        if (elapsedMinutes >= 5) {
+          rec.status = rec.signal === "BUY" ? "BUY_EXECUTED" : "SELL_EXECUTED";
+          rec.orderId = rec.orderId || `SANDBOX-AUTO-5MIN-${Date.now()}`;
+          modified = true;
+        }
+      }
+    }
+
+    if (modified) {
+      writeData(data);
+    }
+
+    const botToken = getTelegramBotToken();
+    const chatId = getTelegramChatId();
+    const telegramConfigured = Boolean(botToken && chatId);
+
     return NextResponse.json({ ok: true, data, telegramConfigured });
   } catch (error) {
     return NextResponse.json(
@@ -88,9 +112,9 @@ export async function POST(request: Request) {
     }
 
     if (action === "send_telegram") {
-      const chatId = process.env.TELEGRAM_CHAT_ID?.trim();
+      const chatId = getTelegramChatId();
       if (!chatId) {
-        return NextResponse.json({ ok: false, error: "TELEGRAM_CHAT_ID environment variable is not configured." }, { status: 400 });
+        return NextResponse.json({ ok: false, error: "TELEGRAM_CHAT_ID is not configured in environment or .env.local." }, { status: 400 });
       }
 
       const msg = [
@@ -99,7 +123,7 @@ export async function POST(request: Request) {
         `Signal: ${item!.signal} @ ₹${item!.cmp.toFixed(2)}`,
         `Target: ₹${item!.target.toFixed(2)} | Stop Loss: ₹${item!.stopLoss.toFixed(2)}`,
         `Score: ${item!.score}/100`,
-        `Mode: USER DRIVEN`,
+        `Mode: USER DRIVEN (Auto-executes in 5 mins if no action)`,
         `Remark: ${item!.remark}`,
         ``,
         `Choose action below:`
@@ -113,6 +137,7 @@ export async function POST(request: Request) {
       });
 
       item!.status = "TELEGRAM_SENT";
+
       writeData(store);
       return NextResponse.json({ ok: true, message: `Telegram interactive alert sent for ${item!.symbol}.`, data: store });
     }

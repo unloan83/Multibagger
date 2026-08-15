@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import type { BreezeMultibaggerSnapshot, MultibaggerCandidate } from "@/lib/breeze-multibagger";
+import type { BreezeMultibaggerSnapshot, MultibaggerCandidate } from "@/features/breeze/lib/breeze-multibagger";
 
 export default function BreezeMultibaggerTab() {
   const [snapshot, setSnapshot] = useState<BreezeMultibaggerSnapshot | null>(null);

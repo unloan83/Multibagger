@@ -31,7 +31,7 @@ def resolve_upstox_instruments(settings: Settings, store: MarketStore) -> dict[s
 
 def collect(settings: Settings) -> None:
     if settings.market_data_provider == "breeze":
-        from .breeze_collector import collect_breeze
+        from features.breeze.python.breeze_collector import collect_breeze
 
         collect_breeze(settings)
         return

@@ -30,7 +30,7 @@ if not logger.handlers:
 
 
 def _auto_load_env() -> None:
-    base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    base_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
     for env_file in [".env.local", ".env"]:
         filepath = os.path.join(base_dir, env_file)
         if os.path.exists(filepath):
@@ -331,4 +331,3 @@ def run_full_sandbox_lifecycle_test(
         results["errors"].append(error_msg)
 
     return results
-

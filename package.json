@@ -21,8 +21,9 @@
     "engine:breeze-warmup": "PYTHONPATH=.python-packages python3 -m scripts.market_engine breeze-warmup --days 8",
     "engine:backfill": "PYTHONPATH=.python-packages python3 -m scripts.market_engine backfill --start 2022-01-01",
     "engine:backtest": "PYTHONPATH=.python-packages python3 -m scripts.market_engine backtest",
-    "engine:test": "PYTHONPATH=.python-packages python3 -m pytest tests",
-    "test:breeze-multibagger": "node --import tsx --test lib/breeze-multibagger.test.ts"
+    "engine:test": "PYTHONPATH=.:.python-packages python3 -m pytest tests features/breeze/python features/upstox/python",
+    "test:breeze-multibagger": "node --import tsx --test features/breeze/lib/breeze-multibagger.test.ts",
+    "test:upstox-triage": "node --import tsx --test features/upstox/lib/upstox-market-triage.test.ts"
   },
   "dependencies": {
     "@radix-ui/react-slot": "^1.1.0",

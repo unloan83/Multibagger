@@ -27,7 +27,7 @@ if args.command == "backfill":
                               date.fromisoformat(args.end) if args.end else None,
                               resume=not args.no_resume), indent=2))
 elif args.command == "breeze-warmup":
-    from engine.breeze_backfill import warmup_breeze
+    from features.breeze.python.breeze_backfill import warmup_breeze
     print(json.dumps(warmup_breeze(settings, args.days), indent=2))
 elif args.command == "collect":
     collect(settings)

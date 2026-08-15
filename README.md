@@ -1,5 +1,9 @@
 # Multibagger
 
+## Feature isolation
+
+Breeze and Upstox own separate code and data boundaries under `features/breeze/` and `features/upstox/`. Next.js route files under `app/api/` are intentionally thin public-endpoint adapters; broker-specific API behavior, components, scoring logic, tests, Python integrations, and mutable seed data live inside their respective feature folder.
+
 The existing Next.js portal reads paper signals produced out of band by a fail-closed NSE intraday engine. The OCI worker uses ICICI Breeze for market data; Upstox remains available as an alternate provider:
 
 `Breeze one-minute/quote streams → DuckDB → ORB/VWAP scanner → paper snapshot → authenticated API/Blob → portal`

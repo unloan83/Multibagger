@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
-import { IntradayPaperTrade, SystemStatus } from "@/lib/intraday-paper-engine";
+import { IntradayPaperTrade, SystemStatus } from "@/features/upstox/lib/intraday-paper-engine";
 
 export default function IntradayPaperSystemTab() {
   const [systemStatus, setSystemStatus] = useState<SystemStatus | null>(null);

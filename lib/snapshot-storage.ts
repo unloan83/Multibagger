@@ -5,6 +5,19 @@ import path from "node:path";
 const BLOB_FOLDER = "snapshots";
 const dataDir = path.join(process.cwd(), "data");
 
+function localSnapshotPath(filename: string): string {
+  const [feature, ...rest] = filename.split("/");
+  if ((feature === "breeze" || feature === "upstox") && rest.length > 0) {
+    return path.join(process.cwd(), "features", feature, "data", ...rest);
+  }
+  return path.join(dataDir, filename);
+}
+
+function legacyFilename(filename: string): string | null {
+  const [feature, ...rest] = filename.split("/");
+  return (feature === "breeze" || feature === "upstox") && rest.length > 0 ? rest.join("/") : null;
+}
+
 function hasBlobStorage(): boolean {
   return Boolean(
     process.env.BLOB_READ_WRITE_TOKEN ||
@@ -16,21 +29,26 @@ export async function readSnapshotFile(filename: string): Promise<string | null>
   const candidates: string[] = [];
 
   if (hasBlobStorage()) {
-    try {
-      const { get } = await import("@vercel/blob");
-      const result = await get(`${BLOB_FOLDER}/${filename}`, {
-        access: "private",
-        useCache: false,
-      });
-      if (result?.stream) {
-        candidates.push(await new Response(result.stream).text());
+    const { get } = await import("@vercel/blob");
+    for (const blobName of [filename, legacyFilename(filename)].filter((value): value is string => Boolean(value))) {
+      try {
+        const result = await get(`${BLOB_FOLDER}/${blobName}`, {
+          access: "private",
+          useCache: false,
+        });
+        if (result?.stream) {
+          candidates.push(await new Response(result.stream).text());
+        }
+      } catch {
+        // Try the next feature or legacy storage location.
       }
-    } catch {
-      // Fall back to a seed file if Blob is temporarily unavailable.
     }
   }
 
-  for (const filePath of [path.join("/tmp", filename), path.join(dataDir, filename)]) {
+  const legacy = legacyFilename(filename);
+  const localCandidates = [path.join("/tmp", filename), localSnapshotPath(filename)];
+  if (legacy) localCandidates.push(path.join("/tmp", legacy), path.join(dataDir, legacy));
+  for (const filePath of localCandidates) {
     try {
       candidates.push(await fs.readFile(filePath, "utf8"));
     } catch {
@@ -82,6 +100,7 @@ export async function writeSnapshotFile(filename: string, content: string): Prom
     );
   }
 
-  await fs.mkdir(dataDir, { recursive: true });
-  await fs.writeFile(path.join(dataDir, filename), content, "utf8");
+  const destination = localSnapshotPath(filename);
+  await fs.mkdir(path.dirname(destination), { recursive: true });
+  await fs.writeFile(destination, content, "utf8");
 }

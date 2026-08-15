@@ -5,7 +5,7 @@ import {
   IntradayPaperTrade,
   DailySummary,
   SystemStatus,
-} from "@/lib/intraday-paper-engine";
+} from "@/features/upstox/lib/intraday-paper-engine";
 
 export type UpstoxRec = {
   id: string;
@@ -22,6 +22,11 @@ export type UpstoxRec = {
   orderId?: string | null;
   remark: string;
   timestamp: string;
+  // Market Intelligence Triage indicators (Simple UI)
+  marketAlignment?: "Strong" | "Moderate" | "Weak";
+  smartMoney?: "Strong" | "Moderate" | "Weak";
+  expertConsensus?: "Strong" | "Moderate" | "Weak";
+  triageScore?: number;
 };
 
 export default function UpstoxRecommendationsTab() {
@@ -359,7 +364,11 @@ export default function UpstoxRecommendationsTab() {
                   <th className="px-4 py-3.5 font-bold text-right">CMP (₹)</th>
                   <th className="px-4 py-3.5 font-bold text-right">Signal & Target</th>
                   <th className="px-4 py-3.5 font-bold text-right">Stop Loss</th>
-                  <th className="px-4 py-3.5 font-bold text-center">Score</th>
+                  <th className="px-4 py-3.5 font-bold text-center">Market Alignment</th>
+                  <th className="px-4 py-3.5 font-bold text-center">Smart Money</th>
+                  <th className="px-4 py-3.5 font-bold text-center">Expert Consensus</th>
+                  <th className="px-4 py-3.5 font-bold text-center">Triage Score</th>
+                  <th className="px-4 py-3.5 font-bold text-center">Technical Score</th>
                   <th className="px-4 py-3.5 font-bold text-center">Execution Mode Option</th>
                   <th className="px-4 py-3.5 font-bold text-center">5-Min Timer / Status</th>
                   <th className="px-4 py-3.5 font-bold text-center">Actions</th>
@@ -372,6 +381,11 @@ export default function UpstoxRecommendationsTab() {
                   const isSellExecuted = rec.status === "SELL_EXECUTED";
                   const isAuto = rec.executionMode === "AUTOMATIC";
                   const timer = calculateTimeRemaining(rec.timestamp);
+
+                  const mktAlign = rec.marketAlignment || "Moderate";
+                  const smartMny = rec.smartMoney || "Moderate";
+                  const expCons = rec.expertConsensus || "Moderate";
+                  const trgScore = rec.triageScore ?? rec.score;
 
                   return (
                     <tr key={rec.id} className="hover:bg-slate-800/40 transition">
@@ -395,6 +409,52 @@ export default function UpstoxRecommendationsTab() {
 
                       <td className="px-4 py-3.5 text-right font-bold text-rose-400">
                         ₹{rec.stopLoss.toLocaleString("en-IN", { minimumFractionDigits: 2 })}
+                      </td>
+
+                      {/* Triage Column 1: Market Alignment */}
+                      <td className="px-4 py-3.5 text-center">
+                        <span className={`inline-block rounded-md px-2.5 py-1 text-xs font-bold ${
+                          mktAlign === "Strong"
+                            ? "bg-emerald-500/10 text-emerald-400 border border-emerald-500/20"
+                            : mktAlign === "Moderate"
+                            ? "bg-amber-500/10 text-amber-400 border border-amber-500/20"
+                            : "bg-rose-500/10 text-rose-400 border border-rose-500/20"
+                        }`}>
+                          {mktAlign}
+                        </span>
+                      </td>
+
+                      {/* Triage Column 2: Smart Money */}
+                      <td className="px-4 py-3.5 text-center">
+                        <span className={`inline-block rounded-md px-2.5 py-1 text-xs font-bold ${
+                          smartMny === "Strong"
+                            ? "bg-cyan-500/10 text-cyan-300 border border-cyan-500/20"
+                            : smartMny === "Moderate"
+                            ? "bg-amber-500/10 text-amber-400 border border-amber-500/20"
+                            : "bg-slate-800 text-slate-400 border border-slate-700"
+                        }`}>
+                          {smartMny}
+                        </span>
+                      </td>
+
+                      {/* Triage Column 3: Expert Consensus */}
+                      <td className="px-4 py-3.5 text-center">
+                        <span className={`inline-block rounded-md px-2.5 py-1 text-xs font-bold ${
+                          expCons === "Strong"
+                            ? "bg-purple-500/10 text-purple-300 border border-purple-500/20"
+                            : expCons === "Moderate"
+                            ? "bg-indigo-500/10 text-indigo-300 border border-indigo-500/20"
+                            : "bg-slate-800 text-slate-400 border border-slate-700"
+                        }`}>
+                          {expCons}
+                        </span>
+                      </td>
+
+                      {/* Triage Column 4: Triage Score */}
+                      <td className="px-4 py-3.5 text-center">
+                        <span className="rounded-full bg-cyan-500/20 px-3 py-1 text-xs font-bold text-cyan-300 border border-cyan-500/30">
+                          {trgScore}/100
+                        </span>
                       </td>
 
                       <td className="px-4 py-3.5 text-center">

@@ -7,9 +7,9 @@ from typing import Any
 
 import pandas as pd
 
-from .breeze_collector import resolve_breeze_instruments
-from .config import Settings
-from .store import MarketStore
+from features.breeze.python.breeze_collector import resolve_breeze_instruments
+from engine.config import Settings
+from engine.store import MarketStore
 
 
 LOG = logging.getLogger("multibagger.breeze_backfill")

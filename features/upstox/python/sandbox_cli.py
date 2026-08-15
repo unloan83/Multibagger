@@ -2,7 +2,7 @@
 Upstox Sandbox Order Lifecycle CLI Test Script
 
 Run via:
-  PYTHONPATH=.python-packages python3 -m scripts.upstox_sandbox_test
+  PYTHONPATH=.:.python-packages python3 -m features.upstox.python.sandbox_cli
 """
 
 import os
@@ -10,7 +10,7 @@ import sys
 import logging
 
 # Ensure root directory and .python-packages are in sys.path
-BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+BASE_DIR = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 if BASE_DIR not in sys.path:
     sys.path.insert(0, BASE_DIR)
 
@@ -34,7 +34,7 @@ _load_env_file(os.path.join(BASE_DIR, ".env.local"))
 _load_env_file(os.path.join(BASE_DIR, ".env"))
 
 
-from engine.upstox_sandbox import (
+from features.upstox.python.upstox_sandbox import (
     run_full_sandbox_lifecycle_test,
     verify_sandbox_safety_guardrails,
     UpstoxSandboxAuthError,

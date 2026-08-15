@@ -6,7 +6,7 @@ import os
 import pytest
 from unittest.mock import MagicMock, patch
 
-from engine.upstox_sandbox import (
+from features.upstox.python.upstox_sandbox import (
     verify_sandbox_safety_guardrails,
     get_sandbox_configuration,
     get_sandbox_order_api,
@@ -79,7 +79,7 @@ def test_log_sanitization(monkeypatch):
     assert "[REDACTED]" in clean_msg
 
 
-@patch("engine.upstox_sandbox.OrderApi")
+@patch("features.upstox.python.upstox_sandbox.OrderApi")
 def test_sandbox_order_lifecycle_mocked(mock_order_api_cls, monkeypatch):
     """
     Tests complete order lifecycle (PLACE -> VERIFY -> MODIFY -> VERIFY -> CANCEL -> VERIFY)
@@ -123,7 +123,7 @@ def test_invalid_order_handling(monkeypatch):
     monkeypatch.setenv("UPSTOX_MODE", "SANDBOX")
     monkeypatch.setenv("LIVE_TRADING_ENABLED", "false")
 
-    with patch("engine.upstox_sandbox.OrderApi") as mock_order_api_cls:
+    with patch("features.upstox.python.upstox_sandbox.OrderApi") as mock_order_api_cls:
         mock_api = MagicMock()
         mock_order_api_cls.return_value = mock_api
         mock_api.place_order.side_effect = Exception("Upstox Sandbox API rate limit exceeded")

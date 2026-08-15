@@ -7,7 +7,7 @@ import {
   type MarketIntelligenceDataset,
   type MarketIntelligenceTriage,
   type MarketIntelligenceWeights,
-} from "@/lib/market-intelligence-triage";
+} from "@/features/breeze/lib/market-intelligence-triage";
 
 export type MultibaggerKind = "STOCK" | "ETF" | "UPCOMING_IPO" | "NEW_IPO";
 export type MultibaggerRisk = "Low" | "Medium" | "High";
@@ -136,11 +136,11 @@ type SectorContext = {
 
 type SectorContextFile = { asOf: string; methodology: string; sectors: SectorContext[] };
 
-const SNAPSHOT_FILE = "breeze_multibagger.json";
-const HISTORY_FILE = "breeze_multibagger_history.json";
+const SNAPSHOT_FILE = "breeze/breeze_multibagger.json";
+const HISTORY_FILE = "breeze/breeze_multibagger_history.json";
 const IPO_FILE = "ipo-opportunities.json";
 const SECTOR_CONTEXT_FILE = "sector-context.json";
-const MARKET_INTELLIGENCE_FILE = "market-intelligence-triage.json";
+const MARKET_INTELLIGENCE_FILE = "breeze/market-intelligence-triage.json";
 const ETF_SYMBOLS = [
   "NIFTYBEES", "JUNIORBEES", "MID150BEES", "MON100", "GOLDBEES", "SILVERBEES",
   "ITBEES", "BANKBEES", "PHARMABEES", "AUTOBEES", "CPSEETF", "MAFANG",

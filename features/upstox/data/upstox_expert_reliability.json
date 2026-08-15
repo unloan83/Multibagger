@@ -1,0 +1,170 @@
+{
+  "sebi_ra_core": {
+    "sourceId": "sebi_ra_core",
+    "sourceName": "SEBI Registered Research Analysts",
+    "isSebiRegistered": true,
+    "isIndependent": true,
+    "totalRecommendations": 45,
+    "successfulIntradayTrades": 33,
+    "successRate": 73.3,
+    "avgReturnPercent": 2.8,
+    "maxAdverseMovementPercent": -1.2,
+    "sectorPerformance": {},
+    "regimePerformance": {
+      "bullish": {
+        "total": 25,
+        "wins": 20
+      },
+      "bearish": {
+        "total": 10,
+        "wins": 6
+      },
+      "sideways": {
+        "total": 10,
+        "wins": 7
+      }
+    },
+    "reliabilityScore": 85
+  },
+  "icici_direct": {
+    "sourceId": "icici_direct",
+    "sourceName": "ICICI Direct Research",
+    "isSebiRegistered": true,
+    "isIndependent": false,
+    "totalRecommendations": 44,
+    "successfulIntradayTrades": 32,
+    "successRate": 72.7,
+    "avgReturnPercent": 2.5,
+    "maxAdverseMovementPercent": -1.4,
+    "sectorPerformance": {
+      "Banking": {
+        "total": 4,
+        "wins": 4,
+        "avgReturn": 3.5
+      }
+    },
+    "regimePerformance": {
+      "bullish": {
+        "total": 24,
+        "wins": 19
+      },
+      "bearish": {
+        "total": 10,
+        "wins": 6
+      },
+      "sideways": {
+        "total": 10,
+        "wins": 7
+      }
+    },
+    "reliabilityScore": 75
+  },
+  "hdfc_sec": {
+    "sourceId": "hdfc_sec",
+    "sourceName": "HDFC Securities",
+    "isSebiRegistered": true,
+    "isIndependent": false,
+    "totalRecommendations": 35,
+    "successfulIntradayTrades": 24,
+    "successRate": 68.5,
+    "avgReturnPercent": 2.1,
+    "maxAdverseMovementPercent": -1.5,
+    "sectorPerformance": {},
+    "regimePerformance": {
+      "bullish": {
+        "total": 18,
+        "wins": 13
+      },
+      "bearish": {
+        "total": 8,
+        "wins": 5
+      },
+      "sideways": {
+        "total": 9,
+        "wins": 6
+      }
+    },
+    "reliabilityScore": 78
+  },
+  "motilal_oswal": {
+    "sourceId": "motilal_oswal",
+    "sourceName": "Motilal Oswal Financial Services",
+    "isSebiRegistered": true,
+    "isIndependent": false,
+    "totalRecommendations": 30,
+    "successfulIntradayTrades": 21,
+    "successRate": 70,
+    "avgReturnPercent": 2.3,
+    "maxAdverseMovementPercent": -1.3,
+    "sectorPerformance": {},
+    "regimePerformance": {
+      "bullish": {
+        "total": 15,
+        "wins": 11
+      },
+      "bearish": {
+        "total": 7,
+        "wins": 5
+      },
+      "sideways": {
+        "total": 8,
+        "wins": 5
+      }
+    },
+    "reliabilityScore": 79
+  },
+  "nuvama_wealth": {
+    "sourceId": "nuvama_wealth",
+    "sourceName": "Nuvama Institutional Equities",
+    "isSebiRegistered": true,
+    "isIndependent": true,
+    "totalRecommendations": 25,
+    "successfulIntradayTrades": 19,
+    "successRate": 76,
+    "avgReturnPercent": 3.1,
+    "maxAdverseMovementPercent": -1.1,
+    "sectorPerformance": {},
+    "regimePerformance": {
+      "bullish": {
+        "total": 12,
+        "wins": 10
+      },
+      "bearish": {
+        "total": 6,
+        "wins": 4
+      },
+      "sideways": {
+        "total": 7,
+        "wins": 5
+      }
+    },
+    "reliabilityScore": 88
+  },
+  "unverified_social_tips": {
+    "sourceId": "unverified_social_tips",
+    "sourceName": "Unverified / Social Media Tips",
+    "isSebiRegistered": false,
+    "isIndependent": false,
+    "totalRecommendations": 50,
+    "successfulIntradayTrades": 18,
+    "successRate": 36,
+    "avgReturnPercent": -0.8,
+    "maxAdverseMovementPercent": -3.5,
+    "sectorPerformance": {},
+    "regimePerformance": {
+      "bullish": {
+        "total": 25,
+        "wins": 11
+      },
+      "bearish": {
+        "total": 15,
+        "wins": 3
+      },
+      "sideways": {
+        "total": 10,
+        "wins": 4
+      }
+    },
+    "reliabilityScore": 20
+  }
+}

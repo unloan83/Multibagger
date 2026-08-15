@@ -11,8 +11,8 @@ from typing import Any
 import pandas as pd
 import socketio
 
-from .config import Settings
-from .store import MarketStore
+from engine.config import Settings
+from engine.store import MarketStore
 
 
 LOG = logging.getLogger("multibagger.breeze")

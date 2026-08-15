@@ -4,8 +4,8 @@ import { useCallback, useEffect, useState } from "react";
 import type { TermRecommendation, TermDuration } from "@/lib/term-agent-analysis";
 import type { CandleViewResult } from "@/lib/candle-view";
 import type { CandleScanSnapshot } from "@/lib/candle-scanner";
-import UpstoxRecommendationsTab from "@/components/UpstoxRecommendationsTab";
-import BreezeMultibaggerTab from "@/components/BreezeMultibaggerTab";
+import UpstoxRecommendationsTab from "@/features/upstox/components/UpstoxRecommendationsTab";
+import BreezeMultibaggerTab from "@/features/breeze/components/BreezeMultibaggerTab";
 
 
 

@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
-import { IntradayPaperTrade, DailySummary } from "@/lib/intraday-paper-engine";
+import { IntradayPaperTrade, DailySummary } from "@/features/upstox/lib/intraday-paper-engine";
 
 export default function TradeHistoryTab() {
   const [allTrades, setAllTrades] = useState<IntradayPaperTrade[]>([]);

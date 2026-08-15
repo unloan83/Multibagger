@@ -2,12 +2,12 @@ import fs from "fs";
 import path from "path";
 
 function getWritableFilePath(filename: string): string {
-  const tmpPath = path.join("/tmp", filename);
-  const cwdPath = path.join(process.cwd(), "data", filename);
+  const tmpPath = path.join("/tmp", "upstox", filename);
+  const cwdPath = path.join(process.cwd(), "features", "upstox", "data", filename);
 
   if (!fs.existsSync(tmpPath) && fs.existsSync(cwdPath)) {
     try {
-      fs.mkdirSync("/tmp", { recursive: true });
+      fs.mkdirSync(path.dirname(tmpPath), { recursive: true });
       fs.copyFileSync(cwdPath, tmpPath);
     } catch {}
   }
@@ -51,6 +51,13 @@ export type IntradayPaperTrade = {
   pnlPercent: number;
   status: "OPEN" | "TARGET HIT" | "STOP LOSS HIT" | "MANUAL/STRATEGY EXIT" | "EOD EXIT" | "REJECTED";
   cumulativeDailyPnl: number;
+  // Historical Market Intelligence Triage recording
+  triageScore?: number;
+  expertSources?: string[];
+  sourceReliabilityScore?: number;
+  smartMoneyScore?: number;
+  sectorAlignment?: string;
+  technicalScore?: number;
 };
 
 export type DailySummary = {
@@ -73,6 +80,15 @@ export type CandidateSignal = {
   signal: "BUY" | "SELL";
   score: number;
   remark?: string;
+  triageScore?: number;
+  expertSources?: string[];
+  sourceReliabilityScore?: number;
+  smartMoneyScore?: number;
+  sectorAlignment?: string;
+  technicalScore?: number;
+  marketAlignment?: "Strong" | "Moderate" | "Weak";
+  smartMoney?: "Strong" | "Moderate" | "Weak";
+  expertConsensus?: "Strong" | "Moderate" | "Weak";
 };
 
 export type SystemStatus = {
@@ -286,6 +302,12 @@ export function updateAndGetPaperState(candidates: CandidateSignal[] = []): {
           pnlPercent: 0,
           status: "OPEN",
           cumulativeDailyPnl: currentDailyPnl,
+          triageScore: cand.triageScore,
+          expertSources: cand.expertSources,
+          sourceReliabilityScore: cand.sourceReliabilityScore,
+          smartMoneyScore: cand.smartMoneyScore,
+          sectorAlignment: cand.sectorAlignment,
+          technicalScore: cand.score,
         };
 
         allTrades.unshift(newTrade);

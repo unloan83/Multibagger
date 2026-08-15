@@ -1,0 +1,86 @@
+name: Trading model governance
+
+on:
+  pull_request_target:
+    types: [opened, edited, synchronize, reopened, ready_for_review]
+
+permissions:
+  contents: read
+  pull-requests: read
+
+jobs:
+  validate:
+    name: validate
+    runs-on: ubuntu-latest
+    steps:
+      - name: Require the trading-model development gate
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const owner = context.repo.owner;
+            const repo = context.repo.repo;
+            const pull_number = context.issue.number;
+            const body = context.payload.pull_request.body || '';
+
+            const files = await github.paginate(
+              github.rest.pulls.listFiles,
+              { owner, repo, pull_number, per_page: 100 },
+              response => response.data.map(file => file.filename)
+            );
+
+            const modelPaths = [
+              /^features\/(breeze|upstox)\//,
+              /^engine\//,
+              /^lib\/(analysis|candle-scanner|dhan-paper-trading|expert-insights|intraday-engine|long-term-universe|recommendation-intelligence|recommendation-publication|swing-engine|term-agent-analysis|us-market-engine|wealth-screening)\.(ts|tsx|js|mjs|py)$/,
+              /^scripts\/.*(engine|intraday|long.term|market|recommend|snapshot|swing|trade|universe)/i,
+              /^app\/api\/(breeze|intraday|recommendations|snapshots|term-recommendations|upstox)/,
+              /^data\/.*(recommendation|signal|trade|universe|watchlist)/i,
+              /^tests\/.*(backfill|backtest|scanner|store|strateg)/i,
+              /^requirements-(engine|worker)\.txt$/,
+              /^deploy\/multibagger-paper-/
+            ];
+
+            const modelFiles = files.filter(file => modelPaths.some(pattern => pattern.test(file)));
+            const checked = id => {
+              const escaped = id.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+              return new RegExp(`^- \\[x\\].*<!--\\s*trading-model-gate:${escaped}\\s*-->`, 'im').test(body);
+            };
+
+            const applies = checked('applies');
+            const notApplicable = checked('not-applicable');
+
+            if (applies === notApplicable) {
+              core.setFailed('Choose exactly one Trading Model Gate scope checkbox in the pull-request body.');
+              return;
+            }
+
+            if (modelFiles.length > 0 && !applies) {
+              core.setFailed(`Trading-model files require “Gate applies”: ${modelFiles.join(', ')}`);
+              return;
+            }
+
+            if (!applies) {
+              core.info('No detected trading-model files; the author attested that the gate is not applicable.');
+              return;
+            }
+
+            const required = [
+              ['real-data', 'real/reliable market data'],
+              ['broker-executable', 'broker-executable path'],
+              ['measurable-pnl', 'measurable P&L contribution'],
+              ['shadow-validation', 'live/shadow validation'],
+              ['risk-adjusted-improvement', 'risk-adjusted improvement'],
+              ['required-metrics', 'required performance metrics'],
+              ['development-sequence', 'development sequence'],
+              ['no-trade', 'NO TRADE policy'],
+              ['scale-or-kill', 'scale-or-kill policy'],
+              ['capital-protection', 'capital-protection objective']
+            ];
+
+            const missing = required.filter(([id]) => !checked(id)).map(([, label]) => label);
+            if (missing.length > 0) {
+              core.setFailed(`Complete every applicable Trading Model Gate checkbox. Missing: ${missing.join(', ')}`);
+              return;
+            }
+
+            core.info(`Trading Model Gate complete for ${modelFiles.length} detected model file(s).`);

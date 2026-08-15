@@ -1,5 +1,9 @@
 # Multibagger
 
+## Trading-model governance
+
+All model changes are governed by the mandatory [Trading Model Development Gate](docs/trading-model-development-gate.md). Pull requests use a checked attestation and an automated path-aware status check; model changes cannot mark the gate as not applicable. Configure branch protection to require `Trading model governance / validate` so the checkbox cannot be bypassed by merging an unchecked pull request.
+
 ## Feature isolation
 
 Breeze and Upstox own separate code and data boundaries under `features/breeze/` and `features/upstox/`. Next.js route files under `app/api/` are intentionally thin public-endpoint adapters; broker-specific API behavior, components, scoring logic, tests, Python integrations, and mutable seed data live inside their respective feature folder.

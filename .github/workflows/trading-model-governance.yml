@@ -29,11 +29,11 @@ jobs:
             );
 
             const modelPaths = [
-              /^features\/(breeze|upstox)\//,
+              /^features\/(breeze|upstox|options-quant)\//,
               /^engine\//,
               /^lib\/(analysis|candle-scanner|dhan-paper-trading|expert-insights|intraday-engine|long-term-universe|recommendation-intelligence|recommendation-publication|swing-engine|term-agent-analysis|us-market-engine|wealth-screening)\.(ts|tsx|js|mjs|py)$/,
               /^scripts\/.*(engine|intraday|long.term|market|recommend|snapshot|swing|trade|universe)/i,
-              /^app\/api\/(breeze|intraday|recommendations|snapshots|term-recommendations|upstox)/,
+              /^app\/api\/(breeze|intraday|options-quant|recommendations|snapshots|term-recommendations|upstox)/,
               /^data\/.*(recommendation|signal|trade|universe|watchlist)/i,
               /^tests\/.*(backfill|backtest|scanner|store|strateg)/i,
               /^requirements-(engine|worker)\.txt$/,

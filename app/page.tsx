@@ -6,6 +6,7 @@ import type { CandleViewResult } from "@/lib/candle-view";
 import type { CandleScanSnapshot } from "@/lib/candle-scanner";
 import UpstoxRecommendationsTab from "@/features/upstox/components/UpstoxRecommendationsTab";
 import BreezeMultibaggerTab from "@/features/breeze/components/BreezeMultibaggerTab";
+import OptionsQuantTab from "@/features/options-quant/components/OptionsQuantTab";
 
 
 
@@ -99,7 +100,7 @@ export default function HomePage() {
 
   const [snapshot, setSnapshot] = useState<Snapshot | null>(null);
   const [error, setError] = useState("");
-  const [activeTab, setActiveTab] = useState<"term" | "breeze-multibagger" | "upstox-recommendations" | "candle" | "watchlist" | "history">("term");
+  const [activeTab, setActiveTab] = useState<"term" | "breeze-multibagger" | "upstox-recommendations" | "options-quant" | "candle" | "watchlist" | "history">("term");
   const [market, setMarket] = useState<Market>("india");
   const [usMarketData, setUsMarketData] = useState<UsMarketData | null>(null);
   const [loadingUsMarket, setLoadingUsMarket] = useState(false);
@@ -541,7 +542,7 @@ export default function HomePage() {
 
         {/* Navigation Tabs */}
         <div className="flex items-center justify-between border-b border-slate-800/60 pb-3">
-          <div className="flex items-center gap-2 bg-[#0d1b2e] p-1.5 rounded-xl border border-slate-800">
+          <div className="flex max-w-full items-center gap-2 overflow-x-auto bg-[#0d1b2e] p-1.5 rounded-xl border border-slate-800">
             <button
               onClick={() => setActiveTab("term")}
               className={`px-4 py-2 rounded-lg text-xs font-bold transition flex items-center gap-2 ${
@@ -574,6 +575,18 @@ export default function HomePage() {
             >
               <span>🚀</span> Upstox Recommendations
               <span className="text-[10px] opacity-75 font-normal">(Paper Trading)</span>
+            </button>
+
+            <button
+              onClick={() => setActiveTab("options-quant")}
+              className={`px-4 py-2 rounded-lg text-xs font-bold transition flex items-center gap-2 ${
+                activeTab === "options-quant"
+                  ? "bg-cyan-500 text-slate-950 shadow-md shadow-cyan-500/20"
+                  : "text-slate-400 hover:text-slate-200"
+              }`}
+            >
+              <span>Ω</span> Options Quant
+              <span className="text-[10px] opacity-75 font-normal">(Shadow / Sandbox)</span>
             </button>
 
 
@@ -692,6 +705,8 @@ export default function HomePage() {
             <UpstoxRecommendationsTab />
           </section>
         )}
+
+        {activeTab === "options-quant" && <OptionsQuantTab />}
 
 
 

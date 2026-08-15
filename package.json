@@ -23,7 +23,9 @@
     "engine:backtest": "PYTHONPATH=.python-packages python3 -m scripts.market_engine backtest",
     "engine:test": "PYTHONPATH=.:.python-packages python3 -m pytest tests features/breeze/python features/upstox/python",
     "test:breeze-multibagger": "node --import tsx --test features/breeze/lib/breeze-multibagger.test.ts",
-    "test:upstox-triage": "node --import tsx --test features/upstox/lib/upstox-market-triage.test.ts"
+    "test:upstox-triage": "node --import tsx --test features/upstox/lib/upstox-market-triage.test.ts",
+    "test:options-quant": "node --import tsx --test features/options-quant/lib/engine.test.ts",
+    "options:scan": "node --import tsx scripts/run_options_quant_scan.ts"
   },
   "dependencies": {
     "@radix-ui/react-slot": "^1.1.0",

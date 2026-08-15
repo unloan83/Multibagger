@@ -7,7 +7,7 @@ const dataDir = path.join(process.cwd(), "data");
 
 function localSnapshotPath(filename: string): string {
   const [feature, ...rest] = filename.split("/");
-  if ((feature === "breeze" || feature === "upstox") && rest.length > 0) {
+  if ((feature === "breeze" || feature === "upstox" || feature === "options-quant") && rest.length > 0) {
     return path.join(process.cwd(), "features", feature, "data", ...rest);
   }
   return path.join(dataDir, filename);

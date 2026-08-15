@@ -85,6 +85,7 @@ export type ScreenedStock = {
   returnOnEquityPercent: number;
   debtToEquity: number;
   profitMarginPercent: number;
+  cashConversion: number;
   trailingPe: number;
   relativeStrengthPercent: number;
   averageDailyTurnoverCr: number;
@@ -463,6 +464,7 @@ function scoreCandidate({
     returnOnEquityPercent: fundamentals.returnOnEquity * 100,
     debtToEquity: fundamentals.debtToEquity,
     profitMarginPercent: fundamentals.profitMargins * 100,
+    cashConversion: fundamentals.cashConversion,
     trailingPe: fundamentals.trailingPe,
     relativeStrengthPercent,
     averageDailyTurnoverCr: row.averageDailyTurnoverCr,

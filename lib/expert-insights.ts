@@ -49,6 +49,14 @@ export type ExpertQuote = {
   averageDailyTurnoverCr: number;
   catalystSummary: string;
   intelligence: ScreenedStock["intelligence"];
+  revenueGrowthPercent?: number;
+  earningsGrowthPercent?: number;
+  returnOnEquityPercent?: number;
+  debtToEquity?: number;
+  profitMarginPercent?: number;
+  cashConversion?: number;
+  trailingPe?: number;
+  relativeStrengthPercent?: number;
 };
 
 export type ExpertCategory = {
@@ -438,6 +446,14 @@ function toExpertQuote(
     averageDailyTurnoverCr: stock.averageDailyTurnoverCr,
     catalystSummary: stock.catalystSummary,
     intelligence: stock.intelligence,
+    revenueGrowthPercent: stock.revenueGrowthPercent,
+    earningsGrowthPercent: stock.earningsGrowthPercent,
+    returnOnEquityPercent: stock.returnOnEquityPercent,
+    debtToEquity: stock.debtToEquity,
+    profitMarginPercent: stock.profitMarginPercent,
+    cashConversion: stock.cashConversion,
+    trailingPe: stock.trailingPe,
+    relativeStrengthPercent: stock.relativeStrengthPercent,
   };
 }
 

@@ -1,9 +1,18 @@
 import { readSnapshotFile, writeSnapshotFile } from "@/lib/snapshot-storage";
 import type { ExpertActionMatrix, ExpertQuote } from "@/lib/expert-insights";
+import {
+  DEFAULT_MARKET_INTELLIGENCE_WEIGHTS,
+  resolveMarketIntelligenceWeights,
+  scoreMarketIntelligenceTriage,
+  type MarketIntelligenceDataset,
+  type MarketIntelligenceTriage,
+  type MarketIntelligenceWeights,
+} from "@/lib/market-intelligence-triage";
 
 export type MultibaggerKind = "STOCK" | "ETF" | "UPCOMING_IPO" | "NEW_IPO";
 export type MultibaggerRisk = "Low" | "Medium" | "High";
-export type MultibaggerAction = "ACCUMULATE" | "WATCH" | "WAIT" | "AVOID";
+export type MultibaggerAction = "BUY" | "WATCH" | "REJECT";
+export type RecommendationTriage = MarketIntelligenceTriage;
 
 export type MultibaggerCandidate = {
   id: string;
@@ -12,6 +21,7 @@ export type MultibaggerCandidate = {
   kind: MultibaggerKind;
   exchange: "NSE" | "BSE" | "NSE/BSE";
   sector: string;
+  industry: string;
   price: number;
   score: number;
   classification: "Strong Candidate" | "Watch Closely" | "Emerging" | "Avoid/Monitor";
@@ -25,6 +35,7 @@ export type MultibaggerCandidate = {
   source: string;
   sourceAsOf: string;
   factors: Record<string, number | string | boolean | null>;
+  triage: RecommendationTriage;
 };
 
 export type MultibaggerHistoryRecord = {
@@ -35,7 +46,7 @@ export type MultibaggerHistoryRecord = {
   recommendationDate: string;
   priceAtRecommendation: number;
   score: number;
-  action: MultibaggerAction;
+  action: MultibaggerAction | "ACCUMULATE" | "WAIT" | "AVOID";
   investmentHorizon: string;
   reason: string;
   subsequentPrice: number;
@@ -43,12 +54,20 @@ export type MultibaggerHistoryRecord = {
   returnPercent: number;
   performance6Month: number | null;
   performance12Month: number | null;
+  performance3Month?: number | null;
+  maximumDrawdownPercent?: number;
+  lowestPriceReached?: number;
+  outcome?: "PENDING" | "OUTPERFORMED" | "POSITIVE" | "FLAT" | "UNDERPERFORMED";
+  triageScore?: number;
+  componentScores?: Partial<Record<keyof MarketIntelligenceWeights, number>>;
+  institutionalInterest?: string;
+  expertConsensus?: string;
   status: "ACTIVE" | "MATURED" | "CLOSED";
   updatedAt: string;
 };
 
 export type BreezeMultibaggerSnapshot = {
-  modelVersion: "breeze-multibagger-v2";
+  modelVersion: "breeze-multibagger-v4";
   mode: "RESEARCH_ONLY";
   automaticTrading: false;
   asOf: string;
@@ -64,6 +83,9 @@ export type BreezeMultibaggerSnapshot = {
   };
   sectorShortlists: SectorShortlist[];
   topCandidates: MultibaggerCandidate[];
+  marketIntelligenceWatchlist: MultibaggerCandidate[];
+  rankedCandidates: MultibaggerCandidate[];
+  triageWeights: MarketIntelligenceWeights;
   upcomingIpos: MultibaggerCandidate[];
   etfOpportunities: MultibaggerCandidate[];
   historyCount: number;
@@ -118,6 +140,7 @@ const SNAPSHOT_FILE = "breeze_multibagger.json";
 const HISTORY_FILE = "breeze_multibagger_history.json";
 const IPO_FILE = "ipo-opportunities.json";
 const SECTOR_CONTEXT_FILE = "sector-context.json";
+const MARKET_INTELLIGENCE_FILE = "market-intelligence-triage.json";
 const ETF_SYMBOLS = [
   "NIFTYBEES", "JUNIORBEES", "MID150BEES", "MON100", "GOLDBEES", "SILVERBEES",
   "ITBEES", "BANKBEES", "PHARMABEES", "AUTOBEES", "CPSEETF", "MAFANG",
@@ -130,49 +153,48 @@ export function classifyScore(score: number): MultibaggerCandidate["classificati
   return "Avoid/Monitor";
 }
 
-export function actionForScore(score: number): MultibaggerAction {
-  if (score >= 85) return "ACCUMULATE";
-  if (score >= 70) return "WATCH";
-  if (score >= 55) return "WAIT";
-  return "AVOID";
-}
-
 export function combineCompanyAndSectorScore(companyScore: number, sectorScore: number) {
   return Math.round(clamp(companyScore, 0, 100) * 0.8 + clamp(sectorScore, 0, 100) * 0.2);
 }
 
 export async function buildBreezeMultibaggerSnapshot(options: { refreshEtfs?: boolean } = {}): Promise<BreezeMultibaggerSnapshot> {
-  const [wealth, longTerm, ipoSeeds, rawEtfs, registry, contextFile] = await Promise.all([
+  const [wealth, longTerm, ipoSeeds, rawEtfs, registry, contextFile, intelligenceFile, historySeed] = await Promise.all([
     readJson<ExpertActionMatrix>("wealth_recommendations.json"),
     readJson<LongTermUniverseSeed>("long_term_universe.json"),
     readJson<IpoSeed[]>(IPO_FILE),
     options.refreshEtfs ? evaluateEtfs() : readExistingEtfs(),
     readJson<UniverseRegistry>("multibagger-universe.json"),
     readJson<SectorContextFile>(SECTOR_CONTEXT_FILE),
+    readJson<MarketIntelligenceDataset>(MARKET_INTELLIGENCE_FILE),
+    readJson<MultibaggerHistoryRecord[]>(HISTORY_FILE),
   ]);
   const contexts = contextFile?.sectors ?? [];
+  const intelligence = intelligenceFile ?? { asOf: new Date(0).toISOString(), stocks: {}, expertRecommendations: [] };
+  const triageWeights = resolveMarketIntelligenceWeights(intelligence.weights, historySeed ?? []);
   const stockPool = dedupeStocks([
     ...(wealth?.categories ?? []).flatMap((category) => category.longTermUpsides),
     ...(longTerm?.sectors ?? []).flatMap((sector) => Object.values(sector.slots).flat()),
   ]);
   const rankedStocks = stockPool
-    .filter((quote) => quote.price > 0 && quote.price <= 1000)
-    .map((quote) => toStockCandidate(quote, findSectorContext(stockSector(quote), contexts)))
+    .filter((quote) => quote.price > 0 && quote.price < 1000)
+    .map((quote) => toStockCandidate(quote, findSectorContext(stockSector(quote), contexts), intelligence, triageWeights))
     .sort(rankCandidates);
   const etfs = rawEtfs.map((etf) => {
     const sector = etfSector(etf.symbol);
-    return applySectorContext({ ...etf, sector }, findSectorContext(sector, contexts));
+    return applySectorContext({ ...etf, sector }, findSectorContext(sector, contexts), intelligence, triageWeights);
   });
   const sectorShortlists = buildSectorShortlists(rankedStocks, etfs, contexts);
-  const topCandidates = sectorShortlists.flatMap((group) => group.stocks);
   const upcomingIpos = (ipoSeeds ?? [])
-    .filter((ipo) => ipo.issuePrice > 0 && ipo.issuePrice <= 1000)
-    .map(toIpoCandidate)
+    .filter((ipo) => ipo.issuePrice > 0 && ipo.issuePrice < 1000)
+    .map((ipo) => toIpoCandidate(ipo, intelligence, triageWeights))
     .sort(rankCandidates);
-  const all = [...topCandidates, ...upcomingIpos, ...etfs];
-  const history = await recordRecommendationHistory(all);
+  const all = [...rankedStocks, ...upcomingIpos, ...etfs].sort(rankCandidates);
+  const marketIntelligenceWatchlist = all.slice(0, 20);
+  const rankedCandidates = marketIntelligenceWatchlist.slice(0, 10);
+  const topCandidates = rankedCandidates.filter((candidate) => candidate.kind === "STOCK");
+  const history = await recordRecommendationHistory(marketIntelligenceWatchlist);
   return {
-    modelVersion: "breeze-multibagger-v2",
+    modelVersion: "breeze-multibagger-v4",
     mode: "RESEARCH_ONLY",
     automaticTrading: false,
     asOf: new Date().toISOString(),
@@ -188,6 +210,9 @@ export async function buildBreezeMultibaggerSnapshot(options: { refreshEtfs?: bo
     },
     sectorShortlists,
     topCandidates,
+    marketIntelligenceWatchlist,
+    rankedCandidates,
+    triageWeights,
     upcomingIpos,
     etfOpportunities: etfs.sort(rankCandidates).slice(0, 12),
     historyCount: history.length,
@@ -196,7 +221,7 @@ export async function buildBreezeMultibaggerSnapshot(options: { refreshEtfs?: bo
 
 export async function getBreezeMultibaggerSnapshot(): Promise<BreezeMultibaggerSnapshot> {
   const existing = await readJson<BreezeMultibaggerSnapshot>(SNAPSHOT_FILE);
-  if (existing?.modelVersion === "breeze-multibagger-v2") return existing;
+  if (existing?.modelVersion === "breeze-multibagger-v4") return existing;
   const snapshot = await buildBreezeMultibaggerSnapshot({ refreshEtfs: true });
   await writeBreezeMultibaggerSnapshot(snapshot);
   return snapshot;
@@ -211,17 +236,26 @@ export function assertResearchOnlySnapshot(snapshot: BreezeMultibaggerSnapshot) 
   if (snapshot.mode !== "RESEARCH_ONLY" || snapshot.automaticTrading !== false) {
     throw new Error("Breeze Multibagger must remain research-only and cannot enable automatic trading.");
   }
-  for (const candidate of [...snapshot.topCandidates, ...snapshot.upcomingIpos, ...snapshot.etfOpportunities]) {
-    if (candidate.price <= 0 || candidate.price > 1000) throw new Error(`${candidate.symbol} violates the ₹1,000 price ceiling.`);
+  const candidates = [...new Map([...snapshot.topCandidates, ...snapshot.upcomingIpos, ...snapshot.etfOpportunities, ...snapshot.marketIntelligenceWatchlist, ...snapshot.rankedCandidates].map((candidate) => [candidate.id, candidate])).values()];
+  for (const candidate of candidates) {
+    if (candidate.price <= 0 || candidate.price >= 1000) throw new Error(`${candidate.symbol} violates the below-₹1,000 price ceiling.`);
     if (candidate.score < 0 || candidate.score > 100) throw new Error(`${candidate.symbol} has an invalid score.`);
+    if (candidate.triage.score < 0 || candidate.triage.score > 100) throw new Error(`${candidate.symbol} has an invalid triage score.`);
+    if (candidate.action === "BUY" && (candidate.triage.components.expertConsensus < 55 || candidate.triage.components.institutionalSmartMoney < 55)) throw new Error(`${candidate.symbol} cannot be BUY without independent expert and institutional corroboration.`);
   }
   for (const group of snapshot.sectorShortlists) {
     if (group.stocks.length > 4 || group.etfs.length > 4) throw new Error(`${group.sector} exceeds the four-security sector limit.`);
   }
+  if (snapshot.marketIntelligenceWatchlist.length > 20) throw new Error("Market Intelligence Triage watchlist exceeds 20 candidates.");
+  if (snapshot.rankedCandidates.length > 10) throw new Error("Market Intelligence Triage final list exceeds 10 candidates.");
 }
 
-function toStockCandidate(quote: ExpertQuote & { eligible?: boolean }, context: SectorContext): MultibaggerCandidate {
-  const risk = riskFromQuote(quote);
+function toStockCandidate(
+  quote: ExpertQuote & { eligible?: boolean },
+  context: SectorContext,
+  intelligence: MarketIntelligenceDataset,
+  weights: MarketIntelligenceWeights,
+): MultibaggerCandidate {
   const companyScore = Math.max(0, Math.min(100, Math.round(quote.score)));
   const contextScore = sectorContextScore(context);
   const score = combineCompanyAndSectorScore(companyScore, contextScore);
@@ -229,7 +263,7 @@ function toStockCandidate(quote: ExpertQuote & { eligible?: boolean }, context: 
   const earningsGrowth = numericFactor(quote, "earningsGrowthPercent");
   const reason = quote.reasons?.slice(0, 3).join(" ") || `Growth, quality, valuation, momentum and liquidity combine for a ${score}/100 research score.`;
   const companyGatePassed = quote.eligible === true || (quote.eligible === undefined && quote.action === "Accumulate");
-  const action = companyGatePassed ? actionForScore(score) : score >= 70 ? "WATCH" : score >= 55 ? "WAIT" : "AVOID";
+  const triage = buildRecommendationTriage(quote, score, companyGatePassed, contextScore, intelligence, weights);
   return {
     id: `STOCK:${quote.symbol}`,
     symbol: quote.symbol,
@@ -237,14 +271,15 @@ function toStockCandidate(quote: ExpertQuote & { eligible?: boolean }, context: 
     kind: "STOCK",
     exchange: "NSE",
     sector: context.sector,
+    industry: quote.theme || quote.sector || context.sector,
     price: round2(quote.price),
     score,
     classification: classifyScore(score),
-    growthPotential: score >= 85 ? "High" : score >= 70 ? "Moderate–High" : score >= 55 ? "Developing" : "Limited",
-    horizon: score >= 85 ? "12–24 months" : "18–24+ months",
-    risk,
+    growthPotential: triage.growthPotential,
+    horizon: triage.suggestedHorizon,
+    risk: triage.riskLevel,
     keyReason: `${reason} Sector context: ${context.outlook}`,
-    action,
+    action: triage.action,
     outlook6To12: quote.metrics?.return120Percent > 15 ? "Positive momentum; monitor valuation and results." : "Needs earnings and price confirmation.",
     outlook12To24: score >= 70 ? "Potential compounding candidate if growth and cash flow persist." : "Monitor for stronger fundamental evidence.",
     source: "Breeze market data when available, with authorised public fundamental and exchange data",
@@ -267,11 +302,13 @@ function toStockCandidate(quote: ExpertQuote & { eligible?: boolean }, context: 
       sectorEvidence: context.evidence.map((item) => item.url).join(" | "),
       companySafetyGatePassed: companyGatePassed,
     },
+    triage,
   };
 }
 
-function toIpoCandidate(ipo: IpoSeed): MultibaggerCandidate {
+function toIpoCandidate(ipo: IpoSeed, intelligence: MarketIntelligenceDataset, weights: MarketIntelligenceWeights): MultibaggerCandidate {
   const score = Math.max(0, Math.min(100, Math.round(ipo.score)));
+  const triage = standaloneTriage(ipo.symbol, ipo.kind, score, ipo.risk, "18–24+ months", intelligence, weights, ipo.factors);
   return {
     id: `${ipo.kind}:${ipo.symbol}`,
     symbol: ipo.symbol,
@@ -279,25 +316,31 @@ function toIpoCandidate(ipo: IpoSeed): MultibaggerCandidate {
     kind: ipo.kind,
     exchange: ipo.exchange ?? "NSE/BSE",
     sector: typeof ipo.factors.sector === "string" ? ipo.factors.sector : "IPO Opportunities",
+    industry: typeof ipo.factors.industry === "string" ? ipo.factors.industry : typeof ipo.factors.sector === "string" ? ipo.factors.sector : "IPO Opportunities",
     price: round2(ipo.issuePrice),
     score,
     classification: classifyScore(score),
-    growthPotential: score >= 85 ? "High" : score >= 70 ? "Moderate–High" : score >= 55 ? "Developing" : "Limited",
-    horizon: "18–24+ months",
-    risk: ipo.risk,
+    growthPotential: triage.growthPotential,
+    horizon: triage.suggestedHorizon,
+    risk: triage.riskLevel,
     keyReason: ipo.keyReason,
-    action: actionForScore(score),
+    action: triage.action,
     outlook6To12: ipo.outlook6To12,
     outlook12To24: ipo.outlook12To24,
     source: ipo.source,
     sourceAsOf: ipo.sourceAsOf,
     factors: ipo.factors,
+    triage,
   };
 }
 
 async function readExistingEtfs(): Promise<MultibaggerCandidate[]> {
   const existing = await readJson<BreezeMultibaggerSnapshot>(SNAPSHOT_FILE);
-  return existing?.etfOpportunities ?? [];
+  return (existing?.etfOpportunities ?? []).map((candidate) => ({
+    ...candidate,
+    industry: candidate.industry || candidate.sector,
+    triage: candidate.triage ?? standaloneTriage(candidate.symbol, "ETF", candidate.score, candidate.risk, candidate.horizon, { asOf: new Date(0).toISOString(), stocks: {}, expertRecommendations: [] }, DEFAULT_MARKET_INTELLIGENCE_WEIGHTS, candidate.factors),
+  }));
 }
 
 async function evaluateEtfs(): Promise<MultibaggerCandidate[]> {
@@ -317,13 +360,14 @@ async function evaluateEtf(symbol: string): Promise<MultibaggerCandidate | null>
     const closes = (result?.indicators?.quote?.[0]?.close ?? []).filter((value): value is number => typeof value === "number" && value > 0);
     const volumes = (result?.indicators?.quote?.[0]?.volume ?? []).filter((value): value is number => typeof value === "number" && value >= 0);
     const price = result?.meta?.regularMarketPrice ?? closes.at(-1) ?? 0;
-    if (price <= 0 || price > 1000 || closes.length < 120) return null;
+    if (price <= 0 || price >= 1000 || closes.length < 120) return null;
     const return6m = periodReturn(closes, 126);
     const return12m = periodReturn(closes, Math.min(251, closes.length - 1));
     const volatility = annualisedVolatility(closes.slice(-61));
     const averageTurnoverCr = average(volumes.slice(-60)) * price / 10_000_000;
     const score = Math.round(clamp(52 + return6m * 0.45 + return12m * 0.25 + Math.min(averageTurnoverCr, 20) * 0.35 - Math.max(0, volatility - 18) * 0.35, 0, 100));
     const risk: MultibaggerRisk = volatility < 16 ? "Low" : volatility < 28 ? "Medium" : "High";
+    const triage = standaloneTriage(symbol, "ETF", score, risk, "12–24 months", { asOf: new Date(0).toISOString(), stocks: {}, expertRecommendations: [] }, DEFAULT_MARKET_INTELLIGENCE_WEIGHTS, { momentum: clamp(score / 100 * 15, 0, 15), liquidity: averageTurnoverCr >= 2 ? 6 : 0 });
     return {
       id: `ETF:${symbol}`,
       symbol,
@@ -331,19 +375,21 @@ async function evaluateEtf(symbol: string): Promise<MultibaggerCandidate | null>
       kind: "ETF",
       exchange: "NSE",
       sector: etfSector(symbol),
+      industry: etfSector(symbol),
       price: round2(price),
       score,
       classification: classifyScore(score),
-      growthPotential: score >= 70 ? "Moderate–High" : score >= 55 ? "Developing" : "Limited",
-      horizon: "12–24 months",
-      risk,
+      growthPotential: triage.growthPotential,
+      horizon: triage.suggestedHorizon,
+      risk: triage.riskLevel,
       keyReason: `Six-month trend ${signed(return6m)}; one-year trend ${signed(return12m)}; annualised volatility ${volatility.toFixed(1)}%.`,
-      action: actionForScore(score),
+      action: triage.action,
       outlook6To12: return6m > 0 ? "Positive trend, subject to underlying index conditions." : "Wait for trend improvement.",
       outlook12To24: "Diversified exposure; review tracking error, liquidity, costs and underlying index valuation.",
       source: "NSE-listed ETF; authorised public end-of-day market data",
       sourceAsOf: new Date().toISOString(),
       factors: { return6MonthPercent: round2(return6m), return12MonthPercent: round2(return12m), annualisedVolatilityPercent: round2(volatility), averageDailyTurnoverCr: round2(averageTurnoverCr) },
+      triage,
     };
   } catch {
     return null;
@@ -365,16 +411,17 @@ function buildSectorShortlists(stocks: MultibaggerCandidate[], etfs: Multibagger
     .sort((a, b) => b.contextScore - a.contextScore || a.sector.localeCompare(b.sector));
 }
 
-function applySectorContext(candidate: MultibaggerCandidate, context: SectorContext): MultibaggerCandidate {
+function applySectorContext(candidate: MultibaggerCandidate, context: SectorContext, intelligence: MarketIntelligenceDataset, weights: MarketIntelligenceWeights): MultibaggerCandidate {
   const marketScore = candidate.score;
   const contextScore = sectorContextScore(context);
   const score = combineCompanyAndSectorScore(marketScore, contextScore);
+  const triage = standaloneTriage(candidate.symbol, candidate.kind, score, candidate.risk, candidate.horizon, intelligence, weights, candidate.factors, contextScore);
   return {
     ...candidate,
     sector: context.sector,
     score,
     classification: classifyScore(score),
-    action: actionForScore(score),
+    action: triage.action,
     keyReason: `${candidate.keyReason} Sector context: ${context.outlook}`,
     factors: {
       ...candidate.factors,
@@ -385,6 +432,7 @@ function applySectorContext(candidate: MultibaggerCandidate, context: SectorCont
       globalImpactScore: context.globalImpactScore,
       sectorEvidence: context.evidence.map((item) => item.url).join(" | "),
     },
+    triage,
   };
 }
 
@@ -441,11 +489,15 @@ async function recordRecommendationHistory(candidates: MultibaggerCandidate[]): 
     for (const record of history.filter((item) => item.symbol === candidate.symbol && item.kind === candidate.kind)) {
       record.subsequentPrice = candidate.price;
       record.highestPriceReached = Math.max(record.highestPriceReached, candidate.price);
+      record.lowestPriceReached = Math.min(record.lowestPriceReached ?? record.priceAtRecommendation, candidate.price);
       record.returnPercent = percentChange(record.priceAtRecommendation, candidate.price);
+      record.maximumDrawdownPercent = Math.min(record.maximumDrawdownPercent ?? 0, percentChange(record.priceAtRecommendation, record.lowestPriceReached));
       const ageDays = (Date.now() - Date.parse(record.recommendationDate)) / 86_400_000;
+      if (ageDays >= 90 && record.performance3Month == null) record.performance3Month = record.returnPercent;
       if (ageDays >= 180 && record.performance6Month === null) record.performance6Month = record.returnPercent;
       if (ageDays >= 365 && record.performance12Month === null) record.performance12Month = record.returnPercent;
       if (ageDays >= 730) record.status = "MATURED";
+      record.outcome = outcomeForReturn(record.performance12Month ?? record.performance6Month ?? record.performance3Month);
       record.updatedAt = now;
     }
     const id = `${today}:${candidate.id}:${candidate.action}`;
@@ -464,8 +516,16 @@ async function recordRecommendationHistory(candidates: MultibaggerCandidate[]): 
         subsequentPrice: candidate.price,
         highestPriceReached: candidate.price,
         returnPercent: 0,
+        performance3Month: null,
         performance6Month: null,
         performance12Month: null,
+        maximumDrawdownPercent: 0,
+        lowestPriceReached: candidate.price,
+        outcome: "PENDING",
+        triageScore: candidate.triage.score,
+        componentScores: candidate.triage.components,
+        institutionalInterest: candidate.triage.institutionalInterest,
+        expertConsensus: candidate.triage.expertConsensus,
         status: "ACTIVE",
         updatedAt: now,
       });
@@ -488,17 +548,95 @@ function riskFromQuote(quote: ExpertQuote): MultibaggerRisk {
   return "High";
 }
 
+export function buildRecommendationTriage(
+  quote: ExpertQuote,
+  modelScore: number,
+  companyGatePassed: boolean,
+  sectorContextScore = 50,
+  intelligence: MarketIntelligenceDataset = { asOf: new Date(0).toISOString(), stocks: {}, expertRecommendations: [] },
+  weights: MarketIntelligenceWeights = DEFAULT_MARKET_INTELLIGENCE_WEIGHTS,
+): RecommendationTriage {
+  return scoreMarketIntelligenceTriage({
+    symbol: quote.symbol,
+    kind: "STOCK",
+    modelScore,
+    companyGatePassed,
+    dataQuality: quote.dataQuality,
+    averageDailyTurnoverCr: quote.averageDailyTurnoverCr,
+    risk: riskFromQuote(quote),
+    horizon: modelScore >= 85 ? "12–24 months" : "18–24+ months",
+    factorScores: quote.factorScores,
+    fundamentals: {
+      revenueGrowthPercent: quote.revenueGrowthPercent ?? numericFactor(quote, "revenueGrowthPercent"),
+      earningsGrowthPercent: quote.earningsGrowthPercent ?? numericFactor(quote, "earningsGrowthPercent"),
+      returnOnEquityPercent: quote.returnOnEquityPercent ?? numericFactor(quote, "returnOnEquityPercent"),
+      debtToEquity: quote.debtToEquity ?? numericFactor(quote, "debtToEquity"),
+      cashConversion: quote.cashConversion ?? numericFactor(quote, "cashConversion"),
+    },
+    sectorContextScore,
+    fallbackExpertCount: quote.intelligence?.expertFocusCount ?? 0,
+    catalystSummary: quote.catalystSummary,
+  }, intelligence, weights);
+}
+
+function standaloneTriage(
+  symbol: string,
+  kind: MultibaggerKind,
+  score: number,
+  risk: MultibaggerRisk,
+  horizon: MultibaggerCandidate["horizon"],
+  intelligence: MarketIntelligenceDataset,
+  weights: MarketIntelligenceWeights,
+  factors: Record<string, number | string | boolean | null>,
+  sectorContextScore = 50,
+): RecommendationTriage {
+  return scoreMarketIntelligenceTriage({
+    symbol,
+    kind,
+    modelScore: score,
+    companyGatePassed: true,
+    dataQuality: factorNumber(factors, "dataQuality") ?? 100,
+    averageDailyTurnoverCr: factorNumber(factors, "averageDailyTurnoverCr") ?? 10,
+    risk,
+    horizon,
+    factorScores: {
+      growth: factorNumber(factors, "growth") ?? 0,
+      momentum: factorNumber(factors, "momentum") ?? factorNumber(factors, "return6MonthPercent") ?? 0,
+      quality: factorNumber(factors, "quality") ?? 0,
+      valuation: factorNumber(factors, "valuation") ?? 0,
+      catalyst: factorNumber(factors, "catalyst") ?? 0,
+      liquidity: factorNumber(factors, "liquidity") ?? 6,
+      risk: risk === "Low" ? 10 : risk === "Medium" ? 7 : 3,
+    },
+    sectorContextScore,
+  }, intelligence, weights);
+}
+
+function factorNumber(factors: Record<string, number | string | boolean | null>, key: string) {
+  return typeof factors[key] === "number" ? factors[key] as number : null;
+}
+
 function numericFactor(quote: ExpertQuote, key: string): number | null {
   const value = (quote as unknown as Record<string, unknown>)[key];
   return typeof value === "number" ? round2(value) : null;
 }
 
-function rankCandidates(a: MultibaggerCandidate, b: MultibaggerCandidate) { return b.score - a.score || a.risk.localeCompare(b.risk); }
+function rankCandidates(a: MultibaggerCandidate, b: MultibaggerCandidate) {
+  const actionPriority: Record<MultibaggerAction, number> = { BUY: 2, WATCH: 1, REJECT: 0 };
+  return actionPriority[b.action] - actionPriority[a.action] || b.triage.score - a.triage.score || b.triage.agreementCount - a.triage.agreementCount || b.score - a.score || a.risk.localeCompare(b.risk);
+}
 function round2(value: number) { return Math.round(value * 100) / 100; }
 function clamp(value: number, min: number, max: number) { return Math.max(min, Math.min(max, value)); }
 function average(values: number[]) { return values.length ? values.reduce((sum, value) => sum + value, 0) / values.length : 0; }
 function periodReturn(values: number[], days: number) { const earlier = values[Math.max(0, values.length - 1 - days)]; return earlier ? ((values.at(-1)! - earlier) / earlier) * 100 : 0; }
 function percentChange(from: number, to: number) { return from > 0 ? round2(((to - from) / from) * 100) : 0; }
+function outcomeForReturn(value: number | null | undefined): MultibaggerHistoryRecord["outcome"] {
+  if (value == null) return "PENDING";
+  if (value >= 25) return "OUTPERFORMED";
+  if (value >= 8) return "POSITIVE";
+  if (value >= -5) return "FLAT";
+  return "UNDERPERFORMED";
+}
 function signed(value: number) { return `${value >= 0 ? "+" : ""}${value.toFixed(1)}%`; }
 function annualisedVolatility(values: number[]) {
   const returns = values.slice(1).map((value, index) => Math.log(value / values[index])).filter(Number.isFinite);

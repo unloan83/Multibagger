@@ -50,14 +50,15 @@ function CandidateTable({ rows, empty }: { rows: MultibaggerCandidate[]; empty: 
         <div className="rounded-xl border border-slate-800 bg-[#0b1626] p-6 text-center text-xs text-slate-400">{empty}</div>
       ) : (
         <div className="overflow-x-auto rounded-xl border border-slate-800 bg-[#0b1626]">
-          <table className="min-w-[1080px] w-full text-left text-xs">
+          <table className="min-w-[1320px] w-full text-left text-xs">
             <thead className="border-b border-slate-800 bg-[#08111e] text-[10px] uppercase tracking-wide text-slate-400">
-              <tr>{["Stock", "Multibagger Score", "Institutional Interest", "Expert Consensus", "Fundamental Strength", "Growth Potential", "Risk Level", "Suggested Horizon", "Action"].map((header) => <th key={header} className="px-3 py-3">{header}</th>)}</tr>
+              <tr>{["Stock", "Industry", "Multibagger Score", "Institutional Interest", "Expert Consensus", "Fundamental Strength", "Growth Potential", "Risk Level", "Suggested Horizon", "Action", "Justification"].map((header) => <th key={header} className="px-3 py-3">{header}</th>)}</tr>
             </thead>
             <tbody className="divide-y divide-slate-800/70">
               {rows.map((row, index) => (
                 <tr key={row.id} className="align-top hover:bg-slate-800/20">
                   <td className="px-3 py-3"><div className="font-bold text-white"><span className="mr-2 text-slate-500">#{index + 1}</span>{row.symbol}</div><div className="mt-0.5 max-w-44 text-[10px] text-slate-500">{row.name}</div></td>
+                  <td className="px-3 py-3 text-slate-300">{row.industry || row.sector || "—"}</td>
                   <td className="px-3 py-3 font-bold text-cyan-300">{row.triage.score}/100</td>
                   <td className="px-3 py-3"><SignalValue label={row.triage.institutionalInterest} score={row.triage.components.institutionalSmartMoney} /></td>
                   <td className="px-3 py-3"><SignalValue label={row.triage.expertConsensus} score={row.triage.components.expertConsensus} /></td>
@@ -66,6 +67,12 @@ function CandidateTable({ rows, empty }: { rows: MultibaggerCandidate[]; empty: 
                   <td className="px-3 py-3"><span className={riskClass(row.triage.riskLevel)}>{row.triage.riskLevel}</span></td>
                   <td className="px-3 py-3 text-slate-300">{row.triage.suggestedHorizon}</td>
                   <td className="px-3 py-3"><span className={actionClass(row.action)}>{row.action}</span></td>
+                  <td className="max-w-64 px-3 py-3">
+                    <details>
+                      <summary className="cursor-pointer text-[11px] font-semibold text-cyan-300">More</summary>
+                      <p className="mt-2 text-[11px] leading-relaxed text-slate-400">{row.keyReason}</p>
+                    </details>
+                  </td>
                 </tr>
               ))}
             </tbody>

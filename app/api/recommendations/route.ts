@@ -20,9 +20,7 @@ export async function GET() {
   }));
   return NextResponse.json({
     ok: true, status: snapshot.status, asOf: snapshot.asOf, publication: RECOMMENDATION_PUBLICATION,
-    marketRegime: "Unavailable", categories: [],
     intradayPipeline: { asOf: snapshot.asOf, source: snapshot.source, isLive: snapshot.status === "SIGNALS", reason: snapshot.reason, evaluatedUniverseSize: snapshot.evaluatedUniverseSize, screened: [], picks },
-    swingPipeline: { asOf: snapshot.asOf, source: "UNAVAILABLE", abstained: true, reason: "NO_TRADE", picksByHorizon: { "1week": [], "1month": [], "3months": [], "6months": [] }, picks: [] },
   }, { headers: { "Cache-Control": "no-store, max-age=0" } });
 }
 

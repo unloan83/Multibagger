@@ -3,8 +3,9 @@ import type { ReactNode } from "react";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "Multibagger — Daily Stock Picks",
-  description: "Strong long-term and intraday stock recommendations powered by NIFTY 500 screening.",
+  title: "Trading Model Portal",
+  description:
+    "Evidence-backed Breeze, Upstox and Options Quant models with fail-closed risk controls.",
 };
 
 export const viewport: Viewport = {

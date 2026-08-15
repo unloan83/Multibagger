@@ -1,12 +1,22 @@
 # Multibagger
 
+## Active portal models
+
+The portal intentionally exposes only models with a path to real data, broker execution and measurable performance:
+
+- **Breeze Multibagger** — market-intelligence triage that prioritises the existing fundamental model; expert opinion cannot trigger a buy on its own.
+- **Upstox Intraday** — read-only, fail-closed broker-feed paper signals. It does not create synthetic picks or automatic orders.
+- **Options Quant** — NIFTY bull-call and bear-put debit spreads in shadow validation, with `NO TRADE` as the default when direction, liquidity or risk evidence is insufficient.
+
+The legacy Term, Candle, Watchlist and generic History page models—including their US variants—have been removed. Historical data files are retained for audit and research; they are not presented as current recommendations.
+
 ## Trading-model governance
 
 All model changes are governed by the mandatory [Trading Model Development Gate](docs/trading-model-development-gate.md). Pull requests use a checked attestation and an automated path-aware status check; model changes cannot mark the gate as not applicable. Configure branch protection to require `Trading model governance / validate` so the checkbox cannot be bypassed by merging an unchecked pull request.
 
 ## Feature isolation
 
-Breeze and Upstox own separate code and data boundaries under `features/breeze/` and `features/upstox/`. Next.js route files under `app/api/` are intentionally thin public-endpoint adapters; broker-specific API behavior, components, scoring logic, tests, Python integrations, and mutable seed data live inside their respective feature folder.
+Breeze, Upstox and Options Quant own separate code boundaries under `features/breeze/`, `features/upstox/` and `features/options-quant/`. Next.js route files under `app/api/` are intentionally thin public-endpoint adapters. Synthetic Upstox recommendation seeds and their automatic paper-execution path are not part of the production portal.
 
 The existing Next.js portal reads paper signals produced out of band by a fail-closed NSE intraday engine. The OCI worker uses ICICI Breeze for market data; Upstox remains available as an alternate provider:
 

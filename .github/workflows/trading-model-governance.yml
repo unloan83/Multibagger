@@ -31,9 +31,9 @@ jobs:
             const modelPaths = [
               /^features\/(breeze|upstox|options-quant)\//,
               /^engine\//,
-              /^lib\/(analysis|candle-scanner|dhan-paper-trading|expert-insights|intraday-engine|long-term-universe|recommendation-intelligence|recommendation-publication|swing-engine|term-agent-analysis|us-market-engine|wealth-screening)\.(ts|tsx|js|mjs|py)$/,
-              /^scripts\/.*(engine|intraday|long.term|market|recommend|snapshot|swing|trade|universe)/i,
-              /^app\/api\/(breeze|intraday|options-quant|recommendations|snapshots|term-recommendations|upstox)/,
+              /^lib\/(analysis|expert-insights|intraday-engine|long-term-universe|recommendation-intelligence|recommendation-publication|wealth-screening)\.(ts|tsx|js|mjs|py)$/,
+              /^scripts\/.*(engine|intraday|long.term|market|recommend|snapshot|trade|universe)/i,
+              /^app\/api\/(breeze|options-quant|recommendations|snapshots|upstox)/,
               /^data\/.*(recommendation|signal|trade|universe|watchlist)/i,
               /^tests\/.*(backfill|backtest|scanner|store|strateg)/i,
               /^requirements-(engine|worker)\.txt$/,

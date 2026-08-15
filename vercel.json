@@ -5,36 +5,12 @@
       "schedule": "38 3 * * 1-5"
     },
     {
-      "path": "/api/snapshots/candle-view?market=india",
-      "schedule": "3 5 * * 1-5"
-    },
-    {
-      "path": "/api/snapshots/candle-view?market=us",
-      "schedule": "33 14 * * 1-5"
-    },
-    {
-      "path": "/api/snapshots/candle-view?market=us",
-      "schedule": "33 15 * * 1-5"
-    },
-    {
       "path": "/api/snapshots/intraday?slot=10:45",
       "schedule": "15 5 * * 1-5"
     },
     {
-      "path": "/api/snapshots/dhan-paper-test",
-      "schedule": "10 5 * * 1-5"
-    },
-    {
       "path": "/api/snapshots/intraday?slot=13:45",
       "schedule": "15 8 * * 1-5"
-    },
-    {
-      "path": "/api/snapshots/swing",
-      "schedule": "30 13 * * 1-5"
-    },
-    {
-      "path": "/api/snapshots/term",
-      "schedule": "15 10 * * 1-5"
     },
     {
       "path": "/api/snapshots/wealth",

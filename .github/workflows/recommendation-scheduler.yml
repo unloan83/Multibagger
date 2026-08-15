@@ -6,7 +6,6 @@ on:
     - cron: "38,45 3 * * 1-5" # Intraday 9:08 AM IST
     - cron: "15,22 5 * * 1-5" # Intraday 10:45 AM IST
     - cron: "15,22 8 * * 1-5" # Intraday 1:45 PM IST
-    - cron: "15,22 10 * * 1-5" # Term 3:45 PM IST
   workflow_dispatch:
 
 permissions:
@@ -24,8 +23,5 @@ jobs:
       - name: Refresh due recommendation snapshots
         env:
           RECOMMENDATIONS_URL: https://unloanstockview.vercel.app/api/recommendations
-          TERM_URL: https://unloanstockview.vercel.app/api/term-recommendations
         run: |
           curl --fail --silent --show-error --retry 3 --retry-all-errors --max-time 360 "$RECOMMENDATIONS_URL" >/dev/null
-          curl --fail --silent --show-error --retry 3 --retry-all-errors --max-time 360 "$TERM_URL" >/dev/null
-

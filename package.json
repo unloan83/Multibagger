@@ -8,7 +8,6 @@
     "start": "next start",
     "lint": "eslint app lib",
     "wealth:snapshot": "node --import tsx scripts/run_wealth_snapshot.ts",
-    "term:snapshot": "node --import tsx scripts/run_term_analysis.ts",
     "longterm:snapshot": "node --import tsx scripts/run_long_term_universe.ts",
     "csv:market-close": "node scripts/update_daily_recommendations.mjs --slot market-close",
     "csv:morning": "node scripts/update_daily_recommendations.mjs --slot morning",
@@ -23,7 +22,6 @@
     "engine:backtest": "PYTHONPATH=.python-packages python3 -m scripts.market_engine backtest",
     "engine:test": "PYTHONPATH=.:.python-packages python3 -m pytest tests features/breeze/python features/upstox/python",
     "test:breeze-multibagger": "node --import tsx --test features/breeze/lib/breeze-multibagger.test.ts",
-    "test:upstox-triage": "node --import tsx --test features/upstox/lib/upstox-market-triage.test.ts",
     "test:options-quant": "node --import tsx --test features/options-quant/lib/engine.test.ts",
     "options:scan": "node --import tsx scripts/run_options_quant_scan.ts"
   },

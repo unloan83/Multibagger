@@ -1,5 +1,5 @@
 {
-  "asOf": "2026-08-14T14:37:08.861Z",
+  "asOf": "2026-08-17T03:13:24.857Z",
   "scope": "All active NSE and BSE equities plus all NSE-listed ETFs; price eligibility is applied from the latest market quote at scan time.",
   "sources": [
     "https://nsearchives.nseindia.com/content/equities/EQUITY_L.csv",
@@ -7,11 +7,11 @@
     "https://api.bseindia.com/BseIndiaAPI/api/ListofScripData/w"
   ],
   "counts": {
-    "uniqueSecurities": 5413,
-    "stocks": 5071,
+    "uniqueSecurities": 5553,
+    "stocks": 5211,
     "etfs": 342,
-    "nseRows": 2126,
-    "bseRows": 4970
+    "nseRows": 2297,
+    "bseRows": 5110
   },
   "securities": [
     {
@@ -5021,6 +5021,20 @@
       "bseCode": "516092"
     },
     {
+      "symbol": "4THGEN",
+      "company": "Fourth Generation Information Systems Ltd",
+      "kind": "STOCK",
+      "exchange": "BSE",
+      "isin": "INE739B01039",
+      "bseCode": "532403",
+      "yahooSymbol": "532403.BO",
+      "marketCapCr": 2.17,
+      "source": "Official BSE active-equities API",
+      "sources": [
+        "Official BSE active-equities API"
+      ]
+    },
+    {
       "symbol": "5PAISA",
       "company": "5Paisa Capital Limited",
       "kind": "STOCK",
@@ -5187,6 +5201,20 @@
       ]
     },
     {
+      "symbol": "AANANDALAK",
+      "company": "Aananda Lakshmi Spinning Mills Limited",
+      "kind": "STOCK",
+      "exchange": "BSE",
+      "isin": "INE197R01010",
+      "bseCode": "539096",
+      "yahooSymbol": "539096.BO",
+      "marketCapCr": 4.4,
+      "source": "Official BSE active-equities API",
+      "sources": [
+        "Official BSE active-equities API"
+      ]
+    },
+    {
       "symbol": "AANCHALISP",
       "company": "Aanchal Ispat Limited",
       "kind": "STOCK",
@@ -5230,17 +5258,17 @@
     },
     {
       "symbol": "AAREYDRUGS",
-      "company": "Aarey Drugs & Pharmaceuticals Ltd",
+      "company": "Aarey Drugs & Pharmaceuticals Limited",
       "kind": "STOCK",
-      "exchange": "BSE",
+      "exchange": "NSE/BSE",
       "isin": "INE198H01019",
-      "bseCode": "524412",
-      "yahooSymbol": "524412.BO",
-      "marketCapCr": 234.15,
-      "source": "Official BSE active-equities API",
+      "yahooSymbol": "AAREYDRUGS.NS",
+      "source": "Official NSE EQUITY_L",
       "sources": [
+        "Official NSE EQUITY_L",
         "Official BSE active-equities API"
-      ]
+      ],
+      "bseCode": "524412"
     },
     {
       "symbol": "AARNAV",
@@ -5266,6 +5294,20 @@
       "source": "Official NSE EQUITY_L",
       "sources": [
         "Official NSE EQUITY_L"
+      ]
+    },
+    {
+      "symbol": "AARSHYAM",
+      "company": "Aar Shyam India Investment Company Limited",
+      "kind": "STOCK",
+      "exchange": "BSE",
+      "isin": "INE512R01010",
+      "bseCode": "542377",
+      "yahooSymbol": "542377.BO",
+      "marketCapCr": 4.49,
+      "source": "Official BSE active-equities API",
+      "sources": [
+        "Official BSE active-equities API"
       ]
     },
     {
@@ -5328,15 +5370,15 @@
       "symbol": "AARTISURF",
       "company": "Aarti Surfactants Limited",
       "kind": "STOCK",
-      "exchange": "NSE/BSE",
+      "exchange": "BSE",
       "isin": "INE09EO01013",
-      "yahooSymbol": "AARTISURF.NS",
-      "source": "Official NSE EQUITY_L",
+      "bseCode": "543210",
+      "yahooSymbol": "543210.BO",
+      "marketCapCr": 558.83,
+      "source": "Official BSE active-equities API",
       "sources": [
-        "Official NSE EQUITY_L",
         "Official BSE active-equities API"
-      ],
-      "bseCode": "543210"
+      ]
     },
     {
       "symbol": "AARVI",
@@ -5953,6 +5995,20 @@
       ]
     },
     {
+      "symbol": "ACEEDU",
+      "company": "ACE EDUTREND LIMITED",
+      "kind": "STOCK",
+      "exchange": "BSE",
+      "isin": "INE715F01014",
+      "bseCode": "530093",
+      "yahooSymbol": "530093.BO",
+      "marketCapCr": 4.31,
+      "source": "Official BSE active-equities API",
+      "sources": [
+        "Official BSE active-equities API"
+      ]
+    },
+    {
       "symbol": "ACEENGITEC",
       "company": "ACE ENGITECH LIMITED",
       "kind": "STOCK",
@@ -6050,17 +6106,17 @@
     },
     {
       "symbol": "ACGL",
-      "company": "Automobile Corpn. of Goa Ltd.",
+      "company": "Automobile Corporation of Goa Limited",
       "kind": "STOCK",
-      "exchange": "BSE",
+      "exchange": "NSE/BSE",
       "isin": "INE451C01013",
-      "bseCode": "505036",
-      "yahooSymbol": "505036.BO",
-      "marketCapCr": 1110.17,
-      "source": "Official BSE active-equities API",
+      "yahooSymbol": "ACGL.NS",
+      "source": "Official NSE EQUITY_L",
       "sources": [
+        "Official NSE EQUITY_L",
         "Official BSE active-equities API"
-      ]
+      ],
+      "bseCode": "505036"
     },
     {
       "symbol": "ACHYUT",
@@ -6372,17 +6428,17 @@
     },
     {
       "symbol": "ADDIND",
-      "company": "Addi Industries Ltd.",
+      "company": "Addi Industries Limited",
       "kind": "STOCK",
-      "exchange": "BSE",
+      "exchange": "NSE/BSE",
       "isin": "INE757C01021",
-      "bseCode": "507852",
-      "yahooSymbol": "507852.BO",
-      "marketCapCr": 92.85,
-      "source": "Official BSE active-equities API",
+      "yahooSymbol": "ADDIND.NS",
+      "source": "Official NSE EQUITY_L",
       "sources": [
+        "Official NSE EQUITY_L",
         "Official BSE active-equities API"
-      ]
+      ],
+      "bseCode": "507852"
     },
     {
       "symbol": "ADESHWAR",
@@ -6505,6 +6561,20 @@
       "bseCode": "521141",
       "yahooSymbol": "521141.BO",
       "marketCapCr": 27.61,
+      "source": "Official BSE active-equities API",
+      "sources": [
+        "Official BSE active-equities API"
+      ]
+    },
+    {
+      "symbol": "ADJIA",
+      "company": "Adjia Technologies Limited",
+      "kind": "STOCK",
+      "exchange": "BSE",
+      "isin": "INE0G0V01018",
+      "bseCode": "543269",
+      "yahooSymbol": "543269.BO",
+      "marketCapCr": 5.44,
       "source": "Official BSE active-equities API",
       "sources": [
         "Official BSE active-equities API"
@@ -6738,11 +6808,25 @@
       "symbol": "ADVIKCA",
       "company": "Advik Capital Limited",
       "kind": "STOCK",
-      "exchange": "BSE",
+      "exchange": "NSE/BSE",
       "isin": "INE178T01024",
-      "bseCode": "539773",
-      "yahooSymbol": "539773.BO",
-      "marketCapCr": 74.24,
+      "yahooSymbol": "ADVIKCA.NS",
+      "source": "Official NSE EQUITY_L",
+      "sources": [
+        "Official NSE EQUITY_L",
+        "Official BSE active-equities API"
+      ],
+      "bseCode": "539773"
+    },
+    {
+      "symbol": "ADVIKLA",
+      "company": "Advik Laboratories Ltd.",
+      "kind": "STOCK",
+      "exchange": "BSE",
+      "isin": "INE537C01019",
+      "bseCode": "531686",
+      "yahooSymbol": "531686.BO",
+      "marketCapCr": 3.8,
       "source": "Official BSE active-equities API",
       "sources": [
         "Official BSE active-equities API"
@@ -7501,6 +7585,20 @@
       ]
     },
     {
+      "symbol": "AIRLTD",
+      "company": "AVISHKAR INFRA REALTY LIMITED",
+      "kind": "STOCK",
+      "exchange": "BSE",
+      "isin": "INE433O01024",
+      "bseCode": "508929",
+      "yahooSymbol": "508929.BO",
+      "marketCapCr": 1296.37,
+      "source": "Official BSE active-equities API",
+      "sources": [
+        "Official BSE active-equities API"
+      ]
+    },
+    {
       "symbol": "AIROLAM",
       "company": "Airo Lam limited",
       "kind": "STOCK",
@@ -7773,6 +7871,20 @@
       "bseCode": "524075"
     },
     {
+      "symbol": "ALCHCORP",
+      "company": "Alchemist Corporation Ltd",
+      "kind": "STOCK",
+      "exchange": "BSE",
+      "isin": "INE057D01016",
+      "bseCode": "531409",
+      "yahooSymbol": "531409.BO",
+      "marketCapCr": 17.3,
+      "source": "Official BSE active-equities API",
+      "sources": [
+        "Official BSE active-equities API"
+      ]
+    },
+    {
       "symbol": "ALEMBICLTD",
       "company": "Alembic Limited",
       "kind": "STOCK",
@@ -7858,17 +7970,17 @@
     },
     {
       "symbol": "ALFREDHE",
-      "company": "Alfred Herbert (India) Ltd.",
+      "company": "Alfred Herbert India Limited",
       "kind": "STOCK",
-      "exchange": "BSE",
+      "exchange": "NSE/BSE",
       "isin": "INE782D01027",
-      "bseCode": "505216",
-      "yahooSymbol": "505216.BO",
-      "marketCapCr": 231.41,
-      "source": "Official BSE active-equities API",
+      "yahooSymbol": "ALFREDHE.NS",
+      "source": "Official NSE EQUITY_L",
       "sources": [
+        "Official NSE EQUITY_L",
         "Official BSE active-equities API"
-      ]
+      ],
+      "bseCode": "505216"
     },
     {
       "symbol": "ALGOQUANT",
@@ -8194,17 +8306,17 @@
     },
     {
       "symbol": "ALUFLUOR",
-      "company": "Alufluoride  Ltd.",
+      "company": "Alufluoride Limited",
       "kind": "STOCK",
-      "exchange": "BSE",
+      "exchange": "NSE/BSE",
       "isin": "INE058F01019",
-      "bseCode": "524634",
-      "yahooSymbol": "524634.BO",
-      "marketCapCr": 342.19,
-      "source": "Official BSE active-equities API",
+      "yahooSymbol": "ALUFLUOR.NS",
+      "source": "Official NSE EQUITY_L",
       "sources": [
+        "Official NSE EQUITY_L",
         "Official BSE active-equities API"
-      ]
+      ],
+      "bseCode": "524634"
     },
     {
       "symbol": "AMAGI",
@@ -8222,13 +8334,27 @@
     },
     {
       "symbol": "AMAL",
-      "company": "Amal Ltd",
+      "company": "Amal Limited",
+      "kind": "STOCK",
+      "exchange": "NSE/BSE",
+      "isin": "INE841D01013",
+      "yahooSymbol": "AMAL.NS",
+      "source": "Official NSE EQUITY_L",
+      "sources": [
+        "Official NSE EQUITY_L",
+        "Official BSE active-equities API"
+      ],
+      "bseCode": "506597"
+    },
+    {
+      "symbol": "AMALGAM",
+      "company": "Amalgamated Electricity Co. Ltd.",
       "kind": "STOCK",
       "exchange": "BSE",
-      "isin": "INE841D01013",
-      "bseCode": "506597",
-      "yahooSymbol": "506597.BO",
-      "marketCapCr": 921.08,
+      "isin": "INE492N01022",
+      "bseCode": "501622",
+      "yahooSymbol": "501622.BO",
+      "marketCapCr": 40.01,
       "source": "Official BSE active-equities API",
       "sources": [
         "Official BSE active-equities API"
@@ -8264,17 +8390,17 @@
     },
     {
       "symbol": "AMARJOTHI",
-      "company": "Amarjothi Spinning Mills Ltd",
+      "company": "Amarjothi Spinning Mills Limited",
       "kind": "STOCK",
-      "exchange": "BSE",
+      "exchange": "NSE/BSE",
       "isin": "INE484D01012",
-      "bseCode": "521097",
-      "yahooSymbol": "521097.BO",
-      "marketCapCr": 105.03,
-      "source": "Official BSE active-equities API",
+      "yahooSymbol": "AMARJOTHI.NS",
+      "source": "Official NSE EQUITY_L",
       "sources": [
+        "Official NSE EQUITY_L",
         "Official BSE active-equities API"
-      ]
+      ],
+      "bseCode": "521097"
     },
     {
       "symbol": "AMARNATH",
@@ -8509,6 +8635,20 @@
       "bseCode": "541771",
       "yahooSymbol": "541771.BO",
       "marketCapCr": 15.66,
+      "source": "Official BSE active-equities API",
+      "sources": [
+        "Official BSE active-equities API"
+      ]
+    },
+    {
+      "symbol": "AMITINT",
+      "company": "Amit International Ltd.",
+      "kind": "STOCK",
+      "exchange": "BSE",
+      "isin": "INE053D01015",
+      "bseCode": "531300",
+      "yahooSymbol": "531300.BO",
+      "marketCapCr": 5.23,
       "source": "Official BSE active-equities API",
       "sources": [
         "Official BSE active-equities API"
@@ -8782,17 +8922,17 @@
     },
     {
       "symbol": "ANDREWYU",
-      "company": "Andrew Yule & Company Ltd",
+      "company": "Andrew Yule & Company Limited",
       "kind": "STOCK",
-      "exchange": "BSE",
+      "exchange": "NSE/BSE",
       "isin": "INE449C01025",
-      "bseCode": "526173",
-      "yahooSymbol": "526173.BO",
-      "marketCapCr": 1276.16,
-      "source": "Official BSE active-equities API",
+      "yahooSymbol": "ANDREWYU.NS",
+      "source": "Official NSE EQUITY_L",
       "sources": [
+        "Official NSE EQUITY_L",
         "Official BSE active-equities API"
-      ]
+      ],
+      "bseCode": "526173"
     },
     {
       "symbol": "ANG",
@@ -9018,17 +9158,17 @@
     },
     {
       "symbol": "ANSALBU",
-      "company": "Ansal Buildwell Ltd.",
+      "company": "Ansal Buildwell Limited",
       "kind": "STOCK",
-      "exchange": "BSE",
+      "exchange": "NSE/BSE",
       "isin": "INE030C01015",
-      "bseCode": "523007",
-      "yahooSymbol": "523007.BO",
-      "marketCapCr": 53.75,
-      "source": "Official BSE active-equities API",
+      "yahooSymbol": "ANSALBU.NS",
+      "source": "Official NSE EQUITY_L",
       "sources": [
+        "Official NSE EQUITY_L",
         "Official BSE active-equities API"
-      ]
+      ],
+      "bseCode": "523007"
     },
     {
       "symbol": "ANSALHSG",
@@ -9267,6 +9407,20 @@
       "bseCode": "540692"
     },
     {
+      "symbol": "APIL",
+      "company": "AVI PRODUCTS INDIA LIMITED",
+      "kind": "STOCK",
+      "exchange": "BSE",
+      "isin": "INE316O01021",
+      "bseCode": "523896",
+      "yahooSymbol": "523896.BO",
+      "marketCapCr": 17.33,
+      "source": "Official BSE active-equities API",
+      "sources": [
+        "Official BSE active-equities API"
+      ]
+    },
+    {
       "symbol": "APIS",
       "company": "Apis India Ltd",
       "kind": "STOCK",
@@ -9462,17 +9616,17 @@
     },
     {
       "symbol": "APOORVA",
-      "company": "Apoorva Leasing Finance & Investment Company Limited",
+      "company": "Apoorva Leasing Finance and Investment Company Limited",
       "kind": "STOCK",
-      "exchange": "BSE",
+      "exchange": "NSE/BSE",
       "isin": "INE217S01014",
-      "bseCode": "539545",
-      "yahooSymbol": "539545.BO",
-      "marketCapCr": 54.93,
-      "source": "Official BSE active-equities API",
+      "yahooSymbol": "APOORVA.NS",
+      "source": "Official NSE EQUITY_L",
       "sources": [
+        "Official NSE EQUITY_L",
         "Official BSE active-equities API"
-      ]
+      ],
+      "bseCode": "539545"
     },
     {
       "symbol": "APPL",
@@ -9630,17 +9784,17 @@
     },
     {
       "symbol": "ARCL",
-      "company": "ARCL Organics Ltd",
+      "company": "ARCL Organics Limited",
       "kind": "STOCK",
-      "exchange": "BSE",
+      "exchange": "NSE/BSE",
       "isin": "INE372M01010",
-      "bseCode": "543993",
-      "yahooSymbol": "543993.BO",
-      "marketCapCr": 191.76,
-      "source": "Official BSE active-equities API",
+      "yahooSymbol": "ARCL.NS",
+      "source": "Official NSE EQUITY_L",
       "sources": [
+        "Official NSE EQUITY_L",
         "Official BSE active-equities API"
-      ]
+      ],
+      "bseCode": "543993"
     },
     {
       "symbol": "ARDEE",
@@ -9819,6 +9973,20 @@
       "bseCode": "531017",
       "yahooSymbol": "531017.BO",
       "marketCapCr": 9.49,
+      "source": "Official BSE active-equities API",
+      "sources": [
+        "Official BSE active-equities API"
+      ]
+    },
+    {
+      "symbol": "ARISINT",
+      "company": "Aris International Limited",
+      "kind": "STOCK",
+      "exchange": "BSE",
+      "isin": "INE588E01026",
+      "bseCode": "531677",
+      "yahooSymbol": "531677.BO",
+      "marketCapCr": 62.71,
       "source": "Official BSE active-equities API",
       "sources": [
         "Official BSE active-equities API"
@@ -10214,17 +10382,17 @@
     },
     {
       "symbol": "ARYAMAN",
-      "company": "Aryaman Financial Services Ltd.",
+      "company": "Aryaman Financial Services Limited",
       "kind": "STOCK",
-      "exchange": "BSE",
+      "exchange": "NSE/BSE",
       "isin": "INE032E01017",
-      "bseCode": "530245",
-      "yahooSymbol": "530245.BO",
-      "marketCapCr": 713.76,
-      "source": "Official BSE active-equities API",
+      "yahooSymbol": "ARYAMAN.NS",
+      "source": "Official NSE EQUITY_L",
       "sources": [
+        "Official NSE EQUITY_L",
         "Official BSE active-equities API"
-      ]
+      ],
+      "bseCode": "530245"
     },
     {
       "symbol": "ARYAN",
@@ -10507,6 +10675,20 @@
       "bseCode": "500477"
     },
     {
+      "symbol": "ASHOKRE",
+      "company": "Ashoka Refineries Ltd.",
+      "kind": "STOCK",
+      "exchange": "BSE",
+      "isin": "INE760M01016",
+      "bseCode": "526983",
+      "yahooSymbol": "526983.BO",
+      "marketCapCr": 5.26,
+      "source": "Official BSE active-equities API",
+      "sources": [
+        "Official BSE active-equities API"
+      ]
+    },
+    {
       "symbol": "ASHRAM",
       "company": "Ashram Online.com Ltd",
       "kind": "STOCK",
@@ -10634,17 +10816,17 @@
     },
     {
       "symbol": "ASIANTNE",
-      "company": "Asian Tea & Exports Ltd.",
+      "company": "Asian Tea & Exports Limited",
       "kind": "STOCK",
-      "exchange": "BSE",
+      "exchange": "NSE/BSE",
       "isin": "INE822B01017",
-      "bseCode": "519532",
-      "yahooSymbol": "519532.BO",
-      "marketCapCr": 22.62,
-      "source": "Official BSE active-equities API",
+      "yahooSymbol": "ASIANTNE.NS",
+      "source": "Official NSE EQUITY_L",
       "sources": [
+        "Official NSE EQUITY_L",
         "Official BSE active-equities API"
-      ]
+      ],
+      "bseCode": "519532"
     },
     {
       "symbol": "ASIAPAK",
@@ -10788,15 +10970,15 @@
       "symbol": "ASSAMENT",
       "company": "Assam Entrade Limited",
       "kind": "STOCK",
-      "exchange": "BSE",
+      "exchange": "NSE/BSE",
       "isin": "INE165G01010",
-      "bseCode": "542911",
-      "yahooSymbol": "542911.BO",
-      "marketCapCr": 116.62,
-      "source": "Official BSE active-equities API",
+      "yahooSymbol": "ASSAMENT.NS",
+      "source": "Official NSE EQUITY_L",
       "sources": [
+        "Official NSE EQUITY_L",
         "Official BSE active-equities API"
-      ]
+      ],
+      "bseCode": "542911"
     },
     {
       "symbol": "ASSOCER",
@@ -11205,6 +11387,20 @@
       ]
     },
     {
+      "symbol": "ATMAIND",
+      "company": "ATMA INDUSTRIES LIMITED",
+      "kind": "STOCK",
+      "exchange": "BSE",
+      "isin": "INE805R01018",
+      "bseCode": "539246",
+      "yahooSymbol": "539246.BO",
+      "marketCapCr": 41,
+      "source": "Official BSE active-equities API",
+      "sources": [
+        "Official BSE active-equities API"
+      ]
+    },
+    {
       "symbol": "ATUL",
       "company": "Atul Limited",
       "kind": "STOCK",
@@ -11402,17 +11598,17 @@
     },
     {
       "symbol": "AUSTENG",
-      "company": "Austin Engineering Co. Ltd.",
+      "company": "Austin Engineering Company  Limited",
       "kind": "STOCK",
-      "exchange": "BSE",
+      "exchange": "NSE/BSE",
       "isin": "INE759F01012",
-      "bseCode": "522005",
-      "yahooSymbol": "522005.BO",
-      "marketCapCr": 40.39,
-      "source": "Official BSE active-equities API",
+      "yahooSymbol": "AUSTENG.NS",
+      "source": "Official NSE EQUITY_L",
       "sources": [
+        "Official NSE EQUITY_L",
         "Official BSE active-equities API"
-      ]
+      ],
+      "bseCode": "522005"
     },
     {
       "symbol": "AUSTERE",
@@ -11556,17 +11752,17 @@
     },
     {
       "symbol": "AVANCE",
-      "company": "Avance Technologies Ltd.",
+      "company": "Avance Technologies Limited",
       "kind": "STOCK",
-      "exchange": "BSE",
+      "exchange": "NSE/BSE",
       "isin": "INE758A01072",
-      "bseCode": "512149",
-      "yahooSymbol": "512149.BO",
-      "marketCapCr": 184.32,
-      "source": "Official BSE active-equities API",
+      "yahooSymbol": "AVANCE.NS",
+      "source": "Official NSE EQUITY_L",
       "sources": [
+        "Official NSE EQUITY_L",
         "Official BSE active-equities API"
-      ]
+      ],
+      "bseCode": "512149"
     },
     {
       "symbol": "AVANTEL",
@@ -11779,6 +11975,20 @@
       ]
     },
     {
+      "symbol": "AXENTRA",
+      "company": "AXENTRA CORP LIMITED",
+      "kind": "STOCK",
+      "exchange": "BSE",
+      "isin": "INE919M01026",
+      "bseCode": "511634",
+      "yahooSymbol": "511634.BO",
+      "marketCapCr": 606.07,
+      "source": "Official BSE active-equities API",
+      "sources": [
+        "Official BSE active-equities API"
+      ]
+    },
+    {
       "symbol": "AXISBANK",
       "company": "Axis Bank Limited",
       "kind": "STOCK",
@@ -11836,17 +12046,17 @@
     },
     {
       "symbol": "AXTEL",
-      "company": "Axtel Industries Ltd.",
+      "company": "Axtel Industries Limited",
       "kind": "STOCK",
-      "exchange": "BSE",
+      "exchange": "NSE/BSE",
       "isin": "INE767C01012",
-      "bseCode": "523850",
-      "yahooSymbol": "523850.BO",
-      "marketCapCr": 670.91,
-      "source": "Official BSE active-equities API",
+      "yahooSymbol": "AXTEL.NS",
+      "source": "Official NSE EQUITY_L",
       "sources": [
+        "Official NSE EQUITY_L",
         "Official BSE active-equities API"
-      ]
+      ],
+      "bseCode": "523850"
     },
     {
       "symbol": "AYE",
@@ -11892,17 +12102,17 @@
     },
     {
       "symbol": "AZADIND",
-      "company": "AZAD INDIA MOBILITY LIMITED",
+      "company": "Azad India Mobility Limited",
       "kind": "STOCK",
-      "exchange": "BSE",
+      "exchange": "NSE/BSE",
       "isin": "INE566M01017",
-      "bseCode": "504731",
-      "yahooSymbol": "504731.BO",
-      "marketCapCr": 496.58,
-      "source": "Official BSE active-equities API",
+      "yahooSymbol": "AZADIND.NS",
+      "source": "Official NSE EQUITY_L",
       "sources": [
+        "Official NSE EQUITY_L",
         "Official BSE active-equities API"
-      ]
+      ],
+      "bseCode": "504731"
     },
     {
       "symbol": "AZTEC",
@@ -12755,6 +12965,20 @@
       ]
     },
     {
+      "symbol": "BARONINF",
+      "company": "Baron Infotech Ltd.",
+      "kind": "STOCK",
+      "exchange": "BSE",
+      "isin": "INE228B01017",
+      "bseCode": "532336",
+      "yahooSymbol": "532336.BO",
+      "marketCapCr": 1.94,
+      "source": "Official BSE active-equities API",
+      "sources": [
+        "Official BSE active-equities API"
+      ]
+    },
+    {
       "symbol": "BASANTGL",
       "company": "Basant Agro-Tech (India) Ltd.",
       "kind": "STOCK",
@@ -12963,6 +13187,20 @@
         "Official BSE active-equities API"
       ],
       "bseCode": "532368"
+    },
+    {
+      "symbol": "BCLENTERPR",
+      "company": "BCL Enterprises Limited",
+      "kind": "STOCK",
+      "exchange": "BSE",
+      "isin": "INE368E01023",
+      "bseCode": "539621",
+      "yahooSymbol": "539621.BO",
+      "marketCapCr": 8.86,
+      "source": "Official BSE active-equities API",
+      "sources": [
+        "Official BSE active-equities API"
+      ]
     },
     {
       "symbol": "BCLIND",
@@ -13258,17 +13496,17 @@
     },
     {
       "symbol": "BENARAS",
-      "company": "Benares Hotels Ltd",
+      "company": "Benares Hotels Limited",
       "kind": "STOCK",
-      "exchange": "BSE",
+      "exchange": "NSE/BSE",
       "isin": "INE664D01019",
-      "bseCode": "509438",
-      "yahooSymbol": "509438.BO",
-      "marketCapCr": 1323.06,
-      "source": "Official BSE active-equities API",
+      "yahooSymbol": "BENARAS.NS",
+      "source": "Official NSE EQUITY_L",
       "sources": [
+        "Official NSE EQUITY_L",
         "Official BSE active-equities API"
-      ]
+      ],
+      "bseCode": "509438"
     },
     {
       "symbol": "BENCHMARK",
@@ -13549,6 +13787,20 @@
       ]
     },
     {
+      "symbol": "BGLOBAL",
+      "company": "Bharatiya Global Infomedia Limited",
+      "kind": "STOCK",
+      "exchange": "BSE",
+      "isin": "INE224M01013",
+      "bseCode": "533499",
+      "yahooSymbol": "533499.BO",
+      "marketCapCr": 5.1,
+      "source": "Official BSE active-equities API",
+      "sources": [
+        "Official BSE active-equities API"
+      ]
+    },
+    {
       "symbol": "BGRENERGY",
       "company": "BGR ENERGY SYSTEMS LIMITED",
       "kind": "STOCK",
@@ -13648,17 +13900,17 @@
     },
     {
       "symbol": "BHANDARI",
-      "company": "Bhandari Hosiery Exports Ltd.",
+      "company": "Bhandari Hosiery Exports Limited",
       "kind": "STOCK",
-      "exchange": "BSE",
+      "exchange": "NSE/BSE",
       "isin": "INE474E01029",
-      "bseCode": "512608",
-      "yahooSymbol": "512608.BO",
-      "marketCapCr": 95.89,
-      "source": "Official BSE active-equities API",
+      "yahooSymbol": "BHANDARI.NS",
+      "source": "Official NSE EQUITY_L",
       "sources": [
+        "Official NSE EQUITY_L",
         "Official BSE active-equities API"
-      ]
+      ],
+      "bseCode": "512608"
     },
     {
       "symbol": "BHANDERI",
@@ -13837,6 +14089,20 @@
       "bseCode": "524534",
       "yahooSymbol": "524534.BO",
       "marketCapCr": 59.26,
+      "source": "Official BSE active-equities API",
+      "sources": [
+        "Official BSE active-equities API"
+      ]
+    },
+    {
+      "symbol": "BHATEXT",
+      "company": "Bharat Textiles & Proofing Industri",
+      "kind": "STOCK",
+      "exchange": "BSE",
+      "isin": "INE201N01019",
+      "bseCode": "531029",
+      "yahooSymbol": "531029.BO",
+      "marketCapCr": 17.57,
       "source": "Official BSE active-equities API",
       "sources": [
         "Official BSE active-equities API"
@@ -14420,15 +14686,15 @@
       "symbol": "BLUECLOUDS",
       "company": "Blue Cloud Softech Solutions Limited",
       "kind": "STOCK",
-      "exchange": "BSE",
+      "exchange": "NSE/BSE",
       "isin": "INE373T01047",
-      "bseCode": "539607",
-      "yahooSymbol": "539607.BO",
-      "marketCapCr": 2084.32,
-      "source": "Official BSE active-equities API",
+      "yahooSymbol": "BLUECLOUDS.NS",
+      "source": "Official NSE EQUITY_L",
       "sources": [
+        "Official NSE EQUITY_L",
         "Official BSE active-equities API"
-      ]
+      ],
+      "bseCode": "539607"
     },
     {
       "symbol": "BLUECOAST",
@@ -14877,6 +15143,20 @@
       ]
     },
     {
+      "symbol": "BPCAP",
+      "company": "B.P.Capital Ltd.",
+      "kind": "STOCK",
+      "exchange": "BSE",
+      "isin": "INE947C01010",
+      "bseCode": "536965",
+      "yahooSymbol": "536965.BO",
+      "marketCapCr": 5.65,
+      "source": "Official BSE active-equities API",
+      "sources": [
+        "Official BSE active-equities API"
+      ]
+    },
+    {
       "symbol": "BPCL",
       "company": "Bharat Petroleum Corporation Limited",
       "kind": "STOCK",
@@ -14908,15 +15188,15 @@
       "symbol": "BPLPHARMA",
       "company": "Bharat Parenterals Limited",
       "kind": "STOCK",
-      "exchange": "BSE",
+      "exchange": "NSE/BSE",
       "isin": "INE365Y01019",
-      "bseCode": "541096",
-      "yahooSymbol": "541096.BO",
-      "marketCapCr": 930.04,
-      "source": "Official BSE active-equities API",
+      "yahooSymbol": "BPLPHARMA.NS",
+      "source": "Official NSE EQUITY_L",
       "sources": [
+        "Official NSE EQUITY_L",
         "Official BSE active-equities API"
-      ]
+      ],
+      "bseCode": "541096"
     },
     {
       "symbol": "BRADYM",
@@ -14934,17 +15214,17 @@
     },
     {
       "symbol": "BRAHMINFRA",
-      "company": "BRAHMAPUTRA INFRASTRUCTURE LIMITED",
+      "company": "Brahmaputra Infrastructure Limited",
       "kind": "STOCK",
-      "exchange": "BSE",
+      "exchange": "NSE/BSE",
       "isin": "INE320I01017",
-      "bseCode": "535693",
-      "yahooSymbol": "535693.BO",
-      "marketCapCr": 499.12,
-      "source": "Official BSE active-equities API",
+      "yahooSymbol": "BRAHMINFRA.NS",
+      "source": "Official NSE EQUITY_L",
       "sources": [
+        "Official NSE EQUITY_L",
         "Official BSE active-equities API"
-      ]
+      ],
+      "bseCode": "535693"
     },
     {
       "symbol": "BRAWN",
@@ -15032,17 +15312,17 @@
     },
     {
       "symbol": "BRIGHTBR",
-      "company": "Bright Brothers Ltd.",
+      "company": "Bright Brothers Limited",
       "kind": "STOCK",
-      "exchange": "BSE",
+      "exchange": "NSE/BSE",
       "isin": "INE630D01010",
-      "bseCode": "526731",
-      "yahooSymbol": "526731.BO",
-      "marketCapCr": 136.72,
-      "source": "Official BSE active-equities API",
+      "yahooSymbol": "BRIGHTBR.NS",
+      "source": "Official NSE EQUITY_L",
       "sources": [
+        "Official NSE EQUITY_L",
         "Official BSE active-equities API"
-      ]
+      ],
+      "bseCode": "526731"
     },
     {
       "symbol": "BRIJLEAS",
@@ -15212,17 +15492,17 @@
     },
     {
       "symbol": "BSHSL",
-      "company": "BOMBAY SUPER HYBRID SEEDS LIMITED",
+      "company": "Bombay Super Hybrid Seeds Limited",
       "kind": "STOCK",
-      "exchange": "BSE",
+      "exchange": "NSE/BSE",
       "isin": "INE032Z01020",
-      "bseCode": "544757",
-      "yahooSymbol": "544757.BO",
-      "marketCapCr": 918.73,
-      "source": "Official BSE active-equities API",
+      "yahooSymbol": "BSHSL.NS",
+      "source": "Official NSE EQUITY_L",
       "sources": [
+        "Official NSE EQUITY_L",
         "Official BSE active-equities API"
-      ]
+      ],
+      "bseCode": "544757"
     },
     {
       "symbol": "BSL",
@@ -15379,6 +15659,20 @@
       ]
     },
     {
+      "symbol": "BYLD",
+      "company": "BYLD Capital Finance Limited",
+      "kind": "STOCK",
+      "exchange": "BSE",
+      "isin": "INE759D01017",
+      "bseCode": "511730",
+      "yahooSymbol": "511730.BO",
+      "marketCapCr": 29.71,
+      "source": "Official BSE active-equities API",
+      "sources": [
+        "Official BSE active-equities API"
+      ]
+    },
+    {
       "symbol": "CALCOM",
       "company": "Calcom Vision Ltd.",
       "kind": "STOCK",
@@ -15408,17 +15702,17 @@
     },
     {
       "symbol": "CALSOFT",
-      "company": "California Software Co. Ltd.",
+      "company": "California Software Company Limited",
       "kind": "STOCK",
-      "exchange": "BSE",
+      "exchange": "NSE/BSE",
       "isin": "INE526B01014",
-      "bseCode": "532386",
-      "yahooSymbol": "532386.BO",
-      "marketCapCr": 85.94,
-      "source": "Official BSE active-equities API",
+      "yahooSymbol": "CALSOFT.NS",
+      "source": "Official NSE EQUITY_L",
       "sources": [
+        "Official NSE EQUITY_L",
         "Official BSE active-equities API"
-      ]
+      ],
+      "bseCode": "532386"
     },
     {
       "symbol": "CAMEXLTD",
@@ -15559,6 +15853,20 @@
         "Official BSE active-equities API"
       ],
       "bseCode": "540710"
+    },
+    {
+      "symbol": "CAPFIN",
+      "company": "Capfin India Limited",
+      "kind": "STOCK",
+      "exchange": "BSE",
+      "isin": "INE960C01013",
+      "bseCode": "539198",
+      "yahooSymbol": "539198.BO",
+      "marketCapCr": 63.7,
+      "source": "Official BSE active-equities API",
+      "sources": [
+        "Official BSE active-equities API"
+      ]
     },
     {
       "symbol": "CAPILLARY",
@@ -15723,6 +16031,20 @@
       "bseCode": "543618",
       "yahooSymbol": "543618.BO",
       "marketCapCr": 49.45,
+      "source": "Official BSE active-equities API",
+      "sources": [
+        "Official BSE active-equities API"
+      ]
+    },
+    {
+      "symbol": "CARNATIN",
+      "company": "Carnation Industries Ltd.",
+      "kind": "STOCK",
+      "exchange": "BSE",
+      "isin": "INE081B01028",
+      "bseCode": "530609",
+      "yahooSymbol": "530609.BO",
+      "marketCapCr": 33.97,
       "source": "Official BSE active-equities API",
       "sources": [
         "Official BSE active-equities API"
@@ -16302,17 +16624,17 @@
     },
     {
       "symbol": "CFEL",
-      "company": "CONFIDENCE FUTURISTIC ENERGETECH LIMITED",
+      "company": "Confidence Futuristic Energetech Limited",
       "kind": "STOCK",
-      "exchange": "BSE",
+      "exchange": "NSE/BSE",
       "isin": "INE700F01024",
-      "bseCode": "539991",
-      "yahooSymbol": "539991.BO",
-      "marketCapCr": 78.81,
-      "source": "Official BSE active-equities API",
+      "yahooSymbol": "CFEL.NS",
+      "source": "Official NSE EQUITY_L",
       "sources": [
+        "Official NSE EQUITY_L",
         "Official BSE active-equities API"
-      ]
+      ],
+      "bseCode": "539991"
     },
     {
       "symbol": "CFF",
@@ -16323,6 +16645,20 @@
       "bseCode": "543920",
       "yahooSymbol": "543920.BO",
       "marketCapCr": 2142.19,
+      "source": "Official BSE active-equities API",
+      "sources": [
+        "Official BSE active-equities API"
+      ]
+    },
+    {
+      "symbol": "CFL",
+      "company": "Classic Filaments Limited",
+      "kind": "STOCK",
+      "exchange": "BSE",
+      "isin": "INE181U01018",
+      "bseCode": "540310",
+      "yahooSymbol": "540310.BO",
+      "marketCapCr": 29.53,
       "source": "Official BSE active-equities API",
       "sources": [
         "Official BSE active-equities API"
@@ -16358,17 +16694,17 @@
     },
     {
       "symbol": "CGVAK",
-      "company": "Cg-Vak Software & Exports Ltd.",
+      "company": "CG Vak Software & Exports Limited",
       "kind": "STOCK",
-      "exchange": "BSE",
+      "exchange": "NSE/BSE",
       "isin": "INE084D01010",
-      "bseCode": "531489",
-      "yahooSymbol": "531489.BO",
-      "marketCapCr": 74.97,
-      "source": "Official BSE active-equities API",
+      "yahooSymbol": "CGVAK.NS",
+      "source": "Official NSE EQUITY_L",
       "sources": [
+        "Official NSE EQUITY_L",
         "Official BSE active-equities API"
-      ]
+      ],
+      "bseCode": "531489"
     },
     {
       "symbol": "CHADPAP",
@@ -16469,6 +16805,20 @@
       ]
     },
     {
+      "symbol": "CHASBRT",
+      "company": "Chase Bright Steel Co. Ltd.",
+      "kind": "STOCK",
+      "exchange": "NSE/BSE",
+      "isin": "NA",
+      "bseCode": "531562",
+      "yahooSymbol": "504671.BO",
+      "marketCapCr": 4.27,
+      "source": "Official BSE active-equities API",
+      "sources": [
+        "Official BSE active-equities API"
+      ]
+    },
+    {
       "symbol": "CHATHA",
       "company": "CHATHA FOODS LIMITED",
       "kind": "STOCK",
@@ -16514,15 +16864,15 @@
       "symbol": "CHEMBOND",
       "company": "Chembond Material Technologies Limited",
       "kind": "STOCK",
-      "exchange": "BSE",
+      "exchange": "NSE/BSE",
       "isin": "INE995D01025",
-      "bseCode": "530871",
-      "yahooSymbol": "530871.BO",
-      "marketCapCr": 239.38,
-      "source": "Official BSE active-equities API",
+      "yahooSymbol": "CHEMBOND.NS",
+      "source": "Official NSE EQUITY_L",
       "sources": [
+        "Official NSE EQUITY_L",
         "Official BSE active-equities API"
-      ]
+      ],
+      "bseCode": "530871"
     },
     {
       "symbol": "CHEMBONDCH",
@@ -16556,29 +16906,29 @@
       "symbol": "CHEMCRUX",
       "company": "Chemcrux Enterprises Limited",
       "kind": "STOCK",
-      "exchange": "BSE",
+      "exchange": "NSE/BSE",
       "isin": "INE298W01016",
-      "bseCode": "540395",
-      "yahooSymbol": "540395.BO",
-      "marketCapCr": 128.64,
-      "source": "Official BSE active-equities API",
+      "yahooSymbol": "CHEMCRUX.NS",
+      "source": "Official NSE EQUITY_L",
       "sources": [
+        "Official NSE EQUITY_L",
         "Official BSE active-equities API"
-      ]
+      ],
+      "bseCode": "540395"
     },
     {
       "symbol": "CHEMFAB",
-      "company": "Chemfab Alkalis Ltd",
+      "company": "Chemfab Alkalis Limited",
       "kind": "STOCK",
-      "exchange": "BSE",
+      "exchange": "NSE/BSE",
       "isin": "INE783X01023",
-      "bseCode": "541269",
-      "yahooSymbol": "541269.BO",
-      "marketCapCr": 543.33,
-      "source": "Official BSE active-equities API",
+      "yahooSymbol": "CHEMFAB.NS",
+      "source": "Official NSE EQUITY_L",
       "sources": [
+        "Official NSE EQUITY_L",
         "Official BSE active-equities API"
-      ]
+      ],
+      "bseCode": "541269"
     },
     {
       "symbol": "CHEMIESYNT",
@@ -17071,6 +17421,20 @@
       ]
     },
     {
+      "symbol": "CITURGIA",
+      "company": "Citurgia Biochemicals Ltd.",
+      "kind": "STOCK",
+      "exchange": "BSE",
+      "isin": "INE795B01031",
+      "bseCode": "506373",
+      "yahooSymbol": "506373.BO",
+      "marketCapCr": 1463.62,
+      "source": "Official BSE active-equities API",
+      "sources": [
+        "Official BSE active-equities API"
+      ]
+    },
+    {
       "symbol": "CITYMAN",
       "company": "Cityman Limited",
       "kind": "STOCK",
@@ -17079,6 +17443,20 @@
       "bseCode": "521210",
       "yahooSymbol": "521210.BO",
       "marketCapCr": 17.24,
+      "source": "Official BSE active-equities API",
+      "sources": [
+        "Official BSE active-equities API"
+      ]
+    },
+    {
+      "symbol": "CITYON",
+      "company": "CITYON SYSTEMS (INDIA) LIMITED",
+      "kind": "STOCK",
+      "exchange": "BSE",
+      "isin": "INE324P01014",
+      "bseCode": "780013",
+      "yahooSymbol": "780013.BO",
+      "marketCapCr": null,
       "source": "Official BSE active-equities API",
       "sources": [
         "Official BSE active-equities API"
@@ -17211,6 +17589,20 @@
       ]
     },
     {
+      "symbol": "CLENON",
+      "company": "CLENON ENTERPRISES LIMITED",
+      "kind": "STOCK",
+      "exchange": "BSE",
+      "isin": "INE769B01028",
+      "bseCode": "517564",
+      "yahooSymbol": "517564.BO",
+      "marketCapCr": 49.2,
+      "source": "Official BSE active-equities API",
+      "sources": [
+        "Official BSE active-equities API"
+      ]
+    },
+    {
       "symbol": "CLFL",
       "company": "Classic Leasing & Finance Ltd.",
       "kind": "STOCK",
@@ -17275,6 +17667,20 @@
       "bseCode": "540199",
       "yahooSymbol": "540199.BO",
       "marketCapCr": 294.83,
+      "source": "Official BSE active-equities API",
+      "sources": [
+        "Official BSE active-equities API"
+      ]
+    },
+    {
+      "symbol": "CMICABLES",
+      "company": "CMI Limited",
+      "kind": "STOCK",
+      "exchange": "BSE",
+      "isin": "INE981B01011",
+      "bseCode": "517330",
+      "yahooSymbol": "517330.BO",
+      "marketCapCr": 4.47,
       "source": "Official BSE active-equities API",
       "sources": [
         "Official BSE active-equities API"
@@ -17547,6 +17953,20 @@
       "bseCode": "543064"
     },
     {
+      "symbol": "COLAB",
+      "company": "COLAB PLATFORMS LIMITED",
+      "kind": "STOCK",
+      "exchange": "BSE",
+      "isin": "INE317W01030",
+      "bseCode": "542866",
+      "yahooSymbol": "542866.BO",
+      "marketCapCr": 2810.1,
+      "source": "Official BSE active-equities API",
+      "sources": [
+        "Official BSE active-equities API"
+      ]
+    },
+    {
       "symbol": "COLINZ",
       "company": "Colinz Laboratories ltd.",
       "kind": "STOCK",
@@ -17660,17 +18080,17 @@
     },
     {
       "symbol": "COMPEAU",
-      "company": "Competent Automobiles Co. Ltd.",
+      "company": "Competent Automobiles Company Limited",
       "kind": "STOCK",
-      "exchange": "BSE",
+      "exchange": "NSE/BSE",
       "isin": "INE823B01015",
-      "bseCode": "531041",
-      "yahooSymbol": "531041.BO",
-      "marketCapCr": 226.26,
-      "source": "Official BSE active-equities API",
+      "yahooSymbol": "COMPEAU.NS",
+      "source": "Official NSE EQUITY_L",
       "sources": [
+        "Official NSE EQUITY_L",
         "Official BSE active-equities API"
-      ]
+      ],
+      "bseCode": "531041"
     },
     {
       "symbol": "COMPINFO",
@@ -18388,17 +18808,17 @@
     },
     {
       "symbol": "CRAVATEX",
-      "company": "Cravatex Ltd.",
+      "company": "Cravatex Limited",
       "kind": "STOCK",
-      "exchange": "BSE",
+      "exchange": "NSE/BSE",
       "isin": "INE145E01017",
-      "bseCode": "509472",
-      "yahooSymbol": "509472.BO",
-      "marketCapCr": 89.93,
-      "source": "Official BSE active-equities API",
+      "yahooSymbol": "CRAVATEX.NS",
+      "source": "Official NSE EQUITY_L",
       "sources": [
+        "Official NSE EQUITY_L",
         "Official BSE active-equities API"
-      ]
+      ],
+      "bseCode": "509472"
     },
     {
       "symbol": "CRAZY",
@@ -18455,6 +18875,20 @@
         "Official BSE active-equities API"
       ],
       "bseCode": "541770"
+    },
+    {
+      "symbol": "CRESANTO",
+      "company": "Cresanto Global Limited",
+      "kind": "STOCK",
+      "exchange": "BSE",
+      "isin": "INE741C01017",
+      "bseCode": "531207",
+      "yahooSymbol": "531207.BO",
+      "marketCapCr": 2.19,
+      "source": "Official BSE active-equities API",
+      "sources": [
+        "Official BSE active-equities API"
+      ]
     },
     {
       "symbol": "CRESCENTIS",
@@ -18582,17 +19016,17 @@
     },
     {
       "symbol": "CRSL",
-      "company": "CRESSANDA RAILWAY SOLUTIONS LIMITED",
+      "company": "Cressanda Railway Solutions Limited",
       "kind": "STOCK",
-      "exchange": "BSE",
+      "exchange": "NSE/BSE",
       "isin": "INE716D01033",
-      "bseCode": "512379",
-      "yahooSymbol": "512379.BO",
-      "marketCapCr": 90.55,
-      "source": "Official BSE active-equities API",
+      "yahooSymbol": "CRSL.NS",
+      "source": "Official NSE EQUITY_L",
       "sources": [
+        "Official NSE EQUITY_L",
         "Official BSE active-equities API"
-      ]
+      ],
+      "bseCode": "512379"
     },
     {
       "symbol": "CRSTCHM",
@@ -18890,17 +19324,17 @@
     },
     {
       "symbol": "CYBERMEDIA",
-      "company": "Cyber Media (India) Ltd.",
+      "company": "Cyber Media (India) Limited",
       "kind": "STOCK",
-      "exchange": "BSE",
+      "exchange": "NSE/BSE",
       "isin": "INE278G01037",
-      "bseCode": "532640",
-      "yahooSymbol": "532640.BO",
-      "marketCapCr": 34.09,
-      "source": "Official BSE active-equities API",
+      "yahooSymbol": "CYBERMEDIA.NS",
+      "source": "Official NSE EQUITY_L",
       "sources": [
+        "Official NSE EQUITY_L",
         "Official BSE active-equities API"
-      ]
+      ],
+      "bseCode": "532640"
     },
     {
       "symbol": "CYBERTECH",
@@ -19420,17 +19854,17 @@
     },
     {
       "symbol": "DCMSIL",
-      "company": "DCM SHRIRAM INTERNATIONAL LIMITED",
+      "company": "DCM Shriram International Limited",
       "kind": "STOCK",
-      "exchange": "BSE",
+      "exchange": "NSE/BSE",
       "isin": "INE0OU201013",
-      "bseCode": "544702",
-      "yahooSymbol": "544702.BO",
-      "marketCapCr": 708.99,
-      "source": "Official BSE active-equities API",
+      "yahooSymbol": "DCMSIL.NS",
+      "source": "Official NSE EQUITY_L",
       "sources": [
+        "Official NSE EQUITY_L",
         "Official BSE active-equities API"
-      ]
+      ],
+      "bseCode": "544702"
     },
     {
       "symbol": "DCMSRIND",
@@ -19590,15 +20024,15 @@
       "symbol": "DEEP",
       "company": "Deep Polymers Limited",
       "kind": "STOCK",
-      "exchange": "BSE",
+      "exchange": "NSE/BSE",
       "isin": "INE00IY01012",
-      "bseCode": "541778",
-      "yahooSymbol": "541778.BO",
-      "marketCapCr": 85.69,
-      "source": "Official BSE active-equities API",
+      "yahooSymbol": "DEEP.NS",
+      "source": "Official NSE EQUITY_L",
       "sources": [
+        "Official NSE EQUITY_L",
         "Official BSE active-equities API"
-      ]
+      ],
+      "bseCode": "541778"
     },
     {
       "symbol": "DEEPAI",
@@ -19881,6 +20315,20 @@
       ]
     },
     {
+      "symbol": "DESIFARMS",
+      "company": "Desi Farms India Limited",
+      "kind": "STOCK",
+      "exchange": "BSE",
+      "isin": "INE358F01013",
+      "bseCode": "507984",
+      "yahooSymbol": "507984.BO",
+      "marketCapCr": 62.54,
+      "source": "Official BSE active-equities API",
+      "sources": [
+        "Official BSE active-equities API"
+      ]
+    },
+    {
       "symbol": "DEVINE",
       "company": "Devine Impex Limited",
       "kind": "STOCK",
@@ -20038,15 +20486,15 @@
       "symbol": "DHABRIYA",
       "company": "Dhabriya Polywood Limited",
       "kind": "STOCK",
-      "exchange": "BSE",
+      "exchange": "NSE/BSE",
       "isin": "INE260R01016",
-      "bseCode": "538715",
-      "yahooSymbol": "538715.BO",
-      "marketCapCr": 543.7,
-      "source": "Official BSE active-equities API",
+      "yahooSymbol": "DHABRIYA.NS",
+      "source": "Official NSE EQUITY_L",
       "sources": [
+        "Official NSE EQUITY_L",
         "Official BSE active-equities API"
-      ]
+      ],
+      "bseCode": "538715"
     },
     {
       "symbol": "DHAMPURE",
@@ -20220,15 +20668,15 @@
       "symbol": "DHATRE",
       "company": "Dhatre Udyog Limited",
       "kind": "STOCK",
-      "exchange": "BSE",
+      "exchange": "NSE/BSE",
       "isin": "INE715T01031",
-      "bseCode": "540080",
-      "yahooSymbol": "540080.BO",
-      "marketCapCr": 39.88,
-      "source": "Official BSE active-equities API",
+      "yahooSymbol": "DHATRE.NS",
+      "source": "Official NSE EQUITY_L",
       "sources": [
+        "Official NSE EQUITY_L",
         "Official BSE active-equities API"
-      ]
+      ],
+      "bseCode": "540080"
     },
     {
       "symbol": "DHAVAL",
@@ -20299,6 +20747,20 @@
       "sources": [
         "Official BSE active-equities API"
       ]
+    },
+    {
+      "symbol": "DHOOTTRANS",
+      "company": "Dhoot Transmission Limited",
+      "kind": "STOCK",
+      "exchange": "NSE/BSE",
+      "isin": "INE01NH01023",
+      "yahooSymbol": "DHOOTTRANS.NS",
+      "source": "Official NSE EQUITY_L",
+      "sources": [
+        "Official NSE EQUITY_L",
+        "Official BSE active-equities API"
+      ],
+      "bseCode": "544867"
     },
     {
       "symbol": "DHPIND",
@@ -20379,6 +20841,20 @@
       "bseCode": "522163",
       "yahooSymbol": "522163.BO",
       "marketCapCr": 22056.86,
+      "source": "Official BSE active-equities API",
+      "sources": [
+        "Official BSE active-equities API"
+      ]
+    },
+    {
+      "symbol": "DIAMANT",
+      "company": "Diamant Infrastructure Limited",
+      "kind": "STOCK",
+      "exchange": "BSE",
+      "isin": "INE206I01026",
+      "bseCode": "508860",
+      "yahooSymbol": "508860.BO",
+      "marketCapCr": 2.68,
       "source": "Official BSE active-equities API",
       "sources": [
         "Official BSE active-equities API"
@@ -20929,6 +21405,20 @@
         "Official BSE active-equities API"
       ],
       "bseCode": "522261"
+    },
+    {
+      "symbol": "DOLPHMED",
+      "company": "Dolphin Medical Services Ltd.",
+      "kind": "STOCK",
+      "exchange": "BSE",
+      "isin": "INE796B01013",
+      "bseCode": "526504",
+      "yahooSymbol": "526504.BO",
+      "marketCapCr": 11.31,
+      "source": "Official BSE active-equities API",
+      "sources": [
+        "Official BSE active-equities API"
+      ]
     },
     {
       "symbol": "DOMS",
@@ -21492,17 +21982,17 @@
     },
     {
       "symbol": "EASTWEST",
-      "company": "EAST WEST FREIGHT CARRIERS LTD",
+      "company": "East West Freight Carriers Limited",
       "kind": "STOCK",
-      "exchange": "BSE",
+      "exchange": "NSE/BSE",
       "isin": "INE595R01023",
-      "bseCode": "540006",
-      "yahooSymbol": "540006.BO",
-      "marketCapCr": 31.38,
-      "source": "Official BSE active-equities API",
+      "yahooSymbol": "EASTWEST.NS",
+      "source": "Official NSE EQUITY_L",
       "sources": [
+        "Official NSE EQUITY_L",
         "Official BSE active-equities API"
-      ]
+      ],
+      "bseCode": "540006"
     },
     {
       "symbol": "EASUN",
@@ -21562,17 +22052,17 @@
     },
     {
       "symbol": "EBIX",
-      "company": "EBIX LIMITED",
+      "company": "EBIX Limited",
       "kind": "STOCK",
-      "exchange": "BSE",
+      "exchange": "NSE/BSE",
       "isin": "INE432F01032",
-      "bseCode": "531035",
-      "yahooSymbol": "531035.BO",
-      "marketCapCr": 363.87,
-      "source": "Official BSE active-equities API",
+      "yahooSymbol": "EBIX.NS",
+      "source": "Official NSE EQUITY_L",
       "sources": [
+        "Official NSE EQUITY_L",
         "Official BSE active-equities API"
-      ]
+      ],
+      "bseCode": "531035"
     },
     {
       "symbol": "ECAPINSURE",
@@ -21662,15 +22152,15 @@
       "symbol": "ECORECO",
       "company": "Eco Recycling Limited",
       "kind": "STOCK",
-      "exchange": "BSE",
+      "exchange": "NSE/BSE",
       "isin": "INE316A01038",
-      "bseCode": "530643",
-      "yahooSymbol": "530643.BO",
-      "marketCapCr": 948.05,
-      "source": "Official BSE active-equities API",
+      "yahooSymbol": "ECORECO.NS",
+      "source": "Official NSE EQUITY_L",
       "sources": [
+        "Official NSE EQUITY_L",
         "Official BSE active-equities API"
-      ]
+      ],
+      "bseCode": "530643"
     },
     {
       "symbol": "ECOSMOBLTY",
@@ -21681,6 +22171,20 @@
       "bseCode": "544239",
       "yahooSymbol": "544239.BO",
       "marketCapCr": 720.3,
+      "source": "Official BSE active-equities API",
+      "sources": [
+        "Official BSE active-equities API"
+      ]
+    },
+    {
+      "symbol": "ECS",
+      "company": "ECS Biztech Limited",
+      "kind": "STOCK",
+      "exchange": "BSE",
+      "isin": "INE925Q01024",
+      "bseCode": "540063",
+      "yahooSymbol": "540063.BO",
+      "marketCapCr": 27.13,
       "source": "Official BSE active-equities API",
       "sources": [
         "Official BSE active-equities API"
@@ -21713,6 +22217,20 @@
         "Official BSE active-equities API"
       ],
       "bseCode": "532922"
+    },
+    {
+      "symbol": "EDUCOMP",
+      "company": "Educomp Solutions Ltd",
+      "kind": "STOCK",
+      "exchange": "BSE",
+      "isin": "INE216H01027",
+      "bseCode": "532696",
+      "yahooSymbol": "532696.BO",
+      "marketCapCr": 11.51,
+      "source": "Official BSE active-equities API",
+      "sources": [
+        "Official BSE active-equities API"
+      ]
     },
     {
       "symbol": "EDVENSWA",
@@ -21942,15 +22460,15 @@
       "symbol": "EKI",
       "company": "EKI Energy Services Limited",
       "kind": "STOCK",
-      "exchange": "BSE",
+      "exchange": "NSE/BSE",
       "isin": "INE0CPR01018",
-      "bseCode": "543284",
-      "yahooSymbol": "543284.BO",
-      "marketCapCr": 225.23,
-      "source": "Official BSE active-equities API",
+      "yahooSymbol": "EKI.NS",
+      "source": "Official NSE EQUITY_L",
       "sources": [
+        "Official NSE EQUITY_L",
         "Official BSE active-equities API"
-      ]
+      ],
+      "bseCode": "543284"
     },
     {
       "symbol": "ELAND",
@@ -22470,31 +22988,31 @@
     },
     {
       "symbol": "EMPIND",
-      "company": "Empire Industries Ltd.",
+      "company": "Empire Industries Limited",
       "kind": "STOCK",
-      "exchange": "BSE",
+      "exchange": "NSE/BSE",
       "isin": "INE515H01014",
-      "bseCode": "509525",
-      "yahooSymbol": "509525.BO",
-      "marketCapCr": 650.37,
-      "source": "Official BSE active-equities API",
+      "yahooSymbol": "EMPIND.NS",
+      "source": "Official NSE EQUITY_L",
       "sources": [
+        "Official NSE EQUITY_L",
         "Official BSE active-equities API"
-      ]
+      ],
+      "bseCode": "509525"
     },
     {
       "symbol": "EMPOWER",
       "company": "Empower India Limited",
       "kind": "STOCK",
-      "exchange": "BSE",
+      "exchange": "NSE/BSE",
       "isin": "INE507F01023",
-      "bseCode": "504351",
-      "yahooSymbol": "504351.BO",
-      "marketCapCr": 243.23,
-      "source": "Official BSE active-equities API",
+      "yahooSymbol": "EMPOWER.NS",
+      "source": "Official NSE EQUITY_L",
       "sources": [
+        "Official NSE EQUITY_L",
         "Official BSE active-equities API"
-      ]
+      ],
+      "bseCode": "504351"
     },
     {
       "symbol": "EMROCK",
@@ -22547,6 +23065,20 @@
       "bseCode": "512441",
       "yahooSymbol": "512441.BO",
       "marketCapCr": 25.1,
+      "source": "Official BSE active-equities API",
+      "sources": [
+        "Official BSE active-equities API"
+      ]
+    },
+    {
+      "symbol": "ENCASH",
+      "company": "Encash Entertainment Limited",
+      "kind": "STOCK",
+      "exchange": "BSE",
+      "isin": "INE552Q01018",
+      "bseCode": "538684",
+      "yahooSymbol": "538684.BO",
+      "marketCapCr": 10.2,
       "source": "Official BSE active-equities API",
       "sources": [
         "Official BSE active-equities API"
@@ -22652,17 +23184,17 @@
     },
     {
       "symbol": "ENKEIWHEL",
-      "company": "Enkei wheels (India) Limited",
+      "company": "Enkei Wheels (India) Limited",
       "kind": "STOCK",
-      "exchange": "BSE",
+      "exchange": "NSE/BSE",
       "isin": "INE130L01014",
-      "bseCode": "533477",
-      "yahooSymbol": "533477.BO",
-      "marketCapCr": 710.73,
-      "source": "Official BSE active-equities API",
+      "yahooSymbol": "ENKEIWHEL.NS",
+      "source": "Official NSE EQUITY_L",
       "sources": [
+        "Official NSE EQUITY_L",
         "Official BSE active-equities API"
-      ]
+      ],
+      "bseCode": "533477"
     },
     {
       "symbol": "ENRIN",
@@ -23701,6 +24233,20 @@
       "bseCode": "533333"
     },
     {
+      "symbol": "FCONSUMER",
+      "company": "Future Consumer Limited",
+      "kind": "STOCK",
+      "exchange": "BSE",
+      "isin": "INE220J01025",
+      "bseCode": "533400",
+      "yahooSymbol": "533400.BO",
+      "marketCapCr": 51.92,
+      "source": "Official BSE active-equities API",
+      "sources": [
+        "Official BSE active-equities API"
+      ]
+    },
+    {
       "symbol": "FCSSOFT",
       "company": "FCS Software Solutions Limited",
       "kind": "STOCK",
@@ -24530,15 +25076,15 @@
       "symbol": "FREDUN",
       "company": "Fredun Pharmaceuticals Limited",
       "kind": "STOCK",
-      "exchange": "BSE",
+      "exchange": "NSE/BSE",
       "isin": "INE194R01017",
-      "bseCode": "539730",
-      "yahooSymbol": "539730.BO",
-      "marketCapCr": 2559.68,
-      "source": "Official BSE active-equities API",
+      "yahooSymbol": "FREDUN.NS",
+      "source": "Official NSE EQUITY_L",
       "sources": [
+        "Official NSE EQUITY_L",
         "Official BSE active-equities API"
-      ]
+      ],
+      "bseCode": "539730"
     },
     {
       "symbol": "FRONTCAP",
@@ -25559,6 +26105,20 @@
       ]
     },
     {
+      "symbol": "GEETANJ",
+      "company": "Geetanjali Credit And Capital Limited",
+      "kind": "STOCK",
+      "exchange": "BSE",
+      "isin": "INE263R01010",
+      "bseCode": "539486",
+      "yahooSymbol": "539486.BO",
+      "marketCapCr": 3.58,
+      "source": "Official BSE active-equities API",
+      "sources": [
+        "Official BSE active-equities API"
+      ]
+    },
+    {
       "symbol": "GEL",
       "company": "Gautam Exim Limited",
       "kind": "STOCK",
@@ -25795,6 +26355,20 @@
         "Official BSE active-equities API"
       ],
       "bseCode": "500173"
+    },
+    {
+      "symbol": "GFSTEELS",
+      "company": "Grand Foundry Ltd.",
+      "kind": "STOCK",
+      "exchange": "BSE",
+      "isin": "INE534A01028",
+      "bseCode": "513343",
+      "yahooSymbol": "513343.BO",
+      "marketCapCr": 40.53,
+      "source": "Official BSE active-equities API",
+      "sources": [
+        "Official BSE active-equities API"
+      ]
     },
     {
       "symbol": "GGAUTO",
@@ -26062,17 +26636,17 @@
     },
     {
       "symbol": "GKB",
-      "company": "GKB Ophthalmics Ltd.",
+      "company": "GKB Ophthalmics Limited",
       "kind": "STOCK",
-      "exchange": "BSE",
+      "exchange": "NSE/BSE",
       "isin": "INE265D01015",
-      "bseCode": "533212",
-      "yahooSymbol": "533212.BO",
-      "marketCapCr": 32.76,
-      "source": "Official BSE active-equities API",
+      "yahooSymbol": "GKB.NS",
+      "source": "Official NSE EQUITY_L",
       "sources": [
+        "Official NSE EQUITY_L",
         "Official BSE active-equities API"
-      ]
+      ],
+      "bseCode": "533212"
     },
     {
       "symbol": "GKCONS",
@@ -27829,6 +28403,20 @@
       ]
     },
     {
+      "symbol": "GTEIT",
+      "company": "G-Tech Info-Training Ltd.",
+      "kind": "STOCK",
+      "exchange": "BSE",
+      "isin": "INE634D01038",
+      "bseCode": "532139",
+      "yahooSymbol": "532139.BO",
+      "marketCapCr": 2.62,
+      "source": "Official BSE active-equities API",
+      "sources": [
+        "Official BSE active-equities API"
+      ]
+    },
+    {
       "symbol": "GTIL",
       "company": "Gabion Technologies India Limited",
       "kind": "STOCK",
@@ -28514,17 +29102,17 @@
     },
     {
       "symbol": "HAMPTON",
-      "company": "HAMPTON SKY REALTY LIMITED",
+      "company": "Hampton Sky Realty Limited",
       "kind": "STOCK",
-      "exchange": "BSE",
+      "exchange": "NSE/BSE",
       "isin": "INE299D01022",
-      "bseCode": "526407",
-      "yahooSymbol": "526407.BO",
-      "marketCapCr": 222.66,
-      "source": "Official BSE active-equities API",
+      "yahooSymbol": "HAMPTON.NS",
+      "source": "Official NSE EQUITY_L",
       "sources": [
+        "Official NSE EQUITY_L",
         "Official BSE active-equities API"
-      ]
+      ],
+      "bseCode": "526407"
     },
     {
       "symbol": "HANMAN",
@@ -28936,15 +29524,15 @@
       "symbol": "HAZOOR",
       "company": "Hazoor Multi Projects Limited",
       "kind": "STOCK",
-      "exchange": "BSE",
+      "exchange": "NSE/BSE",
       "isin": "INE550F01049",
-      "bseCode": "532467",
-      "yahooSymbol": "532467.BO",
-      "marketCapCr": 599.7,
-      "source": "Official BSE active-equities API",
+      "yahooSymbol": "HAZOOR.NS",
+      "source": "Official NSE EQUITY_L",
       "sources": [
+        "Official NSE EQUITY_L",
         "Official BSE active-equities API"
-      ]
+      ],
+      "bseCode": "532467"
     },
     {
       "symbol": "HBEL",
@@ -29018,17 +29606,17 @@
     },
     {
       "symbol": "HBPOR",
-      "company": "HB Portfolio Ltd.",
+      "company": "HB Portfolio Limited",
       "kind": "STOCK",
-      "exchange": "BSE",
+      "exchange": "NSE/BSE",
       "isin": "INE638B01025",
-      "bseCode": "532333",
-      "yahooSymbol": "532333.BO",
-      "marketCapCr": 65.44,
-      "source": "Official BSE active-equities API",
+      "yahooSymbol": "HBPOR.NS",
+      "source": "Official NSE EQUITY_L",
       "sources": [
+        "Official NSE EQUITY_L",
         "Official BSE active-equities API"
-      ]
+      ],
+      "bseCode": "532333"
     },
     {
       "symbol": "HBSL",
@@ -29673,6 +30261,20 @@
       "bseCode": "543242"
     },
     {
+      "symbol": "HEMORGANIC",
+      "company": "Hemo Organic Limited",
+      "kind": "STOCK",
+      "exchange": "BSE",
+      "isin": "INE422G01015",
+      "bseCode": "524590",
+      "yahooSymbol": "524590.BO",
+      "marketCapCr": 7.26,
+      "source": "Official BSE active-equities API",
+      "sources": [
+        "Official BSE active-equities API"
+      ]
+    },
+    {
       "symbol": "HERANBA",
       "company": "Heranba Industries Limited",
       "kind": "STOCK",
@@ -29883,6 +30485,20 @@
       ]
     },
     {
+      "symbol": "HIIL",
+      "company": "HINDUSTHAN INSULATORS and INDUSTRIES LIMITED",
+      "kind": "STOCK",
+      "exchange": "BSE",
+      "isin": "INE799B01025",
+      "bseCode": "539984",
+      "yahooSymbol": "539984.BO",
+      "marketCapCr": 973.08,
+      "source": "Official BSE active-equities API",
+      "sources": [
+        "Official BSE active-equities API"
+      ]
+    },
+    {
       "symbol": "HIKAL",
       "company": "Hikal Limited",
       "kind": "STOCK",
@@ -29996,17 +30612,17 @@
     },
     {
       "symbol": "HINDADH",
-      "company": "Hindustan Adhesives Ltd.",
+      "company": "Hindustan Adhesives Limited",
       "kind": "STOCK",
-      "exchange": "BSE",
+      "exchange": "NSE/BSE",
       "isin": "INE074C01013",
-      "bseCode": "514428",
-      "yahooSymbol": "514428.BO",
-      "marketCapCr": 143.08,
-      "source": "Official BSE active-equities API",
+      "yahooSymbol": "HINDADH.NS",
+      "source": "Official NSE EQUITY_L",
       "sources": [
+        "Official NSE EQUITY_L",
         "Official BSE active-equities API"
-      ]
+      ],
+      "bseCode": "514428"
     },
     {
       "symbol": "HINDALCO",
@@ -30024,17 +30640,17 @@
     },
     {
       "symbol": "HINDALUMI",
-      "company": "HIND ALUMINIUM INDUSTRIES LTD.",
+      "company": "Hind Aluminium Industries Limited",
       "kind": "STOCK",
-      "exchange": "BSE",
+      "exchange": "NSE/BSE",
       "isin": "INE227B01019",
-      "bseCode": "531979",
-      "yahooSymbol": "531979.BO",
-      "marketCapCr": 62.09,
-      "source": "Official BSE active-equities API",
+      "yahooSymbol": "HINDALUMI.NS",
+      "source": "Official NSE EQUITY_L",
       "sources": [
+        "Official NSE EQUITY_L",
         "Official BSE active-equities API"
-      ]
+      ],
+      "bseCode": "531979"
     },
     {
       "symbol": "HINDAPL",
@@ -30707,6 +31323,20 @@
       ]
     },
     {
+      "symbol": "HRMNYCP",
+      "company": "Harmony Capital Services Ltd.",
+      "kind": "STOCK",
+      "exchange": "BSE",
+      "isin": "INE264N01017",
+      "bseCode": "530055",
+      "yahooSymbol": "530055.BO",
+      "marketCapCr": 124.58,
+      "source": "Official BSE active-equities API",
+      "sources": [
+        "Official BSE active-equities API"
+      ]
+    },
+    {
       "symbol": "HRS",
       "company": "HRS ALUGLAZE LIMITED",
       "kind": "STOCK",
@@ -30722,17 +31352,17 @@
     },
     {
       "symbol": "HRYNSHP",
-      "company": "Hariyana Ship Breakers Ltd.",
+      "company": "Hariyana Ship Breakers Limited",
       "kind": "STOCK",
-      "exchange": "BSE",
+      "exchange": "NSE/BSE",
       "isin": "INE400G01011",
-      "bseCode": "526931",
-      "yahooSymbol": "526931.BO",
-      "marketCapCr": 62.56,
-      "source": "Official BSE active-equities API",
+      "yahooSymbol": "HRYNSHP.NS",
+      "source": "Official NSE EQUITY_L",
       "sources": [
+        "Official NSE EQUITY_L",
         "Official BSE active-equities API"
-      ]
+      ],
+      "bseCode": "526931"
     },
     {
       "symbol": "HSCL",
@@ -31181,6 +31811,20 @@
       ]
     },
     {
+      "symbol": "IDM",
+      "company": "International Data Managements Ltd.",
+      "kind": "STOCK",
+      "exchange": "BSE",
+      "isin": "INE649R01010",
+      "bseCode": "517044",
+      "yahooSymbol": "517044.BO",
+      "marketCapCr": 8.27,
+      "source": "Official BSE active-equities API",
+      "sources": [
+        "Official BSE active-equities API"
+      ]
+    },
+    {
       "symbol": "IDREAM",
       "company": "IDream Film Infrastructure Company Limited",
       "kind": "STOCK",
@@ -31224,17 +31868,17 @@
     },
     {
       "symbol": "IFBAGRO",
-      "company": "IFB Agro Industries Ltd",
+      "company": "IFB Agro Industries Limited",
       "kind": "STOCK",
-      "exchange": "BSE",
+      "exchange": "NSE/BSE",
       "isin": "INE076C01018",
-      "bseCode": "507438",
-      "yahooSymbol": "507438.BO",
-      "marketCapCr": 960.88,
-      "source": "Official BSE active-equities API",
+      "yahooSymbol": "IFBAGRO.NS",
+      "source": "Official NSE EQUITY_L",
       "sources": [
+        "Official NSE EQUITY_L",
         "Official BSE active-equities API"
-      ]
+      ],
+      "bseCode": "507438"
     },
     {
       "symbol": "IFBIND",
@@ -32021,6 +32665,20 @@
       "bseCode": "544044"
     },
     {
+      "symbol": "INDICAP",
+      "company": "Inditrade Capital Limited",
+      "kind": "STOCK",
+      "exchange": "BSE",
+      "isin": "INE347H01012",
+      "bseCode": "532745",
+      "yahooSymbol": "532745.BO",
+      "marketCapCr": 6.54,
+      "source": "Official BSE active-equities API",
+      "sources": [
+        "Official BSE active-equities API"
+      ]
+    },
+    {
       "symbol": "INDIGO",
       "company": "InterGlobe Aviation Limited",
       "kind": "STOCK",
@@ -32218,17 +32876,17 @@
     },
     {
       "symbol": "INDOKEM",
-      "company": "Indokem Ltd",
+      "company": "Indokem Limited",
       "kind": "STOCK",
-      "exchange": "BSE",
+      "exchange": "NSE/BSE",
       "isin": "INE716F01012",
-      "bseCode": "504092",
-      "yahooSymbol": "504092.BO",
-      "marketCapCr": 1726.7,
-      "source": "Official BSE active-equities API",
+      "yahooSymbol": "INDOKEM.NS",
+      "source": "Official NSE EQUITY_L",
       "sources": [
+        "Official NSE EQUITY_L",
         "Official BSE active-equities API"
-      ]
+      ],
+      "bseCode": "504092"
     },
     {
       "symbol": "INDOMIM",
@@ -32735,6 +33393,20 @@
       ]
     },
     {
+      "symbol": "INNOCORP",
+      "company": "Innocorp Limited",
+      "kind": "STOCK",
+      "exchange": "BSE",
+      "isin": "INE214B01017",
+      "bseCode": "531929",
+      "yahooSymbol": "531929.BO",
+      "marketCapCr": 3.35,
+      "source": "Official BSE active-equities API",
+      "sources": [
+        "Official BSE active-equities API"
+      ]
+    },
+    {
       "symbol": "INNOKAIZ",
       "company": "INNOKAIZ INDIA LIMITED",
       "kind": "STOCK",
@@ -32827,6 +33499,20 @@
       "bseCode": "523840",
       "yahooSymbol": "523840.BO",
       "marketCapCr": 33.94,
+      "source": "Official BSE active-equities API",
+      "sources": [
+        "Official BSE active-equities API"
+      ]
+    },
+    {
+      "symbol": "INOVSYNTH",
+      "company": "INNOVASSYNTH TECHNOLOGIES (INDIA) LIMITED",
+      "kind": "STOCK",
+      "exchange": "BSE",
+      "isin": "INE690J01011",
+      "bseCode": "533315",
+      "yahooSymbol": "533315.BO",
+      "marketCapCr": 1274.05,
       "source": "Official BSE active-equities API",
       "sources": [
         "Official BSE active-equities API"
@@ -33057,6 +33743,20 @@
       ]
     },
     {
+      "symbol": "INTEGSW",
+      "company": "Integra Switchgear Ltd.",
+      "kind": "STOCK",
+      "exchange": "BSE",
+      "isin": "INE0IPL01018",
+      "bseCode": "517423",
+      "yahooSymbol": "517423.BO",
+      "marketCapCr": 52.7,
+      "source": "Official BSE active-equities API",
+      "sources": [
+        "Official BSE active-equities API"
+      ]
+    },
+    {
       "symbol": "INTELLECT",
       "company": "Intellect Design Arena Limited",
       "kind": "STOCK",
@@ -33097,6 +33797,20 @@
         "Official BSE active-equities API"
       ],
       "bseCode": "544232"
+    },
+    {
+      "symbol": "INTERDIGI",
+      "company": "Interworld Digital Ltd.",
+      "kind": "STOCK",
+      "exchange": "BSE",
+      "isin": "INE177D01020",
+      "bseCode": "532072",
+      "yahooSymbol": "532072.BO",
+      "marketCapCr": 9.57,
+      "source": "Official BSE active-equities API",
+      "sources": [
+        "Official BSE active-equities API"
+      ]
     },
     {
       "symbol": "INTERNET",
@@ -33309,18 +34023,32 @@
       "bseCode": "543311"
     },
     {
-      "symbol": "IPRINGLTD",
-      "company": "IP Rings Ltd.",
+      "symbol": "IPOWER",
+      "company": "i Power Solutions India Ltd.",
       "kind": "STOCK",
       "exchange": "BSE",
-      "isin": "INE558A01019",
-      "bseCode": "523638",
-      "yahooSymbol": "523638.BO",
-      "marketCapCr": 170.87,
+      "isin": "INE468F01010",
+      "bseCode": "512405",
+      "yahooSymbol": "512405.BO",
+      "marketCapCr": 9.63,
       "source": "Official BSE active-equities API",
       "sources": [
         "Official BSE active-equities API"
       ]
+    },
+    {
+      "symbol": "IPRINGLTD",
+      "company": "IP Rings Limited",
+      "kind": "STOCK",
+      "exchange": "NSE/BSE",
+      "isin": "INE558A01019",
+      "yahooSymbol": "IPRINGLTD.NS",
+      "source": "Official NSE EQUITY_L",
+      "sources": [
+        "Official NSE EQUITY_L",
+        "Official BSE active-equities API"
+      ],
+      "bseCode": "523638"
     },
     {
       "symbol": "IRB",
@@ -33616,17 +34344,17 @@
     },
     {
       "symbol": "ISTLTD",
-      "company": "IST Limited",
+      "company": "I S T Limited",
       "kind": "STOCK",
-      "exchange": "BSE",
+      "exchange": "NSE/BSE",
       "isin": "INE684B01029",
-      "bseCode": "508807",
-      "yahooSymbol": "508807.BO",
-      "marketCapCr": 757.64,
-      "source": "Official BSE active-equities API",
+      "yahooSymbol": "ISTLTD.NS",
+      "source": "Official NSE EQUITY_L",
       "sources": [
+        "Official NSE EQUITY_L",
         "Official BSE active-equities API"
-      ]
+      ],
+      "bseCode": "508807"
     },
     {
       "symbol": "ISTRNETWK",
@@ -33812,17 +34540,17 @@
     },
     {
       "symbol": "ITL",
-      "company": "ITL Industries Ltd.",
+      "company": "ITL Industries Limited",
       "kind": "STOCK",
-      "exchange": "BSE",
+      "exchange": "NSE/BSE",
       "isin": "INE478D01014",
-      "bseCode": "522183",
-      "yahooSymbol": "522183.BO",
-      "marketCapCr": 105.68,
-      "source": "Official BSE active-equities API",
+      "yahooSymbol": "ITL.NS",
+      "source": "Official NSE EQUITY_L",
       "sources": [
+        "Official NSE EQUITY_L",
         "Official BSE active-equities API"
-      ]
+      ],
+      "bseCode": "522183"
     },
     {
       "symbol": "IVALUE",
@@ -33893,6 +34621,20 @@
         "Official BSE active-equities API"
       ],
       "bseCode": "544192"
+    },
+    {
+      "symbol": "IYKOTHITE",
+      "company": "Iykot Hitech Toolroom Ltd",
+      "kind": "STOCK",
+      "exchange": "BSE",
+      "isin": "INE079L01013",
+      "bseCode": "522245",
+      "yahooSymbol": "522245.BO",
+      "marketCapCr": 13.91,
+      "source": "Official BSE active-equities API",
+      "sources": [
+        "Official BSE active-equities API"
+      ]
     },
     {
       "symbol": "IZMO",
@@ -34453,6 +35195,20 @@
       ]
     },
     {
+      "symbol": "JAYTEX",
+      "company": "Jaybharat Textiles And Real Estate Limited",
+      "kind": "STOCK",
+      "exchange": "BSE",
+      "isin": "INE091E01039",
+      "bseCode": "512233",
+      "yahooSymbol": "512233.BO",
+      "marketCapCr": 850.28,
+      "source": "Official BSE active-equities API",
+      "sources": [
+        "Official BSE active-equities API"
+      ]
+    },
+    {
       "symbol": "JAYUSH",
       "company": "Jay Ushin Ltd.",
       "kind": "STOCK",
@@ -34495,18 +35251,32 @@
       ]
     },
     {
-      "symbol": "JENBURPH",
-      "company": "Jenburkt Pharmaceuticals Ltd.",
+      "symbol": "JDL",
+      "company": "Jaisukh Dealers Limited",
       "kind": "STOCK",
       "exchange": "BSE",
-      "isin": "INE354A01013",
-      "bseCode": "524731",
-      "yahooSymbol": "524731.BO",
-      "marketCapCr": 468.58,
+      "isin": "INE190P01019",
+      "bseCode": "780001",
+      "yahooSymbol": "780001.BO",
+      "marketCapCr": null,
       "source": "Official BSE active-equities API",
       "sources": [
         "Official BSE active-equities API"
       ]
+    },
+    {
+      "symbol": "JENBURPH",
+      "company": "Jenburkt Pharmaceuticals Limited",
+      "kind": "STOCK",
+      "exchange": "NSE/BSE",
+      "isin": "INE354A01013",
+      "yahooSymbol": "JENBURPH.NS",
+      "source": "Official NSE EQUITY_L",
+      "sources": [
+        "Official NSE EQUITY_L",
+        "Official BSE active-equities API"
+      ],
+      "bseCode": "524731"
     },
     {
       "symbol": "JETFREIGHT",
@@ -34997,6 +35767,20 @@
       "bseCode": "523405"
     },
     {
+      "symbol": "JMGCORP",
+      "company": "JMG Corporation Ltd",
+      "kind": "STOCK",
+      "exchange": "BSE",
+      "isin": "INE745F01011",
+      "bseCode": "523712",
+      "yahooSymbol": "523712.BO",
+      "marketCapCr": 13.15,
+      "source": "Official BSE active-equities API",
+      "sources": [
+        "Official BSE active-equities API"
+      ]
+    },
+    {
       "symbol": "JMJFIN",
       "company": "JMJ Fintech Limited",
       "kind": "STOCK",
@@ -35173,6 +35957,20 @@
       "bseCode": "507987",
       "yahooSymbol": "507987.BO",
       "marketCapCr": 0.4,
+      "source": "Official BSE active-equities API",
+      "sources": [
+        "Official BSE active-equities API"
+      ]
+    },
+    {
+      "symbol": "JPTSEC",
+      "company": "JPT Securities Ltd.",
+      "kind": "STOCK",
+      "exchange": "BSE",
+      "isin": "INE630C01012",
+      "bseCode": "530985",
+      "yahooSymbol": "530985.BO",
+      "marketCapCr": 5.84,
       "source": "Official BSE active-equities API",
       "sources": [
         "Official BSE active-equities API"
@@ -35487,6 +36285,20 @@
       ]
     },
     {
+      "symbol": "JUNE",
+      "company": "JUNE INDUSTRIES LIMITED",
+      "kind": "STOCK",
+      "exchange": "BSE",
+      "isin": "INE108B01029",
+      "bseCode": "531960",
+      "yahooSymbol": "531960.BO",
+      "marketCapCr": 29.16,
+      "source": "Official BSE active-equities API",
+      "sources": [
+        "Official BSE active-equities API"
+      ]
+    },
+    {
       "symbol": "JUNGLECAMP",
       "company": "JUNGLE CAMPS INDIA LIMITED",
       "kind": "STOCK",
@@ -35642,17 +36454,17 @@
     },
     {
       "symbol": "JYOTIRES",
-      "company": "Jyoti Resins & Adhesives Ltd",
+      "company": "Jyoti Resins & Adhesives Limited",
       "kind": "STOCK",
-      "exchange": "BSE",
+      "exchange": "NSE/BSE",
       "isin": "INE577D01013",
-      "bseCode": "514448",
-      "yahooSymbol": "514448.BO",
-      "marketCapCr": 1044,
-      "source": "Official BSE active-equities API",
+      "yahooSymbol": "JYOTIRES.NS",
+      "source": "Official NSE EQUITY_L",
       "sources": [
+        "Official NSE EQUITY_L",
         "Official BSE active-equities API"
-      ]
+      ],
+      "bseCode": "514448"
     },
     {
       "symbol": "JYOTISTRUC",
@@ -36034,17 +36846,17 @@
     },
     {
       "symbol": "KAMANWALA",
-      "company": "Kamanwala Housing Construction Ltd",
+      "company": "Kamanwala Housing Construction Limited",
       "kind": "STOCK",
-      "exchange": "BSE",
+      "exchange": "NSE/BSE",
       "isin": "INE344D01018",
-      "bseCode": "511131",
-      "yahooSymbol": "511131.BO",
-      "marketCapCr": 23.25,
-      "source": "Official BSE active-equities API",
+      "yahooSymbol": "KAMANWALA.NS",
+      "source": "Official NSE EQUITY_L",
       "sources": [
+        "Official NSE EQUITY_L",
         "Official BSE active-equities API"
-      ]
+      ],
+      "bseCode": "511131"
     },
     {
       "symbol": "KAMATHOTEL",
@@ -36132,13 +36944,27 @@
     },
     {
       "symbol": "KANCOTEA",
-      "company": "KANCO TEA & INDUSTRIES LIMITED",
+      "company": "Kanco Tea & Industries Limited",
+      "kind": "STOCK",
+      "exchange": "NSE/BSE",
+      "isin": "INE398L01017",
+      "yahooSymbol": "KANCOTEA.NS",
+      "source": "Official NSE EQUITY_L",
+      "sources": [
+        "Official NSE EQUITY_L",
+        "Official BSE active-equities API"
+      ],
+      "bseCode": "541005"
+    },
+    {
+      "symbol": "KANDAGIRI",
+      "company": "Kandagiri Spinning Mills Ltd.",
       "kind": "STOCK",
       "exchange": "BSE",
-      "isin": "INE398L01017",
-      "bseCode": "541005",
-      "yahooSymbol": "541005.BO",
-      "marketCapCr": 25.12,
+      "isin": "INE292D01019",
+      "bseCode": "521242",
+      "yahooSymbol": "521242.BO",
+      "marketCapCr": 15.21,
       "source": "Official BSE active-equities API",
       "sources": [
         "Official BSE active-equities API"
@@ -37305,6 +38131,20 @@
       "bseCode": "540680"
     },
     {
+      "symbol": "KIRANPR",
+      "company": "Kiran Print-Pack Ltd.",
+      "kind": "STOCK",
+      "exchange": "BSE",
+      "isin": "INE516D01011",
+      "bseCode": "531413",
+      "yahooSymbol": "531413.BO",
+      "marketCapCr": 14.51,
+      "source": "Official BSE active-equities API",
+      "sources": [
+        "Official BSE active-equities API"
+      ]
+    },
+    {
       "symbol": "KIRANSY-B",
       "company": "Kiran Syntex Ltd.",
       "kind": "STOCK",
@@ -37502,17 +38342,17 @@
     },
     {
       "symbol": "KJMCFIN",
-      "company": "KJMC Financial Services Ltd.",
+      "company": "KJMC Financial Services Limited",
       "kind": "STOCK",
-      "exchange": "BSE",
+      "exchange": "NSE/BSE",
       "isin": "INE533C01018",
-      "bseCode": "530235",
-      "yahooSymbol": "530235.BO",
-      "marketCapCr": 27.28,
-      "source": "Official BSE active-equities API",
+      "yahooSymbol": "KJMCFIN.NS",
+      "source": "Official NSE EQUITY_L",
       "sources": [
+        "Official NSE EQUITY_L",
         "Official BSE active-equities API"
-      ]
+      ],
+      "bseCode": "530235"
     },
     {
       "symbol": "KKALPANAIND",
@@ -37541,6 +38381,20 @@
         "Official BSE active-equities API"
       ],
       "bseCode": "532732"
+    },
+    {
+      "symbol": "KKPLASTICK",
+      "company": "Kkalpana Plastick Limited",
+      "kind": "STOCK",
+      "exchange": "BSE",
+      "isin": "INE465K01016",
+      "bseCode": "523652",
+      "yahooSymbol": "523652.BO",
+      "marketCapCr": 28.64,
+      "source": "Official BSE active-equities API",
+      "sources": [
+        "Official BSE active-equities API"
+      ]
     },
     {
       "symbol": "KKSHL",
@@ -37599,6 +38453,34 @@
       "bseCode": "522101"
     },
     {
+      "symbol": "KLGCAP",
+      "company": "KLG Capital Services Ltd.",
+      "kind": "STOCK",
+      "exchange": "BSE",
+      "isin": "INE929C01018",
+      "bseCode": "530771",
+      "yahooSymbol": "530771.BO",
+      "marketCapCr": 6.49,
+      "source": "Official BSE active-equities API",
+      "sources": [
+        "Official BSE active-equities API"
+      ]
+    },
+    {
+      "symbol": "KLIFESTYL",
+      "company": "K-Lifestyle & Industries Limited",
+      "kind": "STOCK",
+      "exchange": "BSE",
+      "isin": "INE218A01028",
+      "bseCode": "514221",
+      "yahooSymbol": "514221.BO",
+      "marketCapCr": 19.43,
+      "source": "Official BSE active-equities API",
+      "sources": [
+        "Official BSE active-equities API"
+      ]
+    },
+    {
       "symbol": "KLRFM",
       "company": "KOVILPATTI LAKSHMI ROLLER FLOUR MILLS  LTD",
       "kind": "STOCK",
@@ -37614,17 +38496,17 @@
     },
     {
       "symbol": "KMCSHIL",
-      "company": "KMC Speciality Hospitals India Limited",
+      "company": "K M C Speciality Hospitals (India) Limited",
       "kind": "STOCK",
-      "exchange": "BSE",
+      "exchange": "NSE/BSE",
       "isin": "INE879K01018",
-      "bseCode": "524520",
-      "yahooSymbol": "524520.BO",
-      "marketCapCr": 2165.77,
-      "source": "Official BSE active-equities API",
+      "yahooSymbol": "KMCSHIL.NS",
+      "source": "Official NSE EQUITY_L",
       "sources": [
+        "Official NSE EQUITY_L",
         "Official BSE active-equities API"
-      ]
+      ],
+      "bseCode": "524520"
     },
     {
       "symbol": "KMEW",
@@ -37765,6 +38647,20 @@
       "bseCode": "512559"
     },
     {
+      "symbol": "KOIYAIN",
+      "company": "KOIYA INTERNATIONAL LIMITED",
+      "kind": "STOCK",
+      "exchange": "BSE",
+      "isin": "INE149B01015",
+      "bseCode": "530565",
+      "yahooSymbol": "530565.BO",
+      "marketCapCr": 6.59,
+      "source": "Official BSE active-equities API",
+      "sources": [
+        "Official BSE active-equities API"
+      ]
+    },
+    {
       "symbol": "KOKUYOCMLN",
       "company": "Kokuyo Camlin Limited",
       "kind": "STOCK",
@@ -37791,6 +38687,20 @@
         "Official BSE active-equities API"
       ],
       "bseCode": "532924"
+    },
+    {
+      "symbol": "KONARKSY",
+      "company": "Konark Synthetics  Ltd",
+      "kind": "STOCK",
+      "exchange": "BSE",
+      "isin": "INE517D01019",
+      "bseCode": "514128",
+      "yahooSymbol": "514128.BO",
+      "marketCapCr": 27.01,
+      "source": "Official BSE active-equities API",
+      "sources": [
+        "Official BSE active-equities API"
+      ]
     },
     {
       "symbol": "KONNDOR",
@@ -38400,17 +39310,17 @@
     },
     {
       "symbol": "KSE",
-      "company": "KSE Ltd.",
+      "company": "KSE Limited",
       "kind": "STOCK",
-      "exchange": "BSE",
+      "exchange": "NSE/BSE",
       "isin": "INE953E01022",
-      "bseCode": "519421",
-      "yahooSymbol": "519421.BO",
-      "marketCapCr": 665.44,
-      "source": "Official BSE active-equities API",
+      "yahooSymbol": "KSE.NS",
+      "source": "Official NSE EQUITY_L",
       "sources": [
+        "Official NSE EQUITY_L",
         "Official BSE active-equities API"
-      ]
+      ],
+      "bseCode": "519421"
     },
     {
       "symbol": "KSHINTL",
@@ -38734,17 +39644,17 @@
     },
     {
       "symbol": "LADDERUP",
-      "company": "Ladderup Finance Ltd.",
+      "company": "Ladderup Finance Limited",
       "kind": "STOCK",
-      "exchange": "BSE",
+      "exchange": "NSE/BSE",
       "isin": "INE519D01015",
-      "bseCode": "530577",
-      "yahooSymbol": "530577.BO",
-      "marketCapCr": 55.98,
-      "source": "Official BSE active-equities API",
+      "yahooSymbol": "LADDERUP.NS",
+      "source": "Official NSE EQUITY_L",
       "sources": [
+        "Official NSE EQUITY_L",
         "Official BSE active-equities API"
-      ]
+      ],
+      "bseCode": "530577"
     },
     {
       "symbol": "LADDU",
@@ -38755,6 +39665,20 @@
       "bseCode": "537707",
       "yahooSymbol": "537707.BO",
       "marketCapCr": 6.6,
+      "source": "Official BSE active-equities API",
+      "sources": [
+        "Official BSE active-equities API"
+      ]
+    },
+    {
+      "symbol": "LADIAMO",
+      "company": "Laser Diamonds Ltd.",
+      "kind": "STOCK",
+      "exchange": "BSE",
+      "isin": "INE995E01015",
+      "bseCode": "531164",
+      "yahooSymbol": "531164.BO",
+      "marketCapCr": 0.28,
       "source": "Official BSE active-equities API",
       "sources": [
         "Official BSE active-equities API"
@@ -38886,17 +39810,17 @@
     },
     {
       "symbol": "LAKSHMIMIL",
-      "company": "Lakshmi Mills Company ltd",
+      "company": "Lakshmi Mills Company Limited",
       "kind": "STOCK",
-      "exchange": "BSE",
+      "exchange": "NSE/BSE",
       "isin": "INE938C01019",
-      "bseCode": "502958",
-      "yahooSymbol": "502958.BO",
-      "marketCapCr": 561.38,
-      "source": "Official BSE active-equities API",
+      "yahooSymbol": "LAKSHMIMIL.NS",
+      "source": "Official NSE EQUITY_L",
       "sources": [
+        "Official NSE EQUITY_L",
         "Official BSE active-equities API"
-      ]
+      ],
+      "bseCode": "502958"
     },
     {
       "symbol": "LAL",
@@ -38944,15 +39868,15 @@
       "symbol": "LANCER",
       "company": "Lancer Container Lines Limited",
       "kind": "STOCK",
-      "exchange": "BSE",
+      "exchange": "NSE/BSE",
       "isin": "INE359U01028",
-      "bseCode": "539841",
-      "yahooSymbol": "539841.BO",
-      "marketCapCr": 387.88,
-      "source": "Official BSE active-equities API",
+      "yahooSymbol": "LANCER.NS",
+      "source": "Official NSE EQUITY_L",
       "sources": [
+        "Official NSE EQUITY_L",
         "Official BSE active-equities API"
-      ]
+      ],
+      "bseCode": "539841"
     },
     {
       "symbol": "LANCORHOL",
@@ -39109,6 +40033,18 @@
       ]
     },
     {
+      "symbol": "LATTEYS",
+      "company": "Latteys Industries Limited",
+      "kind": "STOCK",
+      "exchange": "NSE",
+      "isin": "INE262Z01023",
+      "yahooSymbol": "LATTEYS.NS",
+      "source": "Official NSE EQUITY_L",
+      "sources": [
+        "Official NSE EQUITY_L"
+      ]
+    },
+    {
       "symbol": "LAURUSLABS",
       "company": "Laurus Labs Limited",
       "kind": "STOCK",
@@ -39150,17 +40086,17 @@
     },
     {
       "symbol": "LAXMIINDIA",
-      "company": "LAXMI INDIA FINANCE LIMITED",
+      "company": "Laxmi India Finance Limited",
       "kind": "STOCK",
-      "exchange": "BSE",
+      "exchange": "NSE/BSE",
       "isin": "INE06WU01026",
-      "bseCode": "544465",
-      "yahooSymbol": "544465.BO",
-      "marketCapCr": 646.01,
-      "source": "Official BSE active-equities API",
+      "yahooSymbol": "LAXMIINDIA.NS",
+      "source": "Official NSE EQUITY_L",
       "sources": [
+        "Official NSE EQUITY_L",
         "Official BSE active-equities API"
-      ]
+      ],
+      "bseCode": "544465"
     },
     {
       "symbol": "LAXMIPATI",
@@ -39234,17 +40170,17 @@
     },
     {
       "symbol": "LEENEE",
-      "company": "Lee & Nee Softwares (Exports) Ltd.",
+      "company": "Lee & Nee Softwares Exports Limited",
       "kind": "STOCK",
-      "exchange": "BSE",
+      "exchange": "NSE/BSE",
       "isin": "INE791B01014",
-      "bseCode": "517415",
-      "yahooSymbol": "517415.BO",
-      "marketCapCr": 40.6,
-      "source": "Official BSE active-equities API",
+      "yahooSymbol": "LEENEE.NS",
+      "source": "Official NSE EQUITY_L",
       "sources": [
+        "Official NSE EQUITY_L",
         "Official BSE active-equities API"
-      ]
+      ],
+      "bseCode": "517415"
     },
     {
       "symbol": "LEHAR",
@@ -39786,15 +40722,15 @@
       "symbol": "LKPSEC",
       "company": "LKP Securities Limited",
       "kind": "STOCK",
-      "exchange": "BSE",
+      "exchange": "NSE/BSE",
       "isin": "INE341H01023",
-      "bseCode": "540192",
-      "yahooSymbol": "540192.BO",
-      "marketCapCr": 127.25,
-      "source": "Official BSE active-equities API",
+      "yahooSymbol": "LKPSEC.NS",
+      "source": "Official NSE EQUITY_L",
       "sources": [
+        "Official NSE EQUITY_L",
         "Official BSE active-equities API"
-      ]
+      ],
+      "bseCode": "540192"
     },
     {
       "symbol": "LLFICL",
@@ -39994,17 +40930,17 @@
     },
     {
       "symbol": "LOTUSCHO",
-      "company": "Lotus Chocolate Co. Ltd.",
+      "company": "Lotus Chocolate Company Limited",
       "kind": "STOCK",
-      "exchange": "BSE",
+      "exchange": "NSE/BSE",
       "isin": "INE026D01011",
-      "bseCode": "523475",
-      "yahooSymbol": "523475.BO",
-      "marketCapCr": 799.23,
-      "source": "Official BSE active-equities API",
+      "yahooSymbol": "LOTUSCHO.NS",
+      "source": "Official NSE EQUITY_L",
       "sources": [
+        "Official NSE EQUITY_L",
         "Official BSE active-equities API"
-      ]
+      ],
+      "bseCode": "523475"
     },
     {
       "symbol": "LOTUSDEV",
@@ -40337,6 +41273,20 @@
       "bseCode": "530689",
       "yahooSymbol": "530689.BO",
       "marketCapCr": 94.74,
+      "source": "Official BSE active-equities API",
+      "sources": [
+        "Official BSE active-equities API"
+      ]
+    },
+    {
+      "symbol": "LYNMC",
+      "company": "Lynx Machinery & Commercials Ltd.",
+      "kind": "STOCK",
+      "exchange": "BSE",
+      "isin": "INE732D01014",
+      "bseCode": "505320",
+      "yahooSymbol": "505320.BO",
+      "marketCapCr": 21.1,
       "source": "Official BSE active-equities API",
       "sources": [
         "Official BSE active-equities API"
@@ -40747,6 +41697,20 @@
       ]
     },
     {
+      "symbol": "MAHANIN",
+      "company": "Mahan Industries Ltd.",
+      "kind": "STOCK",
+      "exchange": "BSE",
+      "isin": "INE735D01041",
+      "bseCode": "531515",
+      "yahooSymbol": "531515.BO",
+      "marketCapCr": 5.49,
+      "source": "Official BSE active-equities API",
+      "sources": [
+        "Official BSE active-equities API"
+      ]
+    },
+    {
       "symbol": "MAHAPEXLTD",
       "company": "Maha Rashtra Apex Corporation Limited",
       "kind": "STOCK",
@@ -40986,17 +41950,17 @@
     },
     {
       "symbol": "MAKERSL",
-      "company": "Makers Laboratories Ltd.",
+      "company": "Makers Laboratories Limited",
       "kind": "STOCK",
-      "exchange": "BSE",
+      "exchange": "NSE/BSE",
       "isin": "INE987A01010",
-      "bseCode": "506919",
-      "yahooSymbol": "506919.BO",
-      "marketCapCr": 92.1,
-      "source": "Official BSE active-equities API",
+      "yahooSymbol": "MAKERSL.NS",
+      "source": "Official NSE EQUITY_L",
       "sources": [
+        "Official NSE EQUITY_L",
         "Official BSE active-equities API"
-      ]
+      ],
+      "bseCode": "506919"
     },
     {
       "symbol": "MAL",
@@ -41212,15 +42176,15 @@
       "symbol": "MANBRO",
       "company": "Manbro Industries Limited",
       "kind": "STOCK",
-      "exchange": "BSE",
+      "exchange": "NSE/BSE",
       "isin": "INE348N01042",
-      "bseCode": "512595",
-      "yahooSymbol": "512595.BO",
-      "marketCapCr": 311.69,
-      "source": "Official BSE active-equities API",
+      "yahooSymbol": "MANBRO.NS",
+      "source": "Official NSE EQUITY_L",
       "sources": [
+        "Official NSE EQUITY_L",
         "Official BSE active-equities API"
-      ]
+      ],
+      "bseCode": "512595"
     },
     {
       "symbol": "MANCREDIT",
@@ -41546,17 +42510,17 @@
     },
     {
       "symbol": "MARALOVER",
-      "company": "Maral Overseas Ltd.",
+      "company": "Maral Overseas Limited",
       "kind": "STOCK",
-      "exchange": "BSE",
+      "exchange": "NSE/BSE",
       "isin": "INE882A01013",
-      "bseCode": "521018",
-      "yahooSymbol": "521018.BO",
-      "marketCapCr": 218.54,
-      "source": "Official BSE active-equities API",
+      "yahooSymbol": "MARALOVER.NS",
+      "source": "Official NSE EQUITY_L",
       "sources": [
+        "Official NSE EQUITY_L",
         "Official BSE active-equities API"
-      ]
+      ],
+      "bseCode": "521018"
     },
     {
       "symbol": "MARATHON",
@@ -41725,6 +42689,20 @@
       "bseCode": "532500"
     },
     {
+      "symbol": "MASCH",
+      "company": "Master Chemicals Ltd.",
+      "kind": "STOCK",
+      "exchange": "BSE",
+      "isin": "INE523D01017",
+      "bseCode": "506867",
+      "yahooSymbol": "506867.BO",
+      "marketCapCr": 0.76,
+      "source": "Official BSE active-equities API",
+      "sources": [
+        "Official BSE active-equities API"
+      ]
+    },
+    {
       "symbol": "MASFIN",
       "company": "MAS Financial Services Limited",
       "kind": "STOCK",
@@ -41791,6 +42769,20 @@
         "Official BSE active-equities API"
       ],
       "bseCode": "511768"
+    },
+    {
+      "symbol": "MATHEWE",
+      "company": "Mathew Easow Research Securities Lt",
+      "kind": "STOCK",
+      "exchange": "BSE",
+      "isin": "INE963B01019",
+      "bseCode": "511688",
+      "yahooSymbol": "511688.BO",
+      "marketCapCr": 9.42,
+      "source": "Official BSE active-equities API",
+      "sources": [
+        "Official BSE active-equities API"
+      ]
     },
     {
       "symbol": "MATRIMONY",
@@ -42224,17 +43216,17 @@
     },
     {
       "symbol": "MEDICAPQ",
-      "company": "Medi-Caps Ltd.",
+      "company": "Medi Caps Limited",
       "kind": "STOCK",
-      "exchange": "BSE",
+      "exchange": "NSE/BSE",
       "isin": "INE442D01010",
-      "bseCode": "523144",
-      "yahooSymbol": "523144.BO",
-      "marketCapCr": 33.78,
-      "source": "Official BSE active-equities API",
+      "yahooSymbol": "MEDICAPQ.NS",
+      "source": "Official NSE EQUITY_L",
       "sources": [
+        "Official NSE EQUITY_L",
         "Official BSE active-equities API"
-      ]
+      ],
+      "bseCode": "523144"
     },
     {
       "symbol": "MEDICO",
@@ -42375,6 +43367,20 @@
         "Official BSE active-equities API"
       ],
       "bseCode": "541352"
+    },
+    {
+      "symbol": "MEGFI",
+      "company": "Mega Fin (India) Ltd.",
+      "kind": "STOCK",
+      "exchange": "BSE",
+      "isin": "INE524D01015",
+      "bseCode": "532105",
+      "yahooSymbol": "532105.BO",
+      "marketCapCr": 24.82,
+      "source": "Official BSE active-equities API",
+      "sources": [
+        "Official BSE active-equities API"
+      ]
     },
     {
       "symbol": "MEGRISOFT",
@@ -43206,15 +44212,15 @@
       "symbol": "MIIL",
       "company": "Meghna Infracon Infrastructure Limited",
       "kind": "STOCK",
-      "exchange": "BSE",
+      "exchange": "NSE/BSE",
       "isin": "INE898Q01015",
-      "bseCode": "538668",
-      "yahooSymbol": "538668.BO",
-      "marketCapCr": 1480.26,
-      "source": "Official BSE active-equities API",
+      "yahooSymbol": "MIIL.NS",
+      "source": "Official NSE EQUITY_L",
       "sources": [
+        "Official NSE EQUITY_L",
         "Official BSE active-equities API"
-      ]
+      ],
+      "bseCode": "538668"
     },
     {
       "symbol": "MIL",
@@ -43290,15 +44296,15 @@
       "symbol": "MINALIND",
       "company": "Minal Industries Limited",
       "kind": "STOCK",
-      "exchange": "BSE",
+      "exchange": "NSE/BSE",
       "isin": "INE097E01028",
-      "bseCode": "522235",
-      "yahooSymbol": "522235.BO",
-      "marketCapCr": 39.72,
-      "source": "Official BSE active-equities API",
+      "yahooSymbol": "MINALIND.NS",
+      "source": "Official NSE EQUITY_L",
       "sources": [
+        "Official NSE EQUITY_L",
         "Official BSE active-equities API"
-      ]
+      ],
+      "bseCode": "522235"
     },
     {
       "symbol": "MINAXI",
@@ -43524,17 +44530,17 @@
     },
     {
       "symbol": "MKEXIM",
-      "company": "M. K. Exim (India) Ltd.",
+      "company": "M.K. Exim (India) Limited",
       "kind": "STOCK",
-      "exchange": "BSE",
+      "exchange": "NSE/BSE",
       "isin": "INE227F01010",
-      "bseCode": "538890",
-      "yahooSymbol": "538890.BO",
-      "marketCapCr": 226.54,
-      "source": "Official BSE active-equities API",
+      "yahooSymbol": "MKEXIM.NS",
+      "source": "Official NSE EQUITY_L",
       "sources": [
+        "Official NSE EQUITY_L",
         "Official BSE active-equities API"
-      ]
+      ],
+      "bseCode": "538890"
     },
     {
       "symbol": "MKPL",
@@ -43608,17 +44614,17 @@
     },
     {
       "symbol": "MLKFOOD",
-      "company": "Milkfood Ltd.",
+      "company": "Milkfood Limited",
       "kind": "STOCK",
-      "exchange": "BSE",
+      "exchange": "NSE/BSE",
       "isin": "INE588G01021",
-      "bseCode": "507621",
-      "yahooSymbol": "507621.BO",
-      "marketCapCr": 204.85,
-      "source": "Official BSE active-equities API",
+      "yahooSymbol": "MLKFOOD.NS",
+      "source": "Official NSE EQUITY_L",
       "sources": [
+        "Official NSE EQUITY_L",
         "Official BSE active-equities API"
-      ]
+      ],
+      "bseCode": "507621"
     },
     {
       "symbol": "MMFL",
@@ -43986,15 +44992,15 @@
       "symbol": "MOHITE",
       "company": "Mohite Industries Limited",
       "kind": "STOCK",
-      "exchange": "BSE",
+      "exchange": "NSE/BSE",
       "isin": "INE154B01023",
-      "bseCode": "532140",
-      "yahooSymbol": "532140.BO",
-      "marketCapCr": 53.87,
-      "source": "Official BSE active-equities API",
+      "yahooSymbol": "MOHITE.NS",
+      "source": "Official NSE EQUITY_L",
       "sources": [
+        "Official NSE EQUITY_L",
         "Official BSE active-equities API"
-      ]
+      ],
+      "bseCode": "532140"
     },
     {
       "symbol": "MOHITIND",
@@ -44063,6 +45069,20 @@
         "Official BSE active-equities API"
       ],
       "bseCode": "543331"
+    },
+    {
+      "symbol": "MOLBIO",
+      "company": "Molbio Diagnostics Limited",
+      "kind": "STOCK",
+      "exchange": "NSE/BSE",
+      "isin": "INE869T01028",
+      "yahooSymbol": "MOLBIO.NS",
+      "source": "Official NSE EQUITY_L",
+      "sources": [
+        "Official NSE EQUITY_L",
+        "Official BSE active-equities API"
+      ],
+      "bseCode": "544866"
     },
     {
       "symbol": "MOLDTECH",
@@ -44359,6 +45379,20 @@
       ]
     },
     {
+      "symbol": "MORARJEE",
+      "company": "Morarjee Textiles Limited",
+      "kind": "STOCK",
+      "exchange": "BSE",
+      "isin": "INE161G01027",
+      "bseCode": "532621",
+      "yahooSymbol": "532621.BO",
+      "marketCapCr": 37.1,
+      "source": "Official BSE active-equities API",
+      "sources": [
+        "Official BSE active-equities API"
+      ]
+    },
+    {
       "symbol": "MORARKFI",
       "company": "Morarka Finance Ltd.",
       "kind": "STOCK",
@@ -44556,17 +45590,17 @@
     },
     {
       "symbol": "MPDL",
-      "company": "MPDL LIMITED",
+      "company": "MPDL Limited",
       "kind": "STOCK",
-      "exchange": "BSE",
+      "exchange": "NSE/BSE",
       "isin": "INE493H01014",
-      "bseCode": "532723",
-      "yahooSymbol": "532723.BO",
-      "marketCapCr": 19.74,
-      "source": "Official BSE active-equities API",
+      "yahooSymbol": "MPDL.NS",
+      "source": "Official NSE EQUITY_L",
       "sources": [
+        "Official NSE EQUITY_L",
         "Official BSE active-equities API"
-      ]
+      ],
+      "bseCode": "532723"
     },
     {
       "symbol": "MPFSL",
@@ -44810,15 +45844,15 @@
       "symbol": "MSL",
       "company": "Mangalam Seeds Limited",
       "kind": "STOCK",
-      "exchange": "BSE",
+      "exchange": "NSE/BSE",
       "isin": "INE829S01016",
-      "bseCode": "539275",
-      "yahooSymbol": "539275.BO",
-      "marketCapCr": 149.11,
-      "source": "Official BSE active-equities API",
+      "yahooSymbol": "MSL.NS",
+      "source": "Official NSE EQUITY_L",
       "sources": [
+        "Official NSE EQUITY_L",
         "Official BSE active-equities API"
-      ]
+      ],
+      "bseCode": "539275"
     },
     {
       "symbol": "MSLGLOBAL",
@@ -44847,6 +45881,20 @@
         "Official BSE active-equities API"
       ],
       "bseCode": "532650"
+    },
+    {
+      "symbol": "MSRINDIA",
+      "company": "MSR India Limited",
+      "kind": "STOCK",
+      "exchange": "BSE",
+      "isin": "INE331L01026",
+      "bseCode": "508922",
+      "yahooSymbol": "508922.BO",
+      "marketCapCr": 19.05,
+      "source": "Official BSE active-equities API",
+      "sources": [
+        "Official BSE active-equities API"
+      ]
     },
     {
       "symbol": "MSTCLTD",
@@ -44961,6 +46009,20 @@
       ]
     },
     {
+      "symbol": "MUDUNURU",
+      "company": "Mudunuru Limited",
+      "kind": "STOCK",
+      "exchange": "BSE",
+      "isin": "INE491C01027",
+      "bseCode": "538743",
+      "yahooSymbol": "538743.BO",
+      "marketCapCr": 31.41,
+      "source": "Official BSE active-equities API",
+      "sources": [
+        "Official BSE active-equities API"
+      ]
+    },
+    {
       "symbol": "MUFIN",
       "company": "Mufin Green Finance Limited",
       "kind": "STOCK",
@@ -45018,17 +46080,17 @@
     },
     {
       "symbol": "MUKESHB",
-      "company": "Mukesh Babu Financial Services Ltd.",
+      "company": "Mukesh Babu Financial Services Limited",
       "kind": "STOCK",
-      "exchange": "BSE",
+      "exchange": "NSE/BSE",
       "isin": "INE596B01017",
-      "bseCode": "530341",
-      "yahooSymbol": "530341.BO",
-      "marketCapCr": 97.7,
-      "source": "Official BSE active-equities API",
+      "yahooSymbol": "MUKESHB.NS",
+      "source": "Official NSE EQUITY_L",
       "sources": [
+        "Official NSE EQUITY_L",
         "Official BSE active-equities API"
-      ]
+      ],
+      "bseCode": "530341"
     },
     {
       "symbol": "MUKKA",
@@ -45312,17 +46374,17 @@
     },
     {
       "symbol": "MYSORPETRO",
-      "company": "Mysore Petro Chemicals Ltd.",
+      "company": "Mysore Petro Chemicals Limited",
       "kind": "STOCK",
-      "exchange": "BSE",
+      "exchange": "NSE/BSE",
       "isin": "INE741A01011",
-      "bseCode": "506734",
-      "yahooSymbol": "506734.BO",
-      "marketCapCr": 69.96,
-      "source": "Official BSE active-equities API",
+      "yahooSymbol": "MYSORPETRO.NS",
+      "source": "Official NSE EQUITY_L",
       "sources": [
+        "Official NSE EQUITY_L",
         "Official BSE active-equities API"
-      ]
+      ],
+      "bseCode": "506734"
     },
     {
       "symbol": "MYSTICELE",
@@ -45365,6 +46427,20 @@
         "Official BSE active-equities API"
       ],
       "bseCode": "524709"
+    },
+    {
+      "symbol": "NAGAFERT",
+      "company": "NAGARJUNA FERTILIZERS AND CHEMICALS LTD.",
+      "kind": "STOCK",
+      "exchange": "BSE",
+      "isin": "INE454M01024",
+      "bseCode": "539917",
+      "yahooSymbol": "539917.BO",
+      "marketCapCr": 144.13,
+      "source": "Official BSE active-equities API",
+      "sources": [
+        "Official BSE active-equities API"
+      ]
     },
     {
       "symbol": "NAGPI",
@@ -45829,6 +46905,20 @@
       ]
     },
     {
+      "symbol": "NATURO",
+      "company": "NATURO INDIABULL LIMITED",
+      "kind": "STOCK",
+      "exchange": "BSE",
+      "isin": "INE0JNB01012",
+      "bseCode": "543579",
+      "yahooSymbol": "543579.BO",
+      "marketCapCr": 4.92,
+      "source": "Official BSE active-equities API",
+      "sources": [
+        "Official BSE active-equities API"
+      ]
+    },
+    {
       "symbol": "NAUKRI",
       "company": "Info Edge (India) Limited",
       "kind": "STOCK",
@@ -46119,6 +47209,20 @@
       "bseCode": "500189"
     },
     {
+      "symbol": "NDMETAL",
+      "company": "N.D.Metal Industries Ltd",
+      "kind": "STOCK",
+      "exchange": "BSE",
+      "isin": "INE643D01013",
+      "bseCode": "512024",
+      "yahooSymbol": "512024.BO",
+      "marketCapCr": 18.72,
+      "source": "Official BSE active-equities API",
+      "sources": [
+        "Official BSE active-equities API"
+      ]
+    },
+    {
       "symbol": "NDRAUTO",
       "company": "Ndr Auto Components Limited",
       "kind": "STOCK",
@@ -46178,15 +47282,15 @@
       "symbol": "NECLIFE",
       "company": "Nectar Lifesciences Limited",
       "kind": "STOCK",
-      "exchange": "BSE",
+      "exchange": "NSE/BSE",
       "isin": "INE023H01027",
-      "bseCode": "532649",
-      "yahooSymbol": "532649.BO",
-      "marketCapCr": 218.93,
-      "source": "Official BSE active-equities API",
+      "yahooSymbol": "NECLIFE.NS",
+      "source": "Official NSE EQUITY_L",
       "sources": [
+        "Official NSE EQUITY_L",
         "Official BSE active-equities API"
-      ]
+      ],
+      "bseCode": "532649"
     },
     {
       "symbol": "NEELKAN",
@@ -46834,17 +47938,17 @@
     },
     {
       "symbol": "NICCOPAR",
-      "company": "Nicco Parks And Resorts Ltd.",
+      "company": "Nicco Parks & Resorts Limited",
       "kind": "STOCK",
-      "exchange": "BSE",
+      "exchange": "NSE/BSE",
       "isin": "INE653C01022",
-      "bseCode": "526721",
-      "yahooSymbol": "526721.BO",
-      "marketCapCr": 341.64,
-      "source": "Official BSE active-equities API",
+      "yahooSymbol": "NICCOPAR.NS",
+      "source": "Official NSE EQUITY_L",
       "sources": [
+        "Official NSE EQUITY_L",
         "Official BSE active-equities API"
-      ]
+      ],
+      "bseCode": "526721"
     },
     {
       "symbol": "NIDHGRN",
@@ -47214,15 +48318,15 @@
       "symbol": "NIRAJ",
       "company": "Niraj Cement Structurals Limited",
       "kind": "STOCK",
-      "exchange": "BSE",
+      "exchange": "NSE/BSE",
       "isin": "INE368I01016",
-      "bseCode": "532986",
-      "yahooSymbol": "532986.BO",
-      "marketCapCr": 166.49,
-      "source": "Official BSE active-equities API",
+      "yahooSymbol": "NIRAJ.NS",
+      "source": "Official NSE EQUITY_L",
       "sources": [
+        "Official NSE EQUITY_L",
         "Official BSE active-equities API"
-      ]
+      ],
+      "bseCode": "532986"
     },
     {
       "symbol": "NIRAJISPAT",
@@ -47481,6 +48585,20 @@
       "bseCode": "522289",
       "yahooSymbol": "522289.BO",
       "marketCapCr": 14.87,
+      "source": "Official BSE active-equities API",
+      "sources": [
+        "Official BSE active-equities API"
+      ]
+    },
+    {
+      "symbol": "NNTL",
+      "company": "N2N Technologies Limited",
+      "kind": "STOCK",
+      "exchange": "BSE",
+      "isin": "INE043F01011",
+      "bseCode": "512279",
+      "yahooSymbol": "512279.BO",
+      "marketCapCr": 11.51,
       "source": "Official BSE active-equities API",
       "sources": [
         "Official BSE active-equities API"
@@ -47852,17 +48970,17 @@
     },
     {
       "symbol": "NTCIND",
-      "company": "NTC INDUSTRIES LIMITED",
+      "company": "NTC Industries Limited",
       "kind": "STOCK",
-      "exchange": "BSE",
+      "exchange": "NSE/BSE",
       "isin": "INE920C01017",
-      "bseCode": "526723",
-      "yahooSymbol": "526723.BO",
-      "marketCapCr": 210.53,
-      "source": "Official BSE active-equities API",
+      "yahooSymbol": "NTCIND.NS",
+      "source": "Official NSE EQUITY_L",
       "sources": [
+        "Official NSE EQUITY_L",
         "Official BSE active-equities API"
-      ]
+      ],
+      "bseCode": "526723"
     },
     {
       "symbol": "NTPC",
@@ -48216,17 +49334,17 @@
     },
     {
       "symbol": "ODYCORP",
-      "company": "Odyssey Corporation Ltd.",
+      "company": "Odyssey Corporation Limited",
       "kind": "STOCK",
-      "exchange": "BSE",
+      "exchange": "NSE/BSE",
       "isin": "INE839E01023",
-      "bseCode": "531996",
-      "yahooSymbol": "531996.BO",
-      "marketCapCr": 60.86,
-      "source": "Official BSE active-equities API",
+      "yahooSymbol": "ODYCORP.NS",
+      "source": "Official NSE EQUITY_L",
       "sources": [
+        "Official NSE EQUITY_L",
         "Official BSE active-equities API"
-      ]
+      ],
+      "bseCode": "531996"
     },
     {
       "symbol": "ODYSSEY",
@@ -48397,6 +49515,20 @@
       ]
     },
     {
+      "symbol": "OLYMTFI",
+      "company": "Olympic Management & Financial Serv",
+      "kind": "STOCK",
+      "exchange": "BSE",
+      "isin": "INE091N01014",
+      "bseCode": "511632",
+      "yahooSymbol": "511632.BO",
+      "marketCapCr": 3.19,
+      "source": "Official BSE active-equities API",
+      "sources": [
+        "Official BSE active-equities API"
+      ]
+    },
+    {
       "symbol": "OLYOI",
       "company": "Olympic Oil Industries Ltd.",
       "kind": "STOCK",
@@ -48493,6 +49625,20 @@
         "Official BSE active-equities API"
       ],
       "bseCode": "531092"
+    },
+    {
+      "symbol": "OMKAR",
+      "company": "Omkar Overseas ltd.",
+      "kind": "STOCK",
+      "exchange": "BSE",
+      "isin": "INE680D01015",
+      "bseCode": "531496",
+      "yahooSymbol": "531496.BO",
+      "marketCapCr": 5.34,
+      "source": "Official BSE active-equities API",
+      "sources": [
+        "Official BSE active-equities API"
+      ]
     },
     {
       "symbol": "OMKARPH",
@@ -48594,17 +49740,17 @@
     },
     {
       "symbol": "ONEGLOBAL",
-      "company": "ONE GLOBAL SERVICE PROVIDER LIMITED",
+      "company": "One Global Service Provider Limited",
       "kind": "STOCK",
-      "exchange": "BSE",
+      "exchange": "NSE/BSE",
       "isin": "INE670O01013",
-      "bseCode": "514330",
-      "yahooSymbol": "514330.BO",
-      "marketCapCr": 1162.91,
-      "source": "Official BSE active-equities API",
+      "yahooSymbol": "ONEGLOBAL.NS",
+      "source": "Official NSE EQUITY_L",
       "sources": [
+        "Official NSE EQUITY_L",
         "Official BSE active-equities API"
-      ]
+      ],
+      "bseCode": "514330"
     },
     {
       "symbol": "ONEINDIG",
@@ -48692,17 +49838,17 @@
     },
     {
       "symbol": "ONIXSOLAR",
-      "company": "ONIX SOLAR ENERGY LIMITED",
+      "company": "Onix Solar Energy Limited",
       "kind": "STOCK",
-      "exchange": "BSE",
+      "exchange": "NSE/BSE",
       "isin": "INE173M01012",
-      "bseCode": "513119",
-      "yahooSymbol": "513119.BO",
-      "marketCapCr": 1456.84,
-      "source": "Official BSE active-equities API",
+      "yahooSymbol": "ONIXSOLAR.NS",
+      "source": "Official NSE EQUITY_L",
       "sources": [
+        "Official NSE EQUITY_L",
         "Official BSE active-equities API"
-      ]
+      ],
+      "bseCode": "513119"
     },
     {
       "symbol": "ONMOBILE",
@@ -48792,15 +49938,15 @@
       "symbol": "OPTIFIN",
       "company": "Optimus Finance Limited",
       "kind": "STOCK",
-      "exchange": "BSE",
+      "exchange": "NSE/BSE",
       "isin": "INE031G01022",
-      "bseCode": "531254",
-      "yahooSymbol": "531254.BO",
-      "marketCapCr": 88.55,
-      "source": "Official BSE active-equities API",
+      "yahooSymbol": "OPTIFIN.NS",
+      "source": "Official NSE EQUITY_L",
       "sources": [
+        "Official NSE EQUITY_L",
         "Official BSE active-equities API"
-      ]
+      ],
+      "bseCode": "531254"
     },
     {
       "symbol": "ORBTEXP",
@@ -49042,17 +50188,17 @@
     },
     {
       "symbol": "ORIRAIL",
-      "company": "ORIENTAL RAIL INFRASTRUCTURE LIMITED",
+      "company": "Oriental Rail Infrastructure Limited",
       "kind": "STOCK",
-      "exchange": "BSE",
+      "exchange": "NSE/BSE",
       "isin": "INE457G01029",
-      "bseCode": "531859",
-      "yahooSymbol": "531859.BO",
-      "marketCapCr": 737.31,
-      "source": "Official BSE active-equities API",
+      "yahooSymbol": "ORIRAIL.NS",
+      "source": "Official NSE EQUITY_L",
       "sources": [
+        "Official NSE EQUITY_L",
         "Official BSE active-equities API"
-      ]
+      ],
+      "bseCode": "531859"
     },
     {
       "symbol": "ORISSAMINE",
@@ -49097,6 +50243,20 @@
       ]
     },
     {
+      "symbol": "ORTEL",
+      "company": "Ortel Communications Limited",
+      "kind": "STOCK",
+      "exchange": "BSE",
+      "isin": "INE849L01019",
+      "bseCode": "539015",
+      "yahooSymbol": "539015.BO",
+      "marketCapCr": 7.95,
+      "source": "Official BSE active-equities API",
+      "sources": [
+        "Official BSE active-equities API"
+      ]
+    },
+    {
       "symbol": "ORTINGLOBE",
       "company": "ORTIN GLOBAL LIMITED",
       "kind": "STOCK",
@@ -49109,6 +50269,20 @@
         "Official BSE active-equities API"
       ],
       "bseCode": "539287"
+    },
+    {
+      "symbol": "OSCARGLO",
+      "company": "Oscar Global Ltd",
+      "kind": "STOCK",
+      "exchange": "BSE",
+      "isin": "INE473F01010",
+      "bseCode": "530173",
+      "yahooSymbol": "530173.BO",
+      "marketCapCr": 7.13,
+      "source": "Official BSE active-equities API",
+      "sources": [
+        "Official BSE active-equities API"
+      ]
     },
     {
       "symbol": "OSEASPR",
@@ -49153,6 +50327,20 @@
       "bseCode": "500317"
     },
     {
+      "symbol": "OSWALEA",
+      "company": "Oswal Leasing Ltd.",
+      "kind": "STOCK",
+      "exchange": "BSE",
+      "isin": "INE811Q01018",
+      "bseCode": "509099",
+      "yahooSymbol": "509099.BO",
+      "marketCapCr": 3.93,
+      "source": "Official BSE active-equities API",
+      "sources": [
+        "Official BSE active-equities API"
+      ]
+    },
+    {
       "symbol": "OSWALGREEN",
       "company": "Oswal Greentech Limited",
       "kind": "STOCK",
@@ -49165,6 +50353,20 @@
         "Official BSE active-equities API"
       ],
       "bseCode": "539290"
+    },
+    {
+      "symbol": "OSWALOR",
+      "company": "Oswal Overseas Ltd",
+      "kind": "STOCK",
+      "exchange": "BSE",
+      "isin": "INE906K01027",
+      "bseCode": "531065",
+      "yahooSymbol": "531065.BO",
+      "marketCapCr": 154.74,
+      "source": "Official BSE active-equities API",
+      "sources": [
+        "Official BSE active-equities API"
+      ]
     },
     {
       "symbol": "OSWALPUMPS",
@@ -49193,14 +50395,14 @@
       ]
     },
     {
-      "symbol": "OTCO",
-      "company": "Otco International Ltd",
+      "symbol": "OSWAYRN",
+      "company": "Oswal Yarns Ltd.",
       "kind": "STOCK",
       "exchange": "BSE",
-      "isin": "INE910B01028",
-      "bseCode": "523151",
-      "yahooSymbol": "523151.BO",
-      "marketCapCr": 16.21,
+      "isin": "INE670H01017",
+      "bseCode": "514460",
+      "yahooSymbol": "514460.BO",
+      "marketCapCr": 6,
       "source": "Official BSE active-equities API",
       "sources": [
         "Official BSE active-equities API"
@@ -49292,17 +50494,17 @@
     },
     {
       "symbol": "PACIFICI",
-      "company": "Pacific Industries ltd.",
+      "company": "Pacific Industries Limited",
       "kind": "STOCK",
-      "exchange": "BSE",
+      "exchange": "NSE/BSE",
       "isin": "INE883C01025",
-      "bseCode": "523483",
-      "yahooSymbol": "523483.BO",
-      "marketCapCr": 93.74,
-      "source": "Official BSE active-equities API",
+      "yahooSymbol": "PACIFICI.NS",
+      "source": "Official NSE EQUITY_L",
       "sources": [
+        "Official NSE EQUITY_L",
         "Official BSE active-equities API"
-      ]
+      ],
+      "bseCode": "523483"
     },
     {
       "symbol": "PADALPO",
@@ -49558,17 +50760,17 @@
     },
     {
       "symbol": "PANCHMAHQ",
-      "company": "Panchmahal Steel Ltd.",
+      "company": "Panchmahal Steel Limited",
       "kind": "STOCK",
-      "exchange": "BSE",
+      "exchange": "NSE/BSE",
       "isin": "INE798F01010",
-      "bseCode": "513511",
-      "yahooSymbol": "513511.BO",
-      "marketCapCr": 570.92,
-      "source": "Official BSE active-equities API",
+      "yahooSymbol": "PANCHMAHQ.NS",
+      "source": "Official NSE EQUITY_L",
       "sources": [
+        "Official NSE EQUITY_L",
         "Official BSE active-equities API"
-      ]
+      ],
+      "bseCode": "513511"
     },
     {
       "symbol": "PANCHSHEEL",
@@ -49684,17 +50886,17 @@
     },
     {
       "symbol": "PANORAMA",
-      "company": "PANORAMA STUDIOS INTERNATIONAL LIMITED",
+      "company": "Panorama Studios International Limited",
       "kind": "STOCK",
-      "exchange": "BSE",
+      "exchange": "NSE/BSE",
       "isin": "INE258R01028",
-      "bseCode": "539469",
-      "yahooSymbol": "539469.BO",
-      "marketCapCr": 1236.5,
-      "source": "Official BSE active-equities API",
+      "yahooSymbol": "PANORAMA.NS",
+      "source": "Official NSE EQUITY_L",
       "sources": [
+        "Official NSE EQUITY_L",
         "Official BSE active-equities API"
-      ]
+      ],
+      "bseCode": "539469"
     },
     {
       "symbol": "PANSARI",
@@ -49948,15 +51150,15 @@
       "symbol": "PARNAXLAB",
       "company": "Parnax Lab Limited",
       "kind": "STOCK",
-      "exchange": "BSE",
+      "exchange": "NSE/BSE",
       "isin": "INE383L01019",
-      "bseCode": "506128",
-      "yahooSymbol": "506128.BO",
-      "marketCapCr": 148.57,
-      "source": "Official BSE active-equities API",
+      "yahooSymbol": "PARNAXLAB.NS",
+      "source": "Official NSE EQUITY_L",
       "sources": [
+        "Official NSE EQUITY_L",
         "Official BSE active-equities API"
-      ]
+      ],
+      "bseCode": "506128"
     },
     {
       "symbol": "PARSHVA",
@@ -50041,6 +51243,20 @@
         "Official BSE active-equities API"
       ],
       "bseCode": "544448"
+    },
+    {
+      "symbol": "PASUFIN",
+      "company": "Pasupati Fincap Ltd.",
+      "kind": "STOCK",
+      "exchange": "BSE",
+      "isin": "INE527C01010",
+      "bseCode": "511734",
+      "yahooSymbol": "511734.BO",
+      "marketCapCr": 5.68,
+      "source": "Official BSE active-equities API",
+      "sources": [
+        "Official BSE active-equities API"
+      ]
     },
     {
       "symbol": "PASUPTAC",
@@ -50282,17 +51498,17 @@
     },
     {
       "symbol": "PBMPOLY",
-      "company": "P.B.M. Polytex Ltd.",
+      "company": "PBM Polytex Limited",
       "kind": "STOCK",
-      "exchange": "BSE",
+      "exchange": "NSE/BSE",
       "isin": "INE501F01018",
-      "bseCode": "514087",
-      "yahooSymbol": "514087.BO",
-      "marketCapCr": 42.75,
-      "source": "Official BSE active-equities API",
+      "yahooSymbol": "PBMPOLY.NS",
+      "source": "Official NSE EQUITY_L",
       "sources": [
+        "Official NSE EQUITY_L",
         "Official BSE active-equities API"
-      ]
+      ],
+      "bseCode": "514087"
     },
     {
       "symbol": "PCBL",
@@ -50477,6 +51693,20 @@
       ]
     },
     {
+      "symbol": "PEOPLIN",
+      "company": "Peoples Investments Ltd.",
+      "kind": "STOCK",
+      "exchange": "BSE",
+      "isin": "INE644U01015",
+      "bseCode": "501144",
+      "yahooSymbol": "501144.BO",
+      "marketCapCr": 4.72,
+      "source": "Official BSE active-equities API",
+      "sources": [
+        "Official BSE active-equities API"
+      ]
+    },
+    {
       "symbol": "PERFEPA",
       "company": "Perfectpac Limited",
       "kind": "STOCK",
@@ -50492,17 +51722,17 @@
     },
     {
       "symbol": "PERMAGN",
-      "company": "Permanent Magnets Ltd.",
+      "company": "Permanent Magnets Limited",
       "kind": "STOCK",
-      "exchange": "BSE",
+      "exchange": "NSE/BSE",
       "isin": "INE418E01018",
-      "bseCode": "504132",
-      "yahooSymbol": "504132.BO",
-      "marketCapCr": 715.74,
-      "source": "Official BSE active-equities API",
+      "yahooSymbol": "PERMAGN.NS",
+      "source": "Official NSE EQUITY_L",
       "sources": [
+        "Official NSE EQUITY_L",
         "Official BSE active-equities API"
-      ]
+      ],
+      "bseCode": "504132"
     },
     {
       "symbol": "PERSISTENT",
@@ -50884,17 +52114,17 @@
     },
     {
       "symbol": "PHOENXINTL",
-      "company": "Phoenix International Ltd.",
+      "company": "Phoenix International Limited",
       "kind": "STOCK",
-      "exchange": "BSE",
+      "exchange": "NSE/BSE",
       "isin": "INE245B01011",
-      "bseCode": "526481",
-      "yahooSymbol": "526481.BO",
-      "marketCapCr": 52.05,
-      "source": "Official BSE active-equities API",
+      "yahooSymbol": "PHOENXINTL.NS",
+      "source": "Official NSE EQUITY_L",
       "sources": [
+        "Official NSE EQUITY_L",
         "Official BSE active-equities API"
-      ]
+      ],
+      "bseCode": "526481"
     },
     {
       "symbol": "PHOSPHATE",
@@ -50905,6 +52135,20 @@
       "bseCode": "542123",
       "yahooSymbol": "542123.BO",
       "marketCapCr": 50.5,
+      "source": "Official BSE active-equities API",
+      "sources": [
+        "Official BSE active-equities API"
+      ]
+    },
+    {
+      "symbol": "PHOTON",
+      "company": "Photon Capital Advisors Ltd",
+      "kind": "STOCK",
+      "exchange": "BSE",
+      "isin": "INE107J01016",
+      "bseCode": "509084",
+      "yahooSymbol": "509084.BO",
+      "marketCapCr": 91.93,
       "source": "Official BSE active-equities API",
       "sources": [
         "Official BSE active-equities API"
@@ -51079,6 +52323,20 @@
       "bseCode": "544606"
     },
     {
+      "symbol": "PIONAGR",
+      "company": "Pioneer Agro Extracts ltd.",
+      "kind": "STOCK",
+      "exchange": "BSE",
+      "isin": "INE062E01014",
+      "bseCode": "519439",
+      "yahooSymbol": "519439.BO",
+      "marketCapCr": 11.7,
+      "source": "Official BSE active-equities API",
+      "sources": [
+        "Official BSE active-equities API"
+      ]
+    },
+    {
       "symbol": "PIONEEREMB",
       "company": "Pioneer Embroideries Limited",
       "kind": "STOCK",
@@ -51121,6 +52379,20 @@
       ]
     },
     {
+      "symbol": "PIPAN",
+      "company": "PIPAN OILS LIMITED",
+      "kind": "STOCK",
+      "exchange": "BSE",
+      "isin": "INE378P01036",
+      "bseCode": "538537",
+      "yahooSymbol": "538537.BO",
+      "marketCapCr": 321.38,
+      "source": "Official BSE active-equities API",
+      "sources": [
+        "Official BSE active-equities API"
+      ]
+    },
+    {
       "symbol": "PIRAMALFIN",
       "company": "Piramal Finance Limited",
       "kind": "STOCK",
@@ -51133,6 +52405,20 @@
         "Official BSE active-equities API"
       ],
       "bseCode": "544597"
+    },
+    {
+      "symbol": "PITHP",
+      "company": "Pithampur Poly Products Ltd.",
+      "kind": "STOCK",
+      "exchange": "BSE",
+      "isin": "INE747D01012",
+      "bseCode": "530683",
+      "yahooSymbol": "530683.BO",
+      "marketCapCr": 5.58,
+      "source": "Official BSE active-equities API",
+      "sources": [
+        "Official BSE active-equities API"
+      ]
     },
     {
       "symbol": "PITTIENG",
@@ -51257,6 +52543,20 @@
         "Official BSE active-equities API"
       ],
       "bseCode": "539113"
+    },
+    {
+      "symbol": "PMTELELIN",
+      "company": "P.M. Telelinnks Limited",
+      "kind": "STOCK",
+      "exchange": "BSE",
+      "isin": "INE092C01015",
+      "bseCode": "513403",
+      "yahooSymbol": "513403.BO",
+      "marketCapCr": 14.93,
+      "source": "Official BSE active-equities API",
+      "sources": [
+        "Official BSE active-equities API"
+      ]
     },
     {
       "symbol": "PNB",
@@ -51414,17 +52714,17 @@
     },
     {
       "symbol": "POEL",
-      "company": "POCL ENTERPRISES LTD",
+      "company": "POCL Enterprises Limited",
       "kind": "STOCK",
-      "exchange": "BSE",
+      "exchange": "NSE/BSE",
       "isin": "INE035S01028",
-      "bseCode": "539195",
-      "yahooSymbol": "539195.BO",
-      "marketCapCr": 500.26,
-      "source": "Official BSE active-equities API",
+      "yahooSymbol": "POEL.NS",
+      "source": "Official NSE EQUITY_L",
       "sources": [
+        "Official NSE EQUITY_L",
         "Official BSE active-equities API"
-      ]
+      ],
+      "bseCode": "539195"
     },
     {
       "symbol": "POKARNA",
@@ -51582,13 +52882,27 @@
     },
     {
       "symbol": "POLYSPIN",
-      "company": "POLYSPIN EXPORTS LIMITED",
+      "company": "Polyspin Exports Limited",
+      "kind": "STOCK",
+      "exchange": "NSE/BSE",
+      "isin": "INE914G01029",
+      "yahooSymbol": "POLYSPIN.NS",
+      "source": "Official NSE EQUITY_L",
+      "sources": [
+        "Official NSE EQUITY_L",
+        "Official BSE active-equities API"
+      ],
+      "bseCode": "539354"
+    },
+    {
+      "symbol": "POLYTEX",
+      "company": "Polytex India Ltd.",
       "kind": "STOCK",
       "exchange": "BSE",
-      "isin": "INE914G01029",
-      "bseCode": "539354",
-      "yahooSymbol": "539354.BO",
-      "marketCapCr": 28.16,
+      "isin": "INE012F01016",
+      "bseCode": "512481",
+      "yahooSymbol": "512481.BO",
+      "marketCapCr": 5.35,
       "source": "Official BSE active-equities API",
       "sources": [
         "Official BSE active-equities API"
@@ -51663,6 +52977,20 @@
         "Official BSE active-equities API"
       ],
       "bseCode": "524000"
+    },
+    {
+      "symbol": "POPEES",
+      "company": "POPEES BABY CARE INDIA LIMITED",
+      "kind": "STOCK",
+      "exchange": "BSE",
+      "isin": "INE167F01018",
+      "bseCode": "531971",
+      "yahooSymbol": "531971.BO",
+      "marketCapCr": 147.06,
+      "source": "Official BSE active-equities API",
+      "sources": [
+        "Official BSE active-equities API"
+      ]
     },
     {
       "symbol": "POPULARES",
@@ -51845,6 +53173,20 @@
         "Official BSE active-equities API"
       ],
       "bseCode": "544379"
+    },
+    {
+      "symbol": "PRABHATAM",
+      "company": "PRABHATAM INFRA VENTURE LIMITED",
+      "kind": "STOCK",
+      "exchange": "BSE",
+      "isin": "INE265C01025",
+      "bseCode": "531647",
+      "yahooSymbol": "531647.BO",
+      "marketCapCr": 50.22,
+      "source": "Official BSE active-equities API",
+      "sources": [
+        "Official BSE active-equities API"
+      ]
     },
     {
       "symbol": "PRABHHANS",
@@ -52063,6 +53405,20 @@
       "bseCode": "511016",
       "yahooSymbol": "511016.BO",
       "marketCapCr": 17.97,
+      "source": "Official BSE active-equities API",
+      "sources": [
+        "Official BSE active-equities API"
+      ]
+    },
+    {
+      "symbol": "PREMCAPM",
+      "company": "Premium Capital Market & Investment",
+      "kind": "STOCK",
+      "exchange": "BSE",
+      "isin": "INE555D01019",
+      "bseCode": "511660",
+      "yahooSymbol": "511660.BO",
+      "marketCapCr": 6.57,
       "source": "Official BSE active-equities API",
       "sources": [
         "Official BSE active-equities API"
@@ -52406,17 +53762,17 @@
     },
     {
       "symbol": "PRISMX",
-      "company": "PRISMX GLOBAL VENTURES LIMITED",
+      "company": "Prismx Global Ventures Limited",
       "kind": "STOCK",
-      "exchange": "BSE",
+      "exchange": "NSE/BSE",
       "isin": "INE286N01028",
-      "bseCode": "501314",
-      "yahooSymbol": "501314.BO",
-      "marketCapCr": 25.47,
-      "source": "Official BSE active-equities API",
+      "yahooSymbol": "PRISMX.NS",
+      "source": "Official NSE EQUITY_L",
       "sources": [
+        "Official NSE EQUITY_L",
         "Official BSE active-equities API"
-      ]
+      ],
+      "bseCode": "501314"
     },
     {
       "symbol": "PRITHVIEXCH",
@@ -52511,6 +53867,20 @@
       "bseCode": "511557",
       "yahooSymbol": "511557.BO",
       "marketCapCr": 162.96,
+      "source": "Official BSE active-equities API",
+      "sources": [
+        "Official BSE active-equities API"
+      ]
+    },
+    {
+      "symbol": "PROGREXV",
+      "company": "PROGREX VENTURES LIMITED",
+      "kind": "STOCK",
+      "exchange": "BSE",
+      "isin": "INE421E01012",
+      "bseCode": "531265",
+      "yahooSymbol": "531265.BO",
+      "marketCapCr": 12.25,
       "source": "Official BSE active-equities API",
       "sources": [
         "Official BSE active-equities API"
@@ -52965,20 +54335,6 @@
       "bseCode": "532891"
     },
     {
-      "symbol": "PUSHPIN",
-      "company": "Pushpsons Industries Ltd.",
-      "kind": "STOCK",
-      "exchange": "BSE",
-      "isin": "NA",
-      "bseCode": "531562",
-      "yahooSymbol": "531562.BO",
-      "marketCapCr": null,
-      "source": "Official BSE active-equities API",
-      "sources": [
-        "Official BSE active-equities API"
-      ]
-    },
-    {
       "symbol": "PVP",
       "company": "PVP Ventures Limited",
       "kind": "STOCK",
@@ -53215,6 +54571,20 @@
       "bseCode": "544336"
     },
     {
+      "symbol": "QUADRANT",
+      "company": "Quadrant Televentures Limited",
+      "kind": "STOCK",
+      "exchange": "BSE",
+      "isin": "INE527B01020",
+      "bseCode": "511116",
+      "yahooSymbol": "511116.BO",
+      "marketCapCr": 33.67,
+      "source": "Official BSE active-equities API",
+      "sources": [
+        "Official BSE active-equities API"
+      ]
+    },
+    {
       "symbol": "QUAL30IETF",
       "company": "ICICI Prudential Mutual Fund",
       "kind": "STOCK",
@@ -53311,6 +54681,20 @@
         "Official BSE active-equities API"
       ],
       "bseCode": "539515"
+    },
+    {
+      "symbol": "QUINTEGRA",
+      "company": "Quintegra Solutions Limited",
+      "kind": "STOCK",
+      "exchange": "BSE",
+      "isin": "INE033B01011",
+      "bseCode": "532866",
+      "yahooSymbol": "532866.BO",
+      "marketCapCr": 4.56,
+      "source": "Official BSE active-equities API",
+      "sources": [
+        "Official BSE active-equities API"
+      ]
     },
     {
       "symbol": "RAAJMEDI",
@@ -53899,6 +55283,20 @@
       ]
     },
     {
+      "symbol": "RAJVIR",
+      "company": "Rajvir Industries Limited",
+      "kind": "STOCK",
+      "exchange": "BSE",
+      "isin": "INE011H01014",
+      "bseCode": "532665",
+      "yahooSymbol": "532665.BO",
+      "marketCapCr": 3.13,
+      "source": "Official BSE active-equities API",
+      "sources": [
+        "Official BSE active-equities API"
+      ]
+    },
+    {
       "symbol": "RAL",
       "company": "Resourceful Automobile Limited",
       "kind": "STOCK",
@@ -53953,6 +55351,20 @@
         "Official BSE active-equities API"
       ],
       "bseCode": "500356"
+    },
+    {
+      "symbol": "RAMAPETRO",
+      "company": "Rama Petrochemicals Ltd",
+      "kind": "STOCK",
+      "exchange": "BSE",
+      "isin": "INE783A01013",
+      "bseCode": "500358",
+      "yahooSymbol": "500358.BO",
+      "marketCapCr": 21.05,
+      "source": "Official BSE active-equities API",
+      "sources": [
+        "Official BSE active-equities API"
+      ]
     },
     {
       "symbol": "RAMAPHO",
@@ -54305,6 +55717,20 @@
       ]
     },
     {
+      "symbol": "RASSIREF",
+      "company": "Raasi Refractories Limited.",
+      "kind": "STOCK",
+      "exchange": "BSE",
+      "isin": "INE858D01017",
+      "bseCode": "502271",
+      "yahooSymbol": "502271.BO",
+      "marketCapCr": 8.37,
+      "source": "Official BSE active-equities API",
+      "sources": [
+        "Official BSE active-equities API"
+      ]
+    },
+    {
       "symbol": "RATEGAIN",
       "company": "Rategain Travel Technologies Limited",
       "kind": "STOCK",
@@ -54557,6 +55983,20 @@
       ]
     },
     {
+      "symbol": "RCCEMEN",
+      "company": "RCC Cements Ltd",
+      "kind": "STOCK",
+      "exchange": "BSE",
+      "isin": "INE335N01015",
+      "bseCode": "531825",
+      "yahooSymbol": "531825.BO",
+      "marketCapCr": 8.37,
+      "source": "Official BSE active-equities API",
+      "sources": [
+        "Official BSE active-equities API"
+      ]
+    },
+    {
       "symbol": "RCCL",
       "company": "Rajasthan Cylinders & Containers Limited",
       "kind": "STOCK",
@@ -54767,18 +56207,32 @@
       "bseCode": "532884"
     },
     {
-      "symbol": "REGAAL",
-      "company": "REGAAL RESOURCES LIMITED",
+      "symbol": "REFEXRENEW",
+      "company": "Refex Renewables & Infrastructure Limited",
       "kind": "STOCK",
       "exchange": "BSE",
-      "isin": "INE0MHO01029",
-      "bseCode": "544485",
-      "yahooSymbol": "544485.BO",
-      "marketCapCr": 888.53,
+      "isin": "INE332F01018",
+      "bseCode": "531260",
+      "yahooSymbol": "531260.BO",
+      "marketCapCr": 147.31,
       "source": "Official BSE active-equities API",
       "sources": [
         "Official BSE active-equities API"
       ]
+    },
+    {
+      "symbol": "REGAAL",
+      "company": "Regaal Resources Limited",
+      "kind": "STOCK",
+      "exchange": "NSE/BSE",
+      "isin": "INE0MHO01029",
+      "yahooSymbol": "REGAAL.NS",
+      "source": "Official NSE EQUITY_L",
+      "sources": [
+        "Official NSE EQUITY_L",
+        "Official BSE active-equities API"
+      ],
+      "bseCode": "544485"
     },
     {
       "symbol": "REGAL",
@@ -55209,6 +56663,20 @@
       "bseCode": "543902",
       "yahooSymbol": "543902.BO",
       "marketCapCr": 62.22,
+      "source": "Official BSE active-equities API",
+      "sources": [
+        "Official BSE active-equities API"
+      ]
+    },
+    {
+      "symbol": "REVAMEDIA",
+      "company": "REVATI MEDIA LIMITED",
+      "kind": "STOCK",
+      "exchange": "BSE",
+      "isin": "INE270D01015",
+      "bseCode": "524504",
+      "yahooSymbol": "524504.BO",
+      "marketCapCr": 3.66,
       "source": "Official BSE active-equities API",
       "sources": [
         "Official BSE active-equities API"
@@ -56266,15 +57734,15 @@
       "symbol": "RRECL",
       "company": "RDB Real Estate Constructions Limited",
       "kind": "STOCK",
-      "exchange": "BSE",
+      "exchange": "NSE/BSE",
       "isin": "INE0AK901016",
-      "bseCode": "544346",
-      "yahooSymbol": "544346.BO",
-      "marketCapCr": 369.11,
-      "source": "Official BSE active-equities API",
+      "yahooSymbol": "RRECL.NS",
+      "source": "Official NSE EQUITY_L",
       "sources": [
+        "Official NSE EQUITY_L",
         "Official BSE active-equities API"
-      ]
+      ],
+      "bseCode": "544346"
     },
     {
       "symbol": "RRETAIL",
@@ -56341,6 +57809,34 @@
       "bseCode": "531667",
       "yahooSymbol": "531667.BO",
       "marketCapCr": 59.87,
+      "source": "Official BSE active-equities API",
+      "sources": [
+        "Official BSE active-equities API"
+      ]
+    },
+    {
+      "symbol": "RRP",
+      "company": "RRP SEMICONDUCTOR LIMITED",
+      "kind": "STOCK",
+      "exchange": "BSE",
+      "isin": "INE713N01013",
+      "bseCode": "504346",
+      "yahooSymbol": "504346.BO",
+      "marketCapCr": 11758.19,
+      "source": "Official BSE active-equities API",
+      "sources": [
+        "Official BSE active-equities API"
+      ]
+    },
+    {
+      "symbol": "RRPDEFENSE",
+      "company": "RRP DEFENSE LIMITED",
+      "kind": "STOCK",
+      "exchange": "BSE",
+      "isin": "INE535P01015",
+      "bseCode": "530929",
+      "yahooSymbol": "530929.BO",
+      "marketCapCr": 904.55,
       "source": "Official BSE active-equities API",
       "sources": [
         "Official BSE active-equities API"
@@ -56502,17 +57998,17 @@
     },
     {
       "symbol": "RTSPOWR",
-      "company": "RTS Power Corporation Ltd.",
+      "company": "RTS Power Corporation Limited",
       "kind": "STOCK",
-      "exchange": "BSE",
+      "exchange": "NSE/BSE",
       "isin": "INE005C01017",
-      "bseCode": "531215",
-      "yahooSymbol": "531215.BO",
-      "marketCapCr": 87.83,
-      "source": "Official BSE active-equities API",
+      "yahooSymbol": "RTSPOWR.NS",
+      "source": "Official NSE EQUITY_L",
       "sources": [
+        "Official NSE EQUITY_L",
         "Official BSE active-equities API"
-      ]
+      ],
+      "bseCode": "531215"
     },
     {
       "symbol": "RUBFILA",
@@ -56754,17 +58250,17 @@
     },
     {
       "symbol": "SAB",
-      "company": "SAB INDUSTRIES LIMITED",
+      "company": "SAB Industries Limited",
       "kind": "STOCK",
-      "exchange": "BSE",
+      "exchange": "NSE/BSE",
       "isin": "INE137M01017",
-      "bseCode": "539112",
-      "yahooSymbol": "539112.BO",
-      "marketCapCr": 258.57,
-      "source": "Official BSE active-equities API",
+      "yahooSymbol": "SAB.NS",
+      "source": "Official NSE EQUITY_L",
       "sources": [
+        "Official NSE EQUITY_L",
         "Official BSE active-equities API"
-      ]
+      ],
+      "bseCode": "539112"
     },
     {
       "symbol": "SABOOSOD",
@@ -57018,17 +58514,17 @@
     },
     {
       "symbol": "SAICAPI",
-      "company": "Sai Capital Ltd.",
+      "company": "Sai Capital Limited",
       "kind": "STOCK",
-      "exchange": "BSE",
+      "exchange": "NSE/BSE",
       "isin": "INE531X01018",
-      "bseCode": "531931",
-      "yahooSymbol": "531931.BO",
-      "marketCapCr": 43.18,
-      "source": "Official BSE active-equities API",
+      "yahooSymbol": "SAICAPI.NS",
+      "source": "Official NSE EQUITY_L",
       "sources": [
+        "Official NSE EQUITY_L",
         "Official BSE active-equities API"
-      ]
+      ],
+      "bseCode": "531931"
     },
     {
       "symbol": "SAICOM",
@@ -57310,17 +58806,17 @@
     },
     {
       "symbol": "SAMBANDAM",
-      "company": "Sambandam Spinning Mills Ltd.",
+      "company": "Sambandam Spinning Mills Limited",
       "kind": "STOCK",
-      "exchange": "BSE",
+      "exchange": "NSE/BSE",
       "isin": "INE304D01012",
-      "bseCode": "521240",
-      "yahooSymbol": "521240.BO",
-      "marketCapCr": 43.93,
-      "source": "Official BSE active-equities API",
+      "yahooSymbol": "SAMBANDAM.NS",
+      "source": "Official NSE EQUITY_L",
       "sources": [
+        "Official NSE EQUITY_L",
         "Official BSE active-equities API"
-      ]
+      ],
+      "bseCode": "521240"
     },
     {
       "symbol": "SAMBHAAV",
@@ -57827,6 +59323,20 @@
       ]
     },
     {
+      "symbol": "SANTOSHF",
+      "company": "Santosh Fine-Fab Ltd.",
+      "kind": "STOCK",
+      "exchange": "BSE",
+      "isin": "INE612D01018",
+      "bseCode": "530035",
+      "yahooSymbol": "530035.BO",
+      "marketCapCr": 12.76,
+      "source": "Official BSE active-equities API",
+      "sources": [
+        "Official BSE active-equities API"
+      ]
+    },
+    {
       "symbol": "SANWARIA",
       "company": "SANWARIA CONSUMER LIMITED",
       "kind": "STOCK",
@@ -57995,6 +59505,20 @@
       ]
     },
     {
+      "symbol": "SASHWAT",
+      "company": "Sashwat Technocrats Limited",
+      "kind": "STOCK",
+      "exchange": "BSE",
+      "isin": "INE789D01014",
+      "bseCode": "506313",
+      "yahooSymbol": "506313.BO",
+      "marketCapCr": 10.88,
+      "source": "Official BSE active-equities API",
+      "sources": [
+        "Official BSE active-equities API"
+      ]
+    },
+    {
       "symbol": "SASKEN",
       "company": "Sasken Technologies Limited",
       "kind": "STOCK",
@@ -58007,6 +59531,20 @@
         "Official BSE active-equities API"
       ],
       "bseCode": "532663"
+    },
+    {
+      "symbol": "SATANIBRG",
+      "company": "Satani Bearings Ltd.",
+      "kind": "STOCK",
+      "exchange": "BSE",
+      "isin": "INE498D01012",
+      "bseCode": "505703",
+      "yahooSymbol": "505703.BO",
+      "marketCapCr": 550.5,
+      "source": "Official BSE active-equities API",
+      "sources": [
+        "Official BSE active-equities API"
+      ]
     },
     {
       "symbol": "SATCH",
@@ -58152,15 +59690,15 @@
       "symbol": "SAYAJIIND",
       "company": "Sayaji Industries Limited",
       "kind": "STOCK",
-      "exchange": "BSE",
+      "exchange": "NSE/BSE",
       "isin": "INE327G01032",
-      "bseCode": "540728",
-      "yahooSymbol": "540728.BO",
-      "marketCapCr": 304.88,
-      "source": "Official BSE active-equities API",
+      "yahooSymbol": "SAYAJIIND.NS",
+      "source": "Official NSE EQUITY_L",
       "sources": [
+        "Official NSE EQUITY_L",
         "Official BSE active-equities API"
-      ]
+      ],
+      "bseCode": "540728"
     },
     {
       "symbol": "SBC",
@@ -58527,6 +60065,20 @@
       ]
     },
     {
+      "symbol": "SCBL",
+      "company": "Saptak Chem And Business Limited",
+      "kind": "STOCK",
+      "exchange": "BSE",
+      "isin": "INE467X01023",
+      "bseCode": "506906",
+      "yahooSymbol": "506906.BO",
+      "marketCapCr": 10.11,
+      "source": "Official BSE active-equities API",
+      "sources": [
+        "Official BSE active-equities API"
+      ]
+    },
+    {
       "symbol": "SCC",
       "company": "Scintilla Commercial & Credit  Limited",
       "kind": "STOCK",
@@ -58864,17 +60416,17 @@
     },
     {
       "symbol": "SEKURITIND",
-      "company": "Saint-Gobain Sekurit India Ltd.",
+      "company": "Saint Gobain Sekurit India Limited",
       "kind": "STOCK",
-      "exchange": "BSE",
+      "exchange": "NSE/BSE",
       "isin": "INE068B01017",
-      "bseCode": "515043",
-      "yahooSymbol": "515043.BO",
-      "marketCapCr": 1083.7,
-      "source": "Official BSE active-equities API",
+      "yahooSymbol": "SEKURITIND.NS",
+      "source": "Official NSE EQUITY_L",
       "sources": [
+        "Official NSE EQUITY_L",
         "Official BSE active-equities API"
-      ]
+      ],
+      "bseCode": "515043"
     },
     {
       "symbol": "SEL",
@@ -58936,15 +60488,15 @@
       "symbol": "SEMAC",
       "company": "Semac Construction Limited",
       "kind": "STOCK",
-      "exchange": "BSE",
+      "exchange": "NSE/BSE",
       "isin": "INE617A01013",
-      "bseCode": "505368",
-      "yahooSymbol": "505368.BO",
-      "marketCapCr": 98.21,
-      "source": "Official BSE active-equities API",
+      "yahooSymbol": "SEMAC.NS",
+      "source": "Official NSE EQUITY_L",
       "sources": [
+        "Official NSE EQUITY_L",
         "Official BSE active-equities API"
-      ]
+      ],
+      "bseCode": "505368"
     },
     {
       "symbol": "SEML",
@@ -58973,6 +60525,20 @@
         "Official BSE active-equities API"
       ],
       "bseCode": "543936"
+    },
+    {
+      "symbol": "SENINFO",
+      "company": "Senthil Infotek Limited",
+      "kind": "STOCK",
+      "exchange": "BSE",
+      "isin": "INE564B01015",
+      "bseCode": "531980",
+      "yahooSymbol": "531980.BO",
+      "marketCapCr": 21.19,
+      "source": "Official BSE active-equities API",
+      "sources": [
+        "Official BSE active-equities API"
+      ]
     },
     {
       "symbol": "SENORES",
@@ -59124,6 +60690,20 @@
       "source": "Official NSE EQUITY_L",
       "sources": [
         "Official NSE EQUITY_L"
+      ]
+    },
+    {
+      "symbol": "SESHACHAL",
+      "company": "Seshachal Technologies Ltd",
+      "kind": "STOCK",
+      "exchange": "BSE",
+      "isin": "INE331F01028",
+      "bseCode": "531794",
+      "yahooSymbol": "531794.BO",
+      "marketCapCr": 5.4,
+      "source": "Official BSE active-equities API",
+      "sources": [
+        "Official BSE active-equities API"
       ]
     },
     {
@@ -59380,17 +60960,17 @@
     },
     {
       "symbol": "SGLRES",
-      "company": "SGL RESOURCES LIMITED",
+      "company": "SGL Resources Limited",
       "kind": "STOCK",
-      "exchange": "BSE",
+      "exchange": "NSE/BSE",
       "isin": "INE967B01028",
-      "bseCode": "526544",
-      "yahooSymbol": "526544.BO",
-      "marketCapCr": 65.63,
-      "source": "Official BSE active-equities API",
+      "yahooSymbol": "SGLRES.NS",
+      "source": "Official NSE EQUITY_L",
       "sources": [
+        "Official NSE EQUITY_L",
         "Official BSE active-equities API"
-      ]
+      ],
+      "bseCode": "526544"
     },
     {
       "symbol": "SGMART",
@@ -59424,15 +61004,15 @@
       "symbol": "SGRL",
       "company": "Shree Ganesh Remedies Limited",
       "kind": "STOCK",
-      "exchange": "BSE",
+      "exchange": "NSE/BSE",
       "isin": "INE414Y01015",
-      "bseCode": "540737",
-      "yahooSymbol": "540737.BO",
-      "marketCapCr": 629.42,
-      "source": "Official BSE active-equities API",
+      "yahooSymbol": "SGRL.NS",
+      "source": "Official NSE EQUITY_L",
       "sources": [
+        "Official NSE EQUITY_L",
         "Official BSE active-equities API"
-      ]
+      ],
+      "bseCode": "540737"
     },
     {
       "symbol": "SHADOWFAX",
@@ -59631,6 +61211,20 @@
       ]
     },
     {
+      "symbol": "SHAMROIN",
+      "company": "Shamrock Industrial Co. Ltd.",
+      "kind": "STOCK",
+      "exchange": "BSE",
+      "isin": "INE022F01015",
+      "bseCode": "531240",
+      "yahooSymbol": "531240.BO",
+      "marketCapCr": 14.08,
+      "source": "Official BSE active-equities API",
+      "sources": [
+        "Official BSE active-equities API"
+      ]
+    },
+    {
       "symbol": "SHANGAR",
       "company": "SHANGAR DECOR LIMITED",
       "kind": "STOCK",
@@ -59667,6 +61261,20 @@
       "bseCode": "544365",
       "yahooSymbol": "544365.BO",
       "marketCapCr": 58.39,
+      "source": "Official BSE active-equities API",
+      "sources": [
+        "Official BSE active-equities API"
+      ]
+    },
+    {
+      "symbol": "SHANTAI",
+      "company": "Shantai Industries Limited",
+      "kind": "STOCK",
+      "exchange": "BSE",
+      "isin": "INE408F01024",
+      "bseCode": "512297",
+      "yahooSymbol": "512297.BO",
+      "marketCapCr": 69.89,
       "source": "Official BSE active-equities API",
       "sources": [
         "Official BSE active-equities API"
@@ -59853,6 +61461,20 @@
       ]
     },
     {
+      "symbol": "SHARP",
+      "company": "Sharp India Ltd",
+      "kind": "STOCK",
+      "exchange": "BSE",
+      "isin": "INE207B01011",
+      "bseCode": "523449",
+      "yahooSymbol": "523449.BO",
+      "marketCapCr": 312.5,
+      "source": "Official BSE active-equities API",
+      "sources": [
+        "Official BSE active-equities API"
+      ]
+    },
+    {
       "symbol": "SHARPINV",
       "company": "SHARP INVESTMENTS LTD",
       "kind": "STOCK",
@@ -59966,17 +61588,17 @@
     },
     {
       "symbol": "SHEKHAWATI",
-      "company": "Shekhawati Industries Limited",
+      "company": "SHEKHAWATI INDUSTRIES LIMITED",
       "kind": "STOCK",
-      "exchange": "NSE/BSE",
+      "exchange": "BSE",
       "isin": "INE268L01046",
-      "yahooSymbol": "SHEKHAWATI.NS",
-      "source": "Official NSE EQUITY_L",
+      "bseCode": "533301",
+      "yahooSymbol": "533301.BO",
+      "marketCapCr": 65.91,
+      "source": "Official BSE active-equities API",
       "sources": [
-        "Official NSE EQUITY_L",
         "Official BSE active-equities API"
-      ],
-      "bseCode": "533301"
+      ]
     },
     {
       "symbol": "SHELTER",
@@ -60022,17 +61644,17 @@
     },
     {
       "symbol": "SHERVANI",
-      "company": "Shervani Industrial syndicate Ltd",
+      "company": "Shervani Industrial Syndicate Limited",
       "kind": "STOCK",
-      "exchange": "BSE",
+      "exchange": "NSE/BSE",
       "isin": "INE011D01013",
-      "bseCode": "526117",
-      "yahooSymbol": "526117.BO",
-      "marketCapCr": 75.65,
-      "source": "Official BSE active-equities API",
+      "yahooSymbol": "SHERVANI.NS",
+      "source": "Official NSE EQUITY_L",
       "sources": [
+        "Official NSE EQUITY_L",
         "Official BSE active-equities API"
-      ]
+      ],
+      "bseCode": "526117"
     },
     {
       "symbol": "SHESHAINDS",
@@ -60091,6 +61713,20 @@
       ]
     },
     {
+      "symbol": "SHIKHAR",
+      "company": "Shikhar Consultants Ltd.",
+      "kind": "STOCK",
+      "exchange": "BSE",
+      "isin": "INE641B01011",
+      "bseCode": "526883",
+      "yahooSymbol": "526883.BO",
+      "marketCapCr": 5.65,
+      "source": "Official BSE active-equities API",
+      "sources": [
+        "Official BSE active-equities API"
+      ]
+    },
+    {
       "symbol": "SHIKHARLETR",
       "company": "Shikhar Leasing and Trading Ltd.",
       "kind": "STOCK",
@@ -60120,17 +61756,17 @@
     },
     {
       "symbol": "SHILGRAVQ",
-      "company": "Shilp Gravures Ltd.",
+      "company": "Shilp Gravures Limited",
       "kind": "STOCK",
-      "exchange": "BSE",
+      "exchange": "NSE/BSE",
       "isin": "INE960A01017",
-      "bseCode": "513709",
-      "yahooSymbol": "513709.BO",
-      "marketCapCr": 97.04,
-      "source": "Official BSE active-equities API",
+      "yahooSymbol": "SHILGRAVQ.NS",
+      "source": "Official NSE EQUITY_L",
       "sources": [
+        "Official NSE EQUITY_L",
         "Official BSE active-equities API"
-      ]
+      ],
+      "bseCode": "513709"
     },
     {
       "symbol": "SHILINDORE",
@@ -60234,29 +61870,29 @@
       "symbol": "SHIVAAGRO",
       "company": "Shiva Global Agro Industries Limited",
       "kind": "STOCK",
-      "exchange": "BSE",
+      "exchange": "NSE/BSE",
       "isin": "INE960E01019",
-      "bseCode": "530433",
-      "yahooSymbol": "530433.BO",
-      "marketCapCr": 38.37,
-      "source": "Official BSE active-equities API",
+      "yahooSymbol": "SHIVAAGRO.NS",
+      "source": "Official NSE EQUITY_L",
       "sources": [
+        "Official NSE EQUITY_L",
         "Official BSE active-equities API"
-      ]
+      ],
+      "bseCode": "530433"
     },
     {
       "symbol": "SHIVACEM",
-      "company": "Shiva Cement Ltd.",
+      "company": "Shiva Cement Limited",
       "kind": "STOCK",
-      "exchange": "BSE",
+      "exchange": "NSE/BSE",
       "isin": "INE555C01029",
-      "bseCode": "532323",
-      "yahooSymbol": "532323.BO",
-      "marketCapCr": 497.96,
-      "source": "Official BSE active-equities API",
+      "yahooSymbol": "SHIVACEM.NS",
+      "source": "Official NSE EQUITY_L",
       "sources": [
+        "Official NSE EQUITY_L",
         "Official BSE active-equities API"
-      ]
+      ],
+      "bseCode": "532323"
     },
     {
       "symbol": "SHIVAEXPO",
@@ -60510,17 +62146,17 @@
     },
     {
       "symbol": "SHRADDHA",
-      "company": "SHRADDHA PRIME PROJECTS LTD",
+      "company": "Shraddha Prime Projects Limited",
       "kind": "STOCK",
-      "exchange": "BSE",
+      "exchange": "NSE/BSE",
       "isin": "INE311M01018",
-      "bseCode": "531771",
-      "yahooSymbol": "531771.BO",
-      "marketCapCr": 633.08,
-      "source": "Official BSE active-equities API",
+      "yahooSymbol": "SHRADDHA.NS",
+      "source": "Official NSE EQUITY_L",
       "sources": [
+        "Official NSE EQUITY_L",
         "Official BSE active-equities API"
-      ]
+      ],
+      "bseCode": "531771"
     },
     {
       "symbol": "SHRADHA",
@@ -60942,17 +62578,17 @@
     },
     {
       "symbol": "SHRJAGP",
-      "company": "Shri Jagdamba Polymers Ltd",
+      "company": "Shri Jagdamba Polymers Limited",
       "kind": "STOCK",
-      "exchange": "BSE",
+      "exchange": "NSE/BSE",
       "isin": "INE564J01026",
-      "bseCode": "512453",
-      "yahooSymbol": "512453.BO",
-      "marketCapCr": 666.92,
-      "source": "Official BSE active-equities API",
+      "yahooSymbol": "SHRJAGP.NS",
+      "source": "Official NSE EQUITY_L",
       "sources": [
+        "Official NSE EQUITY_L",
         "Official BSE active-equities API"
-      ]
+      ],
+      "bseCode": "512453"
     },
     {
       "symbol": "SHRMFGC",
@@ -61124,17 +62760,17 @@
     },
     {
       "symbol": "SHYAMTEL",
-      "company": "Shyam Telecom Ltd.",
+      "company": "Shyam Telecom Limited",
       "kind": "STOCK",
-      "exchange": "BSE",
+      "exchange": "NSE/BSE",
       "isin": "INE635A01023",
-      "bseCode": "517411",
-      "yahooSymbol": "517411.BO",
-      "marketCapCr": 15.99,
-      "source": "Official BSE active-equities API",
+      "yahooSymbol": "SHYAMTEL.NS",
+      "source": "Official NSE EQUITY_L",
       "sources": [
+        "Official NSE EQUITY_L",
         "Official BSE active-equities API"
-      ]
+      ],
+      "bseCode": "517411"
     },
     {
       "symbol": "SHYMINV",
@@ -61266,15 +62902,15 @@
       "symbol": "SIEL",
       "company": "Superior Industrial Enterprises Limited",
       "kind": "STOCK",
-      "exchange": "BSE",
+      "exchange": "NSE/BSE",
       "isin": "INE843L01012",
-      "bseCode": "519234",
-      "yahooSymbol": "519234.BO",
-      "marketCapCr": 44.17,
-      "source": "Official BSE active-equities API",
+      "yahooSymbol": "SIEL.NS",
+      "source": "Official NSE EQUITY_L",
       "sources": [
+        "Official NSE EQUITY_L",
         "Official BSE active-equities API"
-      ]
+      ],
+      "bseCode": "519234"
     },
     {
       "symbol": "SIEMENS",
@@ -61294,15 +62930,15 @@
       "symbol": "SIGACHI",
       "company": "Sigachi Industries Limited",
       "kind": "STOCK",
-      "exchange": "BSE",
+      "exchange": "NSE/BSE",
       "isin": "INE0D0K01022",
-      "bseCode": "543389",
-      "yahooSymbol": "543389.BO",
-      "marketCapCr": 1040.5,
-      "source": "Official BSE active-equities API",
+      "yahooSymbol": "SIGACHI.NS",
+      "source": "Official NSE EQUITY_L",
       "sources": [
+        "Official NSE EQUITY_L",
         "Official BSE active-equities API"
-      ]
+      ],
+      "bseCode": "543389"
     },
     {
       "symbol": "SIGIND",
@@ -61336,15 +62972,15 @@
       "symbol": "SIGMAADV",
       "company": "SIGMA ADVANCED SYSTEMS LIMITED",
       "kind": "STOCK",
-      "exchange": "BSE",
+      "exchange": "NSE/BSE",
       "isin": "INE933B01012",
-      "bseCode": "532408",
-      "yahooSymbol": "532408.BO",
-      "marketCapCr": 11628.3,
-      "source": "Official BSE active-equities API",
+      "yahooSymbol": "SIGMAADV.NS",
+      "source": "Official NSE EQUITY_L",
       "sources": [
+        "Official NSE EQUITY_L",
         "Official BSE active-equities API"
-      ]
+      ],
+      "bseCode": "532408"
     },
     {
       "symbol": "SIGNATURE",
@@ -61654,15 +63290,15 @@
       "symbol": "SIMPLXREA",
       "company": "Simplex Realty Limited",
       "kind": "STOCK",
-      "exchange": "BSE",
+      "exchange": "NSE/BSE",
       "isin": "INE167H01014",
-      "bseCode": "503229",
-      "yahooSymbol": "503229.BO",
-      "marketCapCr": 40.94,
-      "source": "Official BSE active-equities API",
+      "yahooSymbol": "SIMPLXREA.NS",
+      "source": "Official NSE EQUITY_L",
       "sources": [
+        "Official NSE EQUITY_L",
         "Official BSE active-equities API"
-      ]
+      ],
+      "bseCode": "503229"
     },
     {
       "symbol": "SIMRAN",
@@ -61887,6 +63523,20 @@
       ]
     },
     {
+      "symbol": "SJCORP",
+      "company": "SJ Corporation Limited",
+      "kind": "STOCK",
+      "exchange": "BSE",
+      "isin": "INE312B01027",
+      "bseCode": "504398",
+      "yahooSymbol": "504398.BO",
+      "marketCapCr": 776.49,
+      "source": "Official BSE active-equities API",
+      "sources": [
+        "Official BSE active-equities API"
+      ]
+    },
+    {
       "symbol": "SJS",
       "company": "S.J.S. Enterprises Limited",
       "kind": "STOCK",
@@ -61979,6 +63629,34 @@
       "bseCode": "542146",
       "yahooSymbol": "542146.BO",
       "marketCapCr": 8.55,
+      "source": "Official BSE active-equities API",
+      "sources": [
+        "Official BSE active-equities API"
+      ]
+    },
+    {
+      "symbol": "SKIL",
+      "company": "SKIL Infrastructure Limited",
+      "kind": "STOCK",
+      "exchange": "BSE",
+      "isin": "INE429F01012",
+      "bseCode": "539861",
+      "yahooSymbol": "539861.BO",
+      "marketCapCr": 19.06,
+      "source": "Official BSE active-equities API",
+      "sources": [
+        "Official BSE active-equities API"
+      ]
+    },
+    {
+      "symbol": "SKILVEN",
+      "company": "SKYLINE VENTURES INDIA  LIMITED",
+      "kind": "STOCK",
+      "exchange": "BSE",
+      "isin": "INE055Q01012",
+      "bseCode": "538919",
+      "yahooSymbol": "538919.BO",
+      "marketCapCr": 8.73,
       "source": "Official BSE active-equities API",
       "sources": [
         "Official BSE active-equities API"
@@ -62343,6 +64021,20 @@
       "bseCode": "542034",
       "yahooSymbol": "542034.BO",
       "marketCapCr": 15.32,
+      "source": "Official BSE active-equities API",
+      "sources": [
+        "Official BSE active-equities API"
+      ]
+    },
+    {
+      "symbol": "SML",
+      "company": "Soni Medicare Limited",
+      "kind": "STOCK",
+      "exchange": "BSE",
+      "isin": "INE848R01018",
+      "bseCode": "539378",
+      "yahooSymbol": "539378.BO",
+      "marketCapCr": 31.13,
       "source": "Official BSE active-equities API",
       "sources": [
         "Official BSE active-equities API"
@@ -63172,17 +64864,17 @@
     },
     {
       "symbol": "SPELS",
-      "company": "SPEL Semiconductor Ltd.",
+      "company": "SPEL Semiconductor Limited",
       "kind": "STOCK",
-      "exchange": "BSE",
+      "exchange": "NSE/BSE",
       "isin": "INE252A01019",
-      "bseCode": "517166",
-      "yahooSymbol": "517166.BO",
-      "marketCapCr": 679.31,
-      "source": "Official BSE active-equities API",
+      "yahooSymbol": "SPELS.NS",
+      "source": "Official NSE EQUITY_L",
       "sources": [
+        "Official NSE EQUITY_L",
         "Official BSE active-equities API"
-      ]
+      ],
+      "bseCode": "517166"
     },
     {
       "symbol": "SPENCERS",
@@ -63479,6 +65171,20 @@
       "bseCode": "542232"
     },
     {
+      "symbol": "SRDAPRT",
+      "company": "Sarda Proteins Ltd",
+      "kind": "STOCK",
+      "exchange": "BSE",
+      "isin": "INE995U01011",
+      "bseCode": "519242",
+      "yahooSymbol": "519242.BO",
+      "marketCapCr": 92.15,
+      "source": "Official BSE active-equities API",
+      "sources": [
+        "Official BSE active-equities API"
+      ]
+    },
+    {
       "symbol": "SRECR",
       "company": "Sree chem Resins Ltd",
       "kind": "STOCK",
@@ -63606,17 +65312,17 @@
     },
     {
       "symbol": "SRIKPRIND",
-      "company": "Sri KPR Industries Ltd",
+      "company": "Sri KPR Industries Limited",
       "kind": "STOCK",
-      "exchange": "BSE",
+      "exchange": "NSE/BSE",
       "isin": "INE009C01019",
-      "bseCode": "514442",
-      "yahooSymbol": "514442.BO",
-      "marketCapCr": 40.71,
-      "source": "Official BSE active-equities API",
+      "yahooSymbol": "SRIKPRIND.NS",
+      "source": "Official NSE EQUITY_L",
       "sources": [
+        "Official NSE EQUITY_L",
         "Official BSE active-equities API"
-      ]
+      ],
+      "bseCode": "514442"
     },
     {
       "symbol": "SRINACHA",
@@ -63969,6 +65675,20 @@
       "bseCode": "532531"
     },
     {
+      "symbol": "STARBEAM",
+      "company": "STARBEAM VENTURES LIMITED",
+      "kind": "STOCK",
+      "exchange": "BSE",
+      "isin": "INE924N01024",
+      "bseCode": "539175",
+      "yahooSymbol": "539175.BO",
+      "marketCapCr": 83.01,
+      "source": "Official BSE active-equities API",
+      "sources": [
+        "Official BSE active-equities API"
+      ]
+    },
+    {
       "symbol": "STARCEMENT",
       "company": "Star Cement Limited",
       "kind": "STOCK",
@@ -63981,6 +65701,20 @@
         "Official BSE active-equities API"
       ],
       "bseCode": "540575"
+    },
+    {
+      "symbol": "STARCOM",
+      "company": "Starcom Information Technology Ltd",
+      "kind": "STOCK",
+      "exchange": "BSE",
+      "isin": "INE347I01010",
+      "bseCode": "531616",
+      "yahooSymbol": "531616.BO",
+      "marketCapCr": 46.46,
+      "source": "Official BSE active-equities API",
+      "sources": [
+        "Official BSE active-equities API"
+      ]
     },
     {
       "symbol": "STARDELTA",
@@ -64159,6 +65893,20 @@
       "bseCode": "526231",
       "yahooSymbol": "526231.BO",
       "marketCapCr": 46.64,
+      "source": "Official BSE active-equities API",
+      "sources": [
+        "Official BSE active-equities API"
+      ]
+    },
+    {
+      "symbol": "STDSHOE",
+      "company": "Standard Shoe Sole and Mould (India) Ltd",
+      "kind": "STOCK",
+      "exchange": "BSE",
+      "isin": "INE888N01013",
+      "bseCode": "523351",
+      "yahooSymbol": "523351.BO",
+      "marketCapCr": 8.6,
       "source": "Official BSE active-equities API",
       "sources": [
         "Official BSE active-equities API"
@@ -64348,15 +66096,15 @@
       "symbol": "STLSTRINF",
       "company": "Steel Strips Infrastructures Limited",
       "kind": "STOCK",
-      "exchange": "BSE",
+      "exchange": "NSE/BSE",
       "isin": "INE205F01016",
-      "bseCode": "513173",
-      "yahooSymbol": "513173.BO",
-      "marketCapCr": 16.41,
-      "source": "Official BSE active-equities API",
+      "yahooSymbol": "STLSTRINF.NS",
+      "source": "Official NSE EQUITY_L",
       "sources": [
+        "Official NSE EQUITY_L",
         "Official BSE active-equities API"
-      ]
+      ],
+      "bseCode": "513173"
     },
     {
       "symbol": "STLTECH",
@@ -64471,6 +66219,20 @@
       "bseCode": "544599"
     },
     {
+      "symbol": "STURDY",
+      "company": "Sturdy Industries Ltd.",
+      "kind": "STOCK",
+      "exchange": "BSE",
+      "isin": "INE134F01026",
+      "bseCode": "530611",
+      "yahooSymbol": "530611.BO",
+      "marketCapCr": 3.63,
+      "source": "Official BSE active-equities API",
+      "sources": [
+        "Official BSE active-equities API"
+      ]
+    },
+    {
       "symbol": "STYL",
       "company": "Seshaasai Technologies Limited",
       "kind": "STOCK",
@@ -64542,17 +66304,17 @@
     },
     {
       "symbol": "SUBEXLTD",
-      "company": "Subex  Ltd",
+      "company": "Subex Limited",
       "kind": "STOCK",
-      "exchange": "BSE",
+      "exchange": "NSE/BSE",
       "isin": "INE754A01055",
-      "bseCode": "532348",
-      "yahooSymbol": "532348.BO",
-      "marketCapCr": 781.75,
-      "source": "Official BSE active-equities API",
+      "yahooSymbol": "SUBEXLTD.NS",
+      "source": "Official NSE EQUITY_L",
       "sources": [
+        "Official NSE EQUITY_L",
         "Official BSE active-equities API"
-      ]
+      ],
+      "bseCode": "532348"
     },
     {
       "symbol": "SUBROS",
@@ -64780,17 +66542,17 @@
     },
     {
       "symbol": "SUMEDHA",
-      "company": "Sumedha Fiscal Services Ltd.",
+      "company": "Sumedha Fiscal Services Limited",
       "kind": "STOCK",
-      "exchange": "BSE",
+      "exchange": "NSE/BSE",
       "isin": "INE886B01012",
-      "bseCode": "530419",
-      "yahooSymbol": "530419.BO",
-      "marketCapCr": 31.35,
-      "source": "Official BSE active-equities API",
+      "yahooSymbol": "SUMEDHA.NS",
+      "source": "Official NSE EQUITY_L",
       "sources": [
+        "Official NSE EQUITY_L",
         "Official BSE active-equities API"
-      ]
+      ],
+      "bseCode": "530419"
     },
     {
       "symbol": "SUMEETINDS",
@@ -65032,15 +66794,15 @@
       "symbol": "SUNLOC",
       "company": "Sunil Healthcare Limited",
       "kind": "STOCK",
-      "exchange": "BSE",
+      "exchange": "NSE/BSE",
       "isin": "INE671C01016",
-      "bseCode": "537253",
-      "yahooSymbol": "537253.BO",
-      "marketCapCr": 69.92,
-      "source": "Official BSE active-equities API",
+      "yahooSymbol": "SUNLOC.NS",
+      "source": "Official NSE EQUITY_L",
       "sources": [
+        "Official NSE EQUITY_L",
         "Official BSE active-equities API"
-      ]
+      ],
+      "bseCode": "537253"
     },
     {
       "symbol": "SUNPHARMA",
@@ -65072,17 +66834,17 @@
     },
     {
       "symbol": "SUNRAKSHAK",
-      "company": "SUNRAKSHAKK INDUSTRIES INDIA LIMITED",
+      "company": "Sunrakshakk Industries India Limited",
       "kind": "STOCK",
-      "exchange": "BSE",
+      "exchange": "NSE/BSE",
       "isin": "INE671K01027",
-      "bseCode": "539300",
-      "yahooSymbol": "539300.BO",
-      "marketCapCr": 1169.42,
-      "source": "Official BSE active-equities API",
+      "yahooSymbol": "SUNRAKSHAK.NS",
+      "source": "Official NSE EQUITY_L",
       "sources": [
+        "Official NSE EQUITY_L",
         "Official BSE active-equities API"
-      ]
+      ],
+      "bseCode": "539300"
     },
     {
       "symbol": "SUNRETAIL",
@@ -65114,17 +66876,17 @@
     },
     {
       "symbol": "SUNSHIEL",
-      "company": "Sunshield Chemicals Ltd.",
+      "company": "Sunshield Chemicals Limited",
       "kind": "STOCK",
-      "exchange": "BSE",
+      "exchange": "NSE/BSE",
       "isin": "INE199E01014",
-      "bseCode": "530845",
-      "yahooSymbol": "530845.BO",
-      "marketCapCr": 1106.17,
-      "source": "Official BSE active-equities API",
+      "yahooSymbol": "SUNSHIEL.NS",
+      "source": "Official NSE EQUITY_L",
       "sources": [
+        "Official NSE EQUITY_L",
         "Official BSE active-equities API"
-      ]
+      ],
+      "bseCode": "530845"
     },
     {
       "symbol": "SUNSKY",
@@ -65396,15 +67158,15 @@
       "symbol": "SUPTANERY",
       "company": "Super Tannery Limited",
       "kind": "STOCK",
-      "exchange": "BSE",
+      "exchange": "NSE/BSE",
       "isin": "INE460D01038",
-      "bseCode": "523842",
-      "yahooSymbol": "523842.BO",
-      "marketCapCr": 77.74,
-      "source": "Official BSE active-equities API",
+      "yahooSymbol": "SUPTANERY.NS",
+      "source": "Official NSE EQUITY_L",
       "sources": [
+        "Official NSE EQUITY_L",
         "Official BSE active-equities API"
-      ]
+      ],
+      "bseCode": "523842"
     },
     {
       "symbol": "SURAJ",
@@ -65645,6 +67407,20 @@
       "bseCode": "543279"
     },
     {
+      "symbol": "SURYVANSP",
+      "company": "Suryavanshi Spinning Mills Ltd.",
+      "kind": "STOCK",
+      "exchange": "BSE",
+      "isin": "INE431C01023",
+      "bseCode": "514140",
+      "yahooSymbol": "514140.BO",
+      "marketCapCr": 8.08,
+      "source": "Official BSE active-equities API",
+      "sources": [
+        "Official BSE active-equities API"
+      ]
+    },
+    {
       "symbol": "SUSAN",
       "company": "Susan Electricals India Limited",
       "kind": "STOCK",
@@ -65788,15 +67564,15 @@
       "symbol": "SVGLOBAL",
       "company": "S V Global Mill Limited",
       "kind": "STOCK",
-      "exchange": "BSE",
+      "exchange": "NSE/BSE",
       "isin": "INE159L01013",
-      "bseCode": "535621",
-      "yahooSymbol": "535621.BO",
-      "marketCapCr": 238.51,
-      "source": "Official BSE active-equities API",
+      "yahooSymbol": "SVGLOBAL.NS",
+      "source": "Official NSE EQUITY_L",
       "sources": [
+        "Official NSE EQUITY_L",
         "Official BSE active-equities API"
-      ]
+      ],
+      "bseCode": "535621"
     },
     {
       "symbol": "SVJ",
@@ -65816,15 +67592,15 @@
       "symbol": "SVPGLOB",
       "company": "SVP GLOBAL TEXTILES LIMITED",
       "kind": "STOCK",
-      "exchange": "BSE",
+      "exchange": "NSE/BSE",
       "isin": "INE308E01029",
-      "bseCode": "505590",
-      "yahooSymbol": "505590.BO",
-      "marketCapCr": 48.83,
-      "source": "Official BSE active-equities API",
+      "yahooSymbol": "SVPGLOB.NS",
+      "source": "Official NSE EQUITY_L",
       "sources": [
+        "Official NSE EQUITY_L",
         "Official BSE active-equities API"
-      ]
+      ],
+      "bseCode": "505590"
     },
     {
       "symbol": "SVRL",
@@ -65996,17 +67772,17 @@
     },
     {
       "symbol": "SWARNSAR",
-      "company": "SWARNSARITA JEWELS INDIA LIMITED",
+      "company": "Swarnsarita Jewels India Limited",
       "kind": "STOCK",
-      "exchange": "BSE",
+      "exchange": "NSE/BSE",
       "isin": "INE967A01012",
-      "bseCode": "526365",
-      "yahooSymbol": "526365.BO",
-      "marketCapCr": 69.69,
-      "source": "Official BSE active-equities API",
+      "yahooSymbol": "SWARNSAR.NS",
+      "source": "Official NSE EQUITY_L",
       "sources": [
+        "Official NSE EQUITY_L",
         "Official BSE active-equities API"
-      ]
+      ],
+      "bseCode": "526365"
     },
     {
       "symbol": "SWASTH",
@@ -66108,17 +67884,17 @@
     },
     {
       "symbol": "SWISSMLTRY",
-      "company": "SWISS MILITARY CONSUMER GOODS LIMITED",
+      "company": "Swiss Military Consumer Goods Limited",
       "kind": "STOCK",
-      "exchange": "BSE",
+      "exchange": "NSE/BSE",
       "isin": "INE010C01025",
-      "bseCode": "523558",
-      "yahooSymbol": "523558.BO",
-      "marketCapCr": 338.15,
-      "source": "Official BSE active-equities API",
+      "yahooSymbol": "SWISSMLTRY.NS",
+      "source": "Official NSE EQUITY_L",
       "sources": [
+        "Official NSE EQUITY_L",
         "Official BSE active-equities API"
-      ]
+      ],
+      "bseCode": "523558"
     },
     {
       "symbol": "SWITCHTE",
@@ -66175,6 +67951,20 @@
         "Official BSE active-equities API"
       ],
       "bseCode": "542760"
+    },
+    {
+      "symbol": "SYBLY",
+      "company": "Sybly Industries Ltd.",
+      "kind": "STOCK",
+      "exchange": "BSE",
+      "isin": "INE080D01042",
+      "bseCode": "531499",
+      "yahooSymbol": "531499.BO",
+      "marketCapCr": 1.21,
+      "source": "Official BSE active-equities API",
+      "sources": [
+        "Official BSE active-equities API"
+      ]
     },
     {
       "symbol": "SYLPH",
@@ -66331,6 +68121,20 @@
       "bseCode": "539956"
     },
     {
+      "symbol": "TACENT",
+      "company": "Tacent Projects Limited",
+      "kind": "STOCK",
+      "exchange": "BSE",
+      "isin": "INE149D01011",
+      "bseCode": "531887",
+      "yahooSymbol": "531887.BO",
+      "marketCapCr": 17.26,
+      "source": "Official BSE active-equities API",
+      "sources": [
+        "Official BSE active-equities API"
+      ]
+    },
+    {
       "symbol": "TAHMARENT",
       "company": "TAHMAR ENTERPRISES LIMITED",
       "kind": "STOCK",
@@ -66458,17 +68262,17 @@
     },
     {
       "symbol": "TANAA",
-      "company": "Taneja Aerospace & Aviation Ltd.",
+      "company": "Taneja Aerospace & Aviation Limited",
       "kind": "STOCK",
-      "exchange": "BSE",
+      "exchange": "NSE/BSE",
       "isin": "INE692C01020",
-      "bseCode": "522229",
-      "yahooSymbol": "522229.BO",
-      "marketCapCr": 787.58,
-      "source": "Official BSE active-equities API",
+      "yahooSymbol": "TANAA.NS",
+      "source": "Official NSE EQUITY_L",
       "sources": [
+        "Official NSE EQUITY_L",
         "Official BSE active-equities API"
-      ]
+      ],
+      "bseCode": "522229"
     },
     {
       "symbol": "TANDHANIN",
@@ -67336,17 +69140,17 @@
     },
     {
       "symbol": "TERAI",
-      "company": "Terai Tea Co. Ltd.",
+      "company": "Terai Tea Company Limited",
       "kind": "STOCK",
-      "exchange": "BSE",
+      "exchange": "NSE/BSE",
       "isin": "INE390D01011",
-      "bseCode": "530533",
-      "yahooSymbol": "530533.BO",
-      "marketCapCr": 85.72,
-      "source": "Official BSE active-equities API",
+      "yahooSymbol": "TERAI.NS",
+      "source": "Official NSE EQUITY_L",
       "sources": [
+        "Official NSE EQUITY_L",
         "Official BSE active-equities API"
-      ]
+      ],
+      "bseCode": "530533"
     },
     {
       "symbol": "TERASOFT",
@@ -67532,17 +69336,17 @@
     },
     {
       "symbol": "TGVSL",
-      "company": "TGV SRAAC LIMITED",
+      "company": "TGV Sraac Limited",
       "kind": "STOCK",
-      "exchange": "BSE",
+      "exchange": "NSE/BSE",
       "isin": "INE284B01028",
-      "bseCode": "507753",
-      "yahooSymbol": "507753.BO",
-      "marketCapCr": 1138.36,
-      "source": "Official BSE active-equities API",
+      "yahooSymbol": "TGVSL.NS",
+      "source": "Official NSE EQUITY_L",
       "sources": [
+        "Official NSE EQUITY_L",
         "Official BSE active-equities API"
-      ]
+      ],
+      "bseCode": "507753"
     },
     {
       "symbol": "THACKER",
@@ -67812,15 +69616,15 @@
       "symbol": "TIGERLOGS",
       "company": "Tiger Logistics (India) Limited",
       "kind": "STOCK",
-      "exchange": "BSE",
+      "exchange": "NSE/BSE",
       "isin": "INE906O01029",
-      "bseCode": "536264",
-      "yahooSymbol": "536264.BO",
-      "marketCapCr": 270.66,
-      "source": "Official BSE active-equities API",
+      "yahooSymbol": "TIGERLOGS.NS",
+      "source": "Official NSE EQUITY_L",
       "sources": [
+        "Official NSE EQUITY_L",
         "Official BSE active-equities API"
-      ]
+      ],
+      "bseCode": "536264"
     },
     {
       "symbol": "TIGLOB",
@@ -68257,6 +70061,20 @@
       "bseCode": "500570"
     },
     {
+      "symbol": "TMTIND-B1",
+      "company": "TMT (India) ltd.",
+      "kind": "STOCK",
+      "exchange": "BSE",
+      "isin": "INE182E01010",
+      "bseCode": "522171",
+      "yahooSymbol": "522171.BO",
+      "marketCapCr": 4.19,
+      "source": "Official BSE active-equities API",
+      "sources": [
+        "Official BSE active-equities API"
+      ]
+    },
+    {
       "symbol": "TNPETRO",
       "company": "Tamilnadu PetroProducts Limited",
       "kind": "STOCK",
@@ -68283,6 +70101,20 @@
         "Official BSE active-equities API"
       ],
       "bseCode": "531426"
+    },
+    {
+      "symbol": "TNSTLTU",
+      "company": "Tamilnadu Steel Tubes Ltd.",
+      "kind": "STOCK",
+      "exchange": "BSE",
+      "isin": "INE176E01012",
+      "bseCode": "513540",
+      "yahooSymbol": "513540.BO",
+      "marketCapCr": 13.71,
+      "source": "Official BSE active-equities API",
+      "sources": [
+        "Official BSE active-equities API"
+      ]
     },
     {
       "symbol": "TNTELE",
@@ -68464,17 +70296,17 @@
     },
     {
       "symbol": "TOYAMSL",
-      "company": "TOYAM SPORTS LIMITED",
+      "company": "Toyam Sports Limited",
       "kind": "STOCK",
-      "exchange": "BSE",
+      "exchange": "NSE/BSE",
       "isin": "INE457P01020",
-      "bseCode": "538607",
-      "yahooSymbol": "538607.BO",
-      "marketCapCr": 39.29,
-      "source": "Official BSE active-equities API",
+      "yahooSymbol": "TOYAMSL.NS",
+      "source": "Official NSE EQUITY_L",
       "sources": [
+        "Official NSE EQUITY_L",
         "Official BSE active-equities API"
-      ]
+      ],
+      "bseCode": "538607"
     },
     {
       "symbol": "TPHQ",
@@ -68632,17 +70464,17 @@
     },
     {
       "symbol": "TRANSCOR",
-      "company": "Transcorp International Ltd.",
+      "company": "Transcorp International Limited",
       "kind": "STOCK",
-      "exchange": "BSE",
+      "exchange": "NSE/BSE",
       "isin": "INE330E01023",
-      "bseCode": "532410",
-      "yahooSymbol": "532410.BO",
-      "marketCapCr": 78.08,
-      "source": "Official BSE active-equities API",
+      "yahooSymbol": "TRANSCOR.NS",
+      "source": "Official NSE EQUITY_L",
       "sources": [
+        "Official NSE EQUITY_L",
         "Official BSE active-equities API"
-      ]
+      ],
+      "bseCode": "532410"
     },
     {
       "symbol": "TRANSFD",
@@ -68982,17 +70814,17 @@
     },
     {
       "symbol": "TRITONV",
-      "company": "Triton Valves Ltd.",
+      "company": "Triton Valves Limited",
       "kind": "STOCK",
-      "exchange": "BSE",
+      "exchange": "NSE/BSE",
       "isin": "INE440G01017",
-      "bseCode": "505978",
-      "yahooSymbol": "505978.BO",
-      "marketCapCr": 591.53,
-      "source": "Official BSE active-equities API",
+      "yahooSymbol": "TRITONV.NS",
+      "source": "Official NSE EQUITY_L",
       "sources": [
+        "Official NSE EQUITY_L",
         "Official BSE active-equities API"
-      ]
+      ],
+      "bseCode": "505978"
     },
     {
       "symbol": "TRITURBINE",
@@ -69442,17 +71274,17 @@
     },
     {
       "symbol": "TUTIALKA",
-      "company": "TUTICORIN ALKALI CHEMICALS AND FERTILIZERS LIMITED",
+      "company": "Tuticorin Alkali Chemicals & Fertilizers Limited",
       "kind": "STOCK",
-      "exchange": "BSE",
+      "exchange": "NSE/BSE",
       "isin": "INE400A01014",
-      "bseCode": "506808",
-      "yahooSymbol": "506808.BO",
-      "marketCapCr": 692.76,
-      "source": "Official BSE active-equities API",
+      "yahooSymbol": "TUTIALKA.NS",
+      "source": "Official NSE EQUITY_L",
       "sources": [
+        "Official NSE EQUITY_L",
         "Official BSE active-equities API"
-      ]
+      ],
+      "bseCode": "506808"
     },
     {
       "symbol": "TVOLCON",
@@ -69680,17 +71512,17 @@
     },
     {
       "symbol": "UDAYJEW",
-      "company": "Uday Jewellery Industries Limited.",
+      "company": "Uday Jewellery Industries Limited",
       "kind": "STOCK",
-      "exchange": "BSE",
+      "exchange": "NSE/BSE",
       "isin": "INE551B01012",
-      "bseCode": "539518",
-      "yahooSymbol": "539518.BO",
-      "marketCapCr": 473.8,
-      "source": "Official BSE active-equities API",
+      "yahooSymbol": "UDAYJEW.NS",
+      "source": "Official NSE EQUITY_L",
       "sources": [
+        "Official NSE EQUITY_L",
         "Official BSE active-equities API"
-      ]
+      ],
+      "bseCode": "539518"
     },
     {
       "symbol": "UDS",
@@ -70293,6 +72125,20 @@
       ]
     },
     {
+      "symbol": "UNITEDTE",
+      "company": "United Textiles Ltd.",
+      "kind": "STOCK",
+      "exchange": "BSE",
+      "isin": "INE727E01012",
+      "bseCode": "521188",
+      "yahooSymbol": "521188.BO",
+      "marketCapCr": 5.36,
+      "source": "Official BSE active-equities API",
+      "sources": [
+        "Official BSE active-equities API"
+      ]
+    },
+    {
       "symbol": "UNITEDTEA",
       "company": "The United Nilgiri Tea Estates Company Limited",
       "kind": "STOCK",
@@ -70313,6 +72159,20 @@
       "bseCode": "531867",
       "yahooSymbol": "531867.BO",
       "marketCapCr": 3.33,
+      "source": "Official BSE active-equities API",
+      "sources": [
+        "Official BSE active-equities API"
+      ]
+    },
+    {
+      "symbol": "UNIVAFOODS",
+      "company": "Univa Foods Limited",
+      "kind": "STOCK",
+      "exchange": "BSE",
+      "isin": "INE275F01019",
+      "bseCode": "526683",
+      "yahooSymbol": "526683.BO",
+      "marketCapCr": 12.42,
       "source": "Official BSE active-equities API",
       "sources": [
         "Official BSE active-equities API"
@@ -70417,6 +72277,20 @@
       "bseCode": "532539"
     },
     {
+      "symbol": "UNQTYMI",
+      "company": "Union Quality Plastics Ltd.",
+      "kind": "STOCK",
+      "exchange": "BSE",
+      "isin": "INE338N01019",
+      "bseCode": "526799",
+      "yahooSymbol": "526799.BO",
+      "marketCapCr": 7.38,
+      "source": "Official BSE active-equities API",
+      "sources": [
+        "Official BSE active-equities API"
+      ]
+    },
+    {
       "symbol": "UNRYLMA",
       "company": "Uniroyal Marine Exports Ltd.",
       "kind": "STOCK",
@@ -70446,17 +72320,17 @@
     },
     {
       "symbol": "UPHOT",
-      "company": "U.P. Hotels Ltd.",
+      "company": "U P Hotels Limited",
       "kind": "STOCK",
-      "exchange": "BSE",
+      "exchange": "NSE/BSE",
       "isin": "INE726E01014",
-      "bseCode": "509960",
-      "yahooSymbol": "509960.BO",
-      "marketCapCr": 756,
-      "source": "Official BSE active-equities API",
+      "yahooSymbol": "UPHOT.NS",
+      "source": "Official NSE EQUITY_L",
       "sources": [
+        "Official NSE EQUITY_L",
         "Official BSE active-equities API"
-      ]
+      ],
+      "bseCode": "509960"
     },
     {
       "symbol": "UPL",
@@ -70471,6 +72345,20 @@
         "Official BSE active-equities API"
       ],
       "bseCode": "512070"
+    },
+    {
+      "symbol": "UPROTECH",
+      "company": "Unipro Technologies Limited",
+      "kind": "STOCK",
+      "exchange": "BSE",
+      "isin": "INE448F01012",
+      "bseCode": "540189",
+      "yahooSymbol": "540189.BO",
+      "marketCapCr": 8.48,
+      "source": "Official BSE active-equities API",
+      "sources": [
+        "Official BSE active-equities API"
+      ]
     },
     {
       "symbol": "UPSURGE",
@@ -70768,17 +72656,17 @@
     },
     {
       "symbol": "VADILENT",
-      "company": "Vadilal Enterprises Ltd.",
+      "company": "Vadilal Enterprises Limited",
       "kind": "STOCK",
-      "exchange": "BSE",
+      "exchange": "NSE/BSE",
       "isin": "INE693D01018",
-      "bseCode": "519152",
-      "yahooSymbol": "519152.BO",
-      "marketCapCr": 893.9,
-      "source": "Official BSE active-equities API",
+      "yahooSymbol": "VADILENT.NS",
+      "source": "Official NSE EQUITY_L",
       "sources": [
+        "Official NSE EQUITY_L",
         "Official BSE active-equities API"
-      ]
+      ],
+      "bseCode": "519152"
     },
     {
       "symbol": "VAHH",
@@ -71143,6 +73031,20 @@
       ]
     },
     {
+      "symbol": "VARDHMAN",
+      "company": "Vardhman Concrete Limited",
+      "kind": "STOCK",
+      "exchange": "BSE",
+      "isin": "INE115C01014",
+      "bseCode": "531444",
+      "yahooSymbol": "531444.BO",
+      "marketCapCr": 3.81,
+      "source": "Official BSE active-equities API",
+      "sources": [
+        "Official BSE active-equities API"
+      ]
+    },
+    {
       "symbol": "VARDMNPOLY",
       "company": "Vardhman Polytex Limited",
       "kind": "STOCK",
@@ -71256,17 +73158,17 @@
     },
     {
       "symbol": "VASUPRADA",
-      "company": "SHRI VASUPRADA PLANTATIONS LIMITED",
+      "company": "Shri Vasuprada Plantations Limited",
       "kind": "STOCK",
-      "exchange": "BSE",
+      "exchange": "NSE/BSE",
       "isin": "INE574G01013",
-      "bseCode": "538092",
-      "yahooSymbol": "538092.BO",
-      "marketCapCr": 83.69,
-      "source": "Official BSE active-equities API",
+      "yahooSymbol": "VASUPRADA.NS",
+      "source": "Official NSE EQUITY_L",
       "sources": [
+        "Official NSE EQUITY_L",
         "Official BSE active-equities API"
-      ]
+      ],
+      "bseCode": "538092"
     },
     {
       "symbol": "VASWANI",
@@ -71368,15 +73270,15 @@
       "symbol": "VEDAVAAG",
       "company": "VEDAVAAG Systems Limited",
       "kind": "STOCK",
-      "exchange": "BSE",
+      "exchange": "NSE/BSE",
       "isin": "INE359B01010",
-      "bseCode": "533056",
-      "yahooSymbol": "533056.BO",
-      "marketCapCr": 45.29,
-      "source": "Official BSE active-equities API",
+      "yahooSymbol": "VEDAVAAG.NS",
+      "source": "Official NSE EQUITY_L",
       "sources": [
+        "Official NSE EQUITY_L",
         "Official BSE active-equities API"
-      ]
+      ],
+      "bseCode": "533056"
     },
     {
       "symbol": "VEDL",
@@ -71746,15 +73648,15 @@
       "symbol": "VGCL",
       "company": "Vibrant Global Capital Limited",
       "kind": "STOCK",
-      "exchange": "BSE",
+      "exchange": "NSE/BSE",
       "isin": "INE761Q01015",
-      "bseCode": "538732",
-      "yahooSymbol": "538732.BO",
-      "marketCapCr": 137.38,
-      "source": "Official BSE active-equities API",
+      "yahooSymbol": "VGCL.NS",
+      "source": "Official NSE EQUITY_L",
       "sources": [
+        "Official NSE EQUITY_L",
         "Official BSE active-equities API"
-      ]
+      ],
+      "bseCode": "538732"
     },
     {
       "symbol": "VGIL",
@@ -71883,6 +73785,20 @@
       "bseCode": "543350"
     },
     {
+      "symbol": "VIJAYTX",
+      "company": "Vijay Textiles Ltd.",
+      "kind": "STOCK",
+      "exchange": "BSE",
+      "isin": "INE256G01033",
+      "bseCode": "530151",
+      "yahooSymbol": "530151.BO",
+      "marketCapCr": 7.23,
+      "source": "Official BSE active-equities API",
+      "sources": [
+        "Official BSE active-equities API"
+      ]
+    },
+    {
       "symbol": "VIJIFIN",
       "company": "VIJI FINANCE LIMITED",
       "kind": "STOCK",
@@ -71898,17 +73814,17 @@
     },
     {
       "symbol": "VIJSOLX",
-      "company": "Vijay Solvex Ltd.",
+      "company": "Vijay Solvex Limited",
       "kind": "STOCK",
-      "exchange": "BSE",
+      "exchange": "NSE/BSE",
       "isin": "INE362D01010",
-      "bseCode": "531069",
-      "yahooSymbol": "531069.BO",
-      "marketCapCr": 228.39,
-      "source": "Official BSE active-equities API",
+      "yahooSymbol": "VIJSOLX.NS",
+      "source": "Official NSE EQUITY_L",
       "sources": [
+        "Official NSE EQUITY_L",
         "Official BSE active-equities API"
-      ]
+      ],
+      "bseCode": "531069"
     },
     {
       "symbol": "VIKALPS",
@@ -72222,15 +74138,15 @@
       "symbol": "VIPCLOTHNG",
       "company": "VIP Clothing Limited",
       "kind": "STOCK",
-      "exchange": "BSE",
+      "exchange": "NSE/BSE",
       "isin": "INE450G01024",
-      "bseCode": "532613",
-      "yahooSymbol": "532613.BO",
-      "marketCapCr": 185.04,
-      "source": "Official BSE active-equities API",
+      "yahooSymbol": "VIPCLOTHNG.NS",
+      "source": "Official NSE EQUITY_L",
       "sources": [
+        "Official NSE EQUITY_L",
         "Official BSE active-equities API"
-      ]
+      ],
+      "bseCode": "532613"
     },
     {
       "symbol": "VIPIND",
@@ -72290,17 +74206,17 @@
     },
     {
       "symbol": "VIRAT",
-      "company": "Virat Industries Ltd.",
+      "company": "Virat Industries Limited",
       "kind": "STOCK",
-      "exchange": "BSE",
+      "exchange": "NSE/BSE",
       "isin": "INE467D01017",
-      "bseCode": "530521",
-      "yahooSymbol": "530521.BO",
-      "marketCapCr": 479.78,
-      "source": "Official BSE active-equities API",
+      "yahooSymbol": "VIRAT.NS",
+      "source": "Official NSE EQUITY_L",
       "sources": [
+        "Official NSE EQUITY_L",
         "Official BSE active-equities API"
-      ]
+      ],
+      "bseCode": "530521"
     },
     {
       "symbol": "VIRATCRA",
@@ -72346,17 +74262,17 @@
     },
     {
       "symbol": "VIRTUALG",
-      "company": "VIRTUAL GLOBAL EDUCATION LTD.",
+      "company": "Virtual Global Education Limited",
       "kind": "STOCK",
-      "exchange": "BSE",
+      "exchange": "NSE/BSE",
       "isin": "INE247C01023",
-      "bseCode": "534741",
-      "yahooSymbol": "534741.BO",
-      "marketCapCr": 23.78,
-      "source": "Official BSE active-equities API",
+      "yahooSymbol": "VIRTUALG.NS",
+      "source": "Official NSE EQUITY_L",
       "sources": [
+        "Official NSE EQUITY_L",
         "Official BSE active-equities API"
-      ]
+      ],
+      "bseCode": "534741"
     },
     {
       "symbol": "VIRYA",
@@ -72376,15 +74292,15 @@
       "symbol": "VISACHROME",
       "company": "VISA Chrome Limited",
       "kind": "STOCK",
-      "exchange": "BSE",
+      "exchange": "NSE/BSE",
       "isin": "INE286H01012",
-      "bseCode": "532721",
-      "yahooSymbol": "532721.BO",
-      "marketCapCr": 539.42,
-      "source": "Official BSE active-equities API",
+      "yahooSymbol": "VISACHROME.NS",
+      "source": "Official NSE EQUITY_L",
       "sources": [
+        "Official NSE EQUITY_L",
         "Official BSE active-equities API"
-      ]
+      ],
+      "bseCode": "532721"
     },
     {
       "symbol": "VISAGAR",
@@ -72418,15 +74334,15 @@
       "symbol": "VISHAL",
       "company": "Vishal Fabrics Limited",
       "kind": "STOCK",
-      "exchange": "BSE",
+      "exchange": "NSE/BSE",
       "isin": "INE755Q01025",
-      "bseCode": "538598",
-      "yahooSymbol": "538598.BO",
-      "marketCapCr": 449.91,
-      "source": "Official BSE active-equities API",
+      "yahooSymbol": "VISHAL.NS",
+      "source": "Official NSE EQUITY_L",
       "sources": [
+        "Official NSE EQUITY_L",
         "Official BSE active-equities API"
-      ]
+      ],
+      "bseCode": "538598"
     },
     {
       "symbol": "VISHALBL",
@@ -72654,17 +74570,17 @@
     },
     {
       "symbol": "VIVOBIOT",
-      "company": "Vivo Bio tech Ltd.",
+      "company": "Vivo Bio Tech Limited",
       "kind": "STOCK",
-      "exchange": "BSE",
+      "exchange": "NSE/BSE",
       "isin": "INE380K01017",
-      "bseCode": "511509",
-      "yahooSymbol": "511509.BO",
-      "marketCapCr": 44.6,
-      "source": "Official BSE active-equities API",
+      "yahooSymbol": "VIVOBIOT.NS",
+      "source": "Official NSE EQUITY_L",
       "sources": [
+        "Official NSE EQUITY_L",
         "Official BSE active-equities API"
-      ]
+      ],
+      "bseCode": "511509"
     },
     {
       "symbol": "VIYASH",
@@ -72717,6 +74633,20 @@
       "bseCode": "539761",
       "yahooSymbol": "539761.BO",
       "marketCapCr": 32.44,
+      "source": "Official BSE active-equities API",
+      "sources": [
+        "Official BSE active-equities API"
+      ]
+    },
+    {
+      "symbol": "VKGLOBAL",
+      "company": "VK Global Industries Limited",
+      "kind": "STOCK",
+      "exchange": "BSE",
+      "isin": "INE758B01013",
+      "bseCode": "530177",
+      "yahooSymbol": "530177.BO",
+      "marketCapCr": 8.9,
       "source": "Official BSE active-equities API",
       "sources": [
         "Official BSE active-equities API"
@@ -72850,17 +74780,17 @@
     },
     {
       "symbol": "VOITHPAPR",
-      "company": "Voith Paper Fabrics India Ltd",
+      "company": "Voith Paper Fabrics India Limited",
       "kind": "STOCK",
-      "exchange": "BSE",
+      "exchange": "NSE/BSE",
       "isin": "INE285C01015",
-      "bseCode": "522122",
-      "yahooSymbol": "522122.BO",
-      "marketCapCr": 639.47,
-      "source": "Official BSE active-equities API",
+      "yahooSymbol": "VOITHPAPR.NS",
+      "source": "Official NSE EQUITY_L",
       "sources": [
+        "Official NSE EQUITY_L",
         "Official BSE active-equities API"
-      ]
+      ],
+      "bseCode": "522122"
     },
     {
       "symbol": "VOLKAI",
@@ -73144,17 +75074,17 @@
     },
     {
       "symbol": "VTMLTD",
-      "company": "VTM Ltd",
+      "company": "VTM Limited",
       "kind": "STOCK",
-      "exchange": "BSE",
+      "exchange": "NSE/BSE",
       "isin": "INE222F01029",
-      "bseCode": "532893",
-      "yahooSymbol": "532893.BO",
-      "marketCapCr": 470.46,
-      "source": "Official BSE active-equities API",
+      "yahooSymbol": "VTMLTD.NS",
+      "source": "Official NSE EQUITY_L",
       "sources": [
+        "Official NSE EQUITY_L",
         "Official BSE active-equities API"
-      ]
+      ],
+      "bseCode": "532893"
     },
     {
       "symbol": "VVIPIL",
@@ -73368,17 +75298,17 @@
     },
     {
       "symbol": "WARDINMOBI",
-      "company": "WARDWIZARD INNOVATIONS AND MOBILITY LIMITED",
+      "company": "Wardwizard Innovations & Mobility Limited",
       "kind": "STOCK",
-      "exchange": "BSE",
+      "exchange": "NSE/BSE",
       "isin": "INE945P01024",
-      "bseCode": "538970",
-      "yahooSymbol": "538970.BO",
-      "marketCapCr": 196.73,
-      "source": "Official BSE active-equities API",
+      "yahooSymbol": "WARDINMOBI.NS",
+      "source": "Official NSE EQUITY_L",
       "sources": [
+        "Official NSE EQUITY_L",
         "Official BSE active-equities API"
-      ]
+      ],
+      "bseCode": "538970"
     },
     {
       "symbol": "WARDWIZFBL",
@@ -73412,15 +75342,15 @@
       "symbol": "WATERBASE",
       "company": "Waterbase Limited",
       "kind": "STOCK",
-      "exchange": "BSE",
+      "exchange": "NSE/BSE",
       "isin": "INE054C01015",
-      "bseCode": "523660",
-      "yahooSymbol": "523660.BO",
-      "marketCapCr": 194.62,
-      "source": "Official BSE active-equities API",
+      "yahooSymbol": "WATERBASE.NS",
+      "source": "Official NSE EQUITY_L",
       "sources": [
+        "Official NSE EQUITY_L",
         "Official BSE active-equities API"
-      ]
+      ],
+      "bseCode": "523660"
     },
     {
       "symbol": "WCIL",
@@ -73591,6 +75521,20 @@
       "bseCode": "514162"
     },
     {
+      "symbol": "WELTI",
+      "company": "Welterman International Ltd.",
+      "kind": "STOCK",
+      "exchange": "BSE",
+      "isin": "INE662D01013",
+      "bseCode": "526431",
+      "yahooSymbol": "526431.BO",
+      "marketCapCr": 10.92,
+      "source": "Official BSE active-equities API",
+      "sources": [
+        "Official BSE active-equities API"
+      ]
+    },
+    {
       "symbol": "WENDT",
       "company": "Wendt (India) Limited",
       "kind": "STOCK",
@@ -73648,17 +75592,17 @@
     },
     {
       "symbol": "WEWIN",
-      "company": "We Win Limited",
+      "company": "WE WIN LIMITED",
       "kind": "STOCK",
-      "exchange": "BSE",
+      "exchange": "NSE/BSE",
       "isin": "INE082W01014",
-      "bseCode": "543535",
-      "yahooSymbol": "543535.BO",
-      "marketCapCr": 46.94,
-      "source": "Official BSE active-equities API",
+      "yahooSymbol": "WEWIN.NS",
+      "source": "Official NSE EQUITY_L",
       "sources": [
+        "Official NSE EQUITY_L",
         "Official BSE active-equities API"
-      ]
+      ],
+      "bseCode": "543535"
     },
     {
       "symbol": "WEWORK",
@@ -73676,17 +75620,17 @@
     },
     {
       "symbol": "WHBRADY",
-      "company": "W.H. Brady & Co. Ltd.",
+      "company": "WH Brady & Company Limited",
       "kind": "STOCK",
-      "exchange": "BSE",
+      "exchange": "NSE/BSE",
       "isin": "INE855A01019",
-      "bseCode": "501391",
-      "yahooSymbol": "501391.BO",
-      "marketCapCr": 129.27,
-      "source": "Official BSE active-equities API",
+      "yahooSymbol": "WHBRADY.NS",
+      "source": "Official NSE EQUITY_L",
       "sources": [
+        "Official NSE EQUITY_L",
         "Official BSE active-equities API"
-      ]
+      ],
+      "bseCode": "501391"
     },
     {
       "symbol": "WHEELS",
@@ -73951,6 +75895,20 @@
         "Official BSE active-equities API"
       ],
       "bseCode": "538268"
+    },
+    {
+      "symbol": "WOODSVILA",
+      "company": "Woodsvilla Limited",
+      "kind": "STOCK",
+      "exchange": "BSE",
+      "isin": "INE374J01020",
+      "bseCode": "526959",
+      "yahooSymbol": "526959.BO",
+      "marketCapCr": 9.21,
+      "source": "Official BSE active-equities API",
+      "sources": [
+        "Official BSE active-equities API"
+      ]
     },
     {
       "symbol": "WORKMATES",
@@ -74360,17 +76318,17 @@
     },
     {
       "symbol": "YOGI",
-      "company": "YOGI LIMITED",
+      "company": "Yogi Limited",
       "kind": "STOCK",
-      "exchange": "BSE",
+      "exchange": "NSE/BSE",
       "isin": "INE290E01011",
-      "bseCode": "511702",
-      "yahooSymbol": "511702.BO",
-      "marketCapCr": 724.05,
-      "source": "Official BSE active-equities API",
+      "yahooSymbol": "YOGI.NS",
+      "source": "Official NSE EQUITY_L",
       "sources": [
+        "Official NSE EQUITY_L",
         "Official BSE active-equities API"
-      ]
+      ],
+      "bseCode": "511702"
     },
     {
       "symbol": "YOGISUNG",
@@ -74836,17 +76794,17 @@
     },
     {
       "symbol": "ZIMLAB",
-      "company": "ZIM Laboratories Limited",
+      "company": "Zim Laboratories Limited",
       "kind": "STOCK",
-      "exchange": "BSE",
+      "exchange": "NSE/BSE",
       "isin": "INE518E01015",
-      "bseCode": "541400",
-      "yahooSymbol": "541400.BO",
-      "marketCapCr": 588.1,
-      "source": "Official BSE active-equities API",
+      "yahooSymbol": "ZIMLAB.NS",
+      "source": "Official NSE EQUITY_L",
       "sources": [
+        "Official NSE EQUITY_L",
         "Official BSE active-equities API"
-      ]
+      ],
+      "bseCode": "541400"
     },
     {
       "symbol": "ZINEMA",

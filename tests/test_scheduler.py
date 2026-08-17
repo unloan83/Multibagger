@@ -14,6 +14,7 @@ def test_upstox_scan_is_15_minutes_and_options_stagger_slot_is_not_used():
     assert scheduled_upstox_job(datetime(2026, 8, 17, 9, 20, tzinfo=IST)) == "FULL_SCAN"
     assert scheduled_upstox_job(datetime(2026, 8, 17, 9, 35, tzinfo=IST)) == "FULL_SCAN"
     assert scheduled_upstox_job(datetime(2026, 8, 17, 9, 25, tzinfo=IST)) is None
+    assert scheduled_upstox_job(datetime(2026, 8, 17, 9, 40, tzinfo=IST)) is None
     assert scheduled_upstox_job(datetime(2026, 8, 17, 9, 22, tzinfo=IST)) == "RISK_MONITOR"
 
 
@@ -28,7 +29,9 @@ def test_shared_job_lock_is_nonblocking(tmp_path):
 def test_options_full_scan_is_staggered_five_minutes_after_upstox():
     assert scheduled_options_job(datetime(2026, 8, 17, 9, 25, tzinfo=IST)) == "FULL_SCAN"
     assert scheduled_options_job(datetime(2026, 8, 17, 9, 40, tzinfo=IST)) == "FULL_SCAN"
-    assert scheduled_options_job(datetime(2026, 8, 17, 9, 20, tzinfo=IST)) == "RISK_MONITOR"
+    assert scheduled_options_job(datetime(2026, 8, 17, 9, 20, tzinfo=IST)) is None
+    assert scheduled_options_job(datetime(2026, 8, 17, 9, 35, tzinfo=IST)) is None
+    assert scheduled_options_job(datetime(2026, 8, 17, 9, 26, tzinfo=IST)) == "RISK_MONITOR"
 
 
 def test_telegram_notification_is_cooled_down(tmp_path, monkeypatch):

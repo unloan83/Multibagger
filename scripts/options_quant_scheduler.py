@@ -140,7 +140,11 @@ def scheduled_options_job(now: datetime, arguments: list[str] | None = None) -> 
     minute = now.hour * 60 + now.minute
     if now.weekday() >= 5 or minute < 9 * 60 + 15 or minute > 15 * 60 + 25:
         return None
-    return "FULL_SCAN" if 9 * 60 + 25 <= minute <= 14 * 60 + 40 and minute % 15 == 10 else "RISK_MONITOR"
+    if 9 * 60 + 25 <= minute <= 14 * 60 + 40 and minute % 15 == 10:
+        return "FULL_SCAN"
+    if 9 * 60 + 20 <= minute <= 14 * 60 + 35 and minute % 15 == 5:
+        return None
+    return "RISK_MONITOR"
 
 
 def _ist_date(value: object):

@@ -2,10 +2,14 @@ from __future__ import annotations
 
 from contextlib import contextmanager
 from pathlib import Path
+import threading
 from typing import Iterator
 
 import duckdb
 import pandas as pd
+
+
+_DATABASE_LOCK = threading.RLock()
 
 
 SCHEMA = """
@@ -87,11 +91,12 @@ class MarketStore:
 
     @contextmanager
     def connect(self) -> Iterator[duckdb.DuckDBPyConnection]:
-        con = duckdb.connect(str(self.path))
-        try:
-            yield con
-        finally:
-            con.close()
+        with _DATABASE_LOCK:
+            con = duckdb.connect(str(self.path))
+            try:
+                yield con
+            finally:
+                con.close()
 
     def upsert_bar(self, row: dict) -> None:
         with self.connect() as con:

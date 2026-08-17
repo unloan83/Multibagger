@@ -10,16 +10,24 @@ export type OptionsQuantConfig = {
   minimumVolumePerLeg: number;
   maximumBidAskSpreadPercent: number;
   minimumRiskReward: number;
+  profitTargetRupees: number;
+  dailyProfitTargetRupees: number;
   slippageBpsPerLeg: number;
   maximumDrawdownPercent: number;
   minimumShadowTrades: number;
   minimumRealTrades: number;
   submitSandboxOrders: boolean;
+  enabled: boolean;
 };
 
 function numberFromEnv(name: string, fallback: number): number {
   const value = Number(process.env[name]);
   return Number.isFinite(value) && value >= 0 ? value : fallback;
+}
+
+function positiveNumberFromEnv(name: string, fallback: number): number {
+  const value = Number(process.env[name]);
+  return Number.isFinite(value) && value > 0 ? value : fallback;
 }
 
 export function getOptionsQuantConfig(): OptionsQuantConfig {
@@ -35,10 +43,13 @@ export function getOptionsQuantConfig(): OptionsQuantConfig {
     minimumVolumePerLeg: numberFromEnv("OPTIONS_QUANT_MIN_VOLUME", 1_000),
     maximumBidAskSpreadPercent: numberFromEnv("OPTIONS_QUANT_MAX_BID_ASK_PERCENT", 8),
     minimumRiskReward: numberFromEnv("OPTIONS_QUANT_MIN_RISK_REWARD", 1.2),
+    profitTargetRupees: positiveNumberFromEnv("OPTIONS_QUANT_PROFIT_TARGET_RUPEES", 3_000),
+    dailyProfitTargetRupees: positiveNumberFromEnv("OPTIONS_QUANT_DAILY_PROFIT_TARGET_RUPEES", 3_000),
     slippageBpsPerLeg: numberFromEnv("OPTIONS_QUANT_SLIPPAGE_BPS_PER_LEG", 10),
     maximumDrawdownPercent: numberFromEnv("OPTIONS_QUANT_MAX_DRAWDOWN_PERCENT", 8),
     minimumShadowTrades: numberFromEnv("OPTIONS_QUANT_MIN_SHADOW_TRADES", 30),
     minimumRealTrades: numberFromEnv("OPTIONS_QUANT_MIN_REAL_TRADES", 50),
     submitSandboxOrders: process.env.OPTIONS_QUANT_SUBMIT_SANDBOX_ORDERS === "true",
+    enabled: process.env.OPTIONS_QUANT_ENABLED === "true",
   };
 }

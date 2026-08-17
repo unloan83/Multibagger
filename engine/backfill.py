@@ -8,7 +8,7 @@ import pandas as pd
 import upstox_client
 from upstox_client.rest import ApiException
 
-from .collector import resolve_upstox_instruments
+from features.upstox.python.upstox_collector import resolve_upstox_instruments
 from .config import Settings
 from .store import MarketStore
 

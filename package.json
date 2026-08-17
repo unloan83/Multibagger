@@ -17,13 +17,13 @@
     "engine:scan": "PYTHONPATH=.python-packages python3 -m scripts.market_engine scan",
     "engine:collect": "PYTHONPATH=.python-packages python3 -m scripts.market_engine collect",
     "engine:worker": "PYTHONPATH=.python-packages python3 -m scripts.market_engine worker",
-    "engine:breeze-warmup": "PYTHONPATH=.python-packages python3 -m scripts.market_engine breeze-warmup --days 8",
     "engine:backfill": "PYTHONPATH=.python-packages python3 -m scripts.market_engine backfill --start 2022-01-01",
     "engine:backtest": "PYTHONPATH=.python-packages python3 -m scripts.market_engine backtest",
     "engine:test": "PYTHONPATH=.:.python-packages python3 -m pytest tests features/breeze/python features/upstox/python",
     "test:breeze-multibagger": "node --import tsx --test features/breeze/lib/breeze-multibagger.test.ts",
-    "test:options-quant": "node --import tsx --test features/options-quant/lib/engine.test.ts",
-    "options:scan": "node --import tsx scripts/run_options_quant_scan.ts"
+    "test:options-quant": "node --import tsx --test features/options-quant/lib/*.test.ts",
+    "options:scan": "node --import tsx scripts/run_options_quant_scan.ts",
+    "options:verify-sandbox": "node --import tsx scripts/verify_options_sandbox.ts"
   },
   "dependencies": {
     "@radix-ui/react-slot": "^1.1.0",

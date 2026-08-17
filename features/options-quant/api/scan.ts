@@ -1,10 +1,10 @@
 import { NextResponse } from "next/server";
 import { timingSafeEqual } from "node:crypto";
-import { runOptionsQuantScan } from "@/features/options-quant/lib/engine";
+import { runOptionsQuantCycle } from "@/features/options-quant/lib/engine";
 
 export async function scanOptionsQuant(request: Request) {
   if (!isAuthorized(request)) return NextResponse.json({ ok: false, error: "Unauthorized." }, { status: 401 });
-  const state = await runOptionsQuantScan();
+  const state = await runOptionsQuantCycle();
   return NextResponse.json({ ok: true, state }, { headers: { "Cache-Control": "no-store, max-age=0" } });
 }
 

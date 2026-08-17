@@ -1,4 +1,5 @@
 import { readSnapshotFile, writeSnapshotFile } from "@/lib/snapshot-storage";
+import { getOptionsQuantConfig } from "@/features/options-quant/lib/config";
 import type { OptionsQuantState, PerformanceMetrics, StrategyEvaluation } from "@/features/options-quant/lib/types";
 
 const STATE_FILE = "options-quant/state.json";
@@ -36,6 +37,7 @@ function initialEvaluation(): StrategyEvaluation {
 }
 
 export function createEmptyState(): OptionsQuantState {
+  const config = getOptionsQuantConfig();
   return {
     schemaVersion: 1,
     asOf: new Date().toISOString(),
@@ -51,8 +53,11 @@ export function createEmptyState(): OptionsQuantState {
     configuration: {
       marketDataConfigured: Boolean(process.env.UPSTOX_ACCESS_TOKEN),
       sandboxConfigured: Boolean(process.env.UPSTOX_SANDBOX_ACCESS_TOKEN),
-      portfolioCapitalConfigured: Number(process.env.OPTIONS_QUANT_PORTFOLIO_CAPITAL) > 0,
-      sandboxOrderSubmissionEnabled: process.env.OPTIONS_QUANT_SUBMIT_SANDBOX_ORDERS === "true",
+      portfolioCapitalConfigured: config.portfolioCapital > 0,
+      sandboxOrderSubmissionEnabled: config.submitSandboxOrders,
+      automaticCyclesEnabled: config.enabled,
+      profitTargetRupees: config.profitTargetRupees,
+      dailyProfitTargetRupees: config.dailyProfitTargetRupees,
     },
   };
 }
@@ -62,7 +67,15 @@ export async function readOptionsQuantState(): Promise<OptionsQuantState> {
   if (!content) return createEmptyState();
   try {
     const state = JSON.parse(content) as OptionsQuantState;
-    return state.schemaVersion === 1 ? state : createEmptyState();
+    if (state.schemaVersion !== 1) return createEmptyState();
+    const config = getOptionsQuantConfig();
+    state.configuration = {
+      ...state.configuration,
+      automaticCyclesEnabled: config.enabled,
+      profitTargetRupees: config.profitTargetRupees,
+      dailyProfitTargetRupees: config.dailyProfitTargetRupees,
+    };
+    return state;
   } catch {
     return createEmptyState();
   }

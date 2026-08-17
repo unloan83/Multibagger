@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import type { PaperTrade, PaperTradingState } from "@/lib/intraday-engine";
 
 type PaperSignal = {
   symbol: string;
@@ -26,6 +27,7 @@ type BrokerFeedSnapshot = {
     reason?: string | null;
     picks?: PaperSignal[];
   };
+  paperTrading?: PaperTradingState | null;
 };
 
 const formatMoney = (value: number) =>
@@ -66,6 +68,7 @@ export default function UpstoxRecommendationsTab() {
   }, [refresh]);
 
   const picks = snapshot?.intradayPipeline?.picks ?? [];
+  const paper = snapshot?.paperTrading ?? null;
   const hasLiveSignals =
     snapshot?.status === "SIGNALS" &&
     snapshot.intradayPipeline?.isLive === true &&
@@ -79,13 +82,17 @@ export default function UpstoxRecommendationsTab() {
           <p className="text-[10px] font-bold tracking-wide text-cyan-300">REAL BROKER FEED · SHADOW VALIDATION</p>
           <h2 id="upstox-title" className="mt-1 text-lg font-bold text-white">Upstox Intraday</h2>
           <p className="mt-1 max-w-3xl text-xs leading-relaxed text-slate-400">
-            Read-only paper signals derived from the live broker feed. Synthetic picks,
-            automatic orders, recovery trades and daily-profit targets are disabled.
+            Live broker-feed signals with automatic simulated entries and exits. Real-money orders,
+            synthetic picks, forced quota trades and recovery trades remain disabled.
           </p>
         </div>
-        <span className="rounded-full border border-cyan-500/25 bg-cyan-500/10 px-3 py-1 text-[10px] font-bold text-cyan-200">PAPER SIGNALS ONLY</span>
+        <span className="rounded-full border border-emerald-500/25 bg-emerald-500/10 px-3 py-1 text-[10px] font-bold text-emerald-200">AUTOMATIC PAPER EXECUTION</span>
         </div>
       </div>
+
+      {paper ? <PaperExecutionPanel paper={paper} /> : (
+        <div className="rounded-xl border border-amber-500/25 bg-amber-500/5 p-4 text-xs text-amber-200">Automatic paper execution has not published its first lifecycle snapshot yet.</div>
+      )}
 
       <div className="grid gap-2 sm:grid-cols-3">
         <article className="rounded-lg border border-slate-800 bg-[#07111f] p-3">
@@ -152,4 +159,39 @@ export default function UpstoxRecommendationsTab() {
       </p>
     </section>
   );
+}
+
+function PaperExecutionPanel({ paper }: { paper: PaperTradingState }) {
+  return (
+    <section className="space-y-3 rounded-xl border border-emerald-500/20 bg-[#0b1626] p-4" aria-label="Automatic paper trading">
+      <div className="flex flex-wrap items-start justify-between gap-2">
+        <div><h3 className="text-sm font-bold text-white">Automatic paper trading</h3><p className="mt-1 text-[11px] text-slate-400">Entries and exits use executable bid/ask quotes with modeled costs and slippage.</p></div>
+        <span className={`rounded-full border px-2.5 py-1 text-[10px] font-bold ${paper.newEntriesEnabled ? "border-emerald-500/30 text-emerald-300" : "border-amber-500/30 text-amber-300"}`}>{paper.newEntriesEnabled ? "ENTRIES ENABLED" : "ENTRIES LOCKED"}</span>
+      </div>
+      <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-6">
+        <PaperMetric label="Daily target" value={formatMoney(paper.dailyProfitTarget)} />
+        <PaperMetric label="Daily net P&L" value={formatMoney(paper.dailyMetrics.netPnl)} />
+        <PaperMetric label="Closed trades" value={String(paper.dailyMetrics.closedTrades)} />
+        <PaperMetric label="Win rate" value={`${paper.dailyMetrics.winRate}%`} />
+        <PaperMetric label="Profit factor" value={paper.dailyMetrics.profitFactor === null ? "N/A" : String(paper.dailyMetrics.profitFactor)} />
+        <PaperMetric label="Max drawdown" value={formatMoney(paper.overallMetrics.maximumDrawdown)} />
+        <PaperMetric label="Expectancy" value={formatMoney(paper.overallMetrics.expectancyPerTrade)} />
+        <PaperMetric label="Brokerage" value={formatMoney(paper.overallMetrics.brokerage)} />
+        <PaperMetric label="Fees / taxes" value={formatMoney(paper.overallMetrics.feesTaxes)} />
+        <PaperMetric label="Slippage" value={formatMoney(paper.overallMetrics.slippage)} />
+        <PaperMetric label="Capital use" value={`${paper.overallMetrics.capitalUtilisation}%`} />
+        <PaperMetric label="Open positions" value={String(paper.openPositions.length)} />
+      </div>
+      {paper.noEntryReasons.length ? <p className="text-xs text-amber-300">{paper.noEntryReasons.join(" ")}</p> : null}
+      {paper.openPositions.length ? <PaperTrades trades={paper.openPositions} /> : <p className="text-xs text-slate-500">No open paper positions.</p>}
+    </section>
+  );
+}
+
+function PaperTrades({ trades }: { trades: PaperTrade[] }) {
+  return <div className="overflow-x-auto"><table className="w-full min-w-[850px] text-left text-xs"><thead className="text-slate-500"><tr>{["Symbol", "Strategy", "Qty", "Entry / Mark", "Stop / Target", "Net P&L", "Execution", "Opened"].map((heading) => <th key={heading} className="border-b border-slate-800 px-3 py-2">{heading}</th>)}</tr></thead><tbody>{trades.map((trade) => <tr key={trade.trade_id} className="text-slate-200"><td className="px-3 py-3 font-bold text-white">{trade.symbol}</td><td className="px-3 py-3">{trade.strategy}</td><td className="px-3 py-3">{trade.quantity}</td><td className="px-3 py-3">{formatMoney(trade.entry_fill)} / {formatMoney(trade.current_quote)}</td><td className="px-3 py-3">{formatMoney(trade.stop_price)} / {formatMoney(trade.target_price)}</td><td className={`px-3 py-3 font-semibold ${trade.net_pnl >= 0 ? "text-emerald-300" : "text-rose-300"}`}>{formatMoney(trade.net_pnl)}</td><td className="px-3 py-3">{trade.execution_mode}</td><td className="px-3 py-3">{formatTime(trade.opened_at)}</td></tr>)}</tbody></table></div>;
+}
+
+function PaperMetric({ label, value }: { label: string; value: string }) {
+  return <article className="rounded-lg border border-slate-800 bg-[#07111f] p-3"><span className="text-[10px] text-slate-500">{label}</span><strong className="mt-1 block text-xs text-white">{value}</strong></article>;
 }

@@ -9,6 +9,7 @@ const broker: OptionsBroker = {
   name: "TEST",
   getOptionContracts: async () => [],
   getOptionChain: async () => [],
+  getIntradayCandles: async () => [],
   estimateCharges: async () => 100,
   submitSandboxSpread: async () => ["one", "two"],
   submitSandboxExit: async () => ["three", "four"],
@@ -19,10 +20,19 @@ const direction = {
   direction: "BULLISH" as const,
   confidence: 80,
   marketRegime: "RISK_ON",
-  breadthSectorStrength: 70,
-  institutionalTriage: 65,
-  expertTriage: 60,
-  sourceIds: ["market-intelligence-v1"],
+  trendStrength: 75,
+  bankNiftyConfirmation: 65,
+  optionChainConfirmation: 60,
+  observations: {
+    niftyReturnFromOpenBps: 35,
+    niftyFastSlowGapBps: 8,
+    bankNiftyReturnFromOpenBps: 28,
+    bankNiftyFastSlowGapBps: 6,
+    putCallOiRatio: 1.1,
+    optionExpiry: "2099-01-08",
+    latestMarketTimestamp: new Date().toISOString(),
+  },
+  sourceIds: ["upstox-nifty", "upstox-bank-nifty", "upstox-option-chain"],
   modelVersion: "test-v1",
 };
 
@@ -58,8 +68,17 @@ test("builds only a defined-risk bull call spread from executable quotes", async
   assert.equal(result.opportunity.longLeg.side, "BUY");
   assert.equal(result.opportunity.shortLeg.side, "SELL");
   assert.equal(result.opportunity.entryDebitPerUnit, 42);
+  assert.equal(result.opportunity.profitTargetRupees, 3_000);
+  assert.match(result.opportunity.exitRules.join(" "), /₹3000/);
   assert.ok(result.opportunity.maxLoss > 0);
   assert.ok(result.opportunity.maxProfit > 0);
+});
+
+test("rejects a spread whose maximum net profit cannot reach the per-trade target", async () => {
+  const config = { ...getOptionsQuantConfig(), portfolioCapital: 500_000, riskPerTradePercent: 2, profitTargetRupees: 5_000 };
+  const result = await buildOpportunity(direction, chain, 75, broker, config);
+  assert.equal(result.opportunity, null);
+  assert.match(result.reasons.join(" "), /cannot reach the configured ₹5000 per-trade target/);
 });
 
 test("rejects a spread whose maximum loss exceeds portfolio risk", async () => {

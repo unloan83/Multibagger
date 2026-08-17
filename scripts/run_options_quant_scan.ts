@@ -1,6 +1,6 @@
-import { runOptionsQuantScan } from "@/features/options-quant/lib/engine";
+import { runOptionsQuantCycle } from "@/features/options-quant/lib/engine";
 
-const state = await runOptionsQuantScan();
+const state = await runOptionsQuantCycle();
 console.log(JSON.stringify({
   asOf: state.asOf,
   stage: state.stage,

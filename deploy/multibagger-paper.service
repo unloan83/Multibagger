@@ -1,5 +1,5 @@
 [Unit]
-Description=Multibagger Breeze paper-trading market-data worker
+Description=Multibagger Upstox automatic paper-trading worker
 Wants=network-online.target tailscaled.service
 After=network-online.target tailscaled.service
 
@@ -8,15 +8,17 @@ Type=simple
 User=breeze
 Group=breeze
 WorkingDirectory=/var/lib/multibagger
-EnvironmentFile=/etc/breeze/breeze.env
+EnvironmentFile=-/etc/upstox/upstox.env
 EnvironmentFile=/etc/multibagger/worker.env
+EnvironmentFile=-/etc/multibagger/telegram.env
 Environment=PYTHONPATH=/opt/multibagger
 Environment=ENABLE_LIVE_TRADING=false
-Environment=MARKET_DATA_PROVIDER=breeze
+Environment=LIVE_TRADING_ENABLED=false
+Environment=UPSTOX_MODE=SANDBOX
 Environment=PYTHONDONTWRITEBYTECODE=1
 Environment=OPENBLAS_NUM_THREADS=1
 Environment=OMP_NUM_THREADS=1
-ExecStart=/opt/breeze/venv/bin/python -m scripts.market_engine worker --scan-interval 60
+ExecStart=/opt/breeze/venv/bin/python -m scripts.market_engine worker --scan-interval 900 --monitor-interval 120 --scan-max-runtime 240 --monitor-max-runtime 45 --job-lock-path /var/lib/multibagger/paper_jobs.lock
 Restart=on-failure
 RestartSec=30
 UMask=0077

@@ -9,19 +9,22 @@ Production-oriented NIFTY defined-risk debit-spread module. It is isolated from 
 The module returns `NO TRADE` unless all of these are present and current:
 
 - authenticated Upstox market data;
-- authenticated market-intelligence direction evidence with regime, breadth/sector, institutional and expert provenance;
+- fresh Upstox NIFTY 50 and Bank NIFTY one-minute candles plus NIFTY option-chain OI;
 - configured portfolio capital and per-trade risk;
 - eligible NIFTY expiry and liquid delta-qualified legs;
 - acceptable bid/ask spreads, costs, slippage, maximum loss, and risk/reward;
+- enough maximum net spread profit to support the configured per-trade target (₹3,000 by default);
 - active NSE entry window and no existing open spread.
 
 ## Integration flow
 
-1. The existing market-intelligence process posts its NIFTY direction evidence to `POST /api/options-quant/direction` with `Authorization: Bearer $OPTIONS_QUANT_INGEST_TOKEN`.
-2. A protected scheduler posts to `POST /api/options-quant/scan` with the same token (or `CRON_SECRET`) during market hours.
-3. `GET /api/options-quant` is read-only and renders live opportunity, active positions, risk, P&L, and performance evidence.
+1. The OCI timer wakes once per minute during the NSE monitoring window. It calls the protected full-scan endpoint every 15 minutes at 09:25, 09:40, …, 14:40 IST, five minutes after the Upstox equity scan.
+2. Intervening ticks call `POST /api/options-quant/monitor`, which fetches only the data required to enforce stop, target, direction-reversal, and expiry exits for an active spread; it cannot open a position.
+3. A host-wide non-blocking lock is shared with the equity worker. Overlapping invocations are recorded as skipped, not queued, and full scans have a hard runtime limit.
+4. The protected scan builds a direction from Upstox NIFTY 50 and Bank NIFTY intraday candles plus NIFTY put/call OI, then evaluates the spread and submits sandbox legs only if every gate passes.
+5. `GET /api/options-quant` is read-only and renders live opportunity, active positions, risk, P&L, target status, and performance evidence. OCI also retains scheduler outcome and target-status history in SQLite.
 
-The OCI/worker scheduler can run `npm run options:scan` every minute during the NSE session. The command is a thin entry point into this feature domain and remains fail-closed outside the monitoring window.
+`OPTIONS_QUANT_ENABLED=false` is the new-entry kill switch. Open sandbox positions continue to be monitored for exits. The scheduler and API both remain fail-closed outside the monitoring window, for stale data, and for incomplete Upstox responses.
 
 Direction body:
 
@@ -30,17 +33,30 @@ Direction body:
   "asOf": "2026-08-17T04:15:00.000Z",
   "direction": "BULLISH",
   "confidence": 78,
-  "marketRegime": "RISK_ON",
-  "breadthSectorStrength": 72,
-  "institutionalTriage": 66,
-  "expertTriage": 61,
-  "sourceIds": ["market-regime-v3", "breadth-feed-v2", "institutional-triage-v1"],
-  "modelVersion": "market-intelligence-2026.08"
+  "marketRegime": "INTRADAY_TREND_UP",
+  "trendStrength": 74,
+  "bankNiftyConfirmation": 67,
+  "optionChainConfirmation": 61,
+  "observations": {
+    "niftyReturnFromOpenBps": 32,
+    "niftyFastSlowGapBps": 6,
+    "bankNiftyReturnFromOpenBps": 28,
+    "bankNiftyFastSlowGapBps": 5,
+    "putCallOiRatio": 1.11,
+    "optionExpiry": "2026-08-20",
+    "latestMarketTimestamp": "2026-08-17T09:45:00+05:30"
+  },
+  "sourceIds": ["upstox-v3-intraday:NSE_INDEX|Nifty 50:1m", "upstox-v3-intraday:NSE_INDEX|Nifty Bank:1m", "upstox-v2-option-chain:NSE_INDEX|Nifty 50:2026-08-20"],
+  "modelVersion": "upstox-nifty-direction-v1"
 }
 ```
 
-The example documents the contract; it is never loaded as trading data.
+The example documents the contract; it is never loaded as trading data. No analyst, institutional, confidence, or fill value is fabricated.
 
 ## Promotion policy
 
 Phase 1 uses real executable quotes for shadow fills. Sandbox order submission requires all sandbox safety flags plus `OPTIONS_QUANT_SUBMIT_SANDBOX_ORDERS=true`. No real-money implementation should be added until shadow metrics meet the configured minimum sample and risk thresholds. Real-money promotion additionally requires human approval, broker reconciliation, minimum real trades, positive expectancy after costs, acceptable profit factor and drawdown, and an operational kill switch.
+
+`OPTIONS_QUANT_PROFIT_TARGET_RUPEES` controls the estimated net P&L exit for each spread and defaults to `3000`. A candidate is rejected when its maximum net profit cannot reach that target. The target is an exit rule, not a quota: the engine remains `NO TRADE` when its evidence and risk gates fail.
+
+`OPTIONS_QUANT_DAILY_PROFIT_TARGET_RUPEES` defaults to `3000` and locks new spread entries after that day's closed net P&L reaches the target. It never relaxes the direction, liquidity, or risk gates to manufacture another trade.

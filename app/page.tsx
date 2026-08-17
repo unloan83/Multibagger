@@ -16,8 +16,8 @@ const modelLogic: Record<IndiaModel, { title: string; flow: string; purpose: str
   },
   "upstox-intraday": {
     title: "Upstox Intraday",
-    flow: "Real broker feed → NIFTY 500 universe → ORB / VWAP setup → freshness, liquidity and spread gates → ATR risk → PAPER SIGNAL / NO TRADE → measured outcomes",
-    purpose: "Read-only paper signals from the broker-feed engine. No timer-based execution, daily profit quota, or synthetic recommendation backfill.",
+    flow: "Real broker feed → NIFTY 500 universe → ORB / VWAP setup → freshness, liquidity and spread gates → ATR sizing → automatic paper fill → stop / target / daily lock → measured outcomes",
+    purpose: "Automatic simulated execution from executable quotes, with a ₹3,000 daily target that locks new entries rather than forcing quota trades.",
   },
   "options-quant": {
     title: "Options Quant",

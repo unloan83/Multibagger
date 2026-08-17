@@ -1,0 +1,12 @@
+[Unit]
+Description=Schedule Options Quant cycles during the NSE session
+
+[Timer]
+OnCalendar=Mon..Fri *-*-* 03:45..59:00 UTC
+OnCalendar=Mon..Fri *-*-* 04..08:*:00 UTC
+OnCalendar=Mon..Fri *-*-* 09:00..55:00 UTC
+AccuracySec=1s
+Unit=multibagger-options-quant.service
+
+[Install]
+WantedBy=timers.target

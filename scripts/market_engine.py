@@ -12,10 +12,14 @@ from engine.scanner import run_scan
 
 
 parser = argparse.ArgumentParser()
-parser.add_argument("command", choices=("backfill", "breeze-warmup", "collect", "worker", "scan", "backtest"))
+parser.add_argument("command", choices=("backfill", "upstox-warmup", "collect", "worker", "scan", "monitor", "backtest"))
 parser.add_argument("--start")
 parser.add_argument("--end")
-parser.add_argument("--scan-interval", type=int, default=60)
+parser.add_argument("--scan-interval", type=int, default=900)
+parser.add_argument("--monitor-interval", type=int, default=120)
+parser.add_argument("--scan-max-runtime", type=int, default=240)
+parser.add_argument("--monitor-max-runtime", type=int, default=45)
+parser.add_argument("--job-lock-path", default="/var/lib/multibagger/paper_jobs.lock")
 parser.add_argument("--days", type=int, default=8)
 parser.add_argument("--no-resume", action="store_true")
 args = parser.parse_args()
@@ -26,15 +30,19 @@ if args.command == "backfill":
     print(json.dumps(backfill(settings, date.fromisoformat(args.start or "2022-01-01"),
                               date.fromisoformat(args.end) if args.end else None,
                               resume=not args.no_resume), indent=2))
-elif args.command == "breeze-warmup":
-    from features.breeze.python.breeze_backfill import warmup_breeze
-    print(json.dumps(warmup_breeze(settings, args.days), indent=2))
+elif args.command == "upstox-warmup":
+    from features.upstox.python.upstox_backfill import warmup_upstox
+    print(json.dumps(warmup_upstox(settings, args.days), indent=2))
 elif args.command == "collect":
     collect(settings)
 elif args.command == "worker":
-    run_worker(settings, args.scan_interval)
+    run_worker(settings, args.scan_interval, args.monitor_interval, args.scan_max_runtime,
+               args.monitor_max_runtime, args.job_lock_path)
 elif args.command == "scan":
     print(json.dumps(run_scan(settings), indent=2))
+elif args.command == "monitor":
+    from engine.paper import run_risk_monitor
+    print(json.dumps(run_risk_monitor(settings), indent=2))
 else:
     if not args.start or not args.end:
         parser.error("backtest requires --start and --end")

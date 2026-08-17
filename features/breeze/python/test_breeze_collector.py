@@ -1,6 +1,9 @@
-from datetime import timezone
+from datetime import datetime, timezone
+from types import SimpleNamespace
 
-from features.breeze.python.breeze_collector import BreezeTickWriter, _india_timestamp, _subscription_ok
+import pytest
+
+from features.breeze.python.breeze_collector import BreezeTickWriter, _assert_stream_freshness, _india_timestamp, _subscription_ok
 from features.breeze.python.breeze_backfill import _history_timestamp, _two_day_chunks
 from datetime import date
 
@@ -56,3 +59,20 @@ def test_breeze_backfill_chunks_and_timestamp():
         (date(2026, 8, 10), date(2026, 8, 10)),
     ]
     assert _history_timestamp("2026-08-13 10:04:00").isoformat() == "2026-08-13T04:34:00+00:00"
+
+
+def test_candle_watchdog_restarts_a_silently_stalled_stream():
+    writer = BreezeTickWriter(Store(), {})
+    writer.last_quote_monotonic = 1_000
+    writer.last_candle_monotonic = 700
+    settings = SimpleNamespace(candle_watchdog_seconds=180)
+    market_time = datetime(2026, 8, 17, 4, 30, tzinfo=timezone.utc)  # Monday 10:00 IST
+    with pytest.raises(RuntimeError, match="candle stream is stale"):
+        _assert_stream_freshness(writer, settings, 1_000, market_time)
+
+
+def test_candle_watchdog_does_not_restart_on_a_data_free_holiday():
+    writer = BreezeTickWriter(Store(), {})
+    settings = SimpleNamespace(candle_watchdog_seconds=180)
+    market_time = datetime(2026, 8, 17, 4, 30, tzinfo=timezone.utc)
+    _assert_stream_freshness(writer, settings, 1_000, market_time)

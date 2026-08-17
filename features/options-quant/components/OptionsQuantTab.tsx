@@ -52,6 +52,7 @@ export default function OptionsQuantTab() {
           <Evidence label="Sandbox" value={state.configuration.sandboxConfigured ? "Connected" : "Not connected"} good={state.configuration.sandboxConfigured} />
           <Evidence label="Direction" value={state.direction ? `${state.direction.direction} · ${state.direction.confidence}%` : "Unavailable"} good={Boolean(state.direction && state.direction.direction !== "UNCLEAR")} />
         </div>
+        <div className="mt-3 text-xs text-slate-300">Options net-profit targets: <strong className="text-emerald-300">{money(state.configuration.profitTargetRupees)} per trade</strong> · <strong className="text-emerald-300">{money(state.configuration.dailyProfitTargetRupees)} daily lock</strong></div>
       </div>
 
       {error && <div className="rounded-xl border border-rose-800 bg-rose-950/30 p-3 text-xs text-rose-300">{error}</div>}
@@ -104,6 +105,7 @@ function OpportunityTable({ opportunity }: { opportunity: OptionsOpportunity }) 
     ["Strikes / Expiry", `${opportunity.longLeg.strike} / ${opportunity.shortLeg.strike} · ${opportunity.expiry}`],
     ["Entry Debit", `${money(opportunity.entryDebitPerUnit)} per unit`],
     ["Max Profit / Loss", `${money(opportunity.maxProfit)} / ${money(opportunity.maxLoss)}`],
+    ["Net Profit Target", money(opportunity.profitTargetRupees)],
     ["Breakeven / R:R", `${opportunity.breakeven} / ${opportunity.riskReward}`],
     ["IV / Net Delta", `${opportunity.averageIv}% / ${opportunity.netDelta}`],
     ["OI / Volume", `${opportunity.totalOi.toLocaleString("en-IN")} / ${opportunity.totalVolume.toLocaleString("en-IN")}`],

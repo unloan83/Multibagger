@@ -1,5 +1,6 @@
 import type {
   ChargeEstimateRequest,
+  MarketCandle,
   OptionChainRow,
   OptionContract,
   OptionsBroker,
@@ -80,6 +81,31 @@ export class UpstoxOptionsBroker implements OptionsBroker {
     })).filter((row) => Number.isFinite(row.strike) && row.spot > 0);
   }
 
+  async getIntradayCandles(instrumentKey: string, intervalMinutes = 1): Promise<MarketCandle[]> {
+    if (!Number.isInteger(intervalMinutes) || intervalMinutes < 1 || intervalMinutes > 300) {
+      throw new Error("Upstox intraday candle interval must be an integer from 1 to 300 minutes.");
+    }
+    const encodedKey = encodeURIComponent(instrumentKey);
+    const url = new URL(`/v3/historical-candle/intraday/${encodedKey}/minutes/${intervalMinutes}`, LIVE_API);
+    const payload = await this.request(url, this.liveToken());
+    const data = (payload.data || {}) as JsonRecord;
+    const rows = Array.isArray(data.candles) ? data.candles as unknown[][] : [];
+    return rows.flatMap((row) => {
+      const candle: MarketCandle = {
+        timestamp: String(row[0] || ""),
+        open: Number(row[1]),
+        high: Number(row[2]),
+        low: Number(row[3]),
+        close: Number(row[4]),
+        volume: Number(row[5] || 0),
+        openInterest: Number(row[6] || 0),
+      };
+      return candle.timestamp && [candle.open, candle.high, candle.low, candle.close].every((value) => Number.isFinite(value) && value > 0)
+        ? [candle]
+        : [];
+    }).sort((left, right) => left.timestamp.localeCompare(right.timestamp));
+  }
+
   async estimateCharges(requests: ChargeEstimateRequest[]): Promise<number> {
     const totals = await Promise.all(requests.map(async (request) => {
       const url = new URL("/v2/charges/brokerage", LIVE_API);
@@ -123,8 +149,24 @@ export class UpstoxOptionsBroker implements OptionsBroker {
     const payload = await this.request(url, this.sandboxToken(), { method: "POST", body: JSON.stringify(body) });
     const rows = Array.isArray(payload.data) ? payload.data as JsonRecord[] : [];
     const ids = rows.map((row) => String(row.order_id || "")).filter(Boolean);
-    if (ids.length !== 2) throw new Error("Upstox sandbox did not accept both defined-risk spread legs.");
+    if (ids.length !== 2) {
+      const uncancelled = await this.cancelSandboxOrders(ids);
+      const cleanup = uncancelled.length
+        ? ` Cleanup failed for sandbox order IDs: ${uncancelled.join(", ")}.`
+        : ids.length ? " The accepted partial sandbox leg was cancelled." : "";
+      throw new Error(`Upstox sandbox did not accept both defined-risk spread legs.${cleanup}`);
+    }
     return ids;
+  }
+
+  private async cancelSandboxOrders(orderIds: string[]): Promise<string[]> {
+    const results = await Promise.allSettled(orderIds.map(async (orderId) => {
+      const url = new URL("/v3/order/cancel", SANDBOX_API);
+      url.searchParams.set("order_id", orderId);
+      await this.request(url, this.sandboxToken(), { method: "DELETE" });
+      return orderId;
+    }));
+    return results.flatMap((result, index) => result.status === "rejected" ? [orderIds[index]] : []);
   }
 }
 

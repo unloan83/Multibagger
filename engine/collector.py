@@ -1,96 +1,190 @@
 from __future__ import annotations
 
-import gzip
-import json
-import urllib.request
 import logging
+import fcntl
+import os
 import threading
 import time
+import uuid
+from contextlib import contextmanager
 from datetime import datetime, timezone
-
-import pandas as pd
+from pathlib import Path
+from zoneinfo import ZoneInfo
 
 from .config import Settings
 from .store import MarketStore
 from .scanner import run_scan
+from .paper import run_risk_monitor
+from scripts.telegram_notify import send_telegram_message
 
 
-INSTRUMENTS_URL = "https://assets.upstox.com/market-quote/instruments/exchange/NSE.json.gz"
-
-
-def resolve_upstox_instruments(settings: Settings, store: MarketStore) -> dict[str, str]:
-    with urllib.request.urlopen(INSTRUMENTS_URL, timeout=30) as response:
-        rows = json.loads(gzip.decompress(response.read()))
-    wanted = set(settings.symbols())
-    selected = {row["instrument_key"]: row["trading_symbol"] for row in rows if row.get("segment") == "NSE_EQ" and row.get("instrument_type") == "EQ" and row.get("trading_symbol") in wanted}
-    with store.connect() as con:
-        for key, symbol in selected.items():
-            con.execute("INSERT OR REPLACE INTO instruments VALUES (?, ?, ?, 'NSE', ?)", [key, symbol, symbol, datetime.now(timezone.utc)])
-    return selected
+IST = ZoneInfo("Asia/Kolkata")
 
 
 def collect(settings: Settings) -> None:
-    if settings.market_data_provider == "breeze":
-        from features.breeze.python.breeze_collector import collect_breeze
+    if settings.market_data_provider != "upstox":
+        raise RuntimeError("Paper collection is Upstox-only; Breeze is isolated from scheduled execution")
+    from features.upstox.python.upstox_collector import collect_upstox
 
-        collect_breeze(settings)
-        return
     collect_upstox(settings)
 
 
-def collect_upstox(settings: Settings) -> None:
-    if not settings.access_token:
-        raise RuntimeError("UPSTOX_ACCESS_TOKEN is required")
-    import upstox_client
-
+def run_worker(settings: Settings, scan_interval: int = 900, monitor_interval: int = 120,
+               scan_max_runtime: int = 240, monitor_max_runtime: int = 45,
+               lock_path: str = "/var/lib/multibagger/paper_jobs.lock") -> None:
+    """Collect continuously while aligned, locked jobs scan or monitor paper positions."""
+    if scan_interval != 900:
+        raise ValueError("Upstox full scans must run every 900 seconds")
+    if monitor_interval not in {60, 120}:
+        raise ValueError("risk monitor interval must be 60 or 120 seconds")
+    if not 30 <= scan_max_runtime < 300 or not 10 <= monitor_max_runtime <= 60:
+        raise ValueError("invalid paper job runtime limit")
     store = MarketStore(settings.db_path)
-    instruments = resolve_upstox_instruments(settings, store)
-    if len(instruments) < int(settings.max_symbols * 0.8):
-        raise RuntimeError(f"Only {len(instruments)}/{settings.max_symbols} configured symbols resolved; refusing partial scan")
-    config = upstox_client.Configuration()
-    config.access_token = settings.access_token
-    streamer = upstox_client.MarketDataStreamerV3(upstox_client.ApiClient(config), list(instruments), "full")
-
-    def on_message(message: dict) -> None:
-        received = datetime.now(timezone.utc)
-        for key, feed in (message.get("feeds") or {}).items():
-            full = feed.get("fullFeed", {}).get("marketFF", {})
-            quotes = full.get("marketLevel", {}).get("bidAskQuote", [])
-            bid = float(quotes[0].get("bidP", 0)) if quotes else None
-            ask = float(quotes[0].get("askP", 0)) if quotes else None
-            candles = full.get("marketOHLC", {}).get("ohlc", [])
-            minute = next((bar for bar in candles if bar.get("interval") == "I1"), None)
-            if not minute:
-                continue
-            store.upsert_bar({"instrument_key": key, "symbol": instruments[key], "ts": pd.to_datetime(int(minute["ts"]), unit="ms", utc=True).to_pydatetime(),
-                "open": float(minute["open"]), "high": float(minute["high"]), "low": float(minute["low"]), "close": float(minute["close"]),
-                "volume": int(minute.get("vol", 0)), "bid": bid, "ask": ask, "received_at": received})
-
-    streamer.on("message", on_message)
-    streamer.auto_reconnect(True, 5, 20)
-    streamer.connect()
-
-
-def run_worker(settings: Settings, scan_interval: int = 60) -> None:
-    """Persistent local process: collect continuously and publish paper scans periodically."""
-    if scan_interval < 30:
-        raise ValueError("scan interval must be at least 30 seconds")
-    removed = MarketStore(settings.db_path).prune(14)
+    recovered = store.recover_incomplete_runs()
+    if recovered:
+        logging.warning("marked %d interrupted scanner runs as failed", recovered)
+    removed = store.prune(14)
     if removed:
         logging.info("pruned %d minute bars older than 14 days", removed)
     stop = threading.Event()
+    send_telegram_message(
+        "🟢 Upstox Intraday paper engine started\n"
+        "Full scans: every 15 minutes from 09:20 IST\n"
+        "Risk monitor: every 2 minutes\nMode: Upstox Sandbox (no real money)",
+        event_key="upstox-worker-started", cooldown_seconds=3600,
+    )
 
     def scanner_loop() -> None:
-        while not stop.wait(scan_interval):
-            try:
-                run_scan(settings)
-            except Exception:
-                logging.exception("paper scan failed; no recommendation was published")
+        completed_slots: set[str] = set()
+        while not stop.wait(0.5):
+            local = datetime.now(timezone.utc).astimezone(IST)
+            minute = local.hour * 60 + local.minute
+            if local.weekday() >= 5 or not 9 * 60 + 16 <= minute <= 15 * 60 + 20:
+                continue
+            slot = local.strftime("%Y%m%d-%H%M")
+            job_type = scheduled_upstox_job(local, monitor_interval)
+            max_runtime = scan_max_runtime if job_type == "FULL_SCAN" else monitor_max_runtime
+            if not job_type or slot in completed_slots:
+                continue
+            completed_slots.add(slot)
+            if len(completed_slots) > 600:
+                completed_slots = {slot}
+            _run_locked_job(store, settings, job_type, local, max_runtime, Path(lock_path))
 
-    thread = threading.Thread(target=scanner_loop, name="paper-scanner", daemon=True)
+    thread = threading.Thread(target=scanner_loop, name="paper-scheduler", daemon=True)
     thread.start()
     try:
         collect(settings)
     finally:
         stop.set()
         thread.join(timeout=5)
+        send_telegram_message(
+            "⚪ Upstox Intraday paper engine stopped.",
+            event_key="upstox-worker-stopped", cooldown_seconds=300,
+        )
+
+
+def scheduled_upstox_job(local: datetime, monitor_interval: int = 120) -> str | None:
+    minute = local.hour * 60 + local.minute
+    if local.weekday() >= 5 or not 9 * 60 + 16 <= minute <= 15 * 60 + 20:
+        return None
+    if 9 * 60 + 20 <= minute <= 14 * 60 + 35 and minute % 15 == 5:
+        return "FULL_SCAN"
+    if minute % (monitor_interval // 60) == 0:
+        return "RISK_MONITOR"
+    return None
+
+
+def _run_locked_job(store: MarketStore, settings: Settings, job_type: str, scheduled_at: datetime,
+                    max_runtime: int, lock_path: Path) -> None:
+    job_id = str(uuid.uuid4())
+    started = time.monotonic()
+    with _nonblocking_lock(lock_path) as acquired:
+        if not acquired:
+            store.record_skipped_job(job_id, "UPSTOX_INTRADAY", job_type, scheduled_at,
+                                     max_runtime, "SINGLE_JOB_LOCK_BUSY")
+            logging.info("skipped %s because the shared paper-job lock is busy", job_type)
+            if job_type == "FULL_SCAN":
+                send_telegram_message(
+                    "⚠️ Upstox Intraday full scan skipped\nReason: shared job lock was busy",
+                    event_key="upstox-full-scan-lock-busy", cooldown_seconds=900,
+                )
+            return
+        store.start_job(job_id, "UPSTOX_INTRADAY", job_type, scheduled_at, max_runtime)
+        try:
+            if job_type == "FULL_SCAN":
+                result = run_scan(settings, deadline_monotonic=time.monotonic() + max_runtime)
+            else:
+                result = run_risk_monitor(settings)
+            elapsed = int((time.monotonic() - started) * 1000)
+            status = "COMPLETED" if elapsed <= max_runtime * 1000 else "MAX_RUNTIME_EXCEEDED"
+            store.finish_job(job_id, status, elapsed, None if status == "COMPLETED" else "JOB_FINISHED_LATE")
+            if status != "COMPLETED":
+                send_telegram_message(
+                    f"⚠️ Upstox Intraday {job_type.lower()} exceeded its runtime limit\nDuration: {elapsed / 1000:.1f}s",
+                    event_key=f"upstox-{job_type.lower()}-late", cooldown_seconds=900,
+                )
+            elif job_type == "FULL_SCAN":
+                send_telegram_message(
+                    _upstox_scan_message(result, scheduled_at, elapsed),
+                    event_key=f"upstox-scan-{scheduled_at.strftime('%Y%m%d-%H%M')}",
+                )
+            else:
+                for trade in result.get("closedByMonitor", []):
+                    send_telegram_message(
+                        _upstox_exit_message(trade),
+                        event_key=f"upstox-exit-{trade.get('trade_id')}",
+                    )
+        except TimeoutError as error:
+            store.finish_job(job_id, "MAX_RUNTIME_EXCEEDED", int((time.monotonic() - started) * 1000), str(error)[:500])
+            logging.error("%s exceeded its maximum runtime: %s", job_type, error)
+            send_telegram_message(
+                f"🔴 Upstox Intraday {job_type.lower()} timed out\nThe run was stopped and recorded as failed.",
+                event_key=f"upstox-{job_type.lower()}-timeout", cooldown_seconds=900,
+            )
+        except Exception as error:
+            store.finish_job(job_id, "FAILED", int((time.monotonic() - started) * 1000), str(error)[:500])
+            logging.exception("paper %s failed", job_type.lower())
+            send_telegram_message(
+                f"🔴 Upstox Intraday {job_type.lower()} failed\nReason: {str(error)[:300]}",
+                event_key=f"upstox-{job_type.lower()}-failed", cooldown_seconds=900,
+            )
+
+
+def _upstox_scan_message(result: dict, scheduled_at: datetime, elapsed_ms: int) -> str:
+    paper = result.get("paperTrading") or {}
+    metrics = paper.get("dailyMetrics") or {}
+    return (
+        "✅ Upstox Intraday full scan completed\n"
+        f"Time: {scheduled_at.strftime('%H:%M IST')} | Duration: {elapsed_ms / 1000:.1f}s\n"
+        f"Signals: {len(result.get('signals') or [])} | Open positions: {len(paper.get('openPositions') or [])}\n"
+        f"Daily net P&L: ₹{float(metrics.get('netPnl') or 0):,.2f} / ₹{float(paper.get('dailyProfitTarget') or 0):,.2f}\n"
+        f"Target reached: {'YES' if paper.get('targetReached') else 'NO'}"
+    )
+
+
+def _upstox_exit_message(trade: dict) -> str:
+    return (
+        "🔔 Upstox Intraday position closed\n"
+        f"Symbol: {trade.get('symbol')} | Reason: {trade.get('exit_reason')}\n"
+        f"Net P&L: ₹{float(trade.get('net_pnl') or 0):,.2f}\n"
+        f"Mode: {trade.get('execution_mode')}"
+    )
+
+
+@contextmanager
+def _nonblocking_lock(path: Path):
+    path.parent.mkdir(parents=True, exist_ok=True)
+    descriptor = os.open(path, os.O_CREAT | os.O_RDWR, 0o600)
+    acquired = False
+    try:
+        try:
+            fcntl.flock(descriptor, fcntl.LOCK_EX | fcntl.LOCK_NB)
+            acquired = True
+        except BlockingIOError:
+            pass
+        yield acquired
+    finally:
+        if acquired:
+            fcntl.flock(descriptor, fcntl.LOCK_UN)
+        os.close(descriptor)

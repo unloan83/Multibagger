@@ -21,6 +21,7 @@ export async function GET() {
   return NextResponse.json({
     ok: true, status: snapshot.status, asOf: snapshot.asOf, publication: RECOMMENDATION_PUBLICATION,
     intradayPipeline: { asOf: snapshot.asOf, source: snapshot.source, isLive: snapshot.status === "SIGNALS", reason: snapshot.reason, evaluatedUniverseSize: snapshot.evaluatedUniverseSize, screened: [], picks },
+    paperTrading: snapshot.paperTrading ?? null,
   }, { headers: { "Cache-Control": "no-store, max-age=0" } });
 }
 

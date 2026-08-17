@@ -19,10 +19,6 @@
     {
       "path": "/api/snapshots/long-term-universe",
       "schedule": "0 4 * * 1-5"
-    },
-    {
-      "path": "/api/snapshots/breeze-multibagger",
-      "schedule": "45 11 * * 1-5"
     }
   ]
 }

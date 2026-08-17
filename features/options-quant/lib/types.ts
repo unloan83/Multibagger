@@ -8,9 +8,18 @@ export type DirectionEvidence = {
   direction: MarketDirection;
   confidence: number;
   marketRegime: string;
-  breadthSectorStrength: number;
-  institutionalTriage: number;
-  expertTriage: number;
+  trendStrength: number;
+  bankNiftyConfirmation: number;
+  optionChainConfirmation: number;
+  observations: {
+    niftyReturnFromOpenBps: number;
+    niftyFastSlowGapBps: number;
+    bankNiftyReturnFromOpenBps: number;
+    bankNiftyFastSlowGapBps: number;
+    putCallOiRatio: number;
+    optionExpiry: string;
+    latestMarketTimestamp: string;
+  };
   sourceIds: string[];
   modelVersion: string;
 };
@@ -47,6 +56,7 @@ export type OptionsOpportunity = {
   entryDebitPerUnit: number;
   maxProfit: number;
   maxLoss: number;
+  profitTargetRupees: number;
   breakeven: number;
   riskReward: number;
   averageIv: number;
@@ -125,5 +135,8 @@ export type OptionsQuantState = {
     sandboxConfigured: boolean;
     portfolioCapitalConfigured: boolean;
     sandboxOrderSubmissionEnabled: boolean;
+    automaticCyclesEnabled: boolean;
+    profitTargetRupees: number;
+    dailyProfitTargetRupees: number;
   };
 };

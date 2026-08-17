@@ -1,0 +1,104 @@
+import sys
+import threading
+from datetime import datetime, timezone
+from types import SimpleNamespace
+
+import pytest
+
+from features.upstox.python.upstox_collector import UpstoxTickWriter, _assert_stream_freshness, collect_upstox
+
+
+class Store:
+    def __init__(self):
+        self.rows = []
+
+    def upsert_bars(self, frame):
+        self.rows.extend(frame.to_dict("records"))
+        return len(frame)
+
+
+def test_upstox_v3_tick_is_batched_with_executable_quote():
+    store = Store()
+    writer = UpstoxTickWriter(store, {"NSE_EQ|TEST": "TEST"})
+    writer.on_message({"feeds": {"NSE_EQ|TEST": {"fullFeed": {"marketFF": {
+        "marketLevel": {"bidAskQuote": [{"bidP": 199.8, "askP": 200.0}]},
+        "marketOHLC": {"ohlc": [{"interval": "I1", "ts": "1786944600000", "open": 198,
+                                     "high": 201, "low": 197, "close": 199.9, "vol": 1000}]},
+    }}}}})
+    assert writer.flush() == 1
+    assert store.rows[0]["symbol"] == "TEST"
+    assert store.rows[0]["bid"] == 199.8
+    assert store.rows[0]["ask"] == 200.0
+
+
+def test_upstox_watchdog_detects_stalled_candles():
+    writer = UpstoxTickWriter(Store(), {})
+    writer.last_quote_monotonic = 1_000
+    writer.last_candle_monotonic = 700
+    market_time = datetime(2026, 8, 17, 4, 30, tzinfo=timezone.utc)
+    with pytest.raises(RuntimeError, match="candle stream is stale"):
+        _assert_stream_freshness(writer, SimpleNamespace(candle_watchdog_seconds=180), 1_000, market_time)
+
+
+def test_upstox_watchdog_detects_stream_that_never_produces_ticks():
+    writer = UpstoxTickWriter(Store(), {})
+    writer.started_monotonic = 700
+    market_time = datetime(2026, 8, 17, 4, 30, tzinfo=timezone.utc)
+    with pytest.raises(RuntimeError, match="produced no usable ticks"):
+        _assert_stream_freshness(writer, SimpleNamespace(candle_watchdog_seconds=180), 1_000, market_time)
+
+
+def test_async_upstox_connect_stays_alive_until_reconnects_are_exhausted(monkeypatch, tmp_path):
+    connected = threading.Event()
+    streamers = []
+
+    class FakeStreamer:
+        def __init__(self, *_args):
+            self.listeners = {}
+            streamers.append(self)
+
+        def on(self, event, listener):
+            self.listeners[event] = listener
+
+        def auto_reconnect(self, *_args):
+            pass
+
+        def connect(self):
+            self.listeners["open"]()
+            connected.set()
+
+        def disconnect(self):
+            pass
+
+    fake_upstox = SimpleNamespace(
+        Configuration=lambda: SimpleNamespace(access_token=None),
+        ApiClient=lambda config: config,
+        MarketDataStreamerV3=FakeStreamer,
+    )
+    monkeypatch.setitem(sys.modules, "upstox_client", fake_upstox)
+    monkeypatch.setattr("features.upstox.python.upstox_collector.MarketStore", lambda _path: Store())
+    monkeypatch.setattr(
+        "features.upstox.python.upstox_collector.resolve_upstox_instruments",
+        lambda _settings, _store: {"NSE_EQ|TEST": "TEST"},
+    )
+    settings = SimpleNamespace(
+        access_token="token", market_data_provider="upstox", db_path=tmp_path / "market.duckdb",
+        candle_watchdog_seconds=180,
+    )
+    errors = []
+    thread = threading.Thread(target=lambda: _capture_error(errors, collect_upstox, settings))
+    thread.start()
+    assert connected.wait(timeout=2)
+    assert thread.is_alive()
+    streamers[0].listeners["autoReconnectStopped"]("retry limit reached")
+    thread.join(timeout=2)
+    assert not thread.is_alive()
+    assert len(errors) == 1
+    assert "reconnects exhausted" in str(errors[0])
+
+
+def _capture_error(errors, function, *args):
+    try:
+        function(*args)
+    except Exception as error:
+        errors.append(error)

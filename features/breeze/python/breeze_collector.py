@@ -6,6 +6,7 @@ import signal
 import threading
 import time
 from datetime import datetime, timezone
+from zoneinfo import ZoneInfo
 from typing import Any
 
 import pandas as pd
@@ -16,6 +17,7 @@ from engine.store import MarketStore
 
 
 LOG = logging.getLogger("multibagger.breeze")
+IST = ZoneInfo("Asia/Kolkata")
 
 
 def resolve_breeze_instruments(client: Any, settings: Settings, store: MarketStore) -> dict[str, dict[str, str]]:
@@ -70,6 +72,10 @@ class BreezeTickWriter:
         self.pending_bars: dict[tuple[str, datetime], dict[str, Any]] = {}
         self.pending_lock = threading.Lock()
         self.received = 0
+        self.quote_ticks = 0
+        self.candle_ticks = 0
+        self.last_quote_monotonic: float | None = None
+        self.last_candle_monotonic: float | None = None
 
     def on_ticks(self, tick: dict[str, Any]) -> None:
         try:
@@ -87,6 +93,8 @@ class BreezeTickWriter:
             return
         self.latest_quotes[item["symbol"]] = (_positive_float(tick.get("bPrice")), _positive_float(tick.get("sPrice")))
         self.received += 1
+        self.quote_ticks += 1
+        self.last_quote_monotonic = time.monotonic()
 
     def _write_candle(self, tick: dict[str, Any]) -> None:
         code = str(tick.get("stock_code", "")).upper()
@@ -115,6 +123,8 @@ class BreezeTickWriter:
         with self.pending_lock:
             self.pending_bars[(token, timestamp)] = row
         self.received += 1
+        self.candle_ticks += 1
+        self.last_candle_monotonic = time.monotonic()
 
     def flush(self) -> int:
         with self.pending_lock:
@@ -174,7 +184,11 @@ def collect_breeze(settings: Settings) -> None:
         except Exception:
             LOG.exception("Breeze candle batch flush failed")
         if time.monotonic() - last_health_log >= 60:
-            LOG.info("Breeze paper feed healthy; processed ticks=%d", writer.received)
+            _assert_stream_freshness(writer, settings, time.monotonic(), datetime.now(timezone.utc))
+            LOG.info(
+                "Breeze paper feed healthy; quote_ticks=%d candle_ticks=%d",
+                writer.quote_ticks, writer.candle_ticks,
+            )
             last_health_log = time.monotonic()
     writer.flush()
     ohlc_client.disconnect()
@@ -198,6 +212,24 @@ def _india_timestamp(value: str) -> datetime:
 
 def _subscription_ok(result: Any) -> bool:
     return isinstance(result, dict) and "success" in str(result.get("message", "")).lower()
+
+
+def _assert_stream_freshness(writer: BreezeTickWriter, settings: Settings, monotonic_now: float,
+                             wall_now: datetime) -> None:
+    """Fail the worker so systemd reconnects when an active NSE stream silently stalls."""
+    local = wall_now.astimezone(IST)
+    minute = local.hour * 60 + local.minute
+    if local.weekday() >= 5 or not 9 * 60 + 16 <= minute <= 15 * 60 + 30:
+        return
+    # No data at all can be a market holiday. Once either stream has become active,
+    # both feeds must remain current during the session.
+    if writer.last_quote_monotonic is None and writer.last_candle_monotonic is None:
+        return
+    limit = settings.candle_watchdog_seconds
+    if writer.last_quote_monotonic is None or monotonic_now - writer.last_quote_monotonic > limit:
+        raise RuntimeError("Breeze quote stream is stale; restarting the paper worker")
+    if writer.last_candle_monotonic is None or monotonic_now - writer.last_candle_monotonic > limit:
+        raise RuntimeError("Breeze one-minute candle stream is stale; restarting the paper worker")
 
 
 def _connect_ohlc_stream(client: Any, tokens: list[str], writer: BreezeTickWriter, attempts: int = 5) -> socketio.Client:

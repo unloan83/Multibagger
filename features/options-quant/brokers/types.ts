@@ -17,6 +17,16 @@ export type OptionChainRow = {
   put: OptionLeg | null;
 };
 
+export type MarketCandle = {
+  timestamp: string;
+  open: number;
+  high: number;
+  low: number;
+  close: number;
+  volume: number;
+  openInterest: number;
+};
+
 export type ChargeEstimateRequest = {
   instrumentKey: string;
   quantity: number;
@@ -37,6 +47,7 @@ export interface OptionsBroker {
   readonly name: string;
   getOptionContracts(underlyingKey: string): Promise<OptionContract[]>;
   getOptionChain(underlyingKey: string, expiry: string): Promise<OptionChainRow[]>;
+  getIntradayCandles(instrumentKey: string, intervalMinutes?: number): Promise<MarketCandle[]>;
   estimateCharges(requests: ChargeEstimateRequest[]): Promise<number>;
   submitSandboxSpread(order: SandboxSpreadOrder): Promise<string[]>;
   submitSandboxExit(order: SandboxSpreadOrder): Promise<string[]>;

@@ -1,0 +1,25 @@
+[Unit]
+Description=Run one Multibagger Options Quant sandbox cycle
+Wants=network-online.target
+After=network-online.target
+
+[Service]
+Type=oneshot
+User=breeze
+Group=breeze
+EnvironmentFile=/etc/multibagger/options-quant.env
+EnvironmentFile=-/etc/multibagger/telegram.env
+Environment=PYTHONDONTWRITEBYTECODE=1
+ExecStart=/usr/bin/python3 /opt/multibagger/scripts/options_quant_scheduler.py
+TimeoutStartSec=55
+RuntimeMaxSec=55
+UMask=0077
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/var/lib/multibagger
+CapabilityBoundingSet=
+LockPersonality=true
+MemoryDenyWriteExecute=true
+MemoryMax=100M

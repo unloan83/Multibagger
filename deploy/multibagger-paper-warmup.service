@@ -1,5 +1,5 @@
 [Unit]
-Description=Warm up Multibagger paper database from Breeze historical data
+Description=Warm up Multibagger paper database from Upstox historical data
 Wants=network-online.target
 After=network-online.target
 Conflicts=multibagger-paper.service
@@ -9,15 +9,16 @@ Type=oneshot
 User=breeze
 Group=breeze
 WorkingDirectory=/var/lib/multibagger
-EnvironmentFile=/etc/breeze/breeze.env
+EnvironmentFile=/etc/upstox/upstox.env
 EnvironmentFile=/etc/multibagger/worker.env
 Environment=PYTHONPATH=/opt/multibagger
 Environment=ENABLE_LIVE_TRADING=false
-Environment=MARKET_DATA_PROVIDER=breeze
+Environment=LIVE_TRADING_ENABLED=false
+Environment=UPSTOX_MODE=SANDBOX
 Environment=PYTHONDONTWRITEBYTECODE=1
 Environment=OPENBLAS_NUM_THREADS=1
 Environment=OMP_NUM_THREADS=1
-ExecStart=/opt/breeze/venv/bin/python -m scripts.market_engine breeze-warmup --days 3
+ExecStart=/opt/breeze/venv/bin/python -m scripts.market_engine upstox-warmup --days 8
 UMask=0077
 NoNewPrivileges=true
 PrivateTmp=true

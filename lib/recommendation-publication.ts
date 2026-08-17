@@ -5,7 +5,7 @@ export const RECOMMENDATION_PUBLICATION = {
   reason: "Only fresh, qualifying broker-feed paper signals are published; NO_TRADE is the default.",
   allowedOutput: "BROKER_FEED_PAPER_SIGNALS_ONLY" as const,
   requirements: [
-    "Fresh Breeze or Upstox one-minute data with bid/ask liquidity checks",
+    "Fresh Upstox one-minute data with bid/ask liquidity checks",
     "ORB or VWAP strategy qualification",
     "ATR-based risk levels and paper-only execution",
     "Out-of-sample walk-forward validation before live use",

@@ -81,11 +81,11 @@ export type PaperTradingState = {
 };
 
 const FILE = "paper_signals.json";
-const MAX_SNAPSHOT_AGE_MS = Number(process.env.MAX_SIGNAL_SNAPSHOT_AGE_SECONDS || 180) * 1000;
+const MAX_SNAPSHOT_AGE_MS = Number(process.env.MAX_SIGNAL_SNAPSHOT_AGE_SECONDS || 1200) * 1000;
 
 export function noTrade(reason = "NO_TRADE", paperTrading?: PaperTradingState): PaperSignalSnapshot {
   return {
-    status: "NO_TRADE", asOf: new Date().toISOString(), run_id: "", source: "BREEZE_1MIN_DUCKDB",
+    status: "NO_TRADE", asOf: new Date().toISOString(), run_id: "", source: "UPSTOX_1MIN_DUCKDB",
     mode: "PAPER_ONLY", evaluatedUniverseSize: 0, reason, signals: [], paperTrading,
   };
 }

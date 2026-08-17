@@ -22,6 +22,7 @@
     "engine:test": "PYTHONPATH=.:.python-packages python3 -m pytest tests features/breeze/python features/upstox/python",
     "test:breeze-multibagger": "node --import tsx --test features/breeze/lib/breeze-multibagger.test.ts",
     "test:options-quant": "node --import tsx --test features/options-quant/lib/*.test.ts",
+    "test:intraday-engine": "node --import tsx --test lib/intraday-engine.test.ts",
     "options:scan": "node --import tsx scripts/run_options_quant_scan.ts",
     "options:verify-sandbox": "node --import tsx scripts/verify_options_sandbox.ts"
   },

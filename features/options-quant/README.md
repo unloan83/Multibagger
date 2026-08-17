@@ -18,7 +18,7 @@ The module returns `NO TRADE` unless all of these are present and current:
 
 ## Integration flow
 
-1. The OCI timer wakes once per minute during the NSE monitoring window. It calls the protected full-scan endpoint every 15 minutes at 09:25, 09:40, …, 14:40 IST, five minutes after the Upstox equity scan.
+1. The OCI timer wakes once per minute during the NSE monitoring window. It calls the protected full-scan endpoint every 15 minutes at 09:28, 09:43, …, 14:43 IST, eight minutes after the Upstox equity scan.
 2. Intervening ticks call `POST /api/options-quant/monitor`, which fetches only the data required to enforce stop, target, direction-reversal, and expiry exits for an active spread; it cannot open a position.
 3. A host-wide non-blocking lock is shared with the equity worker. Overlapping invocations are recorded as skipped, not queued, and full scans have a hard runtime limit.
 4. The protected scan builds a direction from Upstox NIFTY 50 and Bank NIFTY intraday candles plus NIFTY put/call OI, then evaluates the spread and submits sandbox legs only if every gate passes.

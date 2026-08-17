@@ -1,0 +1,23 @@
+[Unit]
+Description=Record Multibagger OCI resource usage and alert on pressure
+
+[Service]
+Type=oneshot
+User=breeze
+Group=breeze
+EnvironmentFile=-/etc/multibagger/telegram.env
+Environment=PYTHONDONTWRITEBYTECODE=1
+Environment=RESOURCE_MIN_AVAILABLE_MEMORY_MB=150
+Environment=RESOURCE_MAX_PAPER_MEMORY_MB=650
+Environment=RESOURCE_MAX_DISK_PERCENT=80
+ExecStart=/usr/bin/python3 /opt/multibagger/scripts/resource_watchdog.py
+UMask=0077
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/var/lib/multibagger
+CapabilityBoundingSet=
+LockPersonality=true
+MemoryDenyWriteExecute=true
+MemoryMax=40M

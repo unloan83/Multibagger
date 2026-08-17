@@ -90,7 +90,7 @@ def scheduled_upstox_job(local: datetime, monitor_interval: int = 120) -> str | 
         return None
     if 9 * 60 + 20 <= minute <= 14 * 60 + 35 and minute % 15 == 5:
         return "FULL_SCAN"
-    if 9 * 60 + 25 <= minute <= 14 * 60 + 40 and minute % 15 == 10:
+    if 9 * 60 + 28 <= minute <= 14 * 60 + 43 and minute % 15 == 13:
         return None
     if minute % (monitor_interval // 60) == 0:
         return "RISK_MONITOR"

@@ -162,7 +162,7 @@ def test_lightweight_monitor_exits_open_trade_and_records_audit_history(tmp_path
     snapshot = json.loads(settings.snapshot_path.read_text())
     assert snapshot["asOf"] == exit_time.isoformat()
     assert snapshot["paperTrading"]["dailyMetrics"]["closedTrades"] == 1
-    assert snapshot["reason"] == "NO_ACTIVE_SIGNALS"
+    assert snapshot["reason"] == "NO_TRADE"
     with store.connect() as con:
         event_types = [row[0] for row in con.execute("SELECT event_type FROM paper_trade_events ORDER BY observed_at").fetchall()]
         assert event_types == ["ENTRY", "EXIT"]

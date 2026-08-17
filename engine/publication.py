@@ -5,6 +5,7 @@ import os
 import urllib.request
 from datetime import datetime, timezone
 from typing import Any
+from urllib.error import HTTPError
 
 from .config import Settings
 
@@ -24,9 +25,15 @@ def publish_snapshot(settings: Settings, payload: dict[str, Any]) -> None:
         method="POST",
         headers={"Authorization": f"Bearer {publish_token}", "Content-Type": "application/json"},
     )
-    with urllib.request.urlopen(request, timeout=30) as response:
-        if response.status >= 300:
-            raise RuntimeError(f"Signal publication failed with HTTP {response.status}")
+    try:
+        with urllib.request.urlopen(request, timeout=30) as response:
+            if response.status >= 300:
+                raise RuntimeError(f"Signal publication failed with HTTP {response.status}")
+    except HTTPError as error:
+        detail = error.read(1000).decode("utf-8", errors="replace")
+        raise RuntimeError(
+            f"Signal publication failed with HTTP {error.code}: {detail}"
+        ) from error
 
 
 def refresh_snapshot_with_paper(
@@ -58,7 +65,7 @@ def refresh_snapshot_with_paper(
         "source": previous.get("source") or f"{settings.market_data_provider.upper()}_1MIN_DUCKDB",
         "mode": "PAPER_ONLY",
         "evaluatedUniverseSize": previous.get("evaluatedUniverseSize", 0),
-        "reason": None if has_signals else "NO_ACTIVE_SIGNALS",
+        "reason": None if has_signals else "NO_TRADE",
         "signals": active_signals,
         "paperTrading": paper,
     }

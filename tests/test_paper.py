@@ -1,3 +1,4 @@
+import json
 from dataclasses import replace
 from datetime import datetime, timedelta, timezone
 
@@ -109,6 +110,37 @@ def test_upstox_sandbox_order_ids_gate_entry_and_exit(tmp_path, monkeypatch):
     assert second["recentClosedTrades"][0]["exit_order_id"] == "sandbox-sell-1"
 
 
+def test_sandbox_entry_rejection_is_audited(tmp_path, monkeypatch):
+    settings = replace(
+        _settings(tmp_path), market_data_provider="upstox",
+        paper_submit_upstox_sandbox_orders=True, upstox_sandbox_access_token="sandbox-token",
+    )
+    store = MarketStore(settings.db_path)
+    opened_at = datetime(2026, 8, 17, 5, 0, tzinfo=timezone.utc)
+    candidate = _candidate("TEST", opened_at)
+    with store.connect() as con:
+        con.execute("INSERT INTO paper_signals VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'OPEN')", [
+            "rejected-run", candidate.symbol, candidate.entry, candidate.stop,
+            candidate.target, candidate.strategy, candidate.timestamp,
+            candidate.expiry, candidate.rank_score,
+        ])
+    monkeypatch.setattr(
+        "engine.paper._submit_upstox_sandbox_order",
+        lambda *args: (_ for _ in ()).throw(RuntimeError("sandbox unavailable")),
+    )
+    result = run_paper_cycle(
+        store, settings, [candidate],
+        {"TEST": {"bid": 199.8, "ask": 200.0, "ts": opened_at, "instrument_key": "NSE_EQ|TEST"}},
+        opened_at, "rejected-run",
+    )
+    assert result["openPositions"] == []
+    assert result["entryRejections"][0]["reason"] == "SANDBOX_ORDER_REJECTED"
+    assert result["recentEntryRejections"][0]["reason"] == "SANDBOX_ORDER_REJECTED"
+    with store.connect() as con:
+        assert con.execute("SELECT status FROM paper_signals WHERE run_id='rejected-run'").fetchone()[0] == "REJECTED_SANDBOX_ORDER_REJECTED"
+        assert con.execute("SELECT count(*) FROM paper_entry_rejections").fetchone()[0] == 1
+
+
 def test_lightweight_monitor_exits_open_trade_and_records_audit_history(tmp_path):
     settings = _settings(tmp_path)
     store = MarketStore(settings.db_path)
@@ -127,6 +159,10 @@ def test_lightweight_monitor_exits_open_trade_and_records_audit_history(tmp_path
     assert result["openPositions"] == []
     assert result["recentClosedTrades"][0]["exit_reason"] == "PROFIT_TARGET"
     assert result["closedByMonitor"][0]["trade_id"] == result["recentClosedTrades"][0]["trade_id"]
+    snapshot = json.loads(settings.snapshot_path.read_text())
+    assert snapshot["asOf"] == exit_time.isoformat()
+    assert snapshot["paperTrading"]["dailyMetrics"]["closedTrades"] == 1
+    assert snapshot["reason"] == "NO_ACTIVE_SIGNALS"
     with store.connect() as con:
         event_types = [row[0] for row in con.execute("SELECT event_type FROM paper_trade_events ORDER BY observed_at").fetchall()]
         assert event_types == ["ENTRY", "EXIT"]

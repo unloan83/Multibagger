@@ -156,10 +156,11 @@ def _run_locked_job(store: MarketStore, settings: Settings, job_type: str, sched
 def _upstox_scan_message(result: dict, scheduled_at: datetime, elapsed_ms: int) -> str:
     paper = result.get("paperTrading") or {}
     metrics = paper.get("dailyMetrics") or {}
+    rejections = paper.get("entryRejections") or []
     return (
         "✅ Upstox Intraday full scan completed\n"
         f"Time: {scheduled_at.strftime('%H:%M IST')} | Duration: {elapsed_ms / 1000:.1f}s\n"
-        f"Signals: {len(result.get('signals') or [])} | Open positions: {len(paper.get('openPositions') or [])}\n"
+        f"Signals: {len(result.get('signals') or [])} | Open positions: {len(paper.get('openPositions') or [])} | Entry rejections: {len(rejections)}\n"
         f"Daily net P&L: ₹{float(metrics.get('netPnl') or 0):,.2f} / ₹{float(paper.get('dailyProfitTarget') or 0):,.2f}\n"
         f"Target reached: {'YES' if paper.get('targetReached') else 'NO'}"
     )

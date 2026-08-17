@@ -58,6 +58,11 @@ CREATE TABLE IF NOT EXISTS paper_trade_events (
   event_type VARCHAR NOT NULL, observed_at TIMESTAMPTZ NOT NULL, quote DOUBLE,
   gross_pnl DOUBLE, net_pnl DOUBLE, target_status VARCHAR, details_json VARCHAR NOT NULL
 );
+CREATE TABLE IF NOT EXISTS paper_entry_rejections (
+  rejection_id VARCHAR PRIMARY KEY, run_id VARCHAR NOT NULL, symbol VARCHAR NOT NULL,
+  strategy VARCHAR NOT NULL, observed_at TIMESTAMPTZ NOT NULL,
+  reason VARCHAR NOT NULL, details_json VARCHAR NOT NULL
+);
 CREATE TABLE IF NOT EXISTS paper_target_history (
   snapshot_id VARCHAR PRIMARY KEY, run_id VARCHAR NOT NULL, observed_at TIMESTAMPTZ NOT NULL,
   trading_day DATE NOT NULL, realized_net_pnl DOUBLE NOT NULL, open_net_pnl DOUBLE NOT NULL,

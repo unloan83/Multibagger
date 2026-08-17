@@ -32,6 +32,7 @@ def run_paper_cycle(
     now = now.astimezone(timezone.utc)
     trading_day = now.astimezone(IST).date()
     no_entry_reasons: list[str] = []
+    entry_rejections: list[dict[str, Any]] = []
 
     with store.connect() as con:
         open_trades = _records(con, "SELECT * FROM paper_trades WHERE status='OPEN' ORDER BY opened_at")
@@ -86,18 +87,36 @@ def run_paper_cycle(
             quote = _fresh_quote(quotes.get(candidate.symbol), now, settings.stale_seconds)
             if not quote:
                 continue
-            trade = _open_trade(con, candidate, quote, now, trading_day, run_id, settings)
+            trade, rejection_reason = _open_trade(
+                con, candidate, quote, now, trading_day, run_id, settings,
+            )
             if trade:
                 open_rows.append(trade)
                 existing_keys.add(key)
                 day_count += 1
-            elif settings.paper_submit_upstox_sandbox_orders:
-                no_entry_reasons.append(f"{candidate.symbol} paper entry was rejected by sizing or the Upstox sandbox guard.")
+            elif rejection_reason:
+                _record_entry_rejection(con, candidate, now, run_id, rejection_reason)
+                entry_rejections.append({
+                    "run_id": run_id,
+                    "symbol": candidate.symbol,
+                    "strategy": candidate.strategy,
+                    "observed_at": now.isoformat(),
+                    "reason": rejection_reason,
+                })
+                no_entry_reasons.append(
+                    f"{candidate.symbol} paper entry rejected: {rejection_reason}."
+                )
 
         daily = _metrics(con, "WHERE trading_day=? AND status='CLOSED'", [trading_day], settings.paper_portfolio_capital)
         overall = _metrics(con, "WHERE status='CLOSED'", [], settings.paper_portfolio_capital)
         open_rows = _records(con, "SELECT * FROM paper_trades WHERE status='OPEN' ORDER BY opened_at")
         recent = _records(con, "SELECT * FROM paper_trades WHERE status='CLOSED' ORDER BY closed_at DESC LIMIT 20")
+        recent_rejections = _records(con, """
+          SELECT run_id,symbol,strategy,observed_at,reason
+          FROM paper_entry_rejections
+          WHERE CAST(observed_at AT TIME ZONE 'Asia/Kolkata' AS DATE)=?
+          ORDER BY observed_at DESC LIMIT 20
+        """, [trading_day])
         realized = daily["netPnl"]
         target_reached = realized >= settings.paper_daily_profit_target
         loss_limit_reached = realized <= -settings.paper_daily_loss_limit
@@ -123,6 +142,8 @@ def run_paper_cycle(
         "noEntryReasons": list(dict.fromkeys(no_entry_reasons)),
         "openPositions": [_public_trade(row) for row in open_rows],
         "recentClosedTrades": [_public_trade(row) for row in recent],
+        "entryRejections": entry_rejections,
+        "recentEntryRejections": [_public_rejection(row) for row in recent_rejections],
         "dailyMetrics": daily,
         "overallMetrics": overall,
     }
@@ -139,27 +160,28 @@ def run_risk_monitor(settings: Settings, now: datetime | None = None) -> dict[st
     open_trade_ids = {str(row[0]) for row in open_rows}
     symbols = sorted({str(row[1]) for row in open_rows})
     quotes = store.latest_quotes(symbols)
-    result = run_paper_cycle(
-        store, settings, [], quotes, observed_at, f"monitor-{uuid.uuid4()}",
-    )
+    monitor_run_id = f"monitor-{uuid.uuid4()}"
+    result = run_paper_cycle(store, settings, [], quotes, observed_at, monitor_run_id)
     result["closedByMonitor"] = [
         trade for trade in result["recentClosedTrades"]
         if str(trade.get("trade_id")) in open_trade_ids
     ]
+    from .publication import refresh_snapshot_with_paper
+    refresh_snapshot_with_paper(settings, result, observed_at, monitor_run_id)
     return result
 
 
 def _open_trade(con: Any, candidate: Candidate, quote: dict[str, Any], now: datetime, trading_day: Any,
-                run_id: str, settings: Settings) -> dict[str, Any] | None:
+                run_id: str, settings: Settings) -> tuple[dict[str, Any] | None, str | None]:
     entry_quote = float(quote["ask"])
     stop_distance = entry_quote - float(candidate.stop)
     if stop_distance <= 0:
-        return None
+        return None, "INVALID_STOP_DISTANCE"
     risk_budget = settings.paper_portfolio_capital * settings.paper_risk_per_trade_pct / 100
     capital_budget = settings.paper_portfolio_capital * settings.paper_max_capital_per_trade_pct / 100
     quantity = min(math.floor(risk_budget / stop_distance), math.floor(capital_budget / entry_quote))
     if quantity < 1:
-        return None
+        return None, "POSITION_SIZE_BELOW_ONE"
     entry_fill = entry_quote * (1 + settings.paper_slippage_bps_per_side / 10_000)
     capital_used = entry_fill * quantity
     brokerage = settings.paper_brokerage_per_order
@@ -172,14 +194,18 @@ def _open_trade(con: Any, candidate: Candidate, quote: dict[str, Any], now: date
         instrument_key = str(quote.get("instrument_key") or "")
         if settings.market_data_provider != "upstox" or not instrument_key or not settings.upstox_sandbox_access_token:
             LOG.error("Upstox sandbox entry refused because provider, instrument key, or sandbox token is missing")
-            return None
+            return None, "SANDBOX_CONFIGURATION_MISSING"
         try:
             entry_order_id = _submit_upstox_sandbox_order(
                 candidate.symbol, instrument_key, quantity, entry_quote, "BUY", trade_id, settings,
             )
         except Exception as error:
-            LOG.error("Upstox sandbox entry failed for %s: %s", candidate.symbol, error)
-            return None
+            from features.upstox.python.upstox_sandbox import sanitize_log_message
+            LOG.error(
+                "Upstox sandbox entry failed for %s: %s",
+                candidate.symbol, sanitize_log_message(str(error)),
+            )
+            return None, "SANDBOX_ORDER_REJECTED"
         execution_mode = "UPSTOX_SANDBOX"
     intended = {
         "side": "BUY", "orderType": "PAPER_MARKET", "symbol": candidate.symbol,
@@ -210,7 +236,7 @@ def _open_trade(con: Any, candidate: Candidate, quote: dict[str, Any], now: date
         -(brokerage + fees + slippage), "OPEN",
         {"executionMode": execution_mode, "orderId": entry_order_id, "target": candidate.target, "stop": candidate.stop},
     )
-    return _records(con, "SELECT * FROM paper_trades WHERE trade_id=?", [trade_id])[0]
+    return _records(con, "SELECT * FROM paper_trades WHERE trade_id=?", [trade_id])[0], None
 
 
 def _mark_trade(con: Any, trade: dict[str, Any], quote: dict[str, Any], now: datetime,
@@ -364,6 +390,13 @@ def _public_trade(row: dict[str, Any]) -> dict[str, Any]:
     return result
 
 
+def _public_rejection(row: dict[str, Any]) -> dict[str, Any]:
+    result = dict(row)
+    if isinstance(result.get("observed_at"), datetime):
+        result["observed_at"] = result["observed_at"].isoformat()
+    return result
+
+
 def _round(value: float) -> float:
     return round(float(value), 2)
 
@@ -378,6 +411,20 @@ def _record_trade_event(con: Any, trade_id: str, run_id: str, event_type: str,
         str(uuid.uuid4()), trade_id, run_id, event_type, observed_at, quote,
         gross_pnl, net_pnl, target_status, json.dumps(details, default=str, sort_keys=True),
     ])
+
+
+def _record_entry_rejection(con: Any, candidate: Candidate, observed_at: datetime,
+                            run_id: str, reason: str) -> None:
+    con.execute("""
+      INSERT INTO paper_entry_rejections VALUES (?, ?, ?, ?, ?, ?, ?)
+    """, [
+        str(uuid.uuid4()), run_id, candidate.symbol, candidate.strategy, observed_at,
+        reason, json.dumps({"rankScore": candidate.rank_score}, sort_keys=True),
+    ])
+    con.execute("""
+      UPDATE paper_signals SET status=?
+      WHERE run_id=? AND symbol=? AND strategy=?
+    """, [f"REJECTED_{reason}", run_id, candidate.symbol, candidate.strategy])
 
 
 def _submit_upstox_sandbox_order(symbol: str, instrument_key: str, quantity: int, price: float,

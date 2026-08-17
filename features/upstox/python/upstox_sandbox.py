@@ -111,8 +111,12 @@ def get_sandbox_configuration(access_token: Optional[str] = None) -> upstox_clie
             "Please set UPSTOX_SANDBOX_ACCESS_TOKEN in your local .env.local file or environment."
         )
 
-    # Instantiate Configuration with sandbox=True
-    config = upstox_client.Configuration(sandbox=True)
+    # Upstox's Configuration metaclass returns a copy of the first Configuration
+    # created in the process and ignores later constructor arguments.  The market
+    # data collector creates a live configuration first, so a normal
+    # Configuration(sandbox=True) call can silently inherit the live host.  Call
+    # the class constructor directly to create an independent sandbox instance.
+    config = type.__call__(upstox_client.Configuration, sandbox=True)
     config.access_token = token
 
     # Hard safety check on target API host URL

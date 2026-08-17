@@ -57,6 +57,23 @@ def test_sandbox_configuration_host(monkeypatch):
     assert config.access_token == "test_mock_sandbox_token_123"
 
 
+def test_sandbox_configuration_is_independent_after_live_configuration(monkeypatch):
+    """Regression: the long-running collector initializes the live SDK client first."""
+    monkeypatch.setenv("UPSTOX_MODE", "SANDBOX")
+    monkeypatch.setenv("LIVE_TRADING_ENABLED", "false")
+    configuration_class = __import__("upstox_client").Configuration
+    previous_default = configuration_class._default
+    try:
+        configuration_class._default = None
+        live = configuration_class()
+        sandbox = get_sandbox_configuration(access_token="test_mock_sandbox_token_123")
+        assert live.host != SANDBOX_HOST_URL
+        assert sandbox.host == SANDBOX_HOST_URL
+        assert sandbox.sandbox is True
+    finally:
+        configuration_class._default = previous_default
+
+
 def test_missing_sandbox_token_raises_auth_error(monkeypatch):
     """Proves missing sandbox access token causes safe failure."""
     monkeypatch.setenv("UPSTOX_MODE", "SANDBOX")

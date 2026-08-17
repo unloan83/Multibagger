@@ -1,15 +1,14 @@
 from __future__ import annotations
 
-import json
 import os
 import time
-import urllib.request
 import uuid
 from dataclasses import asdict
 from datetime import datetime, timezone
 
 from .config import Settings
 from .paper import run_paper_cycle
+from .publication import publish_snapshot
 from .store import MarketStore
 from .strategies import Candidate, scan_symbol
 
@@ -70,18 +69,7 @@ def run_scan(settings: Settings, deadline_monotonic: float | None = None) -> dic
             "reason": None if candidates else "NO_TRADE", "signals": [{**asdict(item), "run_id": run_id, "timestamp": item.timestamp.isoformat(), "expiry": item.expiry.isoformat()} for item in candidates],
             "paperTrading": paper,
         }
-        settings.snapshot_path.parent.mkdir(parents=True, exist_ok=True)
-        settings.snapshot_path.write_text(json.dumps(payload, indent=2))
-        publish_url = os.getenv("SIGNAL_INGEST_URL", "")
-        publish_token = os.getenv("SIGNAL_INGEST_TOKEN", "")
-        if publish_url:
-            if not publish_token:
-                raise RuntimeError("SIGNAL_INGEST_TOKEN is required when SIGNAL_INGEST_URL is set")
-            request = urllib.request.Request(publish_url, data=json.dumps(payload).encode(), method="POST",
-                headers={"Authorization": f"Bearer {publish_token}", "Content-Type": "application/json"})
-            with urllib.request.urlopen(request, timeout=30) as response:
-                if response.status >= 300:
-                    raise RuntimeError(f"Signal publication failed with HTTP {response.status}")
+        publish_snapshot(settings, payload)
         return payload
     except Exception as error:
         reason = "MAX_RUNTIME_EXCEEDED" if isinstance(error, TimeoutError) else "DATA_UNAVAILABLE"

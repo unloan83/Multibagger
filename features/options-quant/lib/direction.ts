@@ -48,10 +48,10 @@ export async function buildLiveDirectionEvidence(
       : clamp(50 + (1 - putCallOiRatio) * 100);
   const confidence = Math.round(trendStrength * 0.55 + bankNiftyConfirmation * 0.25 + optionChainConfirmation * 0.2);
   const direction = candidate !== "UNCLEAR"
-      && trendStrength >= 60
-      && bankNiftyConfirmation >= 50
+      && trendStrength >= 65
+      && bankNiftyConfirmation >= 60
       && optionChainConfirmation >= 45
-      && confidence >= 70
+      && confidence >= 75
     ? candidate
     : "UNCLEAR";
   const latestMarketTimestamp = niftyCandles.at(-1)!.timestamp;

@@ -83,24 +83,43 @@ function getSnapshotTimestamp(content: string): number {
 
 export async function writeSnapshotFile(filename: string, content: string): Promise<void> {
   if (hasBlobStorage()) {
-    const { put } = await import("@vercel/blob");
-    await put(`${BLOB_FOLDER}/${filename}`, content, {
-      access: "private",
-      addRandomSuffix: false,
-      allowOverwrite: true,
-      contentType: "application/json",
-      cacheControlMaxAge: 60,
-    });
-    return;
+    try {
+      const { put } = await import("@vercel/blob");
+      await put(`${BLOB_FOLDER}/${filename}`, content, {
+        access: "private",
+        addRandomSuffix: false,
+        allowOverwrite: true,
+        contentType: "application/json",
+        cacheControlMaxAge: 60,
+      });
+      return;
+    } catch {
+      // Blob storage write failed, fall back to /tmp or local storage below.
+    }
   }
 
-  if (process.env.VERCEL) {
-    throw new Error(
-      "Durable storage is not configured. Connect a Vercel Blob store to this project.",
-    );
+  const tmpPath = path.join("/tmp", filename);
+  let written = false;
+  try {
+    await fs.mkdir(path.dirname(tmpPath), { recursive: true });
+    await fs.writeFile(tmpPath, content, "utf8");
+    written = true;
+  } catch {
+    // /tmp fallback failed
   }
 
-  const destination = localSnapshotPath(filename);
-  await fs.mkdir(path.dirname(destination), { recursive: true });
-  await fs.writeFile(destination, content, "utf8");
+  if (!process.env.VERCEL) {
+    try {
+      const destination = localSnapshotPath(filename);
+      await fs.mkdir(path.dirname(destination), { recursive: true });
+      await fs.writeFile(destination, content, "utf8");
+      written = true;
+    } catch {
+      // local destination failed
+    }
+  }
+
+  if (!written) {
+    console.warn(`[Snapshot Storage] Could not persist snapshot file ${filename} locally.`);
+  }
 }

@@ -19,9 +19,11 @@ class Settings:
     stale_seconds: int = 120
     min_price: float = 150.0
     max_price: float = 750.0
-    min_daily_value: float = 50_000_000.0
-    min_relative_volume: float = 1.2
-    max_spread_bps: float = 20.0
+    min_daily_value: float = 100_000_000.0
+    min_relative_volume: float = 2.0
+    max_spread_bps: float = 10.0
+    min_atr_stop_pct: float = 0.5
+    min_confluence_score: float = 80.0
     atr_stop_multiple: float = 1.2
     reward_risk: float = 2.0
     signal_expiry_minutes: int = 20
@@ -31,7 +33,8 @@ class Settings:
     paper_daily_profit_target: float = 3_000.0
     paper_daily_loss_limit: float = 3_000.0
     paper_max_open_positions: int = 3
-    paper_max_trades_per_day: int = 6
+    paper_max_trades_per_day: int = 3
+    paper_consecutive_loss_limit: int = 2
     paper_brokerage_per_order: float = 20.0
     paper_fees_bps_per_side: float = 5.0
     paper_slippage_bps_per_side: float = 5.0
@@ -80,9 +83,9 @@ class Settings:
             stale_seconds=int(os.getenv("MAX_DATA_AGE_SECONDS", "120")),
             min_price=min_price,
             max_price=max_price,
-            min_daily_value=float(os.getenv("MIN_DAILY_VALUE_INR", "50000000")),
-            min_relative_volume=float(os.getenv("MIN_RELATIVE_VOLUME", "1.2")),
-            max_spread_bps=float(os.getenv("MAX_SPREAD_BPS", "20")),
+            min_daily_value=float(os.getenv("MIN_DAILY_VALUE_INR", "100000000")),
+            min_relative_volume=float(os.getenv("MIN_RELATIVE_VOLUME", "2.0")),
+            max_spread_bps=float(os.getenv("MAX_SPREAD_BPS", "10")),
             paper_portfolio_capital=paper_capital,
             paper_risk_per_trade_pct=risk_pct,
             paper_max_capital_per_trade_pct=float(os.getenv("PAPER_MAX_CAPITAL_PER_TRADE_PERCENT", "20")),

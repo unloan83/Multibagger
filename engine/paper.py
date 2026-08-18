@@ -58,16 +58,19 @@ def run_paper_cycle(
 
         realized = _closed_net_today(con, trading_day)
         day_count = int(con.execute("SELECT count(*) FROM paper_trades WHERE trading_day=?", [trading_day]).fetchone()[0])
+        losses_today = int(con.execute("SELECT count(*) FROM paper_trades WHERE trading_day=? AND status='CLOSED' AND net_pnl <= 0", [trading_day]).fetchone()[0])
         open_rows = _records(con, "SELECT * FROM paper_trades WHERE status='OPEN' ORDER BY opened_at")
-        existing_keys = {
-            (str(row["symbol"]), str(row["strategy"]))
-            for row in _records(con, "SELECT symbol,strategy FROM paper_trades WHERE trading_day=?", [trading_day])
+        existing_symbols = {
+            str(row["symbol"])
+            for row in _records(con, "SELECT symbol FROM paper_trades WHERE trading_day=?", [trading_day])
         }
 
         if realized >= settings.paper_daily_profit_target:
             no_entry_reasons.append("Daily paper profit target reached; new entries are disabled.")
-        if realized <= -settings.paper_daily_loss_limit:
+        if realized <= -settings.paper_daily_loss_limit or (realized + sum(float(row["net_pnl"]) for row in open_rows)) <= -settings.paper_daily_loss_limit:
             no_entry_reasons.append("Daily paper loss limit reached; new entries are disabled.")
+        if losses_today >= settings.paper_consecutive_loss_limit:
+            no_entry_reasons.append("Consecutive daily loss limit reached; new entries are halted.")
         if not _entry_window_open(now):
             no_entry_reasons.append("Outside the automatic paper-entry window (09:20–14:45 IST on NSE weekdays).")
 
@@ -81,18 +84,17 @@ def run_paper_cycle(
             if day_count >= settings.paper_max_trades_per_day:
                 no_entry_reasons.append("Maximum paper trades for the day reached.")
                 break
-            key = (candidate.symbol, candidate.strategy)
-            if key in existing_keys:
+            if candidate.symbol in existing_symbols:
                 continue
             quote = _fresh_quote(quotes.get(candidate.symbol), now, settings.stale_seconds)
             if not quote:
                 continue
             trade, rejection_reason = _open_trade(
-                con, candidate, quote, now, trading_day, run_id, settings,
+                con, candidate, quote, now, trading_day, run_id, settings, losses_today,
             )
             if trade:
                 open_rows.append(trade)
-                existing_keys.add(key)
+                existing_symbols.add(candidate.symbol)
                 day_count += 1
             elif rejection_reason:
                 _record_entry_rejection(con, candidate, now, run_id, rejection_reason)
@@ -172,7 +174,7 @@ def run_risk_monitor(settings: Settings, now: datetime | None = None) -> dict[st
 
 
 def _open_trade(con: Any, candidate: Candidate, quote: dict[str, Any], now: datetime, trading_day: Any,
-                run_id: str, settings: Settings) -> tuple[dict[str, Any] | None, str | None]:
+                run_id: str, settings: Settings, losses_today: int = 0) -> tuple[dict[str, Any] | None, str | None]:
     entry_quote = float(quote["ask"])
     stop_distance = entry_quote - float(candidate.stop)
     if stop_distance <= 0:
@@ -180,6 +182,8 @@ def _open_trade(con: Any, candidate: Candidate, quote: dict[str, Any], now: date
     risk_budget = settings.paper_portfolio_capital * settings.paper_risk_per_trade_pct / 100
     capital_budget = settings.paper_portfolio_capital * settings.paper_max_capital_per_trade_pct / 100
     quantity = min(math.floor(risk_budget / stop_distance), math.floor(capital_budget / entry_quote))
+    if losses_today >= 1:
+        quantity = max(1, math.floor(quantity * 0.5))
     if quantity < 1:
         return None, "POSITION_SIZE_BELOW_ONE"
     entry_fill = entry_quote * (1 + settings.paper_slippage_bps_per_side / 10_000)
@@ -299,9 +303,19 @@ def _mark_trade(con: Any, trade: dict[str, Any], quote: dict[str, Any], now: dat
 
 def _regular_exit_reason(trade: dict[str, Any], quote: dict[str, Any], now: datetime, settings: Settings) -> str | None:
     bid = float(quote["bid"])
-    if bid <= float(trade["stop_price"]):
+    entry_quote = float(trade["entry_quote"])
+    stop_price = float(trade["stop_price"])
+    target_price = float(trade["target_price"])
+    risk_unit = entry_quote - stop_price
+
+    # Trailing Stop: If price reaches 1R profit, trail stop loss to Breakeven + 0.1% buffer
+    effective_stop = stop_price
+    if risk_unit > 0 and bid >= entry_quote + risk_unit:
+        effective_stop = max(stop_price, entry_quote * 1.001)
+
+    if bid <= effective_stop:
         return "STOP_LOSS"
-    if bid >= float(trade["target_price"]):
+    if bid >= target_price:
         return "PROFIT_TARGET"
     if _flatten_time_reached(now, settings):
         return "END_OF_DAY"

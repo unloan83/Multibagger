@@ -63,9 +63,9 @@ export function createEmptyState(): OptionsQuantState {
 }
 
 export async function readOptionsQuantState(): Promise<OptionsQuantState> {
-  const content = await readSnapshotFile(STATE_FILE);
-  if (!content) return createEmptyState();
   try {
+    const content = await readSnapshotFile(STATE_FILE);
+    if (!content) return createEmptyState();
     const state = JSON.parse(content) as OptionsQuantState;
     if (state.schemaVersion !== 1) return createEmptyState();
     const config = getOptionsQuantConfig();
@@ -83,5 +83,9 @@ export async function readOptionsQuantState(): Promise<OptionsQuantState> {
 
 export async function writeOptionsQuantState(state: OptionsQuantState): Promise<void> {
   state.asOf = new Date().toISOString();
-  await writeSnapshotFile(STATE_FILE, JSON.stringify(state, null, 2));
+  try {
+    await writeSnapshotFile(STATE_FILE, JSON.stringify(state, null, 2));
+  } catch {
+    // Ignore snapshot write errors to keep trading engine resilient
+  }
 }

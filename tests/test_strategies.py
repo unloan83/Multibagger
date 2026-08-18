@@ -9,8 +9,18 @@ from engine.strategies import scan_symbol
 def settings(tmp_path):
     universe = tmp_path / "universe.json"
     universe.write_text('[{"symbol":"TEST","sources":["NIFTY 500"]}]')
-    return Settings("", tmp_path / "test.duckdb", tmp_path / "signals.json", universe,
-                    max_symbols=1, min_daily_value=1, min_relative_volume=1, max_spread_bps=20)
+    return Settings(
+        access_token="",
+        db_path=tmp_path / "test.duckdb",
+        snapshot_path=tmp_path / "signals.json",
+        universe_path=universe,
+        max_symbols=1,
+        min_daily_value=1,
+        min_relative_volume=1,
+        max_spread_bps=20,
+        min_atr_stop_pct=0.1,
+        min_confluence_score=50.0,
+    )
 
 
 def bars(now, stale=False, wide_spread=False):

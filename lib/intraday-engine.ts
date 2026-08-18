@@ -108,17 +108,23 @@ export async function readPaperSignals(): Promise<PaperSignalSnapshot> {
 export function validSnapshot(value: PaperSignalSnapshot): boolean {
   const age = Date.now() - Date.parse(value?.asOf);
   if (!value || !["BREEZE_1MIN_DUCKDB", "UPSTOX_1MIN_DUCKDB"].includes(value.source) || value.mode !== "PAPER_ONLY" ||
-      !Number.isFinite(age) || age < 0 || age > MAX_SNAPSHOT_AGE_MS || !value.run_id ||
+      !Number.isFinite(age) || age < -60_000 || age > MAX_SNAPSHOT_AGE_MS || !value.run_id ||
       !Array.isArray(value.signals) || !["SIGNALS", "NO_TRADE"].includes(value.status)) return false;
   if (value.paperTrading && !validPaperTrading(value.paperTrading)) return false;
-  if (value.status === "NO_TRADE") return value.signals.length === 0 && value.reason === "NO_TRADE";
+  if (value.status === "NO_TRADE") return value.signals.length === 0 && (value.reason === null || typeof value.reason === "string");
   return value.signals.length > 0 && value.signals.every((signal) => validSignal(signal) && signal.run_id === value.run_id);
 }
 
 function validPaperTrading(value: PaperTradingState): boolean {
-  return value.mode === "AUTOMATIC_PAPER_ONLY" &&
-    [value.dailyProfitTarget, value.dailyLossLimit, value.dailyMetrics?.netPnl, value.overallMetrics?.netPnl].every(Number.isFinite) &&
-    Array.isArray(value.openPositions) && Array.isArray(value.recentClosedTrades) && Array.isArray(value.noEntryReasons);
+  if (!value || value.mode !== "AUTOMATIC_PAPER_ONLY") return false;
+  const target = Number(value.dailyProfitTarget);
+  const loss = Number(value.dailyLossLimit);
+  const dailyNet = Number(value.dailyMetrics?.netPnl ?? 0);
+  const overallNet = Number(value.overallMetrics?.netPnl ?? 0);
+  return (
+    [target, loss, dailyNet, overallNet].every(Number.isFinite) &&
+    Array.isArray(value.openPositions) && Array.isArray(value.recentClosedTrades) && Array.isArray(value.noEntryReasons)
+  );
 }
 
 function validSignal(signal: PaperSignal): boolean {

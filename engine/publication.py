@@ -28,12 +28,12 @@ def publish_snapshot(settings: Settings, payload: dict[str, Any]) -> None:
     try:
         with urllib.request.urlopen(request, timeout=30) as response:
             if response.status >= 300:
-                raise RuntimeError(f"Signal publication failed with HTTP {response.status}")
+                print(f"[Publication Warning] Signal publication returned HTTP {response.status}")
     except HTTPError as error:
         detail = error.read(1000).decode("utf-8", errors="replace")
-        raise RuntimeError(
-            f"Signal publication failed with HTTP {error.code}: {detail}"
-        ) from error
+        print(f"[Publication Warning] Signal publication failed with HTTP {error.code}: {detail}")
+    except Exception as error:
+        print(f"[Publication Warning] Signal publication failed: {error}")
 
 
 def refresh_snapshot_with_paper(

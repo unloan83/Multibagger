@@ -61,22 +61,42 @@ def scan_symbol(frame: pd.DataFrame, settings: Settings, now: datetime | None = 
     if not settings.min_price <= float(last.close) <= settings.max_price or daily_value < settings.min_daily_value or rvol < settings.min_relative_volume or spread_bps > settings.max_spread_bps:
         return []
     entry, atr = float(ask), float(last.atr)
-    stop = entry - settings.atr_stop_multiple * atr
+    vwap_val = float(last.vwap)
+    stop = min(entry - settings.atr_stop_multiple * atr, vwap_val * 0.998)
+    stop_distance_pct = (entry - stop) / entry * 100
+    if stop_distance_pct < settings.min_atr_stop_pct:
+        return []
     target = entry + settings.reward_risk * (entry - stop)
     expiry = now + timedelta(minutes=settings.signal_expiry_minutes)
-    volume_component = min(rvol / 3, 1) * 40
-    spread_component = max(0, 1 - spread_bps / settings.max_spread_bps) * 25
-    trend_component = min(max((entry - float(last.vwap)) / atr, 0), 1) * 35
-    score = round(volume_component + spread_component + trend_component, 4)
+
+    # 4-Factor Confluence Scoring Engine (Total 100 pts)
+    # Factor A: Technical Momentum & RVOL Surge (35 pts)
+    volume_component = min(rvol / 4.0, 1.0) * 35.0
+
+    # Factor B: Price Trend & VWAP Distance (25 pts)
+    trend_component = min(max((entry - vwap_val) / atr, 0.0), 1.0) * 25.0
+
+    # Factor C: Session Progression & Intraday Structure (25 pts)
+    closes_recent = session.close.tail(5)
+    ema_slope_positive = closes_recent.iloc[-1] > closes_recent.mean()
+    structure_component = 25.0 if ema_slope_positive and entry > vwap_val else 10.0
+
+    # Factor D: Microstructure & Spread Quality (15 pts)
+    spread_component = max(0.0, 1.0 - spread_bps / settings.max_spread_bps) * 15.0
+
+    score = round(volume_component + trend_component + structure_component + spread_component, 4)
+    min_score = getattr(settings, "min_confluence_score", 80.0)
+    if score < min_score:
+        return []
     opening = session.iloc[:15]
     orb_high = float(opening.high.max())
     previous = session.iloc[-2]
     results: list[Candidate] = []
-    if float(previous.close) <= orb_high < float(last.close) and float(last.close) > float(last.vwap):
+    if float(previous.close) <= orb_high < float(last.close) and float(last.close) > vwap_val:
         results.append(Candidate(str(last.symbol), entry, stop, target, "ORB_15M", now, expiry, score))
     recent = session.iloc[-4:-1]
     touched_vwap = bool((recent.low <= recent.vwap * 1.0015).any())
-    continuation = float(last.close) > float(previous.high) and float(last.close) > float(last.vwap)
+    continuation = float(last.close) > float(previous.high) and float(last.close) > vwap_val
     if touched_vwap and continuation:
         results.append(Candidate(str(last.symbol), entry, stop, target, "VWAP_CONTINUATION", now, expiry, score))
     return results

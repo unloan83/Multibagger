@@ -150,14 +150,17 @@ class MarketStore:
             return {}
         with self.connect() as con:
             rows = con.execute("""
-              SELECT symbol, instrument_key, ts, bid, ask
+              SELECT symbol, instrument_key, ts, bid, ask, received_at
               FROM minute_bars
               WHERE symbol IN (SELECT unnest(?))
               QUALIFY row_number() OVER (PARTITION BY symbol ORDER BY ts DESC)=1
             """, [symbols]).fetchall()
         return {
-            str(symbol): {"instrument_key": str(key), "ts": ts, "bid": bid, "ask": ask}
-            for symbol, key, ts, bid, ask in rows
+            str(symbol): {
+                "instrument_key": str(key), "ts": ts, "bid": bid, "ask": ask,
+                "received_at": received_at,
+            }
+            for symbol, key, ts, bid, ask, received_at in rows
         }
 
     def start_job(self, job_id: str, model: str, job_type: str, scheduled_at,

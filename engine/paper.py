@@ -374,13 +374,25 @@ def _fresh_quote(quote: dict[str, Any] | None, now: datetime, stale_seconds: int
         return None
     try:
         bid, ask = float(quote["bid"]), float(quote["ask"])
-        timestamp = quote["ts"]
-        if timestamp.tzinfo is None:
-            timestamp = timestamp.replace(tzinfo=timezone.utc)
-        age = (now - timestamp.astimezone(timezone.utc)).total_seconds()
+        market_timestamp = quote["ts"]
+        received_timestamp = quote.get("received_at") or market_timestamp
+        if market_timestamp.tzinfo is None:
+            market_timestamp = market_timestamp.replace(tzinfo=timezone.utc)
+        if received_timestamp.tzinfo is None:
+            received_timestamp = received_timestamp.replace(tzinfo=timezone.utc)
+        market_age = (now - market_timestamp.astimezone(timezone.utc)).total_seconds()
+        receipt_age = (now - received_timestamp.astimezone(timezone.utc)).total_seconds()
     except (KeyError, TypeError, ValueError):
         return None
-    return quote if bid > 0 and ask > bid and 0 <= age <= stale_seconds else None
+    # Upstox finalizes a one-minute bar after the minute closes, so its market
+    # timestamp can be older than the executable bid/ask receipt. Require a
+    # fresh receipt and independently cap market-time lag to reject backfills.
+    maximum_market_age = stale_seconds * 3
+    return quote if (
+        bid > 0 and ask > bid
+        and 0 <= receipt_age <= stale_seconds
+        and 0 <= market_age <= maximum_market_age
+    ) else None
 
 
 def _closed_net_today(con: Any, trading_day: Any) -> float:

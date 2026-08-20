@@ -214,3 +214,46 @@ def test_lightweight_monitor_exits_open_trade_and_records_audit_history(tmp_path
         event_types = [row[0] for row in con.execute("SELECT event_type FROM paper_trade_events ORDER BY observed_at").fetchall()]
         assert event_types == ["ENTRY", "EXIT"]
         assert con.execute("SELECT count(*) FROM paper_target_history").fetchone()[0] == 2
+
+
+def test_monitor_uses_fresh_quote_receipt_when_finalized_bar_timestamp_is_delayed(tmp_path):
+    settings = _settings(tmp_path)
+    store = MarketStore(settings.db_path)
+    opened_at = datetime(2026, 8, 17, 5, 0, tzinfo=timezone.utc)
+    run_paper_cycle(
+        store, settings, [_candidate("TEST", opened_at)],
+        {"TEST": {"bid": 199.8, "ask": 200.0, "ts": opened_at}}, opened_at, "run-one",
+    )
+
+    monitor_time = opened_at + timedelta(minutes=5)
+    store.upsert_bar({
+        "instrument_key": "NSE_EQ|TEST", "symbol": "TEST",
+        "ts": monitor_time - timedelta(minutes=3),
+        "open": 200.0, "high": 212.0, "low": 199.0, "close": 211.0,
+        "volume": 1000, "bid": 211.0, "ask": 211.2,
+        "received_at": monitor_time - timedelta(seconds=15),
+    })
+    result = run_risk_monitor(settings, monitor_time)
+    assert result["openPositions"] == []
+    assert result["recentClosedTrades"][0]["exit_reason"] == "PROFIT_TARGET"
+
+
+def test_monitor_rejects_backfilled_quote_even_when_receipt_is_fresh(tmp_path):
+    settings = _settings(tmp_path)
+    store = MarketStore(settings.db_path)
+    opened_at = datetime(2026, 8, 17, 5, 0, tzinfo=timezone.utc)
+    run_paper_cycle(
+        store, settings, [_candidate("TEST", opened_at)],
+        {"TEST": {"bid": 199.8, "ask": 200.0, "ts": opened_at}}, opened_at, "run-one",
+    )
+
+    monitor_time = opened_at + timedelta(minutes=10)
+    store.upsert_bar({
+        "instrument_key": "NSE_EQ|TEST", "symbol": "TEST",
+        "ts": monitor_time - timedelta(minutes=8),
+        "open": 200.0, "high": 212.0, "low": 199.0, "close": 211.0,
+        "volume": 1000, "bid": 211.0, "ask": 211.2,
+        "received_at": monitor_time - timedelta(seconds=15),
+    })
+    result = run_risk_monitor(settings, monitor_time)
+    assert [trade["symbol"] for trade in result["openPositions"]] == ["TEST"]

@@ -12,7 +12,6 @@ EnvironmentFile=-/etc/multibagger/telegram.env
 Environment=PYTHONDONTWRITEBYTECODE=1
 ExecStart=/usr/bin/python3 /opt/multibagger/scripts/options_quant_scheduler.py
 TimeoutStartSec=55
-RuntimeMaxSec=55
 UMask=0077
 NoNewPrivileges=true
 PrivateTmp=true

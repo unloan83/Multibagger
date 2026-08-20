@@ -24,6 +24,13 @@ The module returns `NO TRADE` unless all of these are present and current:
 4. The protected scan builds a direction from Upstox NIFTY 50 and Bank NIFTY intraday candles plus NIFTY put/call OI, then evaluates the spread and submits sandbox legs only if every gate passes.
 5. `GET /api/options-quant` is read-only and renders live opportunity, active positions, risk, P&L, target status, and performance evidence. OCI also retains scheduler outcome and target-status history in SQLite.
 
+On a resource-constrained OCI host, `scripts/options_quant_server.ts` runs the same engine as a
+localhost-only service. Setting `OPTIONS_QUANT_STATE_DB` stores the complete state transactionally
+in SQLite, and the existing Python scheduler calls `http://127.0.0.1:8787/scan` or `/monitor`.
+The service is prebuilt off-host and capped by systemd; it does not require Next.js, Docker, or an
+on-host TypeScript build. The Vercel dashboard remains unavailable until a separately protected
+HTTPS read path to OCI is configured and verified.
+
 `OPTIONS_QUANT_ENABLED=false` is the new-entry kill switch. Open sandbox positions continue to be monitored for exits. The scheduler and API both remain fail-closed outside the monitoring window, for stale data, and for incomplete Upstox responses.
 
 Direction body:

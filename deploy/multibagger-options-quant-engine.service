@@ -1,0 +1,31 @@
+[Unit]
+Description=Multibagger Options Quant local engine
+Wants=network-online.target
+After=network-online.target
+
+[Service]
+Type=simple
+User=breeze
+Group=breeze
+EnvironmentFile=/etc/multibagger/options-quant.env
+EnvironmentFile=/etc/upstox/upstox.env
+Environment=OPTIONS_QUANT_HOST=127.0.0.1
+Environment=OPTIONS_QUANT_PORT=8787
+Environment=OPTIONS_QUANT_STATE_DB=/var/lib/multibagger/options_quant.sqlite3
+ExecStart=/opt/multibagger/node/bin/node /opt/multibagger/options-quant-server.mjs
+Restart=on-failure
+RestartSec=5
+TimeoutStopSec=15
+UMask=0077
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/var/lib/multibagger
+CapabilityBoundingSet=
+LockPersonality=true
+MemoryMax=180M
+TasksMax=64
+
+[Install]
+WantedBy=multi-user.target

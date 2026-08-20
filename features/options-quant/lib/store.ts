@@ -1,8 +1,45 @@
+import fs from "node:fs/promises";
+import path from "node:path";
+
 import { readSnapshotFile, writeSnapshotFile } from "@/lib/snapshot-storage";
 import { getOptionsQuantConfig } from "@/features/options-quant/lib/config";
 import type { OptionsQuantState, PerformanceMetrics, StrategyEvaluation } from "@/features/options-quant/lib/types";
 
 const STATE_FILE = "options-quant/state.json";
+const STATE_KEY = "options-quant";
+
+function sqliteStatePath(): string | null {
+  return process.env.OPTIONS_QUANT_STATE_DB?.trim() || null;
+}
+
+async function openStateDatabase(filename: string) {
+  await fs.mkdir(path.dirname(filename), { recursive: true });
+  const { DatabaseSync } = await import("node:sqlite");
+  const database = new DatabaseSync(filename);
+  database.exec("PRAGMA busy_timeout=5000; PRAGMA journal_mode=WAL; PRAGMA synchronous=FULL;");
+  database.exec(`
+    CREATE TABLE IF NOT EXISTS options_quant_state (
+      state_key TEXT PRIMARY KEY,
+      content TEXT NOT NULL,
+      updated_at TEXT NOT NULL
+    )
+  `);
+  return database;
+}
+
+function parseState(content: string | null): OptionsQuantState {
+  if (!content) return createEmptyState();
+  const state = JSON.parse(content) as OptionsQuantState;
+  if (state.schemaVersion !== 1) return createEmptyState();
+  const config = getOptionsQuantConfig();
+  state.configuration = {
+    ...state.configuration,
+    automaticCyclesEnabled: config.enabled,
+    profitTargetRupees: config.profitTargetRupees,
+    dailyProfitTargetRupees: config.dailyProfitTargetRupees,
+  };
+  return state;
+}
 
 export function emptyMetrics(): PerformanceMetrics {
   return {
@@ -63,19 +100,21 @@ export function createEmptyState(): OptionsQuantState {
 }
 
 export async function readOptionsQuantState(): Promise<OptionsQuantState> {
+  const databasePath = sqliteStatePath();
+  if (databasePath) {
+    const database = await openStateDatabase(databasePath);
+    try {
+      const row = database.prepare(
+        "SELECT content FROM options_quant_state WHERE state_key = ?",
+      ).get(STATE_KEY) as { content?: string } | undefined;
+      return parseState(row?.content || null);
+    } finally {
+      database.close();
+    }
+  }
   try {
     const content = await readSnapshotFile(STATE_FILE);
-    if (!content) return createEmptyState();
-    const state = JSON.parse(content) as OptionsQuantState;
-    if (state.schemaVersion !== 1) return createEmptyState();
-    const config = getOptionsQuantConfig();
-    state.configuration = {
-      ...state.configuration,
-      automaticCyclesEnabled: config.enabled,
-      profitTargetRupees: config.profitTargetRupees,
-      dailyProfitTargetRupees: config.dailyProfitTargetRupees,
-    };
-    return state;
+    return parseState(content);
   } catch {
     return createEmptyState();
   }
@@ -83,5 +122,22 @@ export async function readOptionsQuantState(): Promise<OptionsQuantState> {
 
 export async function writeOptionsQuantState(state: OptionsQuantState): Promise<void> {
   state.asOf = new Date().toISOString();
-  await writeSnapshotFile(STATE_FILE, JSON.stringify(state, null, 2));
+  const content = JSON.stringify(state, null, 2);
+  const databasePath = sqliteStatePath();
+  if (databasePath) {
+    const database = await openStateDatabase(databasePath);
+    try {
+      database.prepare(`
+        INSERT INTO options_quant_state (state_key, content, updated_at)
+        VALUES (?, ?, ?)
+        ON CONFLICT(state_key) DO UPDATE SET
+          content = excluded.content,
+          updated_at = excluded.updated_at
+      `).run(STATE_KEY, content, state.asOf);
+    } finally {
+      database.close();
+    }
+    return;
+  }
+  await writeSnapshotFile(STATE_FILE, content);
 }

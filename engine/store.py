@@ -93,6 +93,12 @@ class MarketStore:
             con.execute("ALTER TABLE paper_trades ADD COLUMN IF NOT EXISTS execution_mode VARCHAR DEFAULT 'INTERNAL_PAPER'")
             con.execute("ALTER TABLE paper_trades ADD COLUMN IF NOT EXISTS entry_order_id VARCHAR")
             con.execute("ALTER TABLE paper_trades ADD COLUMN IF NOT EXISTS exit_order_id VARCHAR")
+            con.execute("ALTER TABLE paper_trades ADD COLUMN IF NOT EXISTS peak_quote DOUBLE")
+            con.execute("ALTER TABLE paper_trades ADD COLUMN IF NOT EXISTS lowest_quote DOUBLE")
+            con.execute("ALTER TABLE paper_trades ADD COLUMN IF NOT EXISTS mfe DOUBLE")
+            con.execute("ALTER TABLE paper_trades ADD COLUMN IF NOT EXISTS mae DOUBLE")
+            con.execute("ALTER TABLE paper_trades ADD COLUMN IF NOT EXISTS profit_giveback DOUBLE")
+            con.execute("ALTER TABLE paper_trades ADD COLUMN IF NOT EXISTS holding_duration_minutes DOUBLE")
 
     @contextmanager
     def connect(self) -> Iterator[duckdb.DuckDBPyConnection]:

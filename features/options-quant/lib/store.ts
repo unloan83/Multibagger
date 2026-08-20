@@ -40,7 +40,7 @@ export function createEmptyState(): OptionsQuantState {
   const config = getOptionsQuantConfig();
   return {
     schemaVersion: 1,
-    asOf: new Date().toISOString(),
+    asOf: new Date(0).toISOString(),
     stage: "SHADOW",
     broker: "UPSTOX",
     executionCapability: "SHADOW_AND_SANDBOX_ONLY",
@@ -83,9 +83,5 @@ export async function readOptionsQuantState(): Promise<OptionsQuantState> {
 
 export async function writeOptionsQuantState(state: OptionsQuantState): Promise<void> {
   state.asOf = new Date().toISOString();
-  try {
-    await writeSnapshotFile(STATE_FILE, JSON.stringify(state, null, 2));
-  } catch {
-    // Ignore snapshot write errors to keep trading engine resilient
-  }
+  await writeSnapshotFile(STATE_FILE, JSON.stringify(state, null, 2));
 }

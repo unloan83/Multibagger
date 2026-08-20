@@ -24,12 +24,13 @@ export async function GET() {
       intradayPipeline: { asOf: snapshot.asOf, source: snapshot.source, isLive: snapshot.status === "SIGNALS", reason: snapshot.reason, evaluatedUniverseSize: snapshot.evaluatedUniverseSize, screened: [], picks },
       paperTrading: snapshot.paperTrading ?? null,
     }, { headers: { "Cache-Control": "no-store, max-age=0" } });
-  } catch {
+  } catch (error) {
     return NextResponse.json({
-      ok: true, status: "NO_TRADE", asOf: new Date().toISOString(), publication: RECOMMENDATION_PUBLICATION,
-      intradayPipeline: { asOf: new Date().toISOString(), source: "UPSTOX_1MIN_DUCKDB", isLive: false, reason: "NO_TRADE", evaluatedUniverseSize: 0, screened: [], picks: [] },
-      paperTrading: null,
-    }, { headers: { "Cache-Control": "no-store, max-age=0" } });
+      ok: false,
+      status: "DATA_UNAVAILABLE",
+      error: error instanceof Error ? error.message : "Intraday paper state is unavailable.",
+      publication: RECOMMENDATION_PUBLICATION,
+    }, { status: 503, headers: { "Cache-Control": "no-store, max-age=0" } });
   }
 }
 

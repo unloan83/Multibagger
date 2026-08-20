@@ -2,8 +2,6 @@ import { timingSafeEqual } from "node:crypto";
 import { NextResponse } from "next/server";
 import { runOptionsRiskMonitor } from "@/features/options-quant/lib/engine";
 
-import { createEmptyState } from "@/features/options-quant/lib/store";
-
 export async function monitorOptionsQuant(request: Request) {
   const expected = process.env.OPTIONS_QUANT_INGEST_TOKEN || process.env.CRON_SECRET || "";
   const supplied = request.headers.get("authorization")?.replace(/^Bearer\s+/i, "") || "";
@@ -14,9 +12,10 @@ export async function monitorOptionsQuant(request: Request) {
     const state = await runOptionsRiskMonitor();
     return NextResponse.json({ ok: true, state }, { headers: { "Cache-Control": "no-store, max-age=0" } });
   } catch (error) {
-    const fallback = createEmptyState();
-    fallback.noTradeReasons = [error instanceof Error ? error.message : "Options risk monitor failed."];
-    return NextResponse.json({ ok: true, state: fallback }, { headers: { "Cache-Control": "no-store, max-age=0" } });
+    return NextResponse.json({
+      ok: false,
+      error: error instanceof Error ? error.message : "Options risk monitor failed.",
+    }, { status: 503, headers: { "Cache-Control": "no-store, max-age=0" } });
   }
 }
 

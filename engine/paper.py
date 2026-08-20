@@ -248,6 +248,7 @@ def _mark_trade(con: Any, trade: dict[str, Any], quote: dict[str, Any], now: dat
     exit_quote = float(quote["bid"])
     quantity = int(trade["quantity"])
     entry_quote = float(trade["entry_quote"])
+    entry_fill = float(trade["entry_fill"])
     gross = (exit_quote - entry_quote) * quantity
     exit_fill = exit_quote * (1 - settings.paper_slippage_bps_per_side / 10_000)
     exit_value = exit_fill * quantity
@@ -258,6 +259,22 @@ def _mark_trade(con: Any, trade: dict[str, Any], quote: dict[str, Any], now: dat
     total_fees = entry_fees + exit_value * settings.paper_fees_bps_per_side / 10_000
     total_slippage = entry_slippage + (exit_quote - exit_fill) * quantity
     net = gross - total_brokerage - total_fees - total_slippage
+
+    prev_peak = float(trade.get("peak_quote") or entry_quote)
+    prev_lowest = float(trade.get("lowest_quote") or entry_quote)
+    peak_quote = max(prev_peak, exit_quote)
+    lowest_quote = min(prev_lowest, exit_quote)
+    mfe = max(0.0, (peak_quote - entry_fill) * quantity)
+    mae = min(0.0, (lowest_quote - entry_fill) * quantity)
+    profit_giveback = max(0.0, mfe - gross)
+
+    opened_at = trade["opened_at"]
+    if isinstance(opened_at, str):
+        opened_at = datetime.fromisoformat(opened_at)
+    if opened_at.tzinfo is None:
+        opened_at = opened_at.replace(tzinfo=timezone.utc)
+    duration_min = round((now - opened_at).total_seconds() / 60.0, 2)
+
     if exit_reason:
         exit_order_id = trade.get("exit_order_id")
         if trade.get("execution_mode") == "UPSTOX_SANDBOX" and not exit_order_id:
@@ -269,8 +286,11 @@ def _mark_trade(con: Any, trade: dict[str, Any], quote: dict[str, Any], now: dat
                 )
             except Exception as error:
                 LOG.error("Upstox sandbox exit failed for %s; paper position remains open: %s", trade["symbol"], error)
-                con.execute("UPDATE paper_trades SET current_quote=?,last_marked_at=?,gross_pnl=?,net_pnl=? WHERE trade_id=?",
-                            [exit_quote, now, gross, net, trade["trade_id"]])
+                con.execute("""
+                  UPDATE paper_trades SET current_quote=?,last_marked_at=?,gross_pnl=?,net_pnl=?,
+                    peak_quote=?,lowest_quote=?,mfe=?,mae=?,profit_giveback=?,holding_duration_minutes=?
+                  WHERE trade_id=?
+                """, [exit_quote, now, gross, net, peak_quote, lowest_quote, mfe, mae, profit_giveback, duration_min, trade["trade_id"]])
                 _record_trade_event(
                     con, str(trade["trade_id"]), event_run_id, "EXIT_REJECTED", now,
                     exit_quote, gross, net, str(exit_reason), {"error": str(error)[:500]},
@@ -279,22 +299,25 @@ def _mark_trade(con: Any, trade: dict[str, Any], quote: dict[str, Any], now: dat
         con.execute("""
           UPDATE paper_trades SET status='CLOSED', current_quote=?, last_marked_at=?, exit_quote=?,
             exit_fill=?, closed_at=?, exit_reason=?, gross_pnl=?, net_pnl=?, brokerage=?,
-            fees_taxes=?, slippage=?, exit_order_id=? WHERE trade_id=?
+            fees_taxes=?, slippage=?, exit_order_id=?, peak_quote=?, lowest_quote=?, mfe=?, mae=?,
+            profit_giveback=?, holding_duration_minutes=? WHERE trade_id=?
         """, [exit_quote, now, exit_quote, exit_fill, now, exit_reason, gross, net,
-              total_brokerage, total_fees, total_slippage, exit_order_id, trade["trade_id"]])
+              total_brokerage, total_fees, total_slippage, exit_order_id,
+              peak_quote, lowest_quote, mfe, mae, profit_giveback, duration_min, trade["trade_id"]])
         con.execute("""
           UPDATE paper_signals SET status=?
           WHERE run_id=? AND symbol=? AND strategy=?
         """, [f"CLOSED_{exit_reason}", trade["run_id"], trade["symbol"], trade["strategy"]])
         _record_trade_event(
             con, str(trade["trade_id"]), event_run_id, "EXIT", now,
-            exit_quote, gross, net, str(exit_reason), {"orderId": exit_order_id, "exitFill": exit_fill},
+            exit_quote, gross, net, str(exit_reason), {"orderId": exit_order_id, "exitFill": exit_fill, "mfe": mfe, "mae": mae},
         )
     else:
         con.execute("""
-          UPDATE paper_trades SET current_quote=?, last_marked_at=?, gross_pnl=?, net_pnl=?
+          UPDATE paper_trades SET current_quote=?, last_marked_at=?, gross_pnl=?, net_pnl=?,
+            peak_quote=?, lowest_quote=?, mfe=?, mae=?, profit_giveback=?, holding_duration_minutes=?
           WHERE trade_id=?
-        """, [exit_quote, now, gross, net, trade["trade_id"]])
+        """, [exit_quote, now, gross, net, peak_quote, lowest_quote, mfe, mae, profit_giveback, duration_min, trade["trade_id"]])
         _record_trade_event(
             con, str(trade["trade_id"]), event_run_id, "MARK", now,
             exit_quote, gross, net, "OPEN", {},
@@ -394,6 +417,7 @@ def _public_trade(row: dict[str, Any]) -> dict[str, Any]:
         "exit_quote", "exit_fill", "closed_at", "exit_reason", "gross_pnl", "net_pnl",
         "brokerage", "fees_taxes", "slippage", "capital_used",
         "execution_mode", "entry_order_id", "exit_order_id",
+        "peak_quote", "lowest_quote", "mfe", "mae", "profit_giveback", "holding_duration_minutes",
     ]
     result = {key: row.get(key) for key in keys}
     for key, value in list(result.items()):

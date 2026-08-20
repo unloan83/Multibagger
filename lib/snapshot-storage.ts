@@ -28,6 +28,8 @@ function hasBlobStorage(): boolean {
 export async function readSnapshotFile(filename: string): Promise<string | null> {
   const candidates: string[] = [];
 
+  let blobReadError: unknown = null;
+
   if (hasBlobStorage()) {
     const { get } = await import("@vercel/blob");
     for (const blobName of [filename, legacyFilename(filename)].filter((value): value is string => Boolean(value))) {
@@ -39,7 +41,8 @@ export async function readSnapshotFile(filename: string): Promise<string | null>
         if (result?.stream) {
           candidates.push(await new Response(result.stream).text());
         }
-      } catch {
+      } catch (error) {
+        blobReadError = error;
         // Try the next feature or legacy storage location.
       }
     }
@@ -56,7 +59,10 @@ export async function readSnapshotFile(filename: string): Promise<string | null>
     }
   }
 
-  if (candidates.length === 0) return null;
+  if (candidates.length === 0) {
+    if (blobReadError) throw new Error(`Durable snapshot read failed for ${filename}.`, { cause: blobReadError });
+    return null;
+  }
 
   // Blob remains authoritative for untimestamped state such as watchlist.json.
   // For model snapshots, guard against an old Blob object masking a newer seed
@@ -82,6 +88,7 @@ function getSnapshotTimestamp(content: string): number {
 }
 
 export async function writeSnapshotFile(filename: string, content: string): Promise<void> {
+  let blobWriteError: unknown = null;
   if (hasBlobStorage()) {
     try {
       const { put } = await import("@vercel/blob");
@@ -93,9 +100,17 @@ export async function writeSnapshotFile(filename: string, content: string): Prom
         cacheControlMaxAge: 60,
       });
       return;
-    } catch {
+    } catch (error) {
+      blobWriteError = error;
       // Blob storage write failed, fall back to /tmp or local storage below.
     }
+  }
+
+  // A Vercel /tmp write is ephemeral and must never be reported as durable
+  // trading-model state. Make ingestion fail visibly so the scheduler alerts.
+  if (process.env.VERCEL) {
+    if (!hasBlobStorage()) throw new Error("Durable snapshot storage is not configured on Vercel.");
+    throw new Error(`Durable snapshot write failed for ${filename}.`, { cause: blobWriteError });
   }
 
   const tmpPath = path.join("/tmp", filename);

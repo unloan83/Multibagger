@@ -69,6 +69,12 @@ def test_stop_loss_is_cost_adjusted_and_recorded(tmp_path):
     assert trade["brokerage"] > 0
     assert trade["fees_taxes"] > 0
     assert trade["slippage"] > 0
+    assert trade["peak_quote"] == 200.0
+    assert trade["lowest_quote"] == 194.5
+    assert trade["mfe"] == 0
+    assert trade["mae"] < 0
+    assert trade["profit_giveback"] > 0
+    assert trade["holding_duration_minutes"] == 5
 
 
 def test_weekend_disables_new_entries(tmp_path):

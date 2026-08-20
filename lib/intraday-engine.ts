@@ -93,15 +93,15 @@ export function noTrade(reason = "NO_TRADE", paperTrading?: PaperTradingState): 
 export async function readPaperSignals(): Promise<PaperSignalSnapshot> {
   try {
     const raw = await readSnapshotFile(FILE);
-    if (!raw) return noTrade("NO_TRADE");
+    if (!raw) throw new Error("No durable intraday paper snapshot exists.");
     const value = JSON.parse(raw) as PaperSignalSnapshot;
-    if (!validSnapshot(value)) return noTrade("NO_TRADE");
+    if (!validSnapshot(value)) throw new Error("The intraday paper snapshot is missing, stale, or invalid.");
     const signals = value.signals.filter(validSignal).filter((signal) => Date.parse(signal.expiry) > Date.now());
     if (value.status === "NO_TRADE") return { ...value, signals: [] };
     if (signals.length === 0) return { ...noTrade("NO_TRADE", value.paperTrading), asOf: value.asOf, run_id: value.run_id, source: value.source, evaluatedUniverseSize: value.evaluatedUniverseSize };
     return { ...value, signals };
-  } catch {
-    return noTrade("NO_TRADE");
+  } catch (error) {
+    throw new Error("Intraday paper state is unavailable; no current trading status can be verified.", { cause: error });
   }
 }
 

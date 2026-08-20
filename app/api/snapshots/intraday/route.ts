@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { noTrade, readPaperSignals } from "@/lib/intraday-engine";
+import { readPaperSignals } from "@/lib/intraday-engine";
 
 export const dynamic = "force-dynamic";
 
@@ -8,8 +8,11 @@ export async function GET() {
   try {
     const snapshot = await readPaperSignals();
     return NextResponse.json({ ok: true, ...snapshot }, { headers: { "Cache-Control": "no-store, max-age=0" } });
-  } catch {
-    const fallback = noTrade("NO_TRADE");
-    return NextResponse.json({ ok: true, ...fallback }, { headers: { "Cache-Control": "no-store, max-age=0" } });
+  } catch (error) {
+    return NextResponse.json({
+      ok: false,
+      status: "DATA_UNAVAILABLE",
+      error: error instanceof Error ? error.message : "Intraday paper state is unavailable.",
+    }, { status: 503, headers: { "Cache-Control": "no-store, max-age=0" } });
   }
 }

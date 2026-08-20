@@ -4,6 +4,14 @@ import { createEmptyState, readOptionsQuantState } from "@/features/options-quan
 export async function getOptionsQuantDashboard() {
   try {
     const state = await readOptionsQuantState();
+    if (Date.parse(state.asOf) === 0) {
+      state.noTradeReasons = ["No durable Options Quant evaluation has been persisted."];
+      return NextResponse.json({
+        ok: false,
+        error: "Options Quant has no persisted evaluation; no current trading status can be verified.",
+        state,
+      }, { status: 503, headers: { "Cache-Control": "no-store, max-age=0" } });
+    }
     return NextResponse.json({ ok: true, state }, { headers: { "Cache-Control": "no-store, max-age=0" } });
   } catch (error) {
     const state = createEmptyState();

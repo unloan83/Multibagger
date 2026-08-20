@@ -71,6 +71,8 @@ def run_paper_cycle(
             no_entry_reasons.append("Daily paper loss limit reached; new entries are disabled.")
         if losses_today >= settings.paper_consecutive_loss_limit:
             no_entry_reasons.append("Consecutive daily loss limit reached; new entries are halted.")
+        if any(_as_trading_date(row.get("trading_day")) < trading_day for row in open_rows):
+            no_entry_reasons.append("A prior-day paper position is awaiting a fresh executable exit; new entries are halted.")
         if not _entry_window_open(now):
             no_entry_reasons.append("Outside the automatic paper-entry window (09:20–14:45 IST on NSE weekdays).")
 
@@ -331,6 +333,9 @@ def _regular_exit_reason(trade: dict[str, Any], quote: dict[str, Any], now: date
     target_price = float(trade["target_price"])
     risk_unit = entry_quote - stop_price
 
+    if _as_trading_date(trade.get("trading_day")) < now.astimezone(IST).date():
+        return "OVERNIGHT_SAFETY_EXIT"
+
     # Trailing Stop: If price reaches 1R profit, trail stop loss to Breakeven + 0.1% buffer
     effective_stop = stop_price
     if risk_unit > 0 and bid >= entry_quote + risk_unit:
@@ -343,6 +348,14 @@ def _regular_exit_reason(trade: dict[str, Any], quote: dict[str, Any], now: date
     if _flatten_time_reached(now, settings):
         return "END_OF_DAY"
     return None
+
+
+def _as_trading_date(value: Any):
+    if isinstance(value, datetime):
+        return value.date()
+    if hasattr(value, "year") and hasattr(value, "month") and hasattr(value, "day"):
+        return value
+    return datetime.fromisoformat(str(value)).date()
 
 
 def _flatten_time_reached(now: datetime, settings: Settings) -> bool:

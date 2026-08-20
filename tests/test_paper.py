@@ -90,6 +90,47 @@ def test_weekend_disables_new_entries(tmp_path):
     assert "Outside the automatic paper-entry window" in " ".join(result["noEntryReasons"])
 
 
+def test_prior_day_position_exits_on_first_fresh_quote_before_new_entries(tmp_path):
+    settings = _settings(tmp_path)
+    store = MarketStore(settings.db_path)
+    opened_at = datetime(2026, 8, 20, 5, 0, tzinfo=timezone.utc)
+    run_paper_cycle(
+        store, settings, [_candidate("TEST", opened_at)],
+        {"TEST": {"bid": 199.8, "ask": 200.0, "ts": opened_at}}, opened_at, "day-one",
+    )
+
+    next_session = datetime(2026, 8, 21, 3, 46, tzinfo=timezone.utc)
+    result = run_paper_cycle(
+        store, settings, [_candidate("OTHER", next_session)],
+        {
+            "TEST": {"bid": 198.0, "ask": 198.2, "ts": next_session},
+            "OTHER": {"bid": 199.8, "ask": 200.0, "ts": next_session},
+        }, next_session, "day-two",
+    )
+    assert result["openPositions"] == []
+    assert result["recentClosedTrades"][0]["exit_reason"] == "OVERNIGHT_SAFETY_EXIT"
+    assert result["recentClosedTrades"][0]["closed_at"] == next_session.isoformat()
+
+
+def test_prior_day_position_blocks_entries_until_a_fresh_exit_quote_exists(tmp_path):
+    settings = _settings(tmp_path)
+    store = MarketStore(settings.db_path)
+    opened_at = datetime(2026, 8, 20, 5, 0, tzinfo=timezone.utc)
+    run_paper_cycle(
+        store, settings, [_candidate("TEST", opened_at)],
+        {"TEST": {"bid": 199.8, "ask": 200.0, "ts": opened_at}}, opened_at, "day-one",
+    )
+
+    next_session = datetime(2026, 8, 21, 4, 0, tzinfo=timezone.utc)
+    result = run_paper_cycle(
+        store, settings, [_candidate("OTHER", next_session)],
+        {"OTHER": {"bid": 199.8, "ask": 200.0, "ts": next_session}},
+        next_session, "day-two",
+    )
+    assert [trade["symbol"] for trade in result["openPositions"]] == ["TEST"]
+    assert "prior-day paper position" in " ".join(result["noEntryReasons"])
+
+
 def test_upstox_sandbox_order_ids_gate_entry_and_exit(tmp_path, monkeypatch):
     settings = replace(
         _settings(tmp_path), market_data_provider="upstox",

@@ -1,4 +1,4 @@
-import type { OptionChainRow, OptionContract, OptionsBroker } from "@/features/options-quant/brokers/types";
+import type { MarketCandle, OptionChainRow, OptionContract, OptionsBroker } from "@/features/options-quant/brokers/types";
 import { UpstoxOptionsBroker } from "@/features/options-quant/brokers/upstox";
 import { getOptionsQuantConfig, type OptionsQuantConfig } from "@/features/options-quant/lib/config";
 import { buildLiveDirectionEvidence } from "@/features/options-quant/lib/direction";
@@ -52,6 +52,7 @@ export async function runOptionsRiskMonitor(
     portfolioCapitalConfigured: config.portfolioCapital > 0,
     sandboxOrderSubmissionEnabled: config.submitSandboxOrders,
     automaticCyclesEnabled: config.enabled,
+    executionPaused: config.executionPaused,
     profitTargetRupees: config.profitTargetRupees,
     dailyProfitTargetRupees: config.dailyProfitTargetRupees,
   };
@@ -62,12 +63,15 @@ export async function runOptionsRiskMonitor(
     await writeOptionsQuantState(state);
     return state;
   }
+  if (config.executionPaused) {
+    return persistNoTrade(state, ["Global trading execution pause is active; Options entries and exits are blocked."], config);
+  }
   const sessionReason = nseMarketDataRejection(now);
   if (sessionReason) return persistNoTrade(state, [sessionReason], config);
   try {
     const chain = await broker.getOptionChain(config.underlyingKey, openPosition.expiry);
     if (!chain.length) return persistNoTrade(state, ["Upstox returned no chain for the active Options position."], config);
-    await markOpenPositions(state, chain, broker, config);
+    await markOpenPositions(state, chain, broker, config, now);
     state.noTradeReasons = state.positions.some((position) => position.status === "OPEN")
       ? ["Active Options position monitored; no exit condition is currently met."]
       : ["Active Options position exit was processed by the risk monitor."];
@@ -92,6 +96,7 @@ export async function runOptionsQuantScan(
     portfolioCapitalConfigured: config.portfolioCapital > 0,
     sandboxOrderSubmissionEnabled: config.submitSandboxOrders,
     automaticCyclesEnabled: config.enabled,
+    executionPaused: config.executionPaused,
     profitTargetRupees: config.profitTargetRupees,
     dailyProfitTargetRupees: config.dailyProfitTargetRupees,
   };
@@ -100,13 +105,14 @@ export async function runOptionsQuantScan(
 
   const sessionReason = nseMarketDataRejection(now);
   if (sessionReason) return persistNoTrade(state, [sessionReason], config);
+  if (config.executionPaused) return persistNoTrade(state, ["Global trading execution pause is active; Options entries and exits are blocked."], config);
 
   try {
     const contracts = await broker.getOptionContracts(config.underlyingKey);
     const openPosition = state.positions.find((position) => position.status === "OPEN");
     if (openPosition) {
       const activeChain = await broker.getOptionChain(config.underlyingKey, openPosition.expiry);
-      await markOpenPositions(state, activeChain, broker, config);
+      await markOpenPositions(state, activeChain, broker, config, now);
       if (state.positions.some((position) => position.status === "OPEN")) {
         return persistNoTrade(state, ["An Options Quant position is already active."], config);
       }
@@ -116,21 +122,33 @@ export async function runOptionsQuantScan(
     if (dailyNetPnl >= config.dailyProfitTargetRupees) {
       return persistNoTrade(state, [`Options daily net-profit target of ₹${config.dailyProfitTargetRupees} is reached; new entries are locked.`], config);
     }
+    if (dailyNetPnl >= config.dailyProfitTargetRupees * 0.9) {
+      return persistNoTrade(state, ["Options daily profit is inside the 90% target-protection zone; new entries are locked."], config);
+    }
+
+    const lossStreak = consecutiveOptionLosses(state.positions);
+    const adaptiveConfig: OptionsQuantConfig = {
+      ...config,
+      riskPerTradePercent: config.riskPerTradePercent * (lossStreak > 0 || dailyNetPnl >= config.dailyProfitTargetRupees * 0.7 ? 0.5 : 1),
+      minimumDirectionConfidence: config.minimumDirectionConfidence + Math.min(lossStreak, 2) * 5,
+      maximumBidAskSpreadPercent: config.maximumBidAskSpreadPercent * (lossStreak > 0 ? 0.75 : 1),
+      minimumPremiumMomentumBps: config.minimumPremiumMomentumBps + Math.min(lossStreak, 2) * 4,
+    };
 
     if (!config.enabled) return persistNoTrade(state, ["Options Quant automatic cycles are disabled; new entries are locked."], config);
     if (state.stage === "FAILED") return persistNoTrade(state, ["Strategy is FAILED; new entries are disabled."], config);
-    const directionReasons = directionRejections(state.direction, config);
+    const directionReasons = directionRejections(state.direction, adaptiveConfig);
     if (directionReasons.length) return persistNoTrade(state, directionReasons, config);
     const entryReason = nseEntryRejection(now);
     if (entryReason) return persistNoTrade(state, [entryReason], config);
     if (config.portfolioCapital <= 0) return persistNoTrade(state, ["OPTIONS_QUANT_PORTFOLIO_CAPITAL is not configured."], config);
 
-    const expiry = chooseExpiry(contracts, now, config);
+    const expiry = chooseExpiry(contracts, now, adaptiveConfig);
     if (!expiry) return persistNoTrade(state, ["No eligible liquid NIFTY expiry is within the configured DTE window."], config);
     const chain = await broker.getOptionChain(config.underlyingKey, expiry.expiry);
     if (chain.length === 0) return persistNoTrade(state, ["Upstox returned an empty NIFTY option chain."], config);
 
-    const candidate = await buildOpportunity(state.direction!, chain, expiry.lotSize, broker, config);
+    const candidate = await buildOpportunity(state.direction!, chain, expiry.lotSize, broker, adaptiveConfig);
     if (!candidate.opportunity) return persistNoTrade(state, candidate.reasons, config);
 
     state.liveOpportunity = candidate.opportunity;
@@ -163,6 +181,9 @@ export async function runOptionsQuantScan(
       slippageCost: candidate.opportunity.estimatedSlippage,
       exitReason: null,
       sandboxOrderIds,
+      peakExitCreditPerUnit: round(candidate.opportunity.longLeg.bid - candidate.opportunity.shortLeg.ask),
+      adverseMomentumTicks: 0,
+      exitDetails: [],
     });
     state.metrics = calculateMetrics(state.positions, config.portfolioCapital);
     state.evaluation = evaluateStrategy(state.positions, state.metrics, state.stage, config);
@@ -187,7 +208,8 @@ export async function buildOpportunity(
     .map((row) => optionType === "CE" ? row.call : row.put)
     .filter((leg): leg is OptionLeg => Boolean(leg))
     .filter((leg) => leg.oi >= config.minimumOiPerLeg && leg.volume >= config.minimumVolumePerLeg)
-    .filter((leg) => leg.bidAskSpreadPercent <= config.maximumBidAskSpreadPercent);
+    .filter((leg) => leg.bidAskSpreadPercent <= config.maximumBidAskSpreadPercent)
+    .filter((leg) => leg.iv >= config.minimumIvPercent && leg.iv <= config.maximumIvPercent);
 
   const longLeg = eligible
     .filter((leg) => Math.abs(leg.delta) >= 0.45 && Math.abs(leg.delta) <= 0.65)
@@ -205,6 +227,13 @@ export async function buildOpportunity(
   if (!(debit > 0 && debit < width)) return { opportunity: null, reasons: ["Executable spread debit is invalid relative to strike width."] };
 
   const quantity = lotSize;
+  const [longPremiumCandles, shortPremiumCandles] = await Promise.all([
+    broker.getIntradayCandles(longLeg.instrumentKey, 1),
+    broker.getIntradayCandles(shortLeg.instrumentKey, 1),
+  ]);
+  const longMomentumBps = premiumMomentumBps(longPremiumCandles);
+  const shortMomentumBps = premiumMomentumBps(shortPremiumCandles);
+  const directionalPremiumMomentumBps = round(longMomentumBps - Math.max(shortMomentumBps, 0) * 0.25);
   const charges = await broker.estimateCharges([
     { instrumentKey: longLeg.instrumentKey, quantity, transactionType: "BUY", price: longLeg.ask },
     { instrumentKey: shortLeg.instrumentKey, quantity, transactionType: "SELL", price: shortLeg.bid },
@@ -216,10 +245,17 @@ export async function buildOpportunity(
   const maxProfit = round((width - debit) * quantity - charges - slippage);
   const riskReward = round(maxProfit / maxLoss);
   const allowedRisk = config.portfolioCapital * config.riskPerTradePercent / 100;
+  const averageIv = round((longLeg.iv + shortLeg.iv) / 2);
+  const ivSkewPercent = round(Math.abs(longLeg.iv - shortLeg.iv));
+  const netThetaPerDay = round(longLeg.theta - shortLeg.theta);
+  const thetaDecayPercentPerDay = round(Math.max(0, -netThetaPerDay) / debit * 100);
   const reasons: string[] = [];
   if (maxLoss > allowedRisk) reasons.push(`Maximum loss ₹${maxLoss} exceeds configured risk budget ₹${round(allowedRisk)}.`);
   if (riskReward < config.minimumRiskReward) reasons.push(`Risk/reward ${riskReward} is below ${config.minimumRiskReward}.`);
   if (maxProfit < config.profitTargetRupees) reasons.push(`Maximum net profit ₹${maxProfit} cannot reach the configured ₹${config.profitTargetRupees} per-trade target.`);
+  if (ivSkewPercent > config.maximumIvSkewPercent) reasons.push(`IV skew ${ivSkewPercent}% exceeds ${config.maximumIvSkewPercent}%.`);
+  if (thetaDecayPercentPerDay > config.maximumThetaDecayPercentPerDay) reasons.push(`Estimated theta decay ${thetaDecayPercentPerDay}% per day makes the spread weak.`);
+  if (directionalPremiumMomentumBps < config.minimumPremiumMomentumBps) reasons.push(`Premium momentum ${directionalPremiumMomentumBps} bps is below ${config.minimumPremiumMomentumBps} bps.`);
   if (reasons.length) return { opportunity: null, reasons };
 
   const observedAt = new Date().toISOString();
@@ -245,7 +281,11 @@ export async function buildOpportunity(
       profitTargetRupees: config.profitTargetRupees,
       breakeven: round(direction.direction === "BULLISH" ? longLeg.strike + debit : longLeg.strike - debit),
       riskReward,
-      averageIv: round((longLeg.iv + shortLeg.iv) / 2),
+      averageIv,
+      ivSkewPercent,
+      netThetaPerDay,
+      thetaDecayPercentPerDay,
+      premiumMomentumBps: directionalPremiumMomentumBps,
       netDelta: round(longLeg.delta - shortLeg.delta),
       totalOi: longLeg.oi + shortLeg.oi,
       totalVolume: longLeg.volume + shortLeg.volume,
@@ -255,6 +295,7 @@ export async function buildOpportunity(
       confidence: Math.min(100, Math.round(direction.confidence * 0.8 + liquidityQuality(longLeg, shortLeg, config) * 0.2)),
       exitRules: [
         "Exit when executable spread value loses 50% of entry debit.",
+        "Move protection to cost-adjusted break-even after 35% of the profit objective and trail after 60%.",
         `Take profit when estimated net P&L reaches ₹${config.profitTargetRupees}.`,
         "Exit before 15:15 IST on the session preceding expiry or on direction invalidation.",
         "Never average down; one active NIFTY spread maximum.",
@@ -262,28 +303,42 @@ export async function buildOpportunity(
       directionModelVersion: direction.modelVersion,
       directionSourceIds: direction.sourceIds,
       dataSource: "UPSTOX_LIVE_OPTION_CHAIN",
+      entryReasons: [
+        `Underlying ${direction.direction} with confidence ${direction.confidence}.`,
+        `Strike delta, OI, volume and spread passed; worst spread ${Math.max(longLeg.bidAskSpreadPercent, shortLeg.bidAskSpreadPercent)}%.`,
+        `IV ${averageIv}%, skew ${ivSkewPercent}%, theta decay ${thetaDecayPercentPerDay}%/day and premium momentum ${directionalPremiumMomentumBps} bps passed.`,
+        `Defined risk/reward ${riskReward} with maximum loss ₹${maxLoss}.`,
+      ],
     },
     reasons: [],
   };
 }
 
-async function markOpenPositions(state: OptionsQuantState, chain: OptionChainRow[], broker: OptionsBroker, config: OptionsQuantConfig) {
+async function markOpenPositions(state: OptionsQuantState, chain: OptionChainRow[], broker: OptionsBroker, config: OptionsQuantConfig, now = new Date()) {
   for (const position of state.positions.filter((item) => item.status === "OPEN")) {
     const legs = chain.flatMap((row) => [row.call, row.put]).filter((leg): leg is OptionLeg => Boolean(leg));
     const long = legs.find((leg) => leg.instrumentKey === position.longLeg.instrumentKey);
     const short = legs.find((leg) => leg.instrumentKey === position.shortLeg.instrumentKey);
     if (!long || !short) continue;
     const exitCredit = round(long.bid - short.ask);
+    const previousCredit = position.currentExitCreditPerUnit;
     position.currentExitCreditPerUnit = exitCredit;
+    position.peakExitCreditPerUnit = Math.max(position.peakExitCreditPerUnit ?? position.entryDebitPerUnit, exitCredit);
+    position.adverseMomentumTicks = exitCredit < previousCredit ? (position.adverseMomentumTicks ?? 0) + 1 : 0;
     position.unrealizedGrossPnl = round((exitCredit - position.entryDebitPerUnit) * position.quantity);
     position.unrealizedNetPnl = round(position.unrealizedGrossPnl - position.estimatedCharges - position.estimatedSlippage);
-    position.lastMarkedAt = new Date().toISOString();
+    position.lastMarkedAt = now.toISOString();
     const stopCredit = position.entryDebitPerUnit * 0.5;
     let exitReason: string | null = null;
     if (position.unrealizedNetPnl >= (position.profitTargetRupees ?? config.profitTargetRupees)) exitReason = "PROFIT_TARGET";
     else if (exitCredit <= stopCredit) exitReason = "MAX_DEBIT_LOSS_STOP";
+    else if ((position.peakExitCreditPerUnit - position.entryDebitPerUnit) * position.quantity >= config.profitTargetRupees * 0.6
+      && (position.peakExitCreditPerUnit - exitCredit) * position.quantity >= config.profitTargetRupees * 0.3) exitReason = "TRAILING_PROFIT_STOP";
+    else if ((position.peakExitCreditPerUnit - position.entryDebitPerUnit) * position.quantity >= config.profitTargetRupees * 0.35
+      && position.unrealizedNetPnl <= 0) exitReason = "BREAK_EVEN_PROTECTION";
+    else if ((position.adverseMomentumTicks ?? 0) >= 2 && position.peakExitCreditPerUnit > position.entryDebitPerUnit) exitReason = "PREMIUM_MOMENTUM_REVERSAL";
     else if (isFreshDirectionInvalidation(state.direction, position.direction, config)) exitReason = "DIRECTION_INVALIDATED";
-    else if (daysBetween(new Date(), new Date(`${position.expiry}T15:30:00+05:30`)) <= 2 && istMinutes(new Date()) >= 15 * 60 + 10) exitReason = "EXPIRY_RISK_EXIT";
+    else if (daysBetween(now, new Date(`${position.expiry}T15:30:00+05:30`)) <= 2 && istMinutes(now) >= 15 * 60 + 10) exitReason = "EXPIRY_RISK_EXIT";
     if (!exitReason) continue;
     if (position.mode === "UPSTOX_SANDBOX") {
       const exitIds = await broker.submitSandboxExit({
@@ -297,7 +352,7 @@ async function markOpenPositions(state: OptionsQuantState, chain: OptionChainRow
       position.sandboxOrderIds.push(...exitIds);
     }
     position.status = "CLOSED";
-    position.closedAt = new Date().toISOString();
+    position.closedAt = now.toISOString();
     position.exitCreditPerUnit = exitCredit;
     position.underlyingExitSpot = chain[0]?.spot || null;
     position.signalCorrect = position.underlyingExitSpot === null
@@ -306,6 +361,10 @@ async function markOpenPositions(state: OptionsQuantState, chain: OptionChainRow
         ? position.underlyingExitSpot > position.underlyingSpot
         : position.underlyingExitSpot < position.underlyingSpot;
     position.exitReason = exitReason;
+    position.exitDetails = [
+      `SELL ${exitReason} at executable spread credit ${exitCredit}.`,
+      `Peak credit ${position.peakExitCreditPerUnit}; unrealized net P&L ₹${position.unrealizedNetPnl}.`,
+    ];
     position.grossPnl = round((exitCredit - position.entryDebitPerUnit) * position.quantity);
     position.actualCosts = position.estimatedCharges;
     position.netPnl = round(position.grossPnl - position.actualCosts - position.slippageCost);
@@ -450,6 +509,32 @@ async function persistNoTrade(state: OptionsQuantState, reasons: string[], confi
 function liquidityQuality(longLeg: OptionLeg, shortLeg: OptionLeg, config: OptionsQuantConfig): number {
   const worstSpread = Math.max(longLeg.bidAskSpreadPercent, shortLeg.bidAskSpreadPercent);
   return Math.max(0, Math.min(100, 100 - (worstSpread / config.maximumBidAskSpreadPercent) * 50));
+}
+
+function premiumMomentumBps(candles: MarketCandle[]): number {
+  const valid = candles
+    .filter((candle) => Number.isFinite(candle.close) && candle.close > 0)
+    .sort((left, right) => left.timestamp.localeCompare(right.timestamp))
+    .slice(-5);
+  if (valid.length < 4) return -100_000;
+  const first = valid[0].close;
+  const last = valid.at(-1)!.close;
+  const fast = valid.slice(-2).reduce((sum, candle) => sum + candle.close, 0) / 2;
+  const slow = valid.reduce((sum, candle) => sum + candle.close, 0) / valid.length;
+  if (fast <= slow) return -Math.abs(round((last - first) / first * 10_000));
+  return round((last - first) / first * 10_000);
+}
+
+function consecutiveOptionLosses(positions: OptionsPosition[]): number {
+  let count = 0;
+  const closed = positions
+    .filter((position) => position.status === "CLOSED")
+    .sort((left, right) => right.closedAt!.localeCompare(left.closedAt!));
+  for (const position of closed) {
+    if (position.netPnl > 0) break;
+    count += 1;
+  }
+  return count;
 }
 
 function daysBetween(from: Date, to: Date): number {

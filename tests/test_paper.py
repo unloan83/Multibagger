@@ -15,7 +15,13 @@ def _settings(tmp_path):
 
 
 def _candidate(symbol, now):
-    return Candidate(symbol, 200.0, 195.0, 210.0, "ORB_15M", now, now + timedelta(minutes=20), 90.0)
+    confirmations = {
+        "marketDirection": True, "sectorDirection": True, "vwap": True,
+        "volume": True, "momentum": True, "breakoutRetest": True,
+        "supportResistance": True, "riskReward": True,
+        "marketBreadth": 0.7, "sectorBreadth": 0.7,
+    }
+    return Candidate(symbol, 200.0, 195.0, 210.0, "ORB_15M", now, now + timedelta(minutes=20), 90.0, confirmations)
 
 
 def test_automatic_paper_entry_exit_and_daily_target_lock(tmp_path):
@@ -257,3 +263,75 @@ def test_monitor_rejects_backfilled_quote_even_when_receipt_is_fresh(tmp_path):
     })
     result = run_risk_monitor(settings, monitor_time)
     assert [trade["symbol"] for trade in result["openPositions"]] == ["TEST"]
+
+
+def test_global_pause_blocks_recommendation_execution(tmp_path):
+    settings = replace(_settings(tmp_path), execution_paused=True)
+    store = MarketStore(settings.db_path)
+    now = datetime(2026, 8, 21, 5, 0, tzinfo=timezone.utc)
+    result = run_paper_cycle(
+        store, settings, [_candidate("TEST", now)],
+        {"TEST": {"bid": 199.8, "ask": 200.0, "ts": now}}, now, "paused-run",
+    )
+    assert result["openPositions"] == []
+    assert result["executionPaused"] is True
+    assert "execution pause" in " ".join(result["noEntryReasons"]).lower()
+
+
+def test_recommendation_without_expert_confirmation_is_rejected(tmp_path):
+    settings = _settings(tmp_path)
+    store = MarketStore(settings.db_path)
+    now = datetime(2026, 8, 21, 5, 0, tzinfo=timezone.utc)
+    candidate = replace(_candidate("TEST", now), confirmations={"vwap": True})
+    result = run_paper_cycle(
+        store, settings, [candidate],
+        {"TEST": {"bid": 199.8, "ask": 200.0, "ts": now}}, now, "unconfirmed-run",
+    )
+    assert result["openPositions"] == []
+    assert result["entryRejections"][0]["reason"].startswith("CONFIRMATION_FAILED_")
+
+
+def test_trailing_profit_exit_protects_open_gain(tmp_path):
+    settings = _settings(tmp_path)
+    store = MarketStore(settings.db_path)
+    opened_at = datetime(2026, 8, 21, 5, 0, tzinfo=timezone.utc)
+    run_paper_cycle(
+        store, settings, [_candidate("TEST", opened_at)],
+        {"TEST": {"bid": 199.8, "ask": 200.0, "ts": opened_at}}, opened_at, "entry-run",
+    )
+    peak_time = opened_at + timedelta(minutes=2)
+    run_paper_cycle(
+        store, settings, [],
+        {"TEST": {"bid": 206.3, "ask": 206.5, "ts": peak_time}}, peak_time, "peak-run",
+    )
+    reversal_time = peak_time + timedelta(minutes=1)
+    result = run_paper_cycle(
+        store, settings, [],
+        {"TEST": {"bid": 203.5, "ask": 203.7, "ts": reversal_time,
+                  "recent_closes": [206.0, 204.8, 203.5]}}, reversal_time, "trail-run",
+    )
+    assert result["recentClosedTrades"][0]["exit_reason"] == "TRAILING_PROFIT_STOP"
+    assert result["recentClosedTrades"][0]["net_pnl"] > 0
+
+
+def test_prior_session_loss_tightens_next_session_and_halves_risk(tmp_path):
+    settings = _settings(tmp_path)
+    store = MarketStore(settings.db_path)
+    day_one = datetime(2026, 8, 20, 5, 0, tzinfo=timezone.utc)
+    run_paper_cycle(
+        store, settings, [_candidate("LOSS", day_one)],
+        {"LOSS": {"bid": 199.8, "ask": 200.0, "ts": day_one}}, day_one, "loss-entry",
+    )
+    run_paper_cycle(
+        store, settings, [],
+        {"LOSS": {"bid": 194.0, "ask": 194.2, "ts": day_one + timedelta(minutes=5)}},
+        day_one + timedelta(minutes=5), "loss-exit",
+    )
+    day_two = datetime(2026, 8, 21, 5, 0, tzinfo=timezone.utc)
+    result = run_paper_cycle(
+        store, settings, [_candidate("PROBE", day_two)],
+        {"PROBE": {"bid": 199.8, "ask": 200.0, "ts": day_two}}, day_two, "adaptive-entry",
+    )
+    assert result["adaptiveRisk"]["riskMultiplier"] == 0.5
+    assert result["adaptiveRisk"]["recentSessionFeedback"]["criteriaTightened"] is True
+    assert result["openPositions"][0]["quantity"] == 250

@@ -9,7 +9,10 @@ const broker: OptionsBroker = {
   name: "TEST",
   getOptionContracts: async () => [],
   getOptionChain: async () => [],
-  getIntradayCandles: async () => [],
+  getIntradayCandles: async () => [100, 100.5, 101, 102, 104].map((close, index) => ({
+    timestamp: new Date(Date.now() - (4 - index) * 60_000).toISOString(),
+    open: close - 0.2, high: close + 0.2, low: close - 0.3, close, volume: 10_000, openInterest: 50_000,
+  })),
   estimateCharges: async () => 100,
   submitSandboxSpread: async () => ["one", "two"],
   submitSandboxExit: async () => ["three", "four"],
@@ -48,6 +51,7 @@ function leg(optionType: "CE" | "PE", strike: number, delta: number, bid: number
     ltp: (bid + ask) / 2,
     iv: 14,
     delta,
+    theta: optionType === "CE" ? (strike === 25000 ? -2.5 : -1.5) : -2,
     oi: 50_000,
     volume: 10_000,
     bidAskSpreadPercent: ((ask - bid) / ((ask + bid) / 2)) * 100,
@@ -86,6 +90,16 @@ test("rejects a spread whose maximum loss exceeds portfolio risk", async () => {
   const result = await buildOpportunity(direction, chain, 75, broker, config);
   assert.equal(result.opportunity, null);
   assert.match(result.reasons.join(" "), /exceeds configured risk budget/);
+});
+
+test("rejects an option spread when theta decay makes the setup weak", async () => {
+  const config = {
+    ...getOptionsQuantConfig(), portfolioCapital: 500_000, riskPerTradePercent: 1,
+    maximumThetaDecayPercentPerDay: 1,
+  };
+  const result = await buildOpportunity(direction, chain, 75, broker, config);
+  assert.equal(result.opportunity, null);
+  assert.match(result.reasons.join(" "), /theta decay/);
 });
 
 test("performance metrics are net of costs and include drawdown", () => {

@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import datetime, timedelta, timezone
 
 import numpy as np
@@ -20,6 +20,7 @@ class Candidate:
     timestamp: datetime
     expiry: datetime
     rank_score: float
+    confirmations: dict[str, object] = field(default_factory=dict)
 
 
 def enrich(frame: pd.DataFrame) -> pd.DataFrame:
@@ -34,11 +35,12 @@ def enrich(frame: pd.DataFrame) -> pd.DataFrame:
     return df
 
 
-def scan_symbol(frame: pd.DataFrame, settings: Settings, now: datetime | None = None) -> list[Candidate]:
+def scan_symbol(frame: pd.DataFrame, settings: Settings, now: datetime | None = None,
+                frame_is_enriched: bool = False) -> list[Candidate]:
     now = now or datetime.now(timezone.utc)
     if len(frame) < 30:
         return []
-    df = enrich(frame)
+    df = frame.copy().sort_values("ts") if frame_is_enriched else enrich(frame)
     last = df.iloc[-1]
     bar_time = pd.Timestamp(last.ts).to_pydatetime()
     if bar_time.tzinfo is None:
@@ -69,7 +71,9 @@ def scan_symbol(frame: pd.DataFrame, settings: Settings, now: datetime | None = 
     target = entry + settings.reward_risk * (entry - stop)
     expiry = now + timedelta(minutes=settings.signal_expiry_minutes)
 
-    # 4-Factor Confluence Scoring Engine (Total 100 pts)
+    # Technical setup score ranks already-qualified setups; it is never an
+    # execution trigger by itself.  The scanner adds market and sector breadth
+    # confirmation before the paper engine independently revalidates the quote.
     # Factor A: Technical Momentum & RVOL Surge (35 pts)
     volume_component = min(rvol / 4.0, 1.0) * 35.0
 
@@ -91,12 +95,42 @@ def scan_symbol(frame: pd.DataFrame, settings: Settings, now: datetime | None = 
     opening = session.iloc[:15]
     orb_high = float(opening.high.max())
     previous = session.iloc[-2]
+    prior_session = prior[prior.session == prior.session.iloc[-1]] if len(prior) else prior
+    prior_high = float(prior_session.high.max()) if len(prior_session) else float("inf")
+    resistance_clear = prior_high <= entry or prior_high >= target
+    volume_confirmed = float(last.volume) >= max(1.1 * float(session.volume.tail(6).iloc[:-1].mean()), 1.0)
+    momentum_confirmed = (
+        float(last.close) > float(previous.high)
+        and float(last.close) > float(closes_recent.mean())
+        and 0 < (entry - vwap_val) / atr <= 2.5
+    )
+    base_confirmations: dict[str, object] = {
+        "vwap": bool(float(last.close) > vwap_val),
+        "volume": volume_confirmed,
+        "momentum": momentum_confirmed,
+        "supportResistance": resistance_clear,
+        "riskReward": round((target - entry) / (entry - stop), 3) >= settings.reward_risk,
+        "relativeVolume": round(rvol, 3),
+        "spreadBps": round(spread_bps, 3),
+        "vwapPrice": round(vwap_val, 4),
+        "priorSessionHigh": None if not np.isfinite(prior_high) else round(prior_high, 4),
+    }
     results: list[Candidate] = []
-    if float(previous.close) <= orb_high < float(last.close) and float(last.close) > vwap_val:
-        results.append(Candidate(str(last.symbol), entry, stop, target, "ORB_15M", now, expiry, score))
+    post_open = session.iloc[15:-1]
+    breakout_indices = post_open.index[post_open.close > orb_high * 1.0005].tolist()
+    breakout_retest = False
+    if breakout_indices:
+        after_breakout = session.loc[breakout_indices[0]:].iloc[:-1]
+        breakout_retest = bool(((after_breakout.low <= orb_high * 1.002) & (after_breakout.close >= orb_high)).any())
+    if breakout_retest and float(last.close) > float(previous.high) and float(last.close) > vwap_val:
+        confirmations = {**base_confirmations, "breakoutRetest": True, "setup": "ORB_BREAKOUT_RETEST"}
+        if all(bool(confirmations[key]) for key in ("vwap", "volume", "momentum", "supportResistance", "riskReward", "breakoutRetest")):
+            results.append(Candidate(str(last.symbol), entry, stop, target, "ORB_15M", now, expiry, score, confirmations))
     recent = session.iloc[-4:-1]
     touched_vwap = bool((recent.low <= recent.vwap * 1.0015).any())
     continuation = float(last.close) > float(previous.high) and float(last.close) > vwap_val
     if touched_vwap and continuation:
-        results.append(Candidate(str(last.symbol), entry, stop, target, "VWAP_CONTINUATION", now, expiry, score))
+        confirmations = {**base_confirmations, "breakoutRetest": True, "setup": "VWAP_RETEST_RECLAIM"}
+        if all(bool(confirmations[key]) for key in ("vwap", "volume", "momentum", "supportResistance", "riskReward", "breakoutRetest")):
+            results.append(Candidate(str(last.symbol), entry, stop, target, "VWAP_CONTINUATION", now, expiry, score, confirmations))
     return results

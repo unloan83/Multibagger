@@ -16,6 +16,12 @@ export type OptionsQuantConfig = {
   maximumDrawdownPercent: number;
   minimumShadowTrades: number;
   minimumRealTrades: number;
+  minimumIvPercent: number;
+  maximumIvPercent: number;
+  maximumIvSkewPercent: number;
+  maximumThetaDecayPercentPerDay: number;
+  minimumPremiumMomentumBps: number;
+  executionPaused: boolean;
   submitSandboxOrders: boolean;
   enabled: boolean;
 };
@@ -31,6 +37,7 @@ function positiveNumberFromEnv(name: string, fallback: number): number {
 }
 
 export function getOptionsQuantConfig(): OptionsQuantConfig {
+  const executionPaused = process.env.TRADING_EXECUTION_PAUSED !== "false";
   return {
     underlyingKey: "NSE_INDEX|Nifty 50",
     portfolioCapital: numberFromEnv("OPTIONS_QUANT_PORTFOLIO_CAPITAL", 0),
@@ -49,7 +56,13 @@ export function getOptionsQuantConfig(): OptionsQuantConfig {
     maximumDrawdownPercent: numberFromEnv("OPTIONS_QUANT_MAX_DRAWDOWN_PERCENT", 8),
     minimumShadowTrades: numberFromEnv("OPTIONS_QUANT_MIN_SHADOW_TRADES", 30),
     minimumRealTrades: numberFromEnv("OPTIONS_QUANT_MIN_REAL_TRADES", 50),
+    minimumIvPercent: numberFromEnv("OPTIONS_QUANT_MIN_IV_PERCENT", 8),
+    maximumIvPercent: positiveNumberFromEnv("OPTIONS_QUANT_MAX_IV_PERCENT", 45),
+    maximumIvSkewPercent: positiveNumberFromEnv("OPTIONS_QUANT_MAX_IV_SKEW_PERCENT", 12),
+    maximumThetaDecayPercentPerDay: positiveNumberFromEnv("OPTIONS_QUANT_MAX_THETA_DECAY_PERCENT_PER_DAY", 6),
+    minimumPremiumMomentumBps: numberFromEnv("OPTIONS_QUANT_MIN_PREMIUM_MOMENTUM_BPS", 8),
+    executionPaused,
     submitSandboxOrders: process.env.OPTIONS_QUANT_SUBMIT_SANDBOX_ORDERS === "true",
-    enabled: process.env.OPTIONS_QUANT_ENABLED === "true",
+    enabled: !executionPaused && process.env.OPTIONS_QUANT_ENABLED === "true",
   };
 }

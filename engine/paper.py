@@ -15,7 +15,7 @@ from .strategies import Candidate
 
 
 IST = ZoneInfo("Asia/Kolkata")
-STRATEGY_VERSION = "intraday-orb-vwap-paper-v1"
+STRATEGY_VERSION = "intraday-confirmed-managed-paper-v2"
 BASELINE = "SIGNAL_ONLY_NO_EXECUTION"
 LOG = logging.getLogger("multibagger.paper")
 
@@ -58,18 +58,26 @@ def run_paper_cycle(
 
         realized = _closed_net_today(con, trading_day)
         day_count = int(con.execute("SELECT count(*) FROM paper_trades WHERE trading_day=?", [trading_day]).fetchone()[0])
-        losses_today = int(con.execute("SELECT count(*) FROM paper_trades WHERE trading_day=? AND status='CLOSED' AND net_pnl <= 0", [trading_day]).fetchone()[0])
+        consecutive_losses = _consecutive_losses(con)
+        consecutive_losses_today = _consecutive_losses(con, trading_day)
+        feedback = _recent_session_feedback(con, trading_day)
         open_rows = _records(con, "SELECT * FROM paper_trades WHERE status='OPEN' ORDER BY opened_at")
         existing_symbols = {
             str(row["symbol"])
             for row in _records(con, "SELECT symbol FROM paper_trades WHERE trading_day=?", [trading_day])
         }
 
+        projected_before_entries = realized + sum(float(row["net_pnl"]) for row in open_rows)
+        progress_ratio = projected_before_entries / settings.paper_daily_profit_target
+        if settings.execution_paused:
+            no_entry_reasons.append("Global trading execution pause is active; paper and sandbox entries/exits are blocked.")
         if realized >= settings.paper_daily_profit_target:
             no_entry_reasons.append("Daily paper profit target reached; new entries are disabled.")
+        elif progress_ratio >= settings.paper_profit_entry_lock_ratio:
+            no_entry_reasons.append("Daily profit is within the target-protection zone; new entries are disabled.")
         if realized <= -settings.paper_daily_loss_limit or (realized + sum(float(row["net_pnl"]) for row in open_rows)) <= -settings.paper_daily_loss_limit:
             no_entry_reasons.append("Daily paper loss limit reached; new entries are disabled.")
-        if losses_today >= settings.paper_consecutive_loss_limit:
+        if consecutive_losses_today >= settings.paper_consecutive_loss_limit:
             no_entry_reasons.append("Consecutive daily loss limit reached; new entries are halted.")
         if any(_as_trading_date(row.get("trading_day")) < trading_day for row in open_rows):
             no_entry_reasons.append("A prior-day paper position is awaiting a fresh executable exit; new entries are halted.")
@@ -77,10 +85,14 @@ def run_paper_cycle(
             no_entry_reasons.append("Outside the automatic paper-entry window (09:20–14:45 IST on NSE weekdays).")
 
         entries_allowed = not no_entry_reasons
+        entry_gate_open = entries_allowed
+        adaptive_mode = consecutive_losses > 0 or feedback["losingSessions"] > 0
+        effective_max_positions = 1 if adaptive_mode or progress_ratio >= settings.paper_profit_risk_reduction_ratio else settings.paper_max_open_positions
+        risk_multiplier = 0.5 if adaptive_mode or progress_ratio >= settings.paper_profit_risk_reduction_ratio else 1.0
         for candidate in candidates:
             if not entries_allowed:
                 break
-            if len(open_rows) >= settings.paper_max_open_positions:
+            if len(open_rows) >= effective_max_positions:
                 no_entry_reasons.append("Maximum simultaneous paper positions reached.")
                 break
             if day_count >= settings.paper_max_trades_per_day:
@@ -92,7 +104,8 @@ def run_paper_cycle(
             if not quote:
                 continue
             trade, rejection_reason = _open_trade(
-                con, candidate, quote, now, trading_day, run_id, settings, losses_today,
+                con, candidate, quote, now, trading_day, run_id, settings,
+                consecutive_losses, risk_multiplier, feedback,
             )
             if trade:
                 open_rows.append(trade)
@@ -124,7 +137,11 @@ def run_paper_cycle(
         realized = daily["netPnl"]
         target_reached = realized >= settings.paper_daily_profit_target
         loss_limit_reached = realized <= -settings.paper_daily_loss_limit
-        enabled = not target_reached and not loss_limit_reached and _entry_window_open(now)
+        enabled = (
+            entry_gate_open and not settings.execution_paused and not target_reached and not loss_limit_reached
+            and len(open_rows) < effective_max_positions and day_count < settings.paper_max_trades_per_day
+            and progress_ratio < settings.paper_profit_entry_lock_ratio and _entry_window_open(now)
+        )
         open_net_pnl = sum(float(row["net_pnl"]) for row in open_rows)
         con.execute("""
           INSERT INTO paper_target_history VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
@@ -143,6 +160,14 @@ def run_paper_cycle(
         "targetReached": target_reached,
         "lossLimitReached": loss_limit_reached,
         "newEntriesEnabled": enabled,
+        "executionPaused": settings.execution_paused,
+        "adaptiveRisk": {
+            "consecutiveLosses": consecutive_losses,
+            "riskMultiplier": risk_multiplier,
+            "effectiveMaxOpenPositions": effective_max_positions,
+            "profitProgressRatio": round(progress_ratio, 4),
+            "recentSessionFeedback": feedback,
+        },
         "noEntryReasons": list(dict.fromkeys(no_entry_reasons)),
         "openPositions": [_public_trade(row) for row in open_rows],
         "recentClosedTrades": [_public_trade(row) for row in recent],
@@ -176,16 +201,32 @@ def run_risk_monitor(settings: Settings, now: datetime | None = None) -> dict[st
 
 
 def _open_trade(con: Any, candidate: Candidate, quote: dict[str, Any], now: datetime, trading_day: Any,
-                run_id: str, settings: Settings, losses_today: int = 0) -> tuple[dict[str, Any] | None, str | None]:
+                run_id: str, settings: Settings, consecutive_losses: int = 0,
+                risk_multiplier: float = 1.0,
+                feedback: dict[str, Any] | None = None) -> tuple[dict[str, Any] | None, str | None]:
+    if settings.execution_paused:
+        return None, "EXECUTION_PAUSED"
     entry_quote = float(quote["ask"])
+    drift_bps = abs(entry_quote - float(candidate.entry)) / float(candidate.entry) * 10_000
+    if drift_bps > settings.paper_max_entry_slippage_bps:
+        return None, "ENTRY_PRICE_MOVED"
+    required = ("marketDirection", "sectorDirection", "vwap", "volume", "momentum", "breakoutRetest", "supportResistance", "riskReward")
+    if settings.require_expert_confirmation:
+        missing = [name for name in required if candidate.confirmations.get(name) is not True]
+        if missing:
+            return None, f"CONFIRMATION_FAILED_{missing[0].upper()}"
+        minimum_score = settings.min_confluence_score + min(consecutive_losses, 2) * 5
+        minimum_breadth = 0.55 + min(consecutive_losses, 2) * 0.05
+        if candidate.rank_score < minimum_score:
+            return None, "ADAPTIVE_SCORE_TOO_LOW"
+        if float(candidate.confirmations.get("marketBreadth") or 0) < minimum_breadth:
+            return None, "ADAPTIVE_MARKET_BREADTH_TOO_LOW"
     stop_distance = entry_quote - float(candidate.stop)
     if stop_distance <= 0:
         return None, "INVALID_STOP_DISTANCE"
-    risk_budget = settings.paper_portfolio_capital * settings.paper_risk_per_trade_pct / 100
+    risk_budget = settings.paper_portfolio_capital * settings.paper_risk_per_trade_pct / 100 * risk_multiplier
     capital_budget = settings.paper_portfolio_capital * settings.paper_max_capital_per_trade_pct / 100
     quantity = min(math.floor(risk_budget / stop_distance), math.floor(capital_budget / entry_quote))
-    if losses_today >= 1:
-        quantity = max(1, math.floor(quantity * 0.5))
     if quantity < 1:
         return None, "POSITION_SIZE_BELOW_ONE"
     entry_fill = entry_quote * (1 + settings.paper_slippage_bps_per_side / 10_000)
@@ -217,6 +258,8 @@ def _open_trade(con: Any, candidate: Candidate, quote: dict[str, Any], now: date
         "side": "BUY", "orderType": "PAPER_MARKET", "symbol": candidate.symbol,
         "quantity": quantity, "observedAsk": entry_quote, "stop": candidate.stop,
         "target": candidate.target, "signal": asdict(candidate),
+        "entryReasons": candidate.confirmations,
+        "adaptiveRisk": {"consecutiveLosses": consecutive_losses, "riskMultiplier": risk_multiplier, "recentSessionFeedback": feedback or {}},
     }
     values = [
         trade_id, trading_day, run_id, candidate.symbol, candidate.strategy, STRATEGY_VERSION,
@@ -240,7 +283,12 @@ def _open_trade(con: Any, candidate: Candidate, quote: dict[str, Any], now: date
     _record_trade_event(
         con, trade_id, run_id, "ENTRY", now, entry_quote, 0.0,
         -(brokerage + fees + slippage), "OPEN",
-        {"executionMode": execution_mode, "orderId": entry_order_id, "target": candidate.target, "stop": candidate.stop},
+        {
+            "executionMode": execution_mode, "orderId": entry_order_id,
+            "target": candidate.target, "stop": candidate.stop,
+            "entryReasons": candidate.confirmations,
+            "adaptiveRisk": {"consecutiveLosses": consecutive_losses, "riskMultiplier": risk_multiplier},
+        },
     )
     return _records(con, "SELECT * FROM paper_trades WHERE trade_id=?", [trade_id])[0], None
 
@@ -278,6 +326,17 @@ def _mark_trade(con: Any, trade: dict[str, Any], quote: dict[str, Any], now: dat
     duration_min = round((now - opened_at).total_seconds() / 60.0, 2)
 
     if exit_reason:
+        if settings.execution_paused:
+            con.execute("""
+              UPDATE paper_trades SET current_quote=?,last_marked_at=?,gross_pnl=?,net_pnl=?,
+                peak_quote=?,lowest_quote=?,mfe=?,mae=?,profit_giveback=?,holding_duration_minutes=?
+              WHERE trade_id=?
+            """, [exit_quote, now, gross, net, peak_quote, lowest_quote, mfe, mae, profit_giveback, duration_min, trade["trade_id"]])
+            _record_trade_event(
+                con, str(trade["trade_id"]), event_run_id, "EXIT_BLOCKED", now,
+                exit_quote, gross, net, str(exit_reason), {"reason": "TRADING_EXECUTION_PAUSED"},
+            )
+            return
         exit_order_id = trade.get("exit_order_id")
         if trade.get("execution_mode") == "UPSTOX_SANDBOX" and not exit_order_id:
             instrument_key = str(quote.get("instrument_key") or "")
@@ -335,19 +394,63 @@ def _regular_exit_reason(trade: dict[str, Any], quote: dict[str, Any], now: date
 
     if _as_trading_date(trade.get("trading_day")) < now.astimezone(IST).date():
         return "OVERNIGHT_SAFETY_EXIT"
+    if _flatten_time_reached(now, settings):
+        return "END_OF_DAY"
 
-    # Trailing Stop: If price reaches 1R profit, trail stop loss to Breakeven + 0.1% buffer
-    effective_stop = stop_price
-    if risk_unit > 0 and bid >= entry_quote + risk_unit:
-        effective_stop = max(stop_price, entry_quote * 1.001)
-
-    if bid <= effective_stop:
+    if bid <= stop_price:
         return "STOP_LOSS"
     if bid >= target_price:
         return "PROFIT_TARGET"
-    if _flatten_time_reached(now, settings):
-        return "END_OF_DAY"
+    peak_quote = max(float(trade.get("peak_quote") or entry_quote), bid)
+    if risk_unit > 0:
+        peak_r = (peak_quote - entry_quote) / risk_unit
+        if peak_r >= settings.paper_trailing_trigger_r and bid <= peak_quote - settings.paper_trailing_distance_r * risk_unit:
+            return "TRAILING_PROFIT_STOP"
+        if peak_r >= settings.paper_break_even_trigger_r and bid <= entry_quote * 1.001:
+            return "BREAK_EVEN_STOP"
+        closes = [float(value) for value in quote.get("recent_closes") or []]
+        reversal = len(closes) >= 3 and closes[-1] < closes[-2] < closes[-3]
+        if peak_r >= 0.5 and reversal and bid <= peak_quote - 0.35 * risk_unit:
+            return "MOMENTUM_REVERSAL"
     return None
+
+
+def _consecutive_losses(con: Any, trading_day: Any | None = None) -> int:
+    where = "WHERE status='CLOSED'"
+    parameters: list[Any] = []
+    if trading_day is not None:
+        where += " AND trading_day=?"
+        parameters.append(trading_day)
+    rows = con.execute(
+        f"SELECT net_pnl FROM paper_trades {where} ORDER BY closed_at DESC LIMIT 20",
+        parameters,
+    ).fetchall()
+    count = 0
+    for (net_pnl,) in rows:
+        if float(net_pnl) > 0:
+            break
+        count += 1
+    return count
+
+
+def _recent_session_feedback(con: Any, trading_day: Any) -> dict[str, Any]:
+    rows = con.execute("""
+      SELECT trading_day, sum(net_pnl) net_pnl,
+             sum(CASE WHEN net_pnl <= 0 THEN 1 ELSE 0 END) losses,
+             count(*) trades
+      FROM paper_trades
+      WHERE status='CLOSED' AND trading_day < ?
+      GROUP BY trading_day ORDER BY trading_day DESC LIMIT 3
+    """, [trading_day]).fetchall()
+    losing_sessions = sum(1 for _, net_pnl, _, _ in rows if float(net_pnl) < 0)
+    return {
+        "sessions": [
+            {"tradingDay": str(day), "netPnl": round(float(net_pnl), 2), "losses": int(losses), "trades": int(trades)}
+            for day, net_pnl, losses, trades in rows
+        ],
+        "losingSessions": losing_sessions,
+        "criteriaTightened": losing_sessions > 0,
+    }
 
 
 def _as_trading_date(value: Any):

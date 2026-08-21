@@ -30,12 +30,18 @@ def bars(now, stale=False, wide_spread=False):
         base = end - timedelta(days=1-day, minutes=19)
         for minute in range(20):
             price = 200 + minute * 0.02
-            if day == 1 and minute == 19:
-                price = 203
+            if day == 1 and minute == 16:
+                price = 200.9
+            elif day == 1 and minute == 17:
+                price = 200.45
+            elif day == 1 and minute == 18:
+                price = 200.7
+            elif day == 1 and minute == 19:
+                price = 200.9
             rows.append({"instrument_key":"NSE_EQ|TEST", "symbol":"TEST",
                 "ts": base + timedelta(minutes=minute),
                 "open":price-.05, "high":price+.1, "low":price-.1, "close":price,
-                "volume":1000 if day == 0 else 1500, "bid":price-.02,
+                "volume":1000 if day == 0 else (2500 if minute == 19 else 1500), "bid":price-.02,
                 "ask":price + (0.5 if wide_spread else .02), "received_at":now})
     return pd.DataFrame(rows)
 

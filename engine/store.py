@@ -150,18 +150,22 @@ class MarketStore:
             return {}
         with self.connect() as con:
             rows = con.execute("""
-              SELECT symbol, instrument_key, ts, bid, ask, received_at
+              SELECT symbol, instrument_key, ts, bid, ask, received_at, close, volume
               FROM minute_bars
               WHERE symbol IN (SELECT unnest(?))
-              QUALIFY row_number() OVER (PARTITION BY symbol ORDER BY ts DESC)=1
+              QUALIFY row_number() OVER (PARTITION BY symbol ORDER BY ts DESC)<=5
+              ORDER BY symbol, ts
             """, [symbols]).fetchall()
-        return {
-            str(symbol): {
+        result: dict[str, dict] = {}
+        for symbol, key, ts, bid, ask, received_at, close, volume in rows:
+            item = result.setdefault(str(symbol), {"recent_closes": [], "recent_volumes": []})
+            item.update({
                 "instrument_key": str(key), "ts": ts, "bid": bid, "ask": ask,
                 "received_at": received_at,
-            }
-            for symbol, key, ts, bid, ask, received_at in rows
-        }
+            })
+            item["recent_closes"].append(float(close))
+            item["recent_volumes"].append(int(volume))
+        return result
 
     def start_job(self, job_id: str, model: str, job_type: str, scheduled_at,
                   max_runtime_seconds: int) -> None:

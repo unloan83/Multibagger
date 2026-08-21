@@ -35,6 +35,7 @@ export type OptionLeg = {
   ltp: number;
   iv: number;
   delta: number;
+  theta: number;
   oi: number;
   volume: number;
   bidAskSpreadPercent: number;
@@ -60,6 +61,10 @@ export type OptionsOpportunity = {
   breakeven: number;
   riskReward: number;
   averageIv: number;
+  ivSkewPercent: number;
+  netThetaPerDay: number;
+  thetaDecayPercentPerDay: number;
+  premiumMomentumBps: number;
   netDelta: number;
   totalOi: number;
   totalVolume: number;
@@ -71,6 +76,7 @@ export type OptionsOpportunity = {
   directionModelVersion: string;
   directionSourceIds: string[];
   dataSource: "UPSTOX_LIVE_OPTION_CHAIN";
+  entryReasons: string[];
 };
 
 export type OptionsPosition = OptionsOpportunity & {
@@ -91,6 +97,9 @@ export type OptionsPosition = OptionsOpportunity & {
   slippageCost: number;
   exitReason: string | null;
   sandboxOrderIds: string[];
+  peakExitCreditPerUnit: number;
+  adverseMomentumTicks: number;
+  exitDetails: string[];
 };
 
 export type PerformanceMetrics = {
@@ -136,6 +145,7 @@ export type OptionsQuantState = {
     portfolioCapitalConfigured: boolean;
     sandboxOrderSubmissionEnabled: boolean;
     automaticCyclesEnabled: boolean;
+    executionPaused: boolean;
     profitTargetRupees: number;
     dailyProfitTargetRupees: number;
   };

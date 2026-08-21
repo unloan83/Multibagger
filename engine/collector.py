@@ -50,7 +50,7 @@ def run_worker(settings: Settings, scan_interval: int = 900, monitor_interval: i
     send_telegram_message(
         "🟢 Upstox Intraday paper engine started\n"
         "Full scans: every 15 minutes from 09:20 IST\n"
-        "Risk monitor: every 2 minutes\nMode: Upstox Sandbox (no real money)",
+        "Risk monitor: every minute\nMode: Upstox Sandbox (no real money)",
         event_key="upstox-worker-started", cooldown_seconds=3600,
     )
 

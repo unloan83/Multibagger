@@ -37,6 +37,7 @@ function parseState(content: string | null): OptionsQuantState {
     automaticCyclesEnabled: config.enabled,
     profitTargetRupees: config.profitTargetRupees,
     dailyProfitTargetRupees: config.dailyProfitTargetRupees,
+    executionPaused: config.executionPaused,
   };
   return state;
 }
@@ -93,6 +94,7 @@ export function createEmptyState(): OptionsQuantState {
       portfolioCapitalConfigured: config.portfolioCapital > 0,
       sandboxOrderSubmissionEnabled: config.submitSandboxOrders,
       automaticCyclesEnabled: config.enabled,
+      executionPaused: config.executionPaused,
       profitTargetRupees: config.profitTargetRupees,
       dailyProfitTargetRupees: config.dailyProfitTargetRupees,
     },

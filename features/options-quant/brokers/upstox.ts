@@ -189,6 +189,7 @@ function parseLeg(value: unknown, optionType: "CE" | "PE", strike: number): Opti
     ltp: Number(market.ltp || 0),
     iv: Number(greeks.iv || 0),
     delta: Number(greeks.delta || 0),
+    theta: Number(greeks.theta || 0),
     oi: Number(market.oi || 0),
     volume: Number(market.volume || 0),
     bidAskSpreadPercent: round(((ask - bid) / ((ask + bid) / 2)) * 100),

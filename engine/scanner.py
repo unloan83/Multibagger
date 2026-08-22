@@ -1,21 +1,24 @@
 from __future__ import annotations
 
 import json
+import logging
 import os
 import time
 import uuid
-from collections import defaultdict
 from dataclasses import asdict, replace
 from datetime import datetime, timezone
 
 from .config import Settings
 from .paper import run_paper_cycle
 from .publication import publish_snapshot
+from .regime_detector import detect_regime
 from .store import MarketStore
-from .strategies import Candidate, enrich, scan_symbol
+from .strategies import Candidate, Trend, classify_price_trend, enrich, scan_symbol
+from .universe import active_trading_symbols
 
 
 SCAN_BATCH_SIZE = 50
+LOG = logging.getLogger("multibagger.scanner")
 
 
 def run_scan(settings: Settings, deadline_monotonic: float | None = None) -> dict:
@@ -24,10 +27,10 @@ def run_scan(settings: Settings, deadline_monotonic: float | None = None) -> dic
     store = MarketStore(settings.db_path)
     run_id = str(uuid.uuid4())
     now = datetime.now(timezone.utc)
-    symbols = settings.symbols()
+    symbols = active_trading_symbols(settings, now)
     candidates: list[Candidate] = []
-    breadth_votes: list[bool] = []
-    sector_votes: dict[str, list[bool]] = defaultdict(list)
+    symbol_trends: dict[str, Trend] = {}
+    enriched_frames: dict[str, object] = {}
     universe_rows = json.loads(settings.universe_path.read_text())
     themes = {str(row.get("symbol") or ""): str(row.get("theme") or "UNCLASSIFIED") for row in universe_rows}
     quotes: dict[str, dict] = {}
@@ -35,6 +38,8 @@ def run_scan(settings: Settings, deadline_monotonic: float | None = None) -> dic
     with store.connect() as con:
         con.execute("INSERT INTO scanner_runs (run_id, started_at, status, universe_size) VALUES (?, ?, 'RUNNING', ?)", [run_id, now, len(symbols)])
     try:
+        if deadline_monotonic is not None and time.monotonic() >= deadline_monotonic:
+            raise TimeoutError("Upstox full scan exceeded its maximum runtime")
         for offset in range(0, len(symbols), SCAN_BATCH_SIZE):
             if deadline_monotonic is not None and time.monotonic() >= deadline_monotonic:
                 raise TimeoutError("Upstox full scan exceeded its maximum runtime")
@@ -56,51 +61,81 @@ def run_scan(settings: Settings, deadline_monotonic: float | None = None) -> dic
                         fresh += 1
                         bid, ask = float(last.bid or 0), float(last.ask or 0)
                         if bid > 0 and ask > bid:
-                            quotes[symbol] = {"bid": bid, "ask": ask, "ts": bar_time, "instrument_key": str(last.instrument_key)}
+                            quotes[symbol] = {
+                                "bid": bid, "ask": ask, "ts": bar_time,
+                                "received_at": last.received_at,
+                                "instrument_key": str(last.instrument_key),
+                            }
                 if fresh_frame and len(frame) >= 16:
                     enriched = enrich(frame)
-                    candidates.extend(scan_symbol(enriched, settings, now, frame_is_enriched=True))
-                    latest = enriched.iloc[-1]
-                    recent = enriched.tail(5)
-                    bullish = bool(
-                        latest.close > latest.vwap
-                        and latest.close > recent.close.mean()
-                        and latest.close > recent.iloc[0].close
-                    )
-                    breadth_votes.append(bullish)
-                    sector_votes[themes.get(symbol, "UNCLASSIFIED")].append(bullish)
-        market_breadth = sum(breadth_votes) / len(breadth_votes) if breadth_votes else 0.0
+                    enriched_frames[symbol] = enriched
+                    symbol_trends[symbol] = classify_price_trend(enriched, now, settings.stale_seconds)
+
+        nifty_frame = store.bars(settings.market_index_symbol)
+        vix_frame = store.bars(settings.vix_symbol)
+        advances = symbol_trends.values().count("BULLISH") if hasattr(symbol_trends.values(), "count") else sum(1 for value in symbol_trends.values() if value == "BULLISH")
+        declines = sum(1 for value in symbol_trends.values() if value == "BEARISH")
+        breadth_ratio = advances / max(declines, 1) if advances or declines else None
+        regime = detect_regime(nifty_frame, vix_frame, breadth_ratio, settings, now)
+        skip_reasons = list(regime.skip_reasons)
+        with store.connect() as con:
+            losses = con.execute("""
+              SELECT net_pnl FROM paper_trades
+              WHERE trading_day=CAST(? AT TIME ZONE 'Asia/Kolkata' AS DATE) AND status='CLOSED'
+              ORDER BY closed_at DESC LIMIT ?
+            """, [now, settings.paper_consecutive_loss_limit]).fetchall()
+        if len(losses) >= settings.paper_consecutive_loss_limit and all(float(row[0]) <= 0 for row in losses):
+            skip_reasons.append("TWO_CONSECUTIVE_LOSSES")
+        if not symbols:
+            skip_reasons.append("DAILY_250_STOCK_UNIVERSE_UNAVAILABLE")
+        if skip_reasons:
+            for reason in dict.fromkeys(skip_reasons):
+                LOG.info("no_trade_skip=%s", reason)
+        else:
+            for symbol, enriched in enriched_frames.items():
+                candidates.extend(scan_symbol(enriched, settings, now, frame_is_enriched=True, regime=regime.regime))
+        market_trend = classify_price_trend(nifty_frame, now, settings.stale_seconds)
+        sector_trends: dict[str, Trend] = {}
+        for theme in set(themes.values()):
+            votes = [symbol_trends[symbol] for symbol in symbol_trends if themes.get(symbol) == theme]
+            sector_trends[theme] = _classify_breadth(votes)
         confirmed_candidates: list[Candidate] = []
         for candidate in candidates:
             theme = themes.get(candidate.symbol, "UNCLASSIFIED")
-            votes = sector_votes.get(theme) or []
-            sector_breadth = sum(votes) / len(votes) if votes else market_breadth
+            sector_trend = sector_trends.get(theme, "RANGE")
+            required_trend = "BULLISH" if candidate.side == "LONG" else "BEARISH"
+            range_setup = candidate.strategy == "RANGE_MEAN_REVERSION"
             confirmations = {
                 **candidate.confirmations,
-                "marketDirection": market_breadth >= 0.55,
-                "sectorDirection": sector_breadth >= 0.55,
-                "marketBreadth": round(market_breadth, 4),
-                "sectorBreadth": round(sector_breadth, 4),
+                "marketDirection": market_trend == required_trend if not range_setup else market_trend == "RANGE",
+                "sectorDirection": sector_trend == required_trend if not range_setup else sector_trend == "RANGE",
+                "marketTrend": market_trend,
+                "sectorTrend": sector_trend,
                 "sector": theme,
             }
-            confirmed_candidates.append(replace(candidate, confirmations=confirmations))
+            if confirmations["marketDirection"] and confirmations["sectorDirection"]:
+                confirmed_candidates.append(replace(candidate, confirmations=confirmations))
         candidates = confirmed_candidates
         candidates.sort(key=lambda item: item.rank_score, reverse=True)
         with store.connect() as con:
             con.execute("UPDATE paper_signals SET status='EXPIRED_UNEXECUTED' WHERE status='OPEN' AND expiry < ?", [now])
             for item in candidates:
-                con.execute("INSERT INTO paper_signals VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'OPEN')", [
-                    run_id, item.symbol, item.entry, item.stop, item.target, item.strategy,
+                con.execute("""INSERT INTO paper_signals
+                  (run_id,symbol,side,entry,stop,target,strategy,timestamp,expiry,rank_score,status)
+                  VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'OPEN')""", [
+                    run_id, item.symbol, item.side, item.entry, item.stop, item.target, item.strategy,
                     item.timestamp, item.expiry, item.rank_score,
                 ])
         paper = run_paper_cycle(store, settings, candidates, quotes, now, run_id)
         with store.connect() as con:
-            reason = None if candidates else "NO_TRADE"
+            reason = None if candidates else (skip_reasons[0] if skip_reasons else "NO_VALID_SETUP")
             con.execute("UPDATE scanner_runs SET completed_at=?, status=?, fresh_symbols=?, signal_count=?, reason=? WHERE run_id=?", [now, "SIGNALS" if candidates else "NO_TRADE", fresh, len(candidates), reason, run_id])
         payload = {
             "status": "SIGNALS" if candidates else "NO_TRADE", "asOf": now.isoformat(), "run_id": run_id,
             "source": f"{settings.market_data_provider.upper()}_1MIN_DUCKDB", "mode": "PAPER_ONLY", "evaluatedUniverseSize": len(symbols),
-            "reason": None if candidates else "NO_TRADE", "signals": [{**asdict(item), "run_id": run_id, "timestamp": item.timestamp.isoformat(), "expiry": item.expiry.isoformat()} for item in candidates],
+            "reason": None if candidates else (skip_reasons[0] if skip_reasons else "NO_VALID_SETUP"),
+            "regime": regime.to_dict(),
+            "signals": [{**asdict(item), "run_id": run_id, "timestamp": item.timestamp.isoformat(), "expiry": item.expiry.isoformat()} for item in candidates],
             "paperTrading": paper,
         }
         publish_snapshot(settings, payload)
@@ -110,3 +145,15 @@ def run_scan(settings: Settings, deadline_monotonic: float | None = None) -> dic
         with store.connect() as con:
             con.execute("UPDATE scanner_runs SET completed_at=?, status='FAILED', reason=? WHERE run_id=?", [datetime.now(timezone.utc), reason, run_id])
         raise
+
+
+def _classify_breadth(votes: list[Trend]) -> Trend:
+    if len(votes) < 3:
+        return "RANGE"
+    bullish = votes.count("BULLISH") / len(votes)
+    bearish = votes.count("BEARISH") / len(votes)
+    if bullish >= 0.55 and bullish - bearish >= 0.10:
+        return "BULLISH"
+    if bearish >= 0.55 and bearish - bullish >= 0.10:
+        return "BEARISH"
+    return "RANGE"

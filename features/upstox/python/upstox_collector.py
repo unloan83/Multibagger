@@ -7,7 +7,7 @@ import threading
 import time
 import urllib.request
 from datetime import datetime, timezone
-from typing import Any
+from typing import Any, Callable
 from zoneinfo import ZoneInfo
 
 import pandas as pd
@@ -25,15 +25,31 @@ def resolve_upstox_instruments(settings: Settings, store: MarketStore) -> dict[s
     with urllib.request.urlopen(INSTRUMENTS_URL, timeout=30) as response:
         rows = json.loads(gzip.decompress(response.read()))
     wanted = set(settings.symbols())
-    selected = {
+    equities = {
         str(row["instrument_key"]): str(row["trading_symbol"])
         for row in rows
         if row.get("segment") == "NSE_EQ" and row.get("instrument_type") == "EQ"
         and row.get("trading_symbol") in wanted and row.get("instrument_key")
     }
     minimum = max(1, int(settings.max_symbols * 0.8))
-    if len(selected) < minimum:
-        raise RuntimeError(f"Only {len(selected)}/{settings.max_symbols} Upstox symbols resolved; refusing partial paper feed")
+    if len(equities) < minimum:
+        raise RuntimeError(f"Only {len(equities)}/{settings.max_symbols} Upstox symbols resolved; refusing partial paper feed")
+    market_index = next((
+        row for row in rows
+        if row.get("instrument_key") == settings.market_index_instrument_key
+    ), None)
+    if not market_index:
+        raise RuntimeError("NIFTY 50 index instrument is unavailable; direction classification must fail closed")
+    volatility_index = next((row for row in rows if row.get("instrument_key") == settings.vix_instrument_key), None)
+    if not volatility_index:
+        raise RuntimeError("India VIX instrument is unavailable; regime classification must fail closed")
+    # The direction gate is mandatory, so warm-up/backfill must seed the market
+    # index before spending broker rate-limit budget on the wider equity universe.
+    selected = {
+        settings.market_index_instrument_key: settings.market_index_symbol,
+        settings.vix_instrument_key: settings.vix_symbol,
+        **equities,
+    }
     with store.connect() as con:
         con.execute("DELETE FROM instruments WHERE exchange='NSE'")
         for key, symbol in selected.items():
@@ -98,7 +114,7 @@ class UpstoxTickWriter:
             raise
 
 
-def collect_upstox(settings: Settings) -> None:
+def collect_upstox(settings: Settings, on_market_data: Callable[[], None] | None = None) -> None:
     if not settings.access_token:
         raise RuntimeError("UPSTOX_ACCESS_TOKEN is required")
     if settings.market_data_provider != "upstox":
@@ -138,7 +154,9 @@ def collect_upstox(settings: Settings) -> None:
         last_log = time.monotonic()
         while not stop.wait(1):
             try:
-                writer.flush()
+                flushed = writer.flush()
+                if flushed and on_market_data:
+                    on_market_data()
                 now = time.monotonic()
                 _assert_stream_freshness(writer, settings, now, datetime.now(timezone.utc))
                 if now - last_log >= 60:

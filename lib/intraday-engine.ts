@@ -4,10 +4,11 @@ export type IntradaySlot = "09:08" | "10:45" | "13:45";
 
 export type PaperSignal = {
   symbol: string;
+  side: "LONG" | "SHORT";
   entry: number;
   stop: number;
   target: number;
-  strategy: "ORB_15M" | "VWAP_CONTINUATION";
+  strategy: "ORB_15M_RETEST";
   timestamp: string;
   expiry: string;
   run_id: string;
@@ -29,6 +30,7 @@ export type PaperSignalSnapshot = {
 export type PaperTrade = {
   trade_id: string;
   symbol: string;
+  side: "LONG" | "SHORT";
   strategy: string;
   status: "OPEN" | "CLOSED";
   quantity: number;
@@ -128,8 +130,10 @@ function validPaperTrading(value: PaperTradingState): boolean {
 }
 
 function validSignal(signal: PaperSignal): boolean {
-  return Boolean(signal && /^[A-Z0-9&-]{1,30}$/.test(signal.symbol) && signal.run_id && ["ORB_15M", "VWAP_CONTINUATION"].includes(signal.strategy)) &&
+  const levelsValid = signal?.side === "LONG"
+    ? signal.stop < signal.entry && signal.target > signal.entry
+    : signal?.side === "SHORT" && signal.stop > signal.entry && signal.target < signal.entry;
+  return Boolean(signal && /^[A-Z0-9&-]{1,30}$/.test(signal.symbol) && signal.run_id && signal.strategy === "ORB_15M_RETEST" && levelsValid) &&
     [signal.entry, signal.stop, signal.target, signal.rank_score].every(Number.isFinite) &&
-    signal.stop < signal.entry && signal.target > signal.entry &&
     Number.isFinite(Date.parse(signal.timestamp)) && Number.isFinite(Date.parse(signal.expiry));
 }

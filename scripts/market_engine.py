@@ -12,11 +12,11 @@ from engine.scanner import run_scan
 
 
 parser = argparse.ArgumentParser()
-parser.add_argument("command", choices=("backfill", "upstox-warmup", "collect", "worker", "scan", "monitor", "backtest"))
+parser.add_argument("command", choices=("backfill", "upstox-warmup", "collect", "worker", "scan", "monitor", "backtest", "replay"))
 parser.add_argument("--start")
 parser.add_argument("--end")
 parser.add_argument("--scan-interval", type=int, default=900)
-parser.add_argument("--monitor-interval", type=int, default=120)
+parser.add_argument("--monitor-interval", type=int, default=30)
 parser.add_argument("--scan-max-runtime", type=int, default=240)
 parser.add_argument("--monitor-max-runtime", type=int, default=45)
 parser.add_argument("--job-lock-path", default="/var/lib/multibagger/paper_jobs.lock")
@@ -43,8 +43,15 @@ elif args.command == "scan":
 elif args.command == "monitor":
     from engine.paper import run_risk_monitor
     print(json.dumps(run_risk_monitor(settings), indent=2))
-else:
+elif args.command == "backtest":
     if not args.start or not args.end:
         parser.error("backtest requires --start and --end")
     from engine.backtest import walk_forward
     print(json.dumps(walk_forward(settings, args.start, args.end), indent=2))
+else:
+    if not args.start or not args.end:
+        parser.error("replay requires --start and --end")
+    from engine.replay import replay_recorded_entries
+    print(json.dumps(replay_recorded_entries(
+        settings, date.fromisoformat(args.start), date.fromisoformat(args.end),
+    ), indent=2))

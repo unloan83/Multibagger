@@ -18,7 +18,7 @@ export async function ingestDirectionEvidence(input: unknown): Promise<OptionsQu
   const direction = validateDirection(input);
   const state = await readOptionsQuantState();
   state.direction = direction;
-  state.noTradeReasons = direction.direction === "UNCLEAR" ? ["Live Upstox direction evidence is UNCLEAR."] : [];
+  state.noTradeReasons = direction.direction === "RANGE" ? ["Live Upstox direction is RANGE; no Options trade is permitted."] : [];
   await writeOptionsQuantState(state);
   return state;
 }
@@ -28,6 +28,10 @@ export async function runOptionsQuantCycle(
   now = new Date(),
 ): Promise<OptionsQuantState> {
   const config = getOptionsQuantConfig();
+  if (!config.enabled) {
+    const state = await readOptionsQuantState();
+    return persistNoTrade(state, ["Options execution path is disabled by configuration."], config);
+  }
   const sessionReason = nseMarketDataRejection(now);
   if (sessionReason) return runOptionsQuantScan(broker, now);
   try {
@@ -46,6 +50,7 @@ export async function runOptionsRiskMonitor(
 ): Promise<OptionsQuantState> {
   const config = getOptionsQuantConfig();
   const state = await readOptionsQuantState();
+  if (!config.enabled) return persistNoTrade(state, ["Options execution path is disabled by configuration."], config);
   state.configuration = {
     marketDataConfigured: Boolean(process.env.UPSTOX_ACCESS_TOKEN),
     sandboxConfigured: Boolean(process.env.UPSTOX_SANDBOX_ACCESS_TOKEN),
@@ -55,6 +60,7 @@ export async function runOptionsRiskMonitor(
     executionPaused: config.executionPaused,
     profitTargetRupees: config.profitTargetRupees,
     dailyProfitTargetRupees: config.dailyProfitTargetRupees,
+    dailyLossLimitRupees: config.dailyLossLimitRupees,
   };
   const openPosition = state.positions.find((position) => position.status === "OPEN");
   if (!openPosition) {
@@ -69,6 +75,7 @@ export async function runOptionsRiskMonitor(
   const sessionReason = nseMarketDataRejection(now);
   if (sessionReason) return persistNoTrade(state, [sessionReason], config);
   try {
+    state.direction = await buildLiveDirectionEvidence(broker, now);
     const chain = await broker.getOptionChain(config.underlyingKey, openPosition.expiry);
     if (!chain.length) return persistNoTrade(state, ["Upstox returned no chain for the active Options position."], config);
     await markOpenPositions(state, chain, broker, config, now);
@@ -78,6 +85,9 @@ export async function runOptionsRiskMonitor(
     state.metrics = calculateMetrics(state.positions, config.portfolioCapital);
     state.evaluation = evaluateStrategy(state.positions, state.metrics, state.stage, config);
     await writeOptionsQuantState(state);
+    if (!state.positions.some((position) => position.status === "OPEN")) {
+      return runOptionsQuantCycle(broker, now);
+    }
     return state;
   } catch (error) {
     return persistNoTrade(state, [error instanceof Error ? error.message : "Options risk monitor failed."], config);
@@ -99,6 +109,7 @@ export async function runOptionsQuantScan(
     executionPaused: config.executionPaused,
     profitTargetRupees: config.profitTargetRupees,
     dailyProfitTargetRupees: config.dailyProfitTargetRupees,
+    dailyLossLimitRupees: config.dailyLossLimitRupees,
   };
   state.liveOpportunity = null;
   state.noTradeReasons = [];
@@ -125,8 +136,15 @@ export async function runOptionsQuantScan(
     if (dailyNetPnl >= config.dailyProfitTargetRupees * 0.9) {
       return persistNoTrade(state, ["Options daily profit is inside the 90% target-protection zone; new entries are locked."], config);
     }
+    if (dailyNetPnl <= -config.dailyLossLimitRupees) {
+      return persistNoTrade(state, [`Options daily loss circuit breaker of ₹${config.dailyLossLimitRupees} is breached; new entries are locked.`], config);
+    }
 
-    const lossStreak = consecutiveOptionLosses(state.positions);
+    const lossStreak = consecutiveOptionLosses(state.positions, now);
+    const tradesToday = positionsForIstDay(state.positions, now).length;
+    if (config.maximumTradesPerDay > 0 && tradesToday >= config.maximumTradesPerDay) {
+      return persistNoTrade(state, ["Options A-grade setup limit for the session is reached."], config);
+    }
     const adaptiveConfig: OptionsQuantConfig = {
       ...config,
       riskPerTradePercent: config.riskPerTradePercent * (lossStreak > 0 || dailyNetPnl >= config.dailyProfitTargetRupees * 0.7 ? 0.5 : 1),
@@ -201,7 +219,7 @@ export async function buildOpportunity(
   broker: OptionsBroker,
   config: OptionsQuantConfig,
 ): Promise<{ opportunity: OptionsOpportunity | null; reasons: string[] }> {
-  if (direction.direction === "UNCLEAR") return { opportunity: null, reasons: ["Direction is UNCLEAR."] };
+  if (direction.direction === "RANGE") return { opportunity: null, reasons: ["Direction is RANGE."] };
   const spot = chain[0]?.spot || 0;
   const optionType = direction.direction === "BULLISH" ? "CE" : "PE";
   const eligible = chain
@@ -314,7 +332,7 @@ export async function buildOpportunity(
   };
 }
 
-async function markOpenPositions(state: OptionsQuantState, chain: OptionChainRow[], broker: OptionsBroker, config: OptionsQuantConfig, now = new Date()) {
+export async function markOpenPositions(state: OptionsQuantState, chain: OptionChainRow[], broker: OptionsBroker, config: OptionsQuantConfig, now = new Date()) {
   for (const position of state.positions.filter((item) => item.status === "OPEN")) {
     const legs = chain.flatMap((row) => [row.call, row.put]).filter((leg): leg is OptionLeg => Boolean(leg));
     const long = legs.find((leg) => leg.instrumentKey === position.longLeg.instrumentKey);
@@ -329,14 +347,29 @@ async function markOpenPositions(state: OptionsQuantState, chain: OptionChainRow
     position.unrealizedNetPnl = round(position.unrealizedGrossPnl - position.estimatedCharges - position.estimatedSlippage);
     position.lastMarkedAt = now.toISOString();
     const stopCredit = position.entryDebitPerUnit * 0.5;
+    const averageIv = round((long.iv + short.iv) / 2);
+    const ivSkew = round(Math.abs(long.iv - short.iv));
+    const currentDebit = Math.max(0.01, long.ask - short.bid);
+    const thetaDecay = round(Math.max(0, -(long.theta - short.theta)) / currentDebit * 100);
+    const liquidityInvalid = long.oi < config.minimumOiPerLeg || short.oi < config.minimumOiPerLeg
+      || long.volume < config.minimumVolumePerLeg || short.volume < config.minimumVolumePerLeg
+      || long.bidAskSpreadPercent > config.maximumBidAskSpreadPercent
+      || short.bidAskSpreadPercent > config.maximumBidAskSpreadPercent;
+    const ivThetaInvalid = averageIv < config.minimumIvPercent || averageIv > config.maximumIvPercent
+      || ivSkew > config.maximumIvSkewPercent || thetaDecay > config.maximumThetaDecayPercentPerDay;
+    const closedDailyNet = netPnlForIstDay(state.positions, now);
     let exitReason: string | null = null;
-    if (position.unrealizedNetPnl >= (position.profitTargetRupees ?? config.profitTargetRupees)) exitReason = "PROFIT_TARGET";
+    if (closedDailyNet + position.unrealizedNetPnl >= config.dailyProfitTargetRupees) exitReason = "DAILY_PROFIT_TARGET";
+    else if (closedDailyNet + position.unrealizedNetPnl <= -config.dailyLossLimitRupees) exitReason = "DAILY_LOSS_LIMIT";
+    else if (position.unrealizedNetPnl >= (position.profitTargetRupees ?? config.profitTargetRupees)) exitReason = "PROFIT_TARGET";
     else if (exitCredit <= stopCredit) exitReason = "MAX_DEBIT_LOSS_STOP";
+    else if (liquidityInvalid) exitReason = "LIQUIDITY_THESIS_INVALIDATED";
+    else if (ivThetaInvalid) exitReason = "IV_THETA_THESIS_INVALIDATED";
     else if ((position.peakExitCreditPerUnit - position.entryDebitPerUnit) * position.quantity >= config.profitTargetRupees * 0.6
       && (position.peakExitCreditPerUnit - exitCredit) * position.quantity >= config.profitTargetRupees * 0.3) exitReason = "TRAILING_PROFIT_STOP";
     else if ((position.peakExitCreditPerUnit - position.entryDebitPerUnit) * position.quantity >= config.profitTargetRupees * 0.35
       && position.unrealizedNetPnl <= 0) exitReason = "BREAK_EVEN_PROTECTION";
-    else if ((position.adverseMomentumTicks ?? 0) >= 2 && position.peakExitCreditPerUnit > position.entryDebitPerUnit) exitReason = "PREMIUM_MOMENTUM_REVERSAL";
+    else if ((position.adverseMomentumTicks ?? 0) >= 2) exitReason = "PREMIUM_MOMENTUM_REVERSAL";
     else if (isFreshDirectionInvalidation(state.direction, position.direction, config)) exitReason = "DIRECTION_INVALIDATED";
     else if (daysBetween(now, new Date(`${position.expiry}T15:30:00+05:30`)) <= 2 && istMinutes(now) >= 15 * 60 + 10) exitReason = "EXPIRY_RISK_EXIT";
     if (!exitReason) continue;
@@ -441,7 +474,8 @@ function validateDirection(input: unknown): DirectionEvidence {
   if (!input || typeof input !== "object") throw new Error("Direction evidence must be an object.");
   const raw = input as Partial<DirectionEvidence>;
   if (!raw.asOf || !Number.isFinite(Date.parse(raw.asOf))) throw new Error("Direction evidence requires a valid asOf timestamp.");
-  if (!raw.direction || !["BULLISH", "BEARISH", "UNCLEAR"].includes(raw.direction)) throw new Error("Invalid NIFTY direction.");
+  if ((raw.direction as string) === "UNCLEAR") raw.direction = "RANGE";
+  if (!raw.direction || !["BULLISH", "BEARISH", "RANGE"].includes(raw.direction)) throw new Error("Invalid NIFTY direction.");
   for (const key of ["confidence", "trendStrength", "bankNiftyConfirmation", "optionChainConfirmation"] as const) {
     if (!Number.isFinite(raw[key]) || Number(raw[key]) < 0 || Number(raw[key]) > 100) throw new Error(`${key} must be between 0 and 100.`);
   }
@@ -451,7 +485,7 @@ function validateDirection(input: unknown): DirectionEvidence {
 
 function directionRejections(direction: DirectionEvidence | null, config: OptionsQuantConfig): string[] {
   if (!direction) return ["No market-intelligence direction evidence is available."];
-  if (direction.direction === "UNCLEAR") return ["Live Upstox direction is UNCLEAR."];
+  if (direction.direction === "RANGE") return ["Live Upstox direction is RANGE."];
   const age = (Date.now() - Date.parse(direction.asOf)) / 60_000;
   const reasons: string[] = [];
   if (age < 0 || age > config.maximumDirectionAgeMinutes) reasons.push("Market-intelligence direction is stale.");
@@ -481,7 +515,7 @@ function nseEntryRejection(date: Date): string | null {
   const parts = new Intl.DateTimeFormat("en-GB", { timeZone: "Asia/Kolkata", hour: "2-digit", minute: "2-digit", hour12: false }).formatToParts(date);
   const value = Object.fromEntries(parts.map((part) => [part.type, part.value]));
   const minutes = Number(value.hour) * 60 + Number(value.minute);
-  return minutes < 9 * 60 + 20 || minutes > 14 * 60 + 45 ? "Outside the configured new-entry window (09:20–14:45 IST)." : null;
+  return minutes < 9 * 60 + 30 || minutes > 14 * 60 + 30 ? "Outside the configured new-entry window (09:30–14:30 IST)." : null;
 }
 
 function isFreshDirectionInvalidation(direction: DirectionEvidence | null, original: "BULLISH" | "BEARISH", config: OptionsQuantConfig): boolean {
@@ -525,16 +559,27 @@ function premiumMomentumBps(candles: MarketCandle[]): number {
   return round((last - first) / first * 10_000);
 }
 
-function consecutiveOptionLosses(positions: OptionsPosition[]): number {
+function consecutiveOptionLosses(positions: OptionsPosition[], now: Date): number {
   let count = 0;
-  const closed = positions
-    .filter((position) => position.status === "CLOSED")
+  const closed = positionsForIstDay(positions, now)
+    .filter((position) => position.status === "CLOSED" && position.closedAt)
     .sort((left, right) => right.closedAt!.localeCompare(left.closedAt!));
   for (const position of closed) {
     if (position.netPnl > 0) break;
     count += 1;
   }
   return count;
+}
+
+function positionsForIstDay(positions: OptionsPosition[], now: Date): OptionsPosition[] {
+  const day = istDay(now);
+  return positions.filter((position) => istDay(new Date(position.openedAt)) === day);
+}
+
+function istDay(value: Date): string {
+  return new Intl.DateTimeFormat("en-CA", {
+    timeZone: "Asia/Kolkata", year: "numeric", month: "2-digit", day: "2-digit",
+  }).format(value);
 }
 
 function daysBetween(from: Date, to: Date): number {

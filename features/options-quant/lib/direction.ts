@@ -29,31 +29,33 @@ export async function buildLiveDirectionEvidence(
   const putCallOiRatio = round(putOi / callOi, 3);
   const alignedTrend = Math.sign(nifty.returnFromOpenBps) === Math.sign(nifty.fastSlowGapBps)
     && Math.abs(nifty.returnFromOpenBps) >= 10
-    && Math.abs(nifty.fastSlowGapBps) >= 1;
+    && Math.abs(nifty.fastSlowGapBps) >= 1
+    && nifty.openingRangeDirection !== "RANGE";
   const candidate: MarketDirection = !alignedTrend
-    ? "UNCLEAR"
-    : nifty.returnFromOpenBps > 0 ? "BULLISH" : "BEARISH";
+    ? "RANGE"
+    : nifty.returnFromOpenBps > 0 && nifty.openingRangeDirection === "BULLISH" ? "BULLISH"
+      : nifty.returnFromOpenBps < 0 && nifty.openingRangeDirection === "BEARISH" ? "BEARISH" : "RANGE";
 
   const directionSign = candidate === "BEARISH" ? -1 : 1;
-  const trendStrength = candidate === "UNCLEAR"
+  const trendStrength = candidate === "RANGE"
     ? clamp(50 + Math.abs(nifty.returnFromOpenBps) * 0.2)
     : clamp(50 + Math.abs(nifty.returnFromOpenBps) * 0.7 + Math.abs(nifty.fastSlowGapBps) * 2);
-  const bankNiftyConfirmation = candidate === "UNCLEAR"
+  const bankNiftyConfirmation = candidate === "RANGE"
     ? 50
     : clamp(50 + directionSign * bank.returnFromOpenBps * 0.6 + directionSign * bank.fastSlowGapBps * 2);
-  const optionChainConfirmation = candidate === "UNCLEAR"
+  const optionChainConfirmation = candidate === "RANGE"
     ? 50
     : candidate === "BULLISH"
       ? clamp(50 + (putCallOiRatio - 1) * 100)
       : clamp(50 + (1 - putCallOiRatio) * 100);
   const confidence = Math.round(trendStrength * 0.55 + bankNiftyConfirmation * 0.25 + optionChainConfirmation * 0.2);
-  const direction = candidate !== "UNCLEAR"
+  const direction = candidate !== "RANGE"
       && trendStrength >= 65
       && bankNiftyConfirmation >= 60
       && optionChainConfirmation >= 45
       && confidence >= 75
     ? candidate
-    : "UNCLEAR";
+    : "RANGE";
   const latestMarketTimestamp = niftyCandles.at(-1)!.timestamp;
 
   return {
@@ -67,6 +69,7 @@ export async function buildLiveDirectionEvidence(
     observations: {
       niftyReturnFromOpenBps: round(nifty.returnFromOpenBps),
       niftyFastSlowGapBps: round(nifty.fastSlowGapBps),
+      niftyOpeningRangeDirection: nifty.openingRangeDirection,
       bankNiftyReturnFromOpenBps: round(bank.returnFromOpenBps),
       bankNiftyFastSlowGapBps: round(bank.fastSlowGapBps),
       putCallOiRatio,
@@ -83,7 +86,7 @@ export async function buildLiveDirectionEvidence(
 }
 
 function assertFreshCandles(name: string, candles: MarketCandle[], now: Date) {
-  if (candles.length < 6) throw new Error(`${name} has fewer than six valid one-minute candles; direction remains NO TRADE.`);
+  if (candles.length < 16) throw new Error(`${name} has fewer than sixteen valid one-minute candles; opening-range direction remains NO TRADE.`);
   const latest = Date.parse(candles.at(-1)!.timestamp);
   const ageMinutes = (now.getTime() - latest) / 60_000;
   if (!Number.isFinite(latest) || ageMinutes < -2 || ageMinutes > 10) {
@@ -105,9 +108,15 @@ function momentum(candles: MarketCandle[]) {
   const latest = closes.at(-1)!;
   const fast = ema(closes, 5);
   const slow = ema(closes, 13);
+  const opening = candles.slice(0, 15);
+  const openingHigh = Math.max(...opening.map((candle) => candle.high));
+  const openingLow = Math.min(...opening.map((candle) => candle.low));
+  const openingRangeDirection: MarketDirection = latest > openingHigh
+    ? "BULLISH" : latest < openingLow ? "BEARISH" : "RANGE";
   return {
     returnFromOpenBps: ((latest - sessionOpen) / sessionOpen) * 10_000,
     fastSlowGapBps: ((fast - slow) / slow) * 10_000,
+    openingRangeDirection,
   };
 }
 

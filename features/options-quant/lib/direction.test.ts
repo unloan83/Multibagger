@@ -63,3 +63,9 @@ test("rejects stale intraday candles instead of manufacturing direction", async 
     /stale or future-dated/,
   );
 });
+
+test("classifies a NIFTY opening-range hold as RANGE and does not infer direction", async () => {
+  const evidence = await buildLiveDirectionEvidence(broker(candles(25_000, 0), candles(55_000, 0)), now);
+  assert.equal(evidence.direction, "RANGE");
+  assert.equal(evidence.observations.niftyOpeningRangeDirection, "RANGE");
+});

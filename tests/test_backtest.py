@@ -7,7 +7,7 @@ from engine.config import Settings
 from engine.store import MarketStore
 
 
-def test_both_strategies_run_through_pybroker(tmp_path):
+def test_replay_uses_only_rebuilt_aligned_orb_core(tmp_path):
     universe = tmp_path / "universe.json"
     universe.write_text('[{"symbol":"TEST","sources":["NIFTY 500"]}]')
     settings = Settings("", tmp_path / "market.duckdb", tmp_path / "signals.json", universe, max_symbols=1)
@@ -23,5 +23,5 @@ def test_both_strategies_run_through_pybroker(tmp_path):
                          "volume":1000, "bid":None, "ask":None, "received_at":base})
     store.upsert_bars(pd.DataFrame(rows))
     result = walk_forward(settings, "2026-01-01", "2026-01-21", windows=2, calc_bootstrap=False)
-    assert set(result["strategies"]) == {"ORB_15M", "VWAP_CONTINUATION"}
-    assert result["source"] == "UPSTOX_1MIN_DUCKDB"
+    assert set(result["strategies"]) == {"ORB_15M_RETEST_ALIGNED"}
+    assert result["source"] == "RECORDED_UPSTOX_1MIN_EXECUTABLE_QUOTES"

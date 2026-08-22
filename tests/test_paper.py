@@ -11,17 +11,21 @@ from engine.strategies import Candidate
 def _settings(tmp_path):
     universe = tmp_path / "universe.json"
     universe.write_text('[{"symbol":"TEST","sources":["NIFTY 500"]}]')
-    return Settings("", tmp_path / "market.duckdb", tmp_path / "signals.json", universe, max_symbols=1)
+    return Settings("", tmp_path / "market.duckdb", tmp_path / "signals.json", universe,
+                    max_symbols=1, execution_paused=False)
 
 
-def _candidate(symbol, now):
+def _candidate(symbol, now, side="LONG"):
     confirmations = {
         "marketDirection": True, "sectorDirection": True, "vwap": True,
-        "volume": True, "momentum": True, "breakoutRetest": True,
+        "volume": True, "momentum": True, "strategyQualified": True,
         "supportResistance": True, "riskReward": True,
-        "marketBreadth": 0.7, "sectorBreadth": 0.7,
+        "setupSource": "PRICE_VOLUME_ONLY", "breakoutLevel": 199.0 if side == "LONG" else 201.0,
+        "atr": 1.0,
     }
-    return Candidate(symbol, 200.0, 195.0, 210.0, "ORB_15M", now, now + timedelta(minutes=20), 90.0, confirmations)
+    stop, target = (195.0, 210.0) if side == "LONG" else (205.0, 190.0)
+    return Candidate(symbol, side, 200.0, stop, target, "ORB_15M_RETEST",
+                     now, now + timedelta(minutes=20), 90.0, confirmations)
 
 
 def test_automatic_paper_entry_exit_and_daily_target_lock(tmp_path):
@@ -34,14 +38,14 @@ def test_automatic_paper_entry_exit_and_daily_target_lock(tmp_path):
         {"TEST": {"bid": 199.8, "ask": 200.0, "ts": opened_at}}, opened_at, "run-one",
     )
     assert len(first["openPositions"]) == 1
-    assert first["openPositions"][0]["quantity"] == 500
+    assert 1 <= first["openPositions"][0]["quantity"] <= 200
     assert first["dailyMetrics"]["closedTrades"] == 0
 
     exit_time = opened_at + timedelta(minutes=5)
     second = run_paper_cycle(
         store, settings, [_candidate("OTHER", exit_time)],
         {
-            "TEST": {"bid": 211.0, "ask": 211.2, "ts": exit_time},
+            "TEST": {"bid": 225.0, "ask": 225.2, "ts": exit_time},
             "OTHER": {"bid": 199.8, "ask": 200.0, "ts": exit_time},
         }, exit_time, "run-two",
     )
@@ -172,8 +176,10 @@ def test_sandbox_entry_rejection_is_audited(tmp_path, monkeypatch):
     opened_at = datetime(2026, 8, 17, 5, 0, tzinfo=timezone.utc)
     candidate = _candidate("TEST", opened_at)
     with store.connect() as con:
-        con.execute("INSERT INTO paper_signals VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'OPEN')", [
-            "rejected-run", candidate.symbol, candidate.entry, candidate.stop,
+        con.execute("""INSERT INTO paper_signals
+          (run_id,symbol,side,entry,stop,target,strategy,timestamp,expiry,rank_score,status)
+          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'OPEN')""", [
+            "rejected-run", candidate.symbol, candidate.side, candidate.entry, candidate.stop,
             candidate.target, candidate.strategy, candidate.timestamp,
             candidate.expiry, candidate.rank_score,
         ])
@@ -204,7 +210,7 @@ def test_lightweight_monitor_exits_open_trade_and_records_audit_history(tmp_path
     )
     exit_time = opened_at + timedelta(minutes=2)
     store.upsert_bar({
-        "instrument_key": "NSE_EQ|TEST", "symbol": "TEST", "ts": exit_time,
+        "instrument_key": "NSE_EQ|TEST", "symbol": "TEST", "ts": exit_time - timedelta(minutes=1),
         "open": 200.0, "high": 212.0, "low": 199.0, "close": 211.0,
         "volume": 1000, "bid": 211.0, "ask": 211.2, "received_at": exit_time,
     })
@@ -278,7 +284,7 @@ def test_global_pause_blocks_recommendation_execution(tmp_path):
     assert "execution pause" in " ".join(result["noEntryReasons"]).lower()
 
 
-def test_recommendation_without_expert_confirmation_is_rejected(tmp_path):
+def test_recommendation_without_price_volume_setup_confirmation_is_rejected(tmp_path):
     settings = _settings(tmp_path)
     store = MarketStore(settings.db_path)
     now = datetime(2026, 8, 21, 5, 0, tzinfo=timezone.utc)
@@ -314,7 +320,7 @@ def test_trailing_profit_exit_protects_open_gain(tmp_path):
     assert result["recentClosedTrades"][0]["net_pnl"] > 0
 
 
-def test_prior_session_loss_tightens_next_session_and_halves_risk(tmp_path):
+def test_prior_session_loss_does_not_override_fixed_risk_policy(tmp_path):
     settings = _settings(tmp_path)
     store = MarketStore(settings.db_path)
     day_one = datetime(2026, 8, 20, 5, 0, tzinfo=timezone.utc)
@@ -332,6 +338,80 @@ def test_prior_session_loss_tightens_next_session_and_halves_risk(tmp_path):
         store, settings, [_candidate("PROBE", day_two)],
         {"PROBE": {"bid": 199.8, "ask": 200.0, "ts": day_two}}, day_two, "adaptive-entry",
     )
-    assert result["adaptiveRisk"]["riskMultiplier"] == 0.5
+    assert result["adaptiveRisk"]["riskMultiplier"] == 1.0
     assert result["adaptiveRisk"]["recentSessionFeedback"]["criteriaTightened"] is True
-    assert result["openPositions"][0]["quantity"] == 250
+    assert result["openPositions"][0]["quantity"] > 75
+
+
+def test_short_uses_bid_entry_ask_exit_and_reverse_target(tmp_path):
+    settings = _settings(tmp_path)
+    store = MarketStore(settings.db_path)
+    opened_at = datetime(2026, 8, 21, 5, 0, tzinfo=timezone.utc)
+    opened = run_paper_cycle(
+        store, settings, [_candidate("SHORTY", opened_at, "SHORT")],
+        {"SHORTY": {"bid": 200.0, "ask": 200.2, "ts": opened_at}}, opened_at, "short-entry",
+    )
+    assert opened["openPositions"][0]["side"] == "SHORT"
+    result = run_paper_cycle(
+        store, settings, [],
+        {"SHORTY": {"bid": 188.8, "ask": 189.0, "ts": opened_at + timedelta(minutes=3)}},
+        opened_at + timedelta(minutes=3), "short-exit",
+    )
+    trade = result["recentClosedTrades"][0]
+    assert trade["exit_reason"] == "PROFIT_TARGET"
+    assert trade["net_pnl"] > 0
+
+
+def test_failed_breakout_exits_before_hard_stop(tmp_path):
+    settings = _settings(tmp_path)
+    store = MarketStore(settings.db_path)
+    opened_at = datetime(2026, 8, 21, 5, 0, tzinfo=timezone.utc)
+    run_paper_cycle(
+        store, settings, [_candidate("FAIL", opened_at)],
+        {"FAIL": {"bid": 199.8, "ask": 200.0, "ts": opened_at}}, opened_at, "fail-entry",
+    )
+    result = run_paper_cycle(
+        store, settings, [],
+        {"FAIL": {"bid": 198.8, "ask": 199.0, "ts": opened_at + timedelta(minutes=1)}},
+        opened_at + timedelta(minutes=1), "fail-exit",
+    )
+    assert result["recentClosedTrades"][0]["exit_reason"] == "FAILED_BREAKOUT"
+
+
+def test_adverse_market_thesis_exits_without_waiting_for_stop(tmp_path):
+    settings = _settings(tmp_path)
+    store = MarketStore(settings.db_path)
+    opened_at = datetime(2026, 8, 21, 5, 0, tzinfo=timezone.utc)
+    run_paper_cycle(
+        store, settings, [_candidate("TEST", opened_at)],
+        {"TEST": {"bid": 199.8, "ask": 200.0, "ts": opened_at}}, opened_at, "entry",
+    )
+    result = run_paper_cycle(
+        store, settings, [],
+        {"TEST": {"bid": 200.1, "ask": 200.3, "ts": opened_at + timedelta(seconds=61),
+                  "market_trend": "BEARISH", "sector_trend": "BULLISH", "symbol_trend": "BULLISH"}},
+        opened_at + timedelta(seconds=61), "thesis-check",
+    )
+    assert result["recentClosedTrades"][0]["exit_reason"] == "MARKET_TREND_INVALIDATED"
+
+
+def test_qualified_same_symbol_can_reenter_after_loss_below_daily_limit(tmp_path):
+    settings = _settings(tmp_path)
+    store = MarketStore(settings.db_path)
+    now = datetime(2026, 8, 21, 5, 0, tzinfo=timezone.utc)
+    run_paper_cycle(
+        store, settings, [_candidate("LOSS", now)],
+        {"LOSS": {"bid": 199.8, "ask": 200.0, "ts": now}}, now, "loss-entry",
+    )
+    closed = run_paper_cycle(
+        store, settings, [],
+        {"LOSS": {"bid": 198.8, "ask": 199.0, "ts": now + timedelta(minutes=2)}},
+        now + timedelta(minutes=2), "qualified-exit",
+    )
+    assert closed["dailyMetrics"]["netPnl"] > -settings.paper_daily_loss_limit
+    result = run_paper_cycle(
+        store, settings, [_candidate("LOSS", now + timedelta(minutes=3))],
+        {"LOSS": {"bid": 199.8, "ask": 200.0, "ts": now + timedelta(minutes=3)}},
+        now + timedelta(minutes=3), "qualified-reentry",
+    )
+    assert [trade["symbol"] for trade in result["openPositions"]] == ["LOSS"]

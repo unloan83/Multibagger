@@ -15,7 +15,7 @@ from .strategies import Candidate
 
 
 IST = ZoneInfo("Asia/Kolkata")
-STRATEGY_VERSION = "intraday-confirmed-managed-paper-v2"
+STRATEGY_VERSION = "intraday-dual-regime-managed-v4"
 BASELINE = "SIGNAL_ONLY_NO_EXECUTION"
 LOG = logging.getLogger("multibagger.paper")
 
@@ -58,48 +58,37 @@ def run_paper_cycle(
 
         realized = _closed_net_today(con, trading_day)
         day_count = int(con.execute("SELECT count(*) FROM paper_trades WHERE trading_day=?", [trading_day]).fetchone()[0])
-        consecutive_losses = _consecutive_losses(con)
-        consecutive_losses_today = _consecutive_losses(con, trading_day)
+        consecutive_losses = _consecutive_losses(con, trading_day)
         feedback = _recent_session_feedback(con, trading_day)
         open_rows = _records(con, "SELECT * FROM paper_trades WHERE status='OPEN' ORDER BY opened_at")
-        existing_symbols = {
-            str(row["symbol"])
-            for row in _records(con, "SELECT symbol FROM paper_trades WHERE trading_day=?", [trading_day])
-        }
-
         projected_before_entries = realized + sum(float(row["net_pnl"]) for row in open_rows)
         progress_ratio = projected_before_entries / settings.paper_daily_profit_target
         if settings.execution_paused:
             no_entry_reasons.append("Global trading execution pause is active; paper and sandbox entries/exits are blocked.")
         if realized >= settings.paper_daily_profit_target:
             no_entry_reasons.append("Daily paper profit target reached; new entries are disabled.")
-        elif progress_ratio >= settings.paper_profit_entry_lock_ratio:
-            no_entry_reasons.append("Daily profit is within the target-protection zone; new entries are disabled.")
         if realized <= -settings.paper_daily_loss_limit or (realized + sum(float(row["net_pnl"]) for row in open_rows)) <= -settings.paper_daily_loss_limit:
             no_entry_reasons.append("Daily paper loss limit reached; new entries are disabled.")
-        if consecutive_losses_today >= settings.paper_consecutive_loss_limit:
-            no_entry_reasons.append("Consecutive daily loss limit reached; new entries are halted.")
         if any(_as_trading_date(row.get("trading_day")) < trading_day for row in open_rows):
             no_entry_reasons.append("A prior-day paper position is awaiting a fresh executable exit; new entries are halted.")
         if not _entry_window_open(now):
-            no_entry_reasons.append("Outside the automatic paper-entry window (09:20–14:45 IST on NSE weekdays).")
+            no_entry_reasons.append("Outside the automatic paper-entry window (09:30–14:30 IST on NSE weekdays).")
+        if consecutive_losses >= settings.paper_consecutive_loss_limit:
+            no_entry_reasons.append("Two consecutive losses reached; new entries are disabled for the day.")
 
         entries_allowed = not no_entry_reasons
         entry_gate_open = entries_allowed
-        adaptive_mode = consecutive_losses > 0 or feedback["losingSessions"] > 0
-        effective_max_positions = 1 if adaptive_mode or progress_ratio >= settings.paper_profit_risk_reduction_ratio else settings.paper_max_open_positions
-        risk_multiplier = 0.5 if adaptive_mode or progress_ratio >= settings.paper_profit_risk_reduction_ratio else 1.0
+        effective_max_positions = 1
+        risk_multiplier = 1.0
         for candidate in candidates:
             if not entries_allowed:
                 break
             if len(open_rows) >= effective_max_positions:
                 no_entry_reasons.append("Maximum simultaneous paper positions reached.")
                 break
-            if day_count >= settings.paper_max_trades_per_day:
+            if settings.paper_max_trades_per_day > 0 and day_count >= settings.paper_max_trades_per_day:
                 no_entry_reasons.append("Maximum paper trades for the day reached.")
                 break
-            if candidate.symbol in existing_symbols:
-                continue
             quote = _fresh_quote(quotes.get(candidate.symbol), now, settings.stale_seconds)
             if not quote:
                 continue
@@ -109,7 +98,6 @@ def run_paper_cycle(
             )
             if trade:
                 open_rows.append(trade)
-                existing_symbols.add(candidate.symbol)
                 day_count += 1
             elif rejection_reason:
                 _record_entry_rejection(con, candidate, now, run_id, rejection_reason)
@@ -139,8 +127,9 @@ def run_paper_cycle(
         loss_limit_reached = realized <= -settings.paper_daily_loss_limit
         enabled = (
             entry_gate_open and not settings.execution_paused and not target_reached and not loss_limit_reached
-            and len(open_rows) < effective_max_positions and day_count < settings.paper_max_trades_per_day
-            and progress_ratio < settings.paper_profit_entry_lock_ratio and _entry_window_open(now)
+            and len(open_rows) < effective_max_positions
+            and (settings.paper_max_trades_per_day == 0 or day_count < settings.paper_max_trades_per_day)
+            and consecutive_losses < settings.paper_consecutive_loss_limit and _entry_window_open(now)
         )
         open_net_pnl = sum(float(row["net_pnl"]) for row in open_rows)
         con.execute("""
@@ -188,7 +177,8 @@ def run_risk_monitor(settings: Settings, now: datetime | None = None) -> dict[st
         ).fetchall()
     open_trade_ids = {str(row[0]) for row in open_rows}
     symbols = sorted({str(row[1]) for row in open_rows})
-    quotes = store.latest_quotes(symbols)
+    quotes = store.latest_quotes(symbols, completed_before=observed_at)
+    _attach_live_thesis_context(store, settings, symbols, quotes, observed_at)
     monitor_run_id = f"monitor-{uuid.uuid4()}"
     result = run_paper_cycle(store, settings, [], quotes, observed_at, monitor_run_id)
     result["closedByMonitor"] = [
@@ -200,40 +190,91 @@ def run_risk_monitor(settings: Settings, now: datetime | None = None) -> dict[st
     return result
 
 
+def _attach_live_thesis_context(store: MarketStore, settings: Settings, symbols: list[str],
+                                quotes: dict[str, dict[str, Any]], now: datetime) -> None:
+    if not symbols:
+        return
+    from .strategies import classify_price_trend
+    try:
+        universe = json.loads(settings.universe_path.read_text())
+    except (OSError, json.JSONDecodeError):
+        universe = []
+    themes = {str(row.get("symbol") or ""): str(row.get("theme") or "UNCLASSIFIED") for row in universe}
+    market_trend = classify_price_trend(store.bars(settings.market_index_symbol), now, settings.stale_seconds)
+    for symbol in symbols:
+        theme = themes.get(symbol, "UNCLASSIFIED")
+        peers = [item for item, peer_theme in themes.items() if peer_theme == theme]
+        frames = store.bars_for_symbols(peers)
+        votes = []
+        if not frames.empty:
+            for _, frame in frames.groupby("symbol"):
+                votes.append(classify_price_trend(frame.reset_index(drop=True), now, settings.stale_seconds))
+        bullish = votes.count("BULLISH") / len(votes) if votes else 0
+        bearish = votes.count("BEARISH") / len(votes) if votes else 0
+        sector_trend = "BULLISH" if len(votes) >= 3 and bullish >= 0.55 else (
+            "BEARISH" if len(votes) >= 3 and bearish >= 0.55 else "RANGE"
+        )
+        symbol_frame = store.bars(symbol)
+        if symbol in quotes:
+            quotes[symbol]["market_trend"] = market_trend
+            quotes[symbol]["sector_trend"] = sector_trend
+            quotes[symbol]["symbol_trend"] = classify_price_trend(symbol_frame, now, settings.stale_seconds)
+
+
 def _open_trade(con: Any, candidate: Candidate, quote: dict[str, Any], now: datetime, trading_day: Any,
                 run_id: str, settings: Settings, consecutive_losses: int = 0,
                 risk_multiplier: float = 1.0,
                 feedback: dict[str, Any] | None = None) -> tuple[dict[str, Any] | None, str | None]:
     if settings.execution_paused:
         return None, "EXECUTION_PAUSED"
-    entry_quote = float(quote["ask"])
+    side = candidate.side
+    entry_quote = float(quote["ask"] if side == "LONG" else quote["bid"])
     drift_bps = abs(entry_quote - float(candidate.entry)) / float(candidate.entry) * 10_000
     if drift_bps > settings.paper_max_entry_slippage_bps:
         return None, "ENTRY_PRICE_MOVED"
-    required = ("marketDirection", "sectorDirection", "vwap", "volume", "momentum", "breakoutRetest", "supportResistance", "riskReward")
-    if settings.require_expert_confirmation:
+    required = ("marketDirection", "sectorDirection", "vwap", "volume", "momentum", "strategyQualified", "supportResistance", "riskReward")
+    if settings.require_setup_confirmation:
         missing = [name for name in required if candidate.confirmations.get(name) is not True]
         if missing:
             return None, f"CONFIRMATION_FAILED_{missing[0].upper()}"
         minimum_score = settings.min_confluence_score + min(consecutive_losses, 2) * 5
-        minimum_breadth = 0.55 + min(consecutive_losses, 2) * 0.05
         if candidate.rank_score < minimum_score:
             return None, "ADAPTIVE_SCORE_TOO_LOW"
-        if float(candidate.confirmations.get("marketBreadth") or 0) < minimum_breadth:
-            return None, "ADAPTIVE_MARKET_BREADTH_TOO_LOW"
-    stop_distance = entry_quote - float(candidate.stop)
+        if candidate.confirmations.get("setupSource") != "PRICE_VOLUME_ONLY":
+            return None, "NON_TECHNICAL_TRIGGER_REJECTED"
+    stop_distance = (entry_quote - float(candidate.stop)) if side == "LONG" else (float(candidate.stop) - entry_quote)
     if stop_distance <= 0:
         return None, "INVALID_STOP_DISTANCE"
-    risk_budget = settings.paper_portfolio_capital * settings.paper_risk_per_trade_pct / 100 * risk_multiplier
+    reward = (float(candidate.target) - entry_quote) if side == "LONG" else (entry_quote - float(candidate.target))
+    if reward <= 0:
+        return None, "INVALID_PROFIT_TARGET"
+    risk_budget = min(
+        settings.paper_portfolio_capital * settings.paper_risk_per_trade_pct / 100,
+        settings.paper_max_risk_per_trade,
+    ) * risk_multiplier
     capital_budget = settings.paper_portfolio_capital * settings.paper_max_capital_per_trade_pct / 100
     quantity = min(math.floor(risk_budget / stop_distance), math.floor(capital_budget / entry_quote))
+    while quantity > 0:
+        loss_cost = _round_trip_cost(entry_quote, float(candidate.stop), quantity, settings)["total"]
+        if stop_distance * quantity + loss_cost <= risk_budget:
+            break
+        quantity -= 1
     if quantity < 1:
         return None, "POSITION_SIZE_BELOW_ONE"
-    entry_fill = entry_quote * (1 + settings.paper_slippage_bps_per_side / 10_000)
+    modeled_cost = _round_trip_cost(entry_quote, float(candidate.target), quantity, settings)
+    modeled_round_trip_cost = modeled_cost["total"]
+    if reward * quantity <= 2 * modeled_round_trip_cost:
+        return None, "EXPECTED_PROFIT_NOT_TWICE_COST"
+    raw_rr = reward / stop_distance
+    if raw_rr < settings.reward_risk or raw_rr > settings.max_reward_risk + 1e-6:
+        return None, "RISK_REWARD_OUTSIDE_POLICY"
+    slippage_factor = settings.paper_slippage_bps_per_side / 10_000
+    entry_fill = entry_quote * (1 + slippage_factor if side == "LONG" else 1 - slippage_factor)
     capital_used = entry_fill * quantity
     brokerage = settings.paper_brokerage_per_order
-    fees = capital_used * settings.paper_fees_bps_per_side / 10_000
-    slippage = (entry_fill - entry_quote) * quantity
+    entry_cost = _one_way_cost(entry_quote, quantity, settings, is_sell=side == "SHORT")
+    fees = entry_cost["feesTaxes"]
+    slippage = entry_cost["slippageImpact"]
     trade_id = str(uuid.uuid4())
     execution_mode = "INTERNAL_PAPER"
     entry_order_id = None
@@ -244,7 +285,8 @@ def _open_trade(con: Any, candidate: Candidate, quote: dict[str, Any], now: date
             return None, "SANDBOX_CONFIGURATION_MISSING"
         try:
             entry_order_id = _submit_upstox_sandbox_order(
-                candidate.symbol, instrument_key, quantity, entry_quote, "BUY", trade_id, settings,
+                candidate.symbol, instrument_key, quantity, entry_quote,
+                "BUY" if side == "LONG" else "SELL", trade_id, settings,
             )
         except Exception as error:
             from features.upstox.python.upstox_sandbox import sanitize_log_message
@@ -255,14 +297,15 @@ def _open_trade(con: Any, candidate: Candidate, quote: dict[str, Any], now: date
             return None, "SANDBOX_ORDER_REJECTED"
         execution_mode = "UPSTOX_SANDBOX"
     intended = {
-        "side": "BUY", "orderType": "PAPER_MARKET", "symbol": candidate.symbol,
-        "quantity": quantity, "observedAsk": entry_quote, "stop": candidate.stop,
+        "side": side, "transactionType": "BUY" if side == "LONG" else "SELL",
+        "orderType": "PAPER_MARKET", "symbol": candidate.symbol,
+        "quantity": quantity, "observedEntryQuote": entry_quote, "stop": candidate.stop,
         "target": candidate.target, "signal": asdict(candidate),
-        "entryReasons": candidate.confirmations,
+        "entryReasons": candidate.confirmations, "modeledRoundTripCost": modeled_cost,
         "adaptiveRisk": {"consecutiveLosses": consecutive_losses, "riskMultiplier": risk_multiplier, "recentSessionFeedback": feedback or {}},
     }
     values = [
-        trade_id, trading_day, run_id, candidate.symbol, candidate.strategy, STRATEGY_VERSION,
+        trade_id, trading_day, run_id, candidate.symbol, side, candidate.strategy, STRATEGY_VERSION,
         f"{settings.market_data_provider.upper()}_1MIN_EXECUTABLE_QUOTES", "OPEN", quantity, candidate.entry,
         entry_quote, entry_fill, candidate.stop, candidate.target, now, entry_quote, now,
         None, None, None, None, 0.0, -(brokerage + fees + slippage), brokerage, fees,
@@ -270,11 +313,11 @@ def _open_trade(con: Any, candidate: Candidate, quote: dict[str, Any], now: date
     ]
     con.execute("""
       INSERT INTO paper_trades (
-        trade_id,trading_day,run_id,symbol,strategy,strategy_version,data_source,status,quantity,
+        trade_id,trading_day,run_id,symbol,side,strategy,strategy_version,data_source,status,quantity,
         signal_entry,entry_quote,entry_fill,stop_price,target_price,opened_at,current_quote,
         last_marked_at,exit_quote,exit_fill,closed_at,exit_reason,gross_pnl,net_pnl,brokerage,
         fees_taxes,slippage,capital_used,intended_order_json,execution_mode,entry_order_id,exit_order_id
-      ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+      ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
     """, [*values, execution_mode, entry_order_id, None])
     con.execute("""
       UPDATE paper_signals SET status='EXECUTED'
@@ -295,27 +338,31 @@ def _open_trade(con: Any, candidate: Candidate, quote: dict[str, Any], now: date
 
 def _mark_trade(con: Any, trade: dict[str, Any], quote: dict[str, Any], now: datetime,
                 settings: Settings, exit_reason: str | None, event_run_id: str) -> None:
-    exit_quote = float(quote["bid"])
+    side = str(trade.get("side") or "LONG")
+    exit_quote = float(quote["bid"] if side == "LONG" else quote["ask"])
     quantity = int(trade["quantity"])
     entry_quote = float(trade["entry_quote"])
     entry_fill = float(trade["entry_fill"])
-    gross = (exit_quote - entry_quote) * quantity
-    exit_fill = exit_quote * (1 - settings.paper_slippage_bps_per_side / 10_000)
+    direction = 1 if side == "LONG" else -1
+    gross = direction * (exit_quote - entry_quote) * quantity
+    slip = settings.paper_slippage_bps_per_side / 10_000
+    exit_fill = exit_quote * (1 - slip if side == "LONG" else 1 + slip)
     exit_value = exit_fill * quantity
     entry_brokerage = float(trade["brokerage"])
     entry_fees = float(trade["fees_taxes"])
     entry_slippage = float(trade["slippage"])
     total_brokerage = entry_brokerage + settings.paper_brokerage_per_order
-    total_fees = entry_fees + exit_value * settings.paper_fees_bps_per_side / 10_000
-    total_slippage = entry_slippage + (exit_quote - exit_fill) * quantity
+    exit_cost = _one_way_cost(exit_quote, quantity, settings, is_sell=side == "LONG")
+    total_fees = entry_fees + exit_cost["feesTaxes"]
+    total_slippage = entry_slippage + exit_cost["slippageImpact"]
     net = gross - total_brokerage - total_fees - total_slippage
 
     prev_peak = float(trade.get("peak_quote") or entry_quote)
     prev_lowest = float(trade.get("lowest_quote") or entry_quote)
     peak_quote = max(prev_peak, exit_quote)
     lowest_quote = min(prev_lowest, exit_quote)
-    mfe = max(0.0, (peak_quote - entry_fill) * quantity)
-    mae = min(0.0, (lowest_quote - entry_fill) * quantity)
+    mfe = max(0.0, ((peak_quote - entry_fill) if side == "LONG" else (entry_fill - lowest_quote)) * quantity)
+    mae = min(0.0, ((lowest_quote - entry_fill) if side == "LONG" else (entry_fill - peak_quote)) * quantity)
     profit_giveback = max(0.0, mfe - gross)
 
     opened_at = trade["opened_at"]
@@ -342,7 +389,8 @@ def _mark_trade(con: Any, trade: dict[str, Any], quote: dict[str, Any], now: dat
             instrument_key = str(quote.get("instrument_key") or "")
             try:
                 exit_order_id = _submit_upstox_sandbox_order(
-                    str(trade["symbol"]), instrument_key, quantity, exit_quote, "SELL",
+                    str(trade["symbol"]), instrument_key, quantity, exit_quote,
+                    "SELL" if side == "LONG" else "BUY",
                     str(trade["trade_id"]), settings,
                 )
             except Exception as error:
@@ -386,33 +434,124 @@ def _mark_trade(con: Any, trade: dict[str, Any], quote: dict[str, Any], now: dat
 
 
 def _regular_exit_reason(trade: dict[str, Any], quote: dict[str, Any], now: datetime, settings: Settings) -> str | None:
-    bid = float(quote["bid"])
+    side = str(trade.get("side") or "LONG")
+    mark = float(quote["bid"] if side == "LONG" else quote["ask"])
     entry_quote = float(trade["entry_quote"])
     stop_price = float(trade["stop_price"])
     target_price = float(trade["target_price"])
-    risk_unit = entry_quote - stop_price
+    risk_unit = (entry_quote - stop_price) if side == "LONG" else (stop_price - entry_quote)
 
     if _as_trading_date(trade.get("trading_day")) < now.astimezone(IST).date():
         return "OVERNIGHT_SAFETY_EXIT"
     if _flatten_time_reached(now, settings):
         return "END_OF_DAY"
 
-    if bid <= stop_price:
+    if (side == "LONG" and mark <= stop_price) or (side == "SHORT" and mark >= stop_price):
         return "STOP_LOSS"
-    if bid >= target_price:
+    if (side == "LONG" and mark >= target_price) or (side == "SHORT" and mark <= target_price):
         return "PROFIT_TARGET"
-    peak_quote = max(float(trade.get("peak_quote") or entry_quote), bid)
+
+    opened_at = trade["opened_at"]
+    if isinstance(opened_at, str):
+        opened_at = datetime.fromisoformat(opened_at)
+    if opened_at.tzinfo is None:
+        opened_at = opened_at.replace(tzinfo=timezone.utc)
+    if (now - opened_at.astimezone(timezone.utc)).total_seconds() < settings.paper_minimum_hold_seconds:
+        return None
+
+    adverse_trend = "BEARISH" if side == "LONG" else "BULLISH"
+    if quote.get("market_trend") == adverse_trend:
+        return "MARKET_TREND_INVALIDATED"
+    if quote.get("sector_trend") == adverse_trend:
+        return "SECTOR_TREND_INVALIDATED"
+    if quote.get("symbol_trend") == adverse_trend:
+        return "STOCK_TREND_INVALIDATED"
+
+    intended = _intended_order(trade)
+    confirmations = ((intended.get("signal") or {}).get("confirmations") or intended.get("entryReasons") or {})
+    breakout_level = _optional_float(confirmations.get("breakoutLevel"))
+    vwap = _optional_float(quote.get("vwap"))
+    closes = [float(value) for value in quote.get("recent_closes") or []]
+    volumes = [float(value) for value in quote.get("recent_volumes") or []]
+    if breakout_level is not None:
+        tolerance = breakout_level * 0.0005
+        if (side == "LONG" and mark < breakout_level - tolerance) or (side == "SHORT" and mark > breakout_level + tolerance):
+            return "FAILED_BREAKOUT"
+    if vwap is not None and len(closes) >= 2:
+        if (side == "LONG" and mark < vwap and closes[-1] < vwap and closes[-2] < vwap) or (
+            side == "SHORT" and mark > vwap and closes[-1] > vwap and closes[-2] > vwap
+        ):
+            return "VWAP_FAILURE"
+
+    peak_quote = max(float(trade.get("peak_quote") or entry_quote), mark)
+    lowest_quote = min(float(trade.get("lowest_quote") or entry_quote), mark)
     if risk_unit > 0:
-        peak_r = (peak_quote - entry_quote) / risk_unit
-        if peak_r >= settings.paper_trailing_trigger_r and bid <= peak_quote - settings.paper_trailing_distance_r * risk_unit:
+        favorable_quote = peak_quote if side == "LONG" else lowest_quote
+        peak_r = ((favorable_quote - entry_quote) if side == "LONG" else (entry_quote - favorable_quote)) / risk_unit
+        atr = _optional_float(confirmations.get("atr")) or risk_unit
+        trailing_distance = settings.paper_trailing_atr_multiple * atr
+        trailing_hit = mark <= peak_quote - trailing_distance if side == "LONG" else mark >= lowest_quote + trailing_distance
+        if peak_r >= settings.paper_trailing_trigger_r and trailing_hit:
             return "TRAILING_PROFIT_STOP"
-        if peak_r >= settings.paper_break_even_trigger_r and bid <= entry_quote * 1.001:
+        estimated_cost_per_share = (
+            2 * settings.paper_brokerage_per_order / max(int(trade["quantity"]), 1)
+            + _round_trip_cost(entry_quote, entry_quote, max(int(trade["quantity"]), 1), settings)["variable"]
+            / max(int(trade["quantity"]), 1)
+        )
+        break_even = entry_quote + estimated_cost_per_share if side == "LONG" else entry_quote - estimated_cost_per_share
+        if peak_r >= settings.paper_break_even_trigger_r and (
+            (side == "LONG" and mark <= break_even) or (side == "SHORT" and mark >= break_even)
+        ):
             return "BREAK_EVEN_STOP"
-        closes = [float(value) for value in quote.get("recent_closes") or []]
-        reversal = len(closes) >= 3 and closes[-1] < closes[-2] < closes[-3]
-        if peak_r >= 0.5 and reversal and bid <= peak_quote - 0.35 * risk_unit:
-            return "MOMENTUM_REVERSAL"
+        reversal = len(closes) >= 3 and (
+            (side == "LONG" and closes[-1] < closes[-2] < closes[-3])
+            or (side == "SHORT" and closes[-1] > closes[-2] > closes[-3])
+        )
+        volume_deteriorated = len(volumes) >= 3 and volumes[-1] < sum(volumes[:-1]) / (len(volumes) - 1)
+        if reversal and volume_deteriorated:
+            return "MOMENTUM_VOLUME_DETERIORATION"
     return None
+
+
+def _one_way_cost(price: float, quantity: int, settings: Settings, *, is_sell: bool) -> dict[str, float]:
+    turnover = price * quantity
+    exchange = turnover * settings.paper_exchange_bps_per_side / 10_000
+    regulatory = turnover * settings.paper_fees_bps_per_side / 10_000
+    stt = turnover * settings.paper_stt_bps_sell / 10_000 if is_sell else 0.0
+    gst = (settings.paper_brokerage_per_order + exchange) * settings.paper_gst_percent / 100
+    slippage = turnover * settings.paper_slippage_bps_per_side / 10_000
+    impact = turnover * settings.paper_market_impact_bps_per_side / 10_000
+    return {
+        "brokerage": settings.paper_brokerage_per_order,
+        "feesTaxes": regulatory + exchange + stt + gst,
+        "slippageImpact": slippage + impact,
+    }
+
+
+def _round_trip_cost(entry: float, exit_price: float, quantity: int, settings: Settings) -> dict[str, float]:
+    buy = _one_way_cost(entry, quantity, settings, is_sell=False)
+    sell = _one_way_cost(exit_price, quantity, settings, is_sell=True)
+    brokerage = buy["brokerage"] + sell["brokerage"]
+    fees = buy["feesTaxes"] + sell["feesTaxes"]
+    slippage = buy["slippageImpact"] + sell["slippageImpact"]
+    return {"brokerage": brokerage, "feesTaxes": fees, "slippageImpact": slippage,
+            "variable": fees + slippage, "total": brokerage + fees + slippage}
+
+
+def _intended_order(trade: dict[str, Any]) -> dict[str, Any]:
+    try:
+        value = trade.get("intended_order_json") or "{}"
+        return json.loads(value) if isinstance(value, str) else dict(value)
+    except (TypeError, ValueError, json.JSONDecodeError):
+        return {}
+
+
+def _optional_float(value: Any) -> float | None:
+    try:
+        parsed = float(value)
+        return parsed if math.isfinite(parsed) else None
+    except (TypeError, ValueError):
+        return None
 
 
 def _consecutive_losses(con: Any, trading_day: Any | None = None) -> int:
@@ -469,7 +608,7 @@ def _flatten_time_reached(now: datetime, settings: Settings) -> bool:
 def _entry_window_open(now: datetime) -> bool:
     local = now.astimezone(IST)
     minute = local.hour * 60 + local.minute
-    return local.weekday() < 5 and 9 * 60 + 20 <= minute <= 14 * 60 + 45
+    return local.weekday() < 5 and 9 * 60 + 30 <= minute <= 14 * 60 + 30
 
 
 def _fresh_quote(quote: dict[str, Any] | None, now: datetime, stale_seconds: int) -> dict[str, Any] | None:
@@ -539,7 +678,7 @@ def _records(con: Any, query: str, parameters: list[Any] | None = None) -> list[
 
 def _public_trade(row: dict[str, Any]) -> dict[str, Any]:
     keys = [
-        "trade_id", "trading_day", "run_id", "symbol", "strategy", "strategy_version",
+        "trade_id", "trading_day", "run_id", "symbol", "side", "strategy", "strategy_version",
         "data_source", "status", "quantity", "signal_entry", "entry_quote", "entry_fill",
         "stop_price", "target_price", "opened_at", "current_quote", "last_marked_at",
         "exit_quote", "exit_fill", "closed_at", "exit_reason", "gross_pnl", "net_pnl",

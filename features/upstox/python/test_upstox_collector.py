@@ -1,11 +1,18 @@
 import sys
 import threading
+import gzip
+import json
 from datetime import datetime, timezone
 from types import SimpleNamespace
 
 import pytest
 
-from features.upstox.python.upstox_collector import UpstoxTickWriter, _assert_stream_freshness, collect_upstox
+from features.upstox.python.upstox_collector import (
+    UpstoxTickWriter,
+    _assert_stream_freshness,
+    collect_upstox,
+    resolve_upstox_instruments,
+)
 
 
 class Store:
@@ -15,6 +22,48 @@ class Store:
     def upsert_bars(self, frame):
         self.rows.extend(frame.to_dict("records"))
         return len(frame)
+
+
+class InstrumentStore:
+    class Connection:
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *_args):
+            pass
+
+        def execute(self, *_args):
+            return self
+
+    def connect(self):
+        return self.Connection()
+
+
+def test_market_index_is_resolved_first_for_direction_warmup(monkeypatch):
+    rows = [
+        {"segment": "NSE_EQ", "instrument_type": "EQ", "trading_symbol": "ONE", "instrument_key": "NSE_EQ|ONE"},
+        {"instrument_key": "NSE_INDEX|Nifty 50", "trading_symbol": "Nifty 50"},
+        {"instrument_key": "NSE_INDEX|India VIX", "trading_symbol": "India VIX"},
+    ]
+    class Response:
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *_args):
+            pass
+
+        def read(self):
+            return gzip.compress(json.dumps(rows).encode())
+
+    response = Response()
+    monkeypatch.setattr("urllib.request.urlopen", lambda *_args, **_kwargs: response)
+    settings = SimpleNamespace(
+        symbols=lambda: ["ONE"], max_symbols=1,
+        market_index_instrument_key="NSE_INDEX|Nifty 50", market_index_symbol="NIFTY 50",
+        vix_instrument_key="NSE_INDEX|India VIX", vix_symbol="INDIA VIX",
+    )
+    resolved = resolve_upstox_instruments(settings, InstrumentStore())
+    assert next(iter(resolved.items())) == ("NSE_INDEX|Nifty 50", "NIFTY 50")
 
 
 def test_upstox_v3_tick_is_batched_with_executable_quote():

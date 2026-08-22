@@ -34,8 +34,7 @@ def backfill(settings: Settings, start: date = date(2022, 1, 1), end: date | Non
         raise ValueError("Upstox V3 one-minute history starts at 2022-01-01")
     store = MarketStore(settings.db_path)
     instruments = resolve_upstox_instruments(settings, store)
-    if len(instruments) != settings.max_symbols:
-        raise RuntimeError(f"Resolved {len(instruments)}/{settings.max_symbols}; refusing incomplete backfill")
+    _validate_backfill_instruments(settings, instruments)
     config = upstox_client.Configuration()
     config.access_token = settings.access_token
     api = upstox_client.HistoryV3Api(upstox_client.ApiClient(config))
@@ -70,6 +69,20 @@ def backfill(settings: Settings, start: date = date(2022, 1, 1), end: date | Non
     if totals["failed"]:
         raise RuntimeError(f"Backfill incomplete: {totals['failed']} chunks failed; rerun with --resume")
     return totals
+
+
+def _validate_backfill_instruments(settings: Settings, instruments: dict[str, str]) -> None:
+    if instruments.get(settings.market_index_instrument_key) != settings.market_index_symbol:
+        raise RuntimeError("NIFTY 50 index is missing from warm-up; direction classification must fail closed")
+    if instruments.get(settings.vix_instrument_key) != settings.vix_symbol:
+        raise RuntimeError("India VIX is missing from warm-up; regime classification must fail closed")
+    equity_count = len(instruments) - 2
+    minimum = max(1, int(settings.max_symbols * 0.8))
+    if equity_count < minimum:
+        raise RuntimeError(
+            f"Resolved {equity_count}/{settings.max_symbols} equities plus NIFTY 50; "
+            "refusing incomplete backfill"
+        )
 
 
 def _request_chunk(api, instrument_key: str, start: date, end: date):

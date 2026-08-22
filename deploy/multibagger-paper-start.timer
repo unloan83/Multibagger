@@ -2,7 +2,7 @@
 Description=Start Multibagger paper worker before NSE opens
 
 [Timer]
-OnCalendar=Mon..Fri *-*-* 03:35:00 UTC
+OnCalendar=Mon..Fri *-*-* 03:00:00 UTC
 Persistent=true
 Unit=multibagger-paper-start.service
 

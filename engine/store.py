@@ -29,14 +29,14 @@ CREATE TABLE IF NOT EXISTS scanner_runs (
   signal_count INTEGER NOT NULL DEFAULT 0, reason VARCHAR
 );
 CREATE TABLE IF NOT EXISTS paper_signals (
-  run_id VARCHAR NOT NULL, symbol VARCHAR NOT NULL, entry DOUBLE NOT NULL, stop DOUBLE NOT NULL,
+  run_id VARCHAR NOT NULL, symbol VARCHAR NOT NULL, side VARCHAR NOT NULL DEFAULT 'LONG', entry DOUBLE NOT NULL, stop DOUBLE NOT NULL,
   target DOUBLE NOT NULL, strategy VARCHAR NOT NULL, timestamp TIMESTAMPTZ NOT NULL,
   expiry TIMESTAMPTZ NOT NULL, rank_score DOUBLE NOT NULL, status VARCHAR NOT NULL DEFAULT 'OPEN',
   PRIMARY KEY (run_id, symbol, strategy)
 );
 CREATE TABLE IF NOT EXISTS paper_trades (
   trade_id VARCHAR PRIMARY KEY, trading_day DATE NOT NULL, run_id VARCHAR NOT NULL,
-  symbol VARCHAR NOT NULL, strategy VARCHAR NOT NULL, strategy_version VARCHAR NOT NULL,
+  symbol VARCHAR NOT NULL, side VARCHAR NOT NULL DEFAULT 'LONG', strategy VARCHAR NOT NULL, strategy_version VARCHAR NOT NULL,
   data_source VARCHAR NOT NULL, status VARCHAR NOT NULL, quantity INTEGER NOT NULL,
   signal_entry DOUBLE NOT NULL, entry_quote DOUBLE NOT NULL, entry_fill DOUBLE NOT NULL,
   stop_price DOUBLE NOT NULL, target_price DOUBLE NOT NULL, opened_at TIMESTAMPTZ NOT NULL,
@@ -99,6 +99,8 @@ class MarketStore:
             con.execute("ALTER TABLE paper_trades ADD COLUMN IF NOT EXISTS mae DOUBLE")
             con.execute("ALTER TABLE paper_trades ADD COLUMN IF NOT EXISTS profit_giveback DOUBLE")
             con.execute("ALTER TABLE paper_trades ADD COLUMN IF NOT EXISTS holding_duration_minutes DOUBLE")
+            con.execute("ALTER TABLE paper_trades ADD COLUMN IF NOT EXISTS side VARCHAR DEFAULT 'LONG'")
+            con.execute("ALTER TABLE paper_signals ADD COLUMN IF NOT EXISTS side VARCHAR DEFAULT 'LONG'")
 
     @contextmanager
     def connect(self) -> Iterator[duckdb.DuckDBPyConnection]:
@@ -145,27 +147,55 @@ class MarketStore:
               ORDER BY symbol, ts
             """, [symbols, days]).df()
 
-    def latest_quotes(self, symbols: list[str]) -> dict[str, dict]:
+    def latest_quotes(self, symbols: list[str], completed_before=None) -> dict[str, dict]:
         if not symbols:
             return {}
         with self.connect() as con:
-            rows = con.execute("""
-              SELECT symbol, instrument_key, ts, bid, ask, received_at, close, volume
+            completed_clause = "AND ts < date_trunc('minute', ?)" if completed_before is not None else ""
+            parameters = [symbols, completed_before] if completed_before is not None else [symbols]
+            rows = con.execute(f"""
+              SELECT symbol, instrument_key, ts, bid, ask, received_at,
+                     open, high, low, close, volume
               FROM minute_bars
               WHERE symbol IN (SELECT unnest(?))
-              QUALIFY row_number() OVER (PARTITION BY symbol ORDER BY ts DESC)<=5
+                {completed_clause}
+                AND CAST(ts AT TIME ZONE 'Asia/Kolkata' AS DATE) = CAST((
+                  SELECT max(latest.ts) AT TIME ZONE 'Asia/Kolkata'
+                  FROM minute_bars latest WHERE latest.symbol=minute_bars.symbol
+                ) AS DATE)
               ORDER BY symbol, ts
-            """, [symbols]).fetchall()
+            """, parameters).fetchall()
         result: dict[str, dict] = {}
-        for symbol, key, ts, bid, ask, received_at, close, volume in rows:
-            item = result.setdefault(str(symbol), {"recent_closes": [], "recent_volumes": []})
+        for symbol, key, ts, bid, ask, received_at, open_, high, low, close, volume in rows:
+            item = result.setdefault(str(symbol), {
+                "recent_closes": [], "recent_volumes": [], "session_highs": [],
+                "session_lows": [], "session_typical_values": [], "session_volumes": [],
+            })
             item.update({
                 "instrument_key": str(key), "ts": ts, "bid": bid, "ask": ask,
                 "received_at": received_at,
             })
             item["recent_closes"].append(float(close))
             item["recent_volumes"].append(int(volume))
+            item["session_highs"].append(float(high))
+            item["session_lows"].append(float(low))
+            item["session_typical_values"].append(((float(high) + float(low) + float(close)) / 3) * int(volume))
+            item["session_volumes"].append(int(volume))
+        for item in result.values():
+            item["recent_closes"] = item["recent_closes"][-5:]
+            item["recent_volumes"] = item["recent_volumes"][-5:]
+            total_volume = sum(item.pop("session_volumes"))
+            typical_values = item.pop("session_typical_values")
+            item["vwap"] = sum(typical_values) / total_volume if total_volume > 0 else None
+            item["opening_high"] = max(item["session_highs"][:15]) if len(item["session_highs"]) >= 15 else None
+            item["opening_low"] = min(item["session_lows"][:15]) if len(item["session_lows"]) >= 15 else None
+            item.pop("session_highs")
+            item.pop("session_lows")
         return result
+
+    def has_open_trades(self) -> bool:
+        with self.connect() as con:
+            return bool(con.execute("SELECT 1 FROM paper_trades WHERE status='OPEN' LIMIT 1").fetchone())
 
     def start_job(self, job_id: str, model: str, job_type: str, scheduled_at,
                   max_runtime_seconds: int) -> None:

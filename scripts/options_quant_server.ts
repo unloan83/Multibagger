@@ -72,6 +72,24 @@ server.listen(port, host, () => {
   console.log(JSON.stringify({ service: "options-quant", status: "LISTENING", host, port }));
 });
 
+const activeMonitor = setInterval(async () => {
+  if (cycleRunning) return;
+  cycleRunning = true;
+  try {
+    const state = await readOptionsQuantState();
+    if (state.positions.some((position) => position.status === "OPEN")) {
+      await runOptionsRiskMonitor();
+    }
+  } catch (error) {
+    console.error(JSON.stringify({ service: "options-quant", status: "ACTIVE_MONITOR_FAILED", error: error instanceof Error ? error.message : String(error) }));
+  } finally {
+    cycleRunning = false;
+  }
+}, 5_000);
+
 for (const signal of ["SIGINT", "SIGTERM"] as const) {
-  process.on(signal, () => server.close(() => process.exit(0)));
+  process.on(signal, () => {
+    clearInterval(activeMonitor);
+    server.close(() => process.exit(0));
+  });
 }

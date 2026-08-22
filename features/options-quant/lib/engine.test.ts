@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import type { OptionChainRow, OptionsBroker } from "@/features/options-quant/brokers/types";
 import type { OptionsPosition } from "@/features/options-quant/lib/types";
-import { buildOpportunity, calculateMetrics } from "@/features/options-quant/lib/engine";
+import { buildOpportunity, calculateMetrics, markOpenPositions } from "@/features/options-quant/lib/engine";
 import { getOptionsQuantConfig } from "@/features/options-quant/lib/config";
 
 const broker: OptionsBroker = {
@@ -29,6 +29,7 @@ const direction = {
   observations: {
     niftyReturnFromOpenBps: 35,
     niftyFastSlowGapBps: 8,
+    niftyOpeningRangeDirection: "BULLISH" as const,
     bankNiftyReturnFromOpenBps: 28,
     bankNiftyFastSlowGapBps: 6,
     putCallOiRatio: 1.1,
@@ -60,7 +61,7 @@ function leg(optionType: "CE" | "PE", strike: number, delta: number, bid: number
 
 const chain: OptionChainRow[] = [
   { expiry: "2099-01-08", strike: 25000, spot: 25010, call: leg("CE", 25000, 0.52, 118, 120), put: leg("PE", 25000, -0.48, 105, 107) },
-  { expiry: "2099-01-08", strike: 25100, spot: 25010, call: leg("CE", 25100, 0.32, 78, 80), put: leg("PE", 25100, -0.67, 150, 153) },
+  { expiry: "2099-01-08", strike: 25100, spot: 25010, call: leg("CE", 25100, 0.32, 88, 90), put: leg("PE", 25100, -0.67, 150, 153) },
   { expiry: "2099-01-08", strike: 24900, spot: 25010, call: leg("CE", 24900, 0.68, 160, 163), put: leg("PE", 24900, -0.3, 66, 68) },
 ];
 
@@ -71,7 +72,7 @@ test("builds only a defined-risk bull call spread from executable quotes", async
   assert.equal(result.opportunity.strategy, "BULL_CALL_SPREAD");
   assert.equal(result.opportunity.longLeg.side, "BUY");
   assert.equal(result.opportunity.shortLeg.side, "SELL");
-  assert.equal(result.opportunity.entryDebitPerUnit, 42);
+  assert.equal(result.opportunity.entryDebitPerUnit, 32);
   assert.equal(result.opportunity.profitTargetRupees, 3_000);
   assert.match(result.opportunity.exitRules.join(" "), /₹3000/);
   assert.ok(result.opportunity.maxLoss > 0);
@@ -118,4 +119,30 @@ test("performance metrics are net of costs and include drawdown", () => {
   assert.equal(metrics.maximumDrawdown, 250);
   assert.equal(metrics.costs, 180);
   assert.equal(metrics.slippage, 70);
+});
+
+test("exits an open spread immediately when leg liquidity becomes invalid", async () => {
+  const config = { ...getOptionsQuantConfig(), portfolioCapital: 500_000, riskPerTradePercent: 1 };
+  const built = await buildOpportunity(direction, chain, 75, broker, config);
+  assert.ok(built.opportunity);
+  const opportunity = built.opportunity;
+  const position = {
+    ...opportunity, status: "OPEN", mode: "SHADOW", openedAt: opportunity.observedAt,
+    closedAt: null, exitCreditPerUnit: null, currentExitCreditPerUnit: opportunity.entryDebitPerUnit,
+    unrealizedGrossPnl: 0, unrealizedNetPnl: 0, lastMarkedAt: opportunity.observedAt,
+    underlyingExitSpot: null, signalCorrect: null, grossPnl: 0, netPnl: 0,
+    actualCosts: opportunity.estimatedCharges, slippageCost: opportunity.estimatedSlippage,
+    exitReason: null, sandboxOrderIds: [], peakExitCreditPerUnit: opportunity.entryDebitPerUnit,
+    adverseMomentumTicks: 0, exitDetails: [],
+  } as OptionsPosition;
+  const illiquid = chain.map((row) => ({
+    ...row,
+    call: row.call?.instrumentKey === opportunity.longLeg.instrumentKey
+      ? { ...row.call, volume: 1, bidAskSpreadPercent: 20 }
+      : row.call,
+  }));
+  const state = { positions: [position], direction } as never;
+  await markOpenPositions(state, illiquid, broker, config, new Date());
+  assert.equal(position.status, "CLOSED");
+  assert.equal(position.exitReason, "LIQUIDITY_THESIS_INVALIDATED");
 });

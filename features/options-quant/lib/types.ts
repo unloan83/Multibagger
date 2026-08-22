@@ -1,4 +1,4 @@
-export type MarketDirection = "BULLISH" | "BEARISH" | "UNCLEAR";
+export type MarketDirection = "BULLISH" | "BEARISH" | "RANGE";
 export type SpreadStrategy = "BULL_CALL_SPREAD" | "BEAR_PUT_SPREAD";
 export type StrategyStage = "SHADOW" | "SMALL_LIVE" | "SCALE" | "FAILED";
 export type EvaluationDecision = "GO" | "CONTINUE" | "STOP" | "SCALE";
@@ -14,6 +14,7 @@ export type DirectionEvidence = {
   observations: {
     niftyReturnFromOpenBps: number;
     niftyFastSlowGapBps: number;
+    niftyOpeningRangeDirection: MarketDirection;
     bankNiftyReturnFromOpenBps: number;
     bankNiftyFastSlowGapBps: number;
     putCallOiRatio: number;
@@ -46,7 +47,7 @@ export type OptionsOpportunity = {
   observedAt: string;
   underlying: "NIFTY 50";
   underlyingSpot: number;
-  direction: Exclude<MarketDirection, "UNCLEAR">;
+  direction: Exclude<MarketDirection, "RANGE">;
   strategy: SpreadStrategy;
   expiry: string;
   daysToExpiry: number;
@@ -148,5 +149,6 @@ export type OptionsQuantState = {
     executionPaused: boolean;
     profitTargetRupees: number;
     dailyProfitTargetRupees: number;
+    dailyLossLimitRupees: number;
   };
 };

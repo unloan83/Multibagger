@@ -1,0 +1,22 @@
+{
+  "schemaVersion": 1,
+  "weeklyExpiryWeekday": 1,
+  "events": [
+    {"date": "2026-02-01", "type": "UNION_BUDGET", "source": "https://www.indiabudget.gov.in/doc/budget_speech.pdf"},
+    {"date": "2026-08-03", "type": "RBI_MPC", "source": "RBI press release 2025-2026/2306"},
+    {"date": "2026-08-04", "type": "RBI_MPC", "source": "RBI press release 2025-2026/2306"},
+    {"date": "2026-08-05", "type": "RBI_MPC", "source": "RBI press release 2025-2026/2306"},
+    {"date": "2026-10-05", "type": "RBI_MPC", "source": "RBI press release 2025-2026/2306"},
+    {"date": "2026-10-06", "type": "RBI_MPC", "source": "RBI press release 2025-2026/2306"},
+    {"date": "2026-10-07", "type": "RBI_MPC", "source": "RBI press release 2025-2026/2306"},
+    {"date": "2026-12-02", "type": "RBI_MPC", "source": "RBI press release 2025-2026/2306"},
+    {"date": "2026-12-03", "type": "RBI_MPC", "source": "RBI press release 2025-2026/2306"},
+    {"date": "2026-12-04", "type": "RBI_MPC", "source": "RBI press release 2025-2026/2306"},
+    {"date": "2026-09-15", "type": "FOMC", "source": "https://www.federalreserve.gov/monetarypolicy/fomccalendars.htm"},
+    {"date": "2026-09-16", "type": "FOMC", "source": "https://www.federalreserve.gov/monetarypolicy/fomccalendars.htm"},
+    {"date": "2026-10-27", "type": "FOMC", "source": "https://www.federalreserve.gov/monetarypolicy/fomccalendars.htm"},
+    {"date": "2026-10-28", "type": "FOMC", "source": "https://www.federalreserve.gov/monetarypolicy/fomccalendars.htm"},
+    {"date": "2026-12-08", "type": "FOMC", "source": "https://www.federalreserve.gov/monetarypolicy/fomccalendars.htm"},
+    {"date": "2026-12-09", "type": "FOMC", "source": "https://www.federalreserve.gov/monetarypolicy/fomccalendars.htm"}
+  ]
+}

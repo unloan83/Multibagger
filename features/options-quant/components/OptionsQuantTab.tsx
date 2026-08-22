@@ -50,7 +50,7 @@ export default function OptionsQuantTab() {
           <Evidence label="Market data" value={state.configuration.marketDataConfigured ? "Configured" : "Missing"} good={state.configuration.marketDataConfigured} />
           <Evidence label="Risk capital" value={state.configuration.portfolioCapitalConfigured ? "Configured" : "Missing"} good={state.configuration.portfolioCapitalConfigured} />
           <Evidence label="Sandbox" value={state.configuration.sandboxConfigured ? "Connected" : "Not connected"} good={state.configuration.sandboxConfigured} />
-          <Evidence label="Direction" value={state.direction ? `${state.direction.direction} · ${state.direction.confidence}%` : "Unavailable"} good={Boolean(state.direction && state.direction.direction !== "UNCLEAR")} />
+          <Evidence label="Direction" value={state.direction ? `${state.direction.direction} · ${state.direction.confidence}%` : "Unavailable"} good={Boolean(state.direction && state.direction.direction !== "RANGE")} />
         </div>
         <div className="mt-3 text-xs text-slate-300">Options net-profit targets: <strong className="text-emerald-300">{money(state.configuration.profitTargetRupees)} per trade</strong> · <strong className="text-emerald-300">{money(state.configuration.dailyProfitTargetRupees)} daily lock</strong></div>
       </div>

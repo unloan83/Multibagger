@@ -15,28 +15,29 @@ from .config import Settings
 from .store import MarketStore
 from .scanner import run_scan
 from .paper import run_risk_monitor
+from .universe import build_daily_trading_universe
 from scripts.telegram_notify import send_telegram_message
 
 
 IST = ZoneInfo("Asia/Kolkata")
 
 
-def collect(settings: Settings) -> None:
+def collect(settings: Settings, on_market_data=None) -> None:
     if settings.market_data_provider != "upstox":
         raise RuntimeError("Paper collection is Upstox-only; Breeze is isolated from scheduled execution")
     from features.upstox.python.upstox_collector import collect_upstox
 
-    collect_upstox(settings)
+    collect_upstox(settings, on_market_data=on_market_data)
 
 
-def run_worker(settings: Settings, scan_interval: int = 900, monitor_interval: int = 120,
+def run_worker(settings: Settings, scan_interval: int = 900, monitor_interval: int = 30,
                scan_max_runtime: int = 240, monitor_max_runtime: int = 45,
                lock_path: str = "/var/lib/multibagger/paper_jobs.lock") -> None:
     """Collect continuously while aligned, locked jobs scan or monitor paper positions."""
     if scan_interval != 900:
         raise ValueError("Upstox full scans must run every 900 seconds")
-    if monitor_interval not in {60, 120}:
-        raise ValueError("risk monitor interval must be 60 or 120 seconds")
+    if monitor_interval != 30:
+        raise ValueError("risk monitor interval must be exactly 30 seconds")
     if not 30 <= scan_max_runtime < 300 or not 10 <= monitor_max_runtime <= 60:
         raise ValueError("invalid paper job runtime limit")
     store = MarketStore(settings.db_path)
@@ -46,11 +47,18 @@ def run_worker(settings: Settings, scan_interval: int = 900, monitor_interval: i
     removed = store.prune(14)
     if removed:
         logging.info("pruned %d minute bars older than 14 days", removed)
+    try:
+        universe_result = build_daily_trading_universe(settings, store, datetime.now(timezone.utc))
+        logging.info("daily 08:30 universe selected=%d", len(universe_result))
+    except Exception:
+        logging.exception("daily 250-stock pre-filter failed; scans will fail closed")
     stop = threading.Event()
+    last_event_monitor = 0.0
+    last_event_scan = 0.0
     send_telegram_message(
         "🟢 Upstox Intraday paper engine started\n"
-        "Full scans: every 15 minutes from 09:20 IST\n"
-        "Risk monitor: every minute\nMode: Upstox Sandbox (no real money)",
+        "Signal checks: every 60 seconds\n"
+        "Closed-candle risk monitor: every 30 seconds\nMode: Upstox Sandbox (no real money)",
         event_key="upstox-worker-started", cooldown_seconds=3600,
     )
 
@@ -73,8 +81,27 @@ def run_worker(settings: Settings, scan_interval: int = 900, monitor_interval: i
 
     thread = threading.Thread(target=scanner_loop, name="paper-scheduler", daemon=True)
     thread.start()
+
+    def event_driven_risk_monitor() -> None:
+        nonlocal last_event_monitor, last_event_scan
+        if settings.execution_paused:
+            return
+        current = time.monotonic()
+        local = datetime.now(timezone.utc).astimezone(IST)
+        if store.has_open_trades():
+            if current - last_event_monitor < settings.paper_monitor_interval_seconds:
+                return
+            last_event_monitor = current
+            result = _run_locked_job(store, settings, "RISK_MONITOR", local, monitor_max_runtime, Path(lock_path))
+            if result and result.get("closedByMonitor"):
+                last_event_scan = current
+                _run_locked_job(store, settings, "FULL_SCAN", local, scan_max_runtime, Path(lock_path))
+        elif current - last_event_scan >= settings.paper_signal_interval_seconds:
+            last_event_scan = current
+            _run_locked_job(store, settings, "FULL_SCAN", local, scan_max_runtime, Path(lock_path))
+
     try:
-        collect(settings)
+        collect(settings, on_market_data=event_driven_risk_monitor)
     finally:
         stop.set()
         thread.join(timeout=5)
@@ -84,21 +111,21 @@ def run_worker(settings: Settings, scan_interval: int = 900, monitor_interval: i
         )
 
 
-def scheduled_upstox_job(local: datetime, monitor_interval: int = 120) -> str | None:
+def scheduled_upstox_job(local: datetime, monitor_interval: int = 30) -> str | None:
     minute = local.hour * 60 + local.minute
     if local.weekday() >= 5 or not 9 * 60 + 16 <= minute <= 15 * 60 + 20:
         return None
-    if 9 * 60 + 20 <= minute <= 14 * 60 + 35 and minute % 15 == 5:
+    if 9 * 60 + 35 <= minute <= 14 * 60 + 35 and minute % 15 == 5:
         return "FULL_SCAN"
     if 9 * 60 + 28 <= minute <= 14 * 60 + 43 and minute % 15 == 13:
         return None
-    if minute % (monitor_interval // 60) == 0:
+    if minute % 1 == 0:
         return "RISK_MONITOR"
     return None
 
 
 def _run_locked_job(store: MarketStore, settings: Settings, job_type: str, scheduled_at: datetime,
-                    max_runtime: int, lock_path: Path) -> None:
+                    max_runtime: int, lock_path: Path) -> dict | None:
     job_id = str(uuid.uuid4())
     started = time.monotonic()
     with _nonblocking_lock(lock_path) as acquired:
@@ -137,6 +164,7 @@ def _run_locked_job(store: MarketStore, settings: Settings, job_type: str, sched
                         _upstox_exit_message(trade),
                         event_key=f"upstox-exit-{trade.get('trade_id')}",
                     )
+            return result
         except TimeoutError as error:
             store.finish_job(job_id, "MAX_RUNTIME_EXCEEDED", int((time.monotonic() - started) * 1000), str(error)[:500])
             logging.error("%s exceeded its maximum runtime: %s", job_type, error)

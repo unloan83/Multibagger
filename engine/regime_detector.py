@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import logging
+import uuid
 from dataclasses import asdict, dataclass
 from datetime import datetime
 from typing import Literal
@@ -40,15 +41,16 @@ def detect_regime(index_frame: pd.DataFrame, vix_frame: pd.DataFrame,
                   advance_decline_ratio: float | None, settings: Settings,
                   now: datetime) -> RegimeDetection:
     index_session = _current_session(index_frame)
+    five_minute = _five_minute_candles(index_frame)
     vix_session = _current_session(vix_frame)
     adx = atr_pct = gap = None
     current_day = now.astimezone(IST).date()
     index_fresh = _session_day(index_session) == current_day and _fresh(index_session, now, settings.stale_seconds)
     vix_fresh = _session_day(vix_session) == current_day and _fresh(vix_session, now, settings.stale_seconds)
-    if len(index_session) >= 28 and index_fresh:
-        adx = float(ADXIndicator(index_session.high, index_session.low, index_session.close, window=14).adx().iloc[-1])
-        atr = float(AverageTrueRange(index_session.high, index_session.low, index_session.close, window=14).average_true_range().iloc[-1])
-        atr_pct = atr / float(index_session.close.iloc[-1]) * 100
+    if len(five_minute) >= 28 and index_fresh:
+        adx = float(ADXIndicator(five_minute.high, five_minute.low, five_minute.close, window=14).adx().iloc[-1])
+        atr = float(AverageTrueRange(five_minute.high, five_minute.low, five_minute.close, window=14).average_true_range().iloc[-1])
+        atr_pct = atr / float(five_minute.close.iloc[-1]) * 100
         prior = _prior_session(index_frame, index_session)
         if len(prior):
             gap = (float(index_session.open.iloc[0]) - float(prior.close.iloc[-1])) / float(prior.close.iloc[-1]) * 100
@@ -56,10 +58,12 @@ def detect_regime(index_frame: pd.DataFrame, vix_frame: pd.DataFrame,
     event_labels = tuple(_event_labels(settings, now))
     reasons: list[str] = []
 
-    if adx is None or vix is None or atr_pct is None or advance_decline_ratio is None:
+    if vix is not None and vix > settings.vix_max_level:
+        regime: Regime = "HIGH_VOL"
+    elif adx is None or vix is None or atr_pct is None or advance_decline_ratio is None:
         regime: Regime = "TRANSITION"
         reasons.append("REGIME_INPUT_UNAVAILABLE")
-    elif vix > settings.vix_max_level or atr_pct >= settings.regime_high_vol_atr_pct:
+    elif atr_pct >= settings.regime_high_vol_atr_pct:
         regime = "HIGH_VOL"
     elif adx >= settings.regime_adx_trending and (
         advance_decline_ratio >= 1.5 or advance_decline_ratio <= 1 / 1.5
@@ -90,12 +94,60 @@ def detect_regime(index_frame: pd.DataFrame, vix_frame: pd.DataFrame,
     return result
 
 
+def evaluate_regime_15m(store, index_frame: pd.DataFrame, vix_frame: pd.DataFrame,
+                        advance_decline_ratio: float | None, settings: Settings,
+                        now: datetime) -> tuple[RegimeDetection, bool, bool]:
+    """Evaluate once per IST quarter-hour and persist any adverse intraday lock."""
+    local = now.astimezone(IST)
+    slot = local.replace(minute=(local.minute // 15) * 15, second=0, microsecond=0)
+    trading_day = local.date()
+    with store.connect() as con:
+        row = con.execute("""
+          SELECT regime,details_json,adverse_day_lock,slot_at FROM regime_evaluations
+          WHERE trading_day=? ORDER BY evaluated_at DESC LIMIT 1
+        """, [trading_day]).fetchone()
+    if row and row[3] >= slot:
+        payload = json.loads(row[1])
+        payload["event_labels"] = tuple(payload.get("event_labels") or ())
+        payload["skip_reasons"] = tuple(payload.get("skip_reasons") or ())
+        return RegimeDetection(**payload), bool(row[2]), False
+
+    result = detect_regime(index_frame, vix_frame, advance_decline_ratio, settings, now)
+    previous = str(row[0]) if row else None
+    changed_adverse = previous in ("TRENDING", "RANGE") and result.regime in ("HIGH_VOL", "TRANSITION")
+    day_locked = bool(row[2]) if row else False
+    day_locked = day_locked or changed_adverse
+    with store.connect() as con:
+        con.execute("INSERT INTO regime_evaluations VALUES (?, ?, ?, ?, ?, ?, ?)", [
+            str(uuid.uuid4()), trading_day, now, slot, result.regime,
+            json.dumps(result.to_dict(), sort_keys=True), day_locked,
+        ])
+    LOG.info("regime_reevaluation slot=%s previous=%s current=%s adverse_day_lock=%s",
+             slot.isoformat(), previous, result.regime, day_locked)
+    return result, day_locked, changed_adverse
+
+
 def _current_session(frame: pd.DataFrame) -> pd.DataFrame:
     if frame.empty:
         return frame
     result = frame.copy().sort_values("ts")
     sessions = pd.to_datetime(result.ts, utc=True).dt.tz_convert(IST).dt.date
     return result[sessions == sessions.iloc[-1]].reset_index(drop=True)
+
+
+def _five_minute_candles(frame: pd.DataFrame) -> pd.DataFrame:
+    if frame.empty:
+        return frame
+    df = frame.copy().sort_values("ts")
+    df["ts"] = pd.to_datetime(df.ts, utc=True)
+    df["session"] = df.ts.dt.tz_convert(IST).dt.date
+    pieces = []
+    for _, session in df.groupby("session"):
+        candles = session.set_index("ts").resample("5min", origin="start_day", offset="15min").agg(
+            open=("open", "first"), high=("high", "max"), low=("low", "min"), close=("close", "last"),
+        ).dropna()
+        pieces.append(candles.reset_index())
+    return pd.concat(pieces, ignore_index=True).sort_values("ts") if pieces else df.iloc[0:0]
 
 
 def _prior_session(frame: pd.DataFrame, current: pd.DataFrame) -> pd.DataFrame:

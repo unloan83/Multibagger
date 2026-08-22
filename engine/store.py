@@ -81,6 +81,12 @@ CREATE TABLE IF NOT EXISTS backfill_progress (
   status VARCHAR NOT NULL, bar_count INTEGER NOT NULL DEFAULT 0, error VARCHAR,
   updated_at TIMESTAMPTZ NOT NULL, PRIMARY KEY (instrument_key, from_date, to_date)
 );
+CREATE TABLE IF NOT EXISTS regime_evaluations (
+  evaluation_id VARCHAR PRIMARY KEY, trading_day DATE NOT NULL,
+  evaluated_at TIMESTAMPTZ NOT NULL, slot_at TIMESTAMPTZ NOT NULL,
+  regime VARCHAR NOT NULL, details_json VARCHAR NOT NULL,
+  adverse_day_lock BOOLEAN NOT NULL DEFAULT false
+);
 """
 
 

@@ -97,7 +97,7 @@ def test_weekend_disables_new_entries(tmp_path):
     )
     assert result["newEntriesEnabled"] is False
     assert result["openPositions"] == []
-    assert "Outside the automatic paper-entry window" in " ".join(result["noEntryReasons"])
+    assert "time-of-day window blocks new entries" in " ".join(result["noEntryReasons"])
 
 
 def test_prior_day_position_exits_on_first_fresh_quote_before_new_entries(tmp_path):
@@ -393,6 +393,19 @@ def test_adverse_market_thesis_exits_without_waiting_for_stop(tmp_path):
         opened_at + timedelta(seconds=61), "thesis-check",
     )
     assert result["recentClosedTrades"][0]["exit_reason"] == "MARKET_TREND_INVALIDATED"
+
+
+def test_adverse_regime_flattens_even_during_minimum_hold(tmp_path):
+    settings = _settings(tmp_path)
+    store = MarketStore(settings.db_path)
+    opened_at = datetime(2026, 8, 21, 5, 0, tzinfo=timezone.utc)
+    run_paper_cycle(store, settings, [_candidate("TEST", opened_at)],
+                    {"TEST": {"bid": 199.8, "ask": 200.0, "ts": opened_at}}, opened_at, "entry")
+    result = run_paper_cycle(store, settings, [],
+                             {"TEST": {"bid": 200.0, "ask": 200.2,
+                                       "ts": opened_at + timedelta(seconds=5), "regime_adverse": True}},
+                             opened_at + timedelta(seconds=5), "regime-exit")
+    assert result["recentClosedTrades"][0]["exit_reason"] == "REGIME_CHANGED_ADVERSE"
 
 
 def test_qualified_same_symbol_can_reenter_after_loss_below_daily_limit(tmp_path):

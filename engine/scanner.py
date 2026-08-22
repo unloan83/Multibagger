@@ -11,9 +11,10 @@ from datetime import datetime, timezone
 from .config import Settings
 from .paper import run_paper_cycle
 from .publication import publish_snapshot
-from .regime_detector import detect_regime
+from .regime_detector import evaluate_regime_15m
 from .store import MarketStore
-from .strategies import Candidate, Trend, classify_price_trend, enrich, scan_symbol
+from .strategies import (Candidate, Trend, classify_price_trend, enrich, entry_score_threshold,
+                         scan_symbol, score_setup)
 from .universe import active_trading_symbols
 
 
@@ -76,8 +77,14 @@ def run_scan(settings: Settings, deadline_monotonic: float | None = None) -> dic
         advances = symbol_trends.values().count("BULLISH") if hasattr(symbol_trends.values(), "count") else sum(1 for value in symbol_trends.values() if value == "BULLISH")
         declines = sum(1 for value in symbol_trends.values() if value == "BEARISH")
         breadth_ratio = advances / max(declines, 1) if advances or declines else None
-        regime = detect_regime(nifty_frame, vix_frame, breadth_ratio, settings, now)
+        regime, regime_day_locked, regime_changed_adverse = evaluate_regime_15m(
+            store, nifty_frame, vix_frame, breadth_ratio, settings, now,
+        )
         skip_reasons = list(regime.skip_reasons)
+        if regime_day_locked:
+            skip_reasons.append("MIDSESSION_ADVERSE_REGIME_DAY_LOCK")
+        for quote in quotes.values():
+            quote["regime_adverse"] = regime_changed_adverse or regime_day_locked
         with store.connect() as con:
             losses = con.execute("""
               SELECT net_pnl FROM paper_trades
@@ -96,10 +103,21 @@ def run_scan(settings: Settings, deadline_monotonic: float | None = None) -> dic
                 candidates.extend(scan_symbol(enriched, settings, now, frame_is_enriched=True, regime=regime.regime))
         market_trend = classify_price_trend(nifty_frame, now, settings.stale_seconds)
         sector_trends: dict[str, Trend] = {}
+        sector_strengths: dict[tuple[str, Trend], float] = {}
         for theme in set(themes.values()):
             votes = [symbol_trends[symbol] for symbol in symbol_trends if themes.get(symbol) == theme]
             sector_trends[theme] = _classify_breadth(votes)
+            for direction in ("BULLISH", "BEARISH", "RANGE"):
+                sector_strengths[(theme, direction)] = votes.count(direction) / len(votes) if votes else 0.0
+        top_sectors = {
+            direction: {theme for theme, _ in sorted(
+                ((theme, sector_strengths[(theme, direction)]) for theme in set(themes.values())),
+                key=lambda item: item[1], reverse=True,
+            )[:3]}
+            for direction in ("BULLISH", "BEARISH", "RANGE")
+        }
         confirmed_candidates: list[Candidate] = []
+        threshold = entry_score_threshold(now)
         for candidate in candidates:
             theme = themes.get(candidate.symbol, "UNCLASSIFIED")
             sector_trend = sector_trends.get(theme, "RANGE")
@@ -112,11 +130,20 @@ def run_scan(settings: Settings, deadline_monotonic: float | None = None) -> dic
                 "marketTrend": market_trend,
                 "sectorTrend": sector_trend,
                 "sector": theme,
+                "sectorTop3": theme in top_sectors["RANGE" if range_setup else required_trend],
+                "niftyStronglyAligned": not range_setup and market_trend == required_trend and regime.regime == "TRENDING",
             }
-            if confirmations["marketDirection"] and confirmations["sectorDirection"]:
-                confirmed_candidates.append(replace(candidate, confirmations=confirmations))
+            score = score_setup(candidate, confirmations)
+            LOG.info("setup_score symbol=%s side=%s score=%d threshold=%s", candidate.symbol,
+                     candidate.side, score, threshold if threshold is not None else "BLOCKED")
+            if (threshold is not None and score >= threshold and confirmations["marketDirection"]
+                    and confirmations["sectorDirection"]):
+                confirmed_candidates.append(replace(candidate, rank_score=score, confirmations={**confirmations, "setupScore": score}))
         candidates = confirmed_candidates
         candidates.sort(key=lambda item: item.rank_score, reverse=True)
+        candidates = candidates[:1]
+        if threshold is None:
+            skip_reasons.append("TIME_OF_DAY_ENTRY_BLOCK")
         with store.connect() as con:
             con.execute("UPDATE paper_signals SET status='EXPIRED_UNEXECUTED' WHERE status='OPEN' AND expiry < ?", [now])
             for item in candidates:

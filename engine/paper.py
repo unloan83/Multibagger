@@ -11,7 +11,7 @@ from zoneinfo import ZoneInfo
 
 from .config import Settings
 from .store import MarketStore
-from .strategies import Candidate
+from .strategies import Candidate, entry_score_threshold
 
 
 IST = ZoneInfo("Asia/Kolkata")
@@ -72,7 +72,7 @@ def run_paper_cycle(
         if any(_as_trading_date(row.get("trading_day")) < trading_day for row in open_rows):
             no_entry_reasons.append("A prior-day paper position is awaiting a fresh executable exit; new entries are halted.")
         if not _entry_window_open(now):
-            no_entry_reasons.append("Outside the automatic paper-entry window (09:30–14:30 IST on NSE weekdays).")
+            no_entry_reasons.append("Current time-of-day window blocks new entries; position management remains active.")
         if consecutive_losses >= settings.paper_consecutive_loss_limit:
             no_entry_reasons.append("Two consecutive losses reached; new entries are disabled for the day.")
 
@@ -237,9 +237,11 @@ def _open_trade(con: Any, candidate: Candidate, quote: dict[str, Any], now: date
         missing = [name for name in required if candidate.confirmations.get(name) is not True]
         if missing:
             return None, f"CONFIRMATION_FAILED_{missing[0].upper()}"
-        minimum_score = settings.min_confluence_score + min(consecutive_losses, 2) * 5
+        minimum_score = entry_score_threshold(now)
+        if minimum_score is None:
+            return None, "TIME_OF_DAY_ENTRY_BLOCK"
         if candidate.rank_score < minimum_score:
-            return None, "ADAPTIVE_SCORE_TOO_LOW"
+            return None, "SETUP_SCORE_TOO_LOW"
         if candidate.confirmations.get("setupSource") != "PRICE_VOLUME_ONLY":
             return None, "NON_TECHNICAL_TRIGGER_REJECTED"
     stop_distance = (entry_quote - float(candidate.stop)) if side == "LONG" else (float(candidate.stop) - entry_quote)
@@ -450,6 +452,8 @@ def _regular_exit_reason(trade: dict[str, Any], quote: dict[str, Any], now: date
         return "STOP_LOSS"
     if (side == "LONG" and mark >= target_price) or (side == "SHORT" and mark <= target_price):
         return "PROFIT_TARGET"
+    if quote.get("regime_adverse") is True:
+        return "REGIME_CHANGED_ADVERSE"
 
     opened_at = trade["opened_at"]
     if isinstance(opened_at, str):
@@ -607,8 +611,7 @@ def _flatten_time_reached(now: datetime, settings: Settings) -> bool:
 
 def _entry_window_open(now: datetime) -> bool:
     local = now.astimezone(IST)
-    minute = local.hour * 60 + local.minute
-    return local.weekday() < 5 and 9 * 60 + 30 <= minute <= 14 * 60 + 30
+    return local.weekday() < 5 and entry_score_threshold(now) is not None
 
 
 def _fresh_quote(quote: dict[str, Any] | None, now: datetime, stale_seconds: int) -> dict[str, Any] | None:

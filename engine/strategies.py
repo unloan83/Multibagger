@@ -3,6 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta, timezone
 from typing import Literal
+from zoneinfo import ZoneInfo
 
 import numpy as np
 import pandas as pd
@@ -110,6 +111,7 @@ def scan_symbol(frame: pd.DataFrame, settings: Settings, now: datetime | None = 
     vwap = float(last.vwap)
     recent_volume_mean = float(session.volume.iloc[-6:-1].mean())
     volume_confirmed = float(last.volume) >= max(1.2 * recent_volume_mean, 1.0)
+    vwap_slope = float(session.vwap.iloc[-1]) - float(session.vwap.iloc[-5])
     expiry = now + timedelta(minutes=settings.signal_expiry_minutes)
     common = {
         "setupSource": "PRICE_VOLUME_ONLY",
@@ -120,6 +122,12 @@ def scan_symbol(frame: pd.DataFrame, settings: Settings, now: datetime | None = 
         "momentum": True,
         "supportResistance": True,
         "strategyQualified": True,
+        "vwapSlopeAlignedLong": vwap_slope > 0,
+        "vwapSlopeAlignedShort": vwap_slope < 0,
+        "volumeAboveLast5x1_5": float(last.volume) > 1.5 * recent_volume_mean,
+        # No live intraday news feed is attached to this engine. Fail closed:
+        # the 10 news points are awarded only when verified evidence is supplied.
+        "noAdverseNewsLastHour": False,
         "vwapPrice": round(vwap, 4),
         "atr": round(atr, 4),
         "relativeVolume": round(relative_volume, 3),
@@ -146,12 +154,36 @@ def _candidate(symbol: str, side: TradeSide, entry: float, stop: float, rr: floa
     if risk <= 0 or risk / entry * 100 < settings.min_atr_stop_pct:
         return None
     target = entry + (risk * rr if side == "LONG" else -risk * rr)
-    score = round(min(relative_volume / 3, 1) * 40 + max(0, 1 - spread_bps / settings.max_spread_bps) * 25 + 35, 4)
-    if score < settings.min_confluence_score:
-        return None
+    score = 0.0
     details = {**confirmations, "riskReward": rr >= settings.reward_risk, "targetR": rr,
                "tradeDirection": "BULLISH" if side == "LONG" else "BEARISH"}
     return Candidate(symbol, side, entry, stop, target, strategy, now, expiry, score, details)
+
+
+def entry_score_threshold(now: datetime) -> int | None:
+    local = now.astimezone(ZoneInfo("Asia/Kolkata"))
+    minute = local.hour * 60 + local.minute
+    if 9 * 60 + 30 <= minute < 10 * 60 + 30:
+        return 65
+    if 10 * 60 + 30 <= minute < 12 * 60 + 30:
+        return 75
+    if 13 * 60 + 30 <= minute < 14 * 60 + 30:
+        return 75
+    return None
+
+
+def score_setup(candidate: Candidate, confirmations: dict[str, object]) -> int:
+    side_key = "vwapSlopeAlignedLong" if candidate.side == "LONG" else "vwapSlopeAlignedShort"
+    return sum((
+        20 if confirmations.get(side_key) is True else 0,
+        15 if confirmations.get("volumeAboveLast5x1_5") is True else 0,
+        15 if confirmations.get("momentum") is True else 0,
+        10 if confirmations.get("sectorTop3") is True else 0,
+        10 if confirmations.get("niftyStronglyAligned") is True else 0,
+        10 if confirmations.get("supportResistance") is True else 0,
+        10 if float(confirmations.get("spreadBps") or 10_000) < 5 else 0,
+        10 if confirmations.get("noAdverseNewsLastHour") is True else 0,
+    ))
 
 
 def _vwap_pullback(session, symbol, bid, ask, atr, vwap, relative_volume, spread_bps,

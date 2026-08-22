@@ -3,8 +3,10 @@ from datetime import datetime, timedelta, timezone
 import pandas as pd
 
 from engine.config import Settings
-from engine.regime_detector import detect_regime
-from engine.strategies import classify_price_trend, enrich, scan_symbol
+from engine.regime_detector import RegimeDetection, detect_regime, evaluate_regime_15m
+from engine.store import MarketStore
+from engine.strategies import (Candidate, classify_price_trend, enrich, entry_score_threshold,
+                               scan_symbol, score_setup)
 
 
 def settings(tmp_path):
@@ -115,3 +117,33 @@ def test_vix_above_20_forces_high_vol_no_trade(tmp_path):
     result = detect_regime(pd.DataFrame(rows), vix, 2.0, settings(tmp_path), now)
     assert result.regime == "HIGH_VOL"
     assert "VIX_ABOVE_20" in result.skip_reasons
+
+
+def test_setup_score_and_time_windows_are_exact():
+    now = datetime(2026, 8, 24, 4, 15, tzinfo=timezone.utc)
+    candidate = Candidate("TEST", "LONG", 200, 198, 204, "VWAP_PULLBACK_CONTINUATION",
+                          now, now + timedelta(minutes=20), 0, {})
+    confirmations = {
+        "vwapSlopeAlignedLong": True, "volumeAboveLast5x1_5": True, "momentum": True,
+        "sectorTop3": True, "niftyStronglyAligned": True, "supportResistance": True,
+        "spreadBps": 4.9, "noAdverseNewsLastHour": True,
+    }
+    assert score_setup(candidate, confirmations) == 100
+    assert entry_score_threshold(datetime(2026, 8, 24, 4, 0, tzinfo=timezone.utc)) == 65
+    assert entry_score_threshold(datetime(2026, 8, 24, 5, 0, tzinfo=timezone.utc)) == 75
+    assert entry_score_threshold(datetime(2026, 8, 24, 7, 15, tzinfo=timezone.utc)) is None
+    assert entry_score_threshold(datetime(2026, 8, 24, 8, 15, tzinfo=timezone.utc)) == 75
+    assert entry_score_threshold(datetime(2026, 8, 24, 9, 0, tzinfo=timezone.utc)) is None
+
+
+def test_safe_to_adverse_regime_change_locks_day(tmp_path, monkeypatch):
+    config = settings(tmp_path)
+    store = MarketStore(config.db_path)
+    safe = RegimeDetection("TRENDING", 30, 15, 0.5, 2, 0, (), (), "safe")
+    adverse = RegimeDetection("TRANSITION", 22, 16, 0.7, 1, 0, (), ("REGIME_TRANSITION",), "adverse")
+    values = iter((safe, adverse))
+    monkeypatch.setattr("engine.regime_detector.detect_regime", lambda *_args: next(values))
+    first = datetime(2026, 8, 24, 4, 0, tzinfo=timezone.utc)
+    assert evaluate_regime_15m(store, pd.DataFrame(), pd.DataFrame(), 1, config, first)[1:] == (False, False)
+    assert evaluate_regime_15m(store, pd.DataFrame(), pd.DataFrame(), 1, config,
+                               first + timedelta(minutes=15))[1:] == (True, True)

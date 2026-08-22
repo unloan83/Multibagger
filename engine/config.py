@@ -32,7 +32,7 @@ class Settings:
     max_reward_risk: float = 2.0
     min_average_volume: int = 500_000
     min_average_daily_range_pct: float = 1.5
-    support_resistance_proximity_pct: float = 0.75
+    support_resistance_proximity_pct: float = 0.5
     regime_adx_trending: float = 25.0
     regime_adx_range: float = 20.0
     regime_high_vol_atr_pct: float = 1.5
@@ -47,7 +47,7 @@ class Settings:
     paper_risk_per_trade_pct: float = 0.25
     paper_max_risk_per_trade: float = 1_000.0
     paper_max_capital_per_trade_pct: float = 20.0
-    paper_daily_profit_target: float = 3_000.0
+    paper_daily_profit_target: float = 4_000.0
     paper_daily_loss_limit: float = 4_000.0
     paper_max_open_positions: int = 1
     paper_max_trades_per_day: int = 4
@@ -55,7 +55,7 @@ class Settings:
     paper_profit_risk_reduction_ratio: float = 0.70
     paper_profit_entry_lock_ratio: float = 0.90
     paper_max_entry_slippage_bps: float = 8.0
-    paper_break_even_trigger_r: float = 0.75
+    paper_break_even_trigger_r: float = 1.0
     paper_trailing_trigger_r: float = 1.0
     paper_trailing_atr_multiple: float = 1.5
     paper_minimum_hold_seconds: int = 60
@@ -98,7 +98,7 @@ class Settings:
             raise RuntimeError("MIN_PRICE_INR and MAX_PRICE_INR must define a positive increasing range")
         paper_capital = float(os.getenv("PAPER_PORTFOLIO_CAPITAL_INR", "500000"))
         risk_pct = float(os.getenv("PAPER_RISK_PER_TRADE_PERCENT", "0.25"))
-        daily_target = float(os.getenv("PAPER_DAILY_PROFIT_TARGET_INR", "3000"))
+        daily_target = float(os.getenv("PAPER_DAILY_PROFIT_TARGET_INR", "4000"))
         daily_loss = float(os.getenv("PAPER_DAILY_LOSS_LIMIT_INR", str(paper_capital * 0.008)))
         max_positions = int(os.getenv("PAPER_MAX_OPEN_POSITIONS", "1"))
         max_trades = int(os.getenv("PAPER_MAX_TRADES_PER_DAY", "4"))
@@ -110,6 +110,8 @@ class Settings:
             raise RuntimeError("Paper capital must be positive and risk per trade must be between 0 and 5 percent")
         if daily_target <= 0 or daily_loss <= 0:
             raise RuntimeError("Paper daily profit target and loss limit must be positive")
+        if daily_target < daily_loss:
+            raise RuntimeError("Paper daily profit target must be at least the daily loss limit")
         if not 1 <= max_positions <= 10 or not 0 <= max_trades <= 50:
             raise RuntimeError("Paper position and daily-trade limits are outside safe bounds")
         if not 0 < risk_reduction_ratio < entry_lock_ratio <= 1:
@@ -142,7 +144,7 @@ class Settings:
             max_reward_risk=float(os.getenv("MAX_REWARD_RISK", "2.0")),
             min_average_volume=int(os.getenv("MIN_AVERAGE_DAILY_VOLUME", "500000")),
             min_average_daily_range_pct=float(os.getenv("MIN_AVERAGE_DAILY_RANGE_PERCENT", "1.5")),
-            support_resistance_proximity_pct=float(os.getenv("SUPPORT_RESISTANCE_PROXIMITY_PERCENT", "0.75")),
+            support_resistance_proximity_pct=float(os.getenv("SUPPORT_RESISTANCE_PROXIMITY_PERCENT", "0.5")),
             regime_adx_trending=float(os.getenv("REGIME_ADX_TRENDING", "25")),
             regime_adx_range=float(os.getenv("REGIME_ADX_RANGE", "20")),
             regime_high_vol_atr_pct=float(os.getenv("REGIME_HIGH_VOL_ATR_PERCENT", "1.5")),
@@ -163,7 +165,7 @@ class Settings:
             paper_profit_risk_reduction_ratio=risk_reduction_ratio,
             paper_profit_entry_lock_ratio=entry_lock_ratio,
             paper_max_entry_slippage_bps=max_entry_slippage_bps,
-            paper_break_even_trigger_r=float(os.getenv("PAPER_BREAK_EVEN_TRIGGER_R", "0.75")),
+            paper_break_even_trigger_r=float(os.getenv("PAPER_BREAK_EVEN_TRIGGER_R", "1.0")),
             paper_trailing_trigger_r=float(os.getenv("PAPER_TRAILING_TRIGGER_R", "1.0")),
             paper_trailing_atr_multiple=float(os.getenv("PAPER_TRAILING_ATR_MULTIPLE", "1.5")),
             paper_minimum_hold_seconds=int(os.getenv("PAPER_MINIMUM_HOLD_SECONDS", "60")),

@@ -40,8 +40,16 @@ def run_paper_cycle(
             quote = _fresh_quote(quotes.get(trade["symbol"]), now, settings.stale_seconds)
             if not quote:
                 continue
+            if quote.get("completed_candle") is False:
+                continue
+            candle_ts = quote.get("ts")
+            last_candle = trade.get("last_exit_candle_ts")
+            if last_candle is not None and candle_ts is not None and candle_ts <= last_candle:
+                continue
             reason = _regular_exit_reason(trade, quote, now, settings)
             _mark_trade(con, trade, quote, now, settings, reason, run_id)
+            if candle_ts is not None:
+                con.execute("UPDATE paper_trades SET last_exit_candle_ts=? WHERE trade_id=?", [candle_ts, trade["trade_id"]])
 
         open_trades = _records(con, "SELECT * FROM paper_trades WHERE status='OPEN' ORDER BY opened_at")
         projected = _closed_net_today(con, trading_day) + sum(float(row["net_pnl"]) for row in open_trades)
@@ -178,6 +186,8 @@ def run_risk_monitor(settings: Settings, now: datetime | None = None) -> dict[st
     open_trade_ids = {str(row[0]) for row in open_rows}
     symbols = sorted({str(row[1]) for row in open_rows})
     quotes = store.latest_quotes(symbols, completed_before=observed_at)
+    for quote in quotes.values():
+        quote["completed_candle"] = True
     _attach_live_thesis_context(store, settings, symbols, quotes, observed_at)
     monitor_run_id = f"monitor-{uuid.uuid4()}"
     result = run_paper_cycle(store, settings, [], quotes, observed_at, monitor_run_id)
@@ -423,6 +433,8 @@ def _mark_trade(con: Any, trade: dict[str, Any], quote: dict[str, Any], now: dat
             con, str(trade["trade_id"]), event_run_id, "EXIT", now,
             exit_quote, gross, net, str(exit_reason), {"orderId": exit_order_id, "exitFill": exit_fill, "mfe": mfe, "mae": mae},
         )
+        LOG.info("trade_exit trade_id=%s symbol=%s trigger=%s quote=%.4f net_pnl=%.2f",
+                 trade["trade_id"], trade["symbol"], exit_reason, exit_quote, net)
     else:
         con.execute("""
           UPDATE paper_trades SET current_quote=?, last_marked_at=?, gross_pnl=?, net_pnl=?,
@@ -688,6 +700,7 @@ def _public_trade(row: dict[str, Any]) -> dict[str, Any]:
         "brokerage", "fees_taxes", "slippage", "capital_used",
         "execution_mode", "entry_order_id", "exit_order_id",
         "peak_quote", "lowest_quote", "mfe", "mae", "profit_giveback", "holding_duration_minutes",
+        "last_exit_candle_ts",
     ]
     result = {key: row.get(key) for key in keys}
     for key, value in list(result.items()):

@@ -28,7 +28,7 @@ def build_daily_trading_universe(settings: Settings, store: MarketStore,
         for symbol, frame in frames.groupby("symbol"):
             if symbol not in fno:
                 continue
-            metrics = _prefilter_metrics(frame.reset_index(drop=True))
+            metrics = _prefilter_metrics(frame.reset_index(drop=True), now)
             if not metrics:
                 continue
             average_volume, average_range_pct, spread_bps, sr_distance_pct = metrics
@@ -40,7 +40,7 @@ def build_daily_trading_universe(settings: Settings, store: MarketStore,
             if spread_bps > settings.max_spread_bps:
                 reasons.append("SPREAD")
             if sr_distance_pct > settings.support_resistance_proximity_pct:
-                reasons.append("NOT_NEAR_SUPPORT_RESISTANCE")
+                reasons.append("NOT_WITHIN_0_5_PERCENT_OF_PIVOT_VWAP_OR_PREVIOUS_DAY_HIGH_LOW")
             if reasons:
                 LOG.info("universe_skip symbol=%s reasons=%s", symbol, ",".join(reasons))
                 continue
@@ -56,7 +56,7 @@ def build_daily_trading_universe(settings: Settings, store: MarketStore,
             "minimumAverageVolume": settings.min_average_volume,
             "minimumAverageDailyRangePercent": settings.min_average_daily_range_pct,
             "maximumSpreadBps": settings.max_spread_bps,
-            "supportResistanceProximityPercent": settings.support_resistance_proximity_pct,
+            "dailyPivotVwapPreviousHighLowProximityPercent": settings.support_resistance_proximity_pct,
         },
         "symbols": symbols,
     }
@@ -87,7 +87,7 @@ def _fno_underlyings() -> set[str]:
     }
 
 
-def _prefilter_metrics(frame: pd.DataFrame) -> tuple[float, float, float, float] | None:
+def _prefilter_metrics(frame: pd.DataFrame, now: datetime | None = None) -> tuple[float, float, float, float] | None:
     if len(frame) < 2:
         return None
     df = frame.copy().sort_values("ts")
@@ -97,7 +97,12 @@ def _prefilter_metrics(frame: pd.DataFrame) -> tuple[float, float, float, float]
     ).tail(6)
     if len(daily) < 3:
         return None
-    history = daily.iloc[:-1] if len(daily) > 3 else daily
+    today = now.astimezone(IST).date() if now else None
+    historical_days = daily.index[daily.index < today] if today else daily.index
+    if not len(historical_days):
+        return None
+    previous_day = historical_days[-1]
+    history = daily.loc[historical_days].tail(5)
     average_volume = float(history.volume.mean())
     average_range_pct = float(((history.high - history.low) / history.close * 100).mean())
     last = df.iloc[-1]
@@ -105,7 +110,11 @@ def _prefilter_metrics(frame: pd.DataFrame) -> tuple[float, float, float, float]
     if not (bid > 0 and ask > bid):
         return None
     spread_bps = (ask - bid) / ((ask + bid) / 2) * 10_000
-    reference = history.tail(5)
-    levels = [float(reference.high.max()), float(reference.low.min()), float(reference.close.iloc[-1])]
+    previous = daily.loc[previous_day]
+    previous_session = df[df.session == previous_day]
+    typical = (previous_session.high + previous_session.low + previous_session.close) / 3
+    previous_vwap = float((typical * previous_session.volume).sum() / previous_session.volume.sum())
+    daily_pivot = float((previous.high + previous.low + previous.close) / 3)
+    levels = [daily_pivot, previous_vwap, float(previous.high), float(previous.low)]
     sr_distance_pct = min(abs(float(last.close) - level) / float(last.close) * 100 for level in levels)
     return average_volume, average_range_pct, spread_bps, sr_distance_pct

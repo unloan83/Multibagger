@@ -105,6 +105,7 @@ class MarketStore:
             con.execute("ALTER TABLE paper_trades ADD COLUMN IF NOT EXISTS mae DOUBLE")
             con.execute("ALTER TABLE paper_trades ADD COLUMN IF NOT EXISTS profit_giveback DOUBLE")
             con.execute("ALTER TABLE paper_trades ADD COLUMN IF NOT EXISTS holding_duration_minutes DOUBLE")
+            con.execute("ALTER TABLE paper_trades ADD COLUMN IF NOT EXISTS last_exit_candle_ts TIMESTAMPTZ")
             con.execute("ALTER TABLE paper_trades ADD COLUMN IF NOT EXISTS side VARCHAR DEFAULT 'LONG'")
             con.execute("ALTER TABLE paper_signals ADD COLUMN IF NOT EXISTS side VARCHAR DEFAULT 'LONG'")
 

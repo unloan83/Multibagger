@@ -408,6 +408,27 @@ def test_adverse_regime_flattens_even_during_minimum_hold(tmp_path):
     assert result["recentClosedTrades"][0]["exit_reason"] == "REGIME_CHANGED_ADVERSE"
 
 
+def test_exit_logic_runs_once_per_completed_candle(tmp_path):
+    settings = _settings(tmp_path)
+    store = MarketStore(settings.db_path)
+    opened_at = datetime(2026, 8, 21, 5, 0, tzinfo=timezone.utc)
+    run_paper_cycle(store, settings, [_candidate("TEST", opened_at)],
+                    {"TEST": {"bid": 199.8, "ask": 200.0, "ts": opened_at}}, opened_at, "entry")
+    candle = opened_at + timedelta(minutes=1)
+    run_paper_cycle(store, settings, [], {"TEST": {
+        "bid": 201.0, "ask": 201.2, "ts": candle, "completed_candle": True,
+    }}, opened_at + timedelta(minutes=2), "first-evaluation")
+    duplicate = run_paper_cycle(store, settings, [], {"TEST": {
+        "bid": 201.0, "ask": 201.2, "ts": candle, "completed_candle": True, "regime_adverse": True,
+    }}, opened_at + timedelta(minutes=2, seconds=30), "duplicate-evaluation")
+    assert [trade["symbol"] for trade in duplicate["openPositions"]] == ["TEST"]
+    next_candle = run_paper_cycle(store, settings, [], {"TEST": {
+        "bid": 201.0, "ask": 201.2, "ts": candle + timedelta(minutes=1),
+        "completed_candle": True, "regime_adverse": True,
+    }}, opened_at + timedelta(minutes=3), "next-candle")
+    assert next_candle["recentClosedTrades"][0]["exit_reason"] == "REGIME_CHANGED_ADVERSE"
+
+
 def test_qualified_same_symbol_can_reenter_after_loss_below_daily_limit(tmp_path):
     settings = _settings(tmp_path)
     store = MarketStore(settings.db_path)

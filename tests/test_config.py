@@ -26,3 +26,11 @@ def test_environment_rejects_invalid_price_range(monkeypatch):
     monkeypatch.setenv("MAX_PRICE_INR", "150")
     with pytest.raises(RuntimeError, match="positive increasing range"):
         Settings.from_env()
+
+
+def test_daily_profit_target_cannot_be_below_daily_loss(monkeypatch):
+    monkeypatch.setenv("PAPER_PORTFOLIO_CAPITAL_INR", "500000")
+    monkeypatch.setenv("PAPER_DAILY_PROFIT_TARGET_INR", "3999")
+    monkeypatch.setenv("PAPER_DAILY_LOSS_LIMIT_INR", "4000")
+    with pytest.raises(RuntimeError, match="at least the daily loss limit"):
+        Settings.from_env()

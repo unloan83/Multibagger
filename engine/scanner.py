@@ -66,6 +66,7 @@ def run_scan(settings: Settings, deadline_monotonic: float | None = None) -> dic
                                 "bid": bid, "ask": ask, "ts": bar_time,
                                 "received_at": last.received_at,
                                 "instrument_key": str(last.instrument_key),
+                                "completed_candle": bar_time < now.replace(second=0, microsecond=0),
                             }
                 if fresh_frame and len(frame) >= 16:
                     enriched = enrich(frame)

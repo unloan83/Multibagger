@@ -41,16 +41,16 @@ def detect_regime(index_frame: pd.DataFrame, vix_frame: pd.DataFrame,
                   advance_decline_ratio: float | None, settings: Settings,
                   now: datetime) -> RegimeDetection:
     index_session = _current_session(index_frame)
-    five_minute = _five_minute_candles(index_frame)
+    fifteen_minute = _fifteen_minute_candles(index_frame)
     vix_session = _current_session(vix_frame)
     adx = atr_pct = gap = None
     current_day = now.astimezone(IST).date()
     index_fresh = _session_day(index_session) == current_day and _fresh(index_session, now, settings.stale_seconds)
     vix_fresh = _session_day(vix_session) == current_day and _fresh(vix_session, now, settings.stale_seconds)
-    if len(five_minute) >= 28 and index_fresh:
-        adx = float(ADXIndicator(five_minute.high, five_minute.low, five_minute.close, window=14).adx().iloc[-1])
-        atr = float(AverageTrueRange(five_minute.high, five_minute.low, five_minute.close, window=14).average_true_range().iloc[-1])
-        atr_pct = atr / float(five_minute.close.iloc[-1]) * 100
+    if len(fifteen_minute) >= 28 and index_fresh:
+        adx = float(ADXIndicator(fifteen_minute.high, fifteen_minute.low, fifteen_minute.close, window=14).adx().iloc[-1])
+        atr = float(AverageTrueRange(fifteen_minute.high, fifteen_minute.low, fifteen_minute.close, window=14).average_true_range().iloc[-1])
+        atr_pct = atr / float(fifteen_minute.close.iloc[-1]) * 100
         prior = _prior_session(index_frame, index_session)
         if len(prior):
             gap = (float(index_session.open.iloc[0]) - float(prior.close.iloc[-1])) / float(prior.close.iloc[-1]) * 100
@@ -124,6 +124,8 @@ def evaluate_regime_15m(store, index_frame: pd.DataFrame, vix_frame: pd.DataFram
         ])
     LOG.info("regime_reevaluation slot=%s previous=%s current=%s adverse_day_lock=%s",
              slot.isoformat(), previous, result.regime, day_locked)
+    if previous is not None and previous != result.regime:
+        LOG.warning("regime_state_change previous=%s current=%s slot=%s", previous, result.regime, slot.isoformat())
     return result, day_locked, changed_adverse
 
 
@@ -135,7 +137,7 @@ def _current_session(frame: pd.DataFrame) -> pd.DataFrame:
     return result[sessions == sessions.iloc[-1]].reset_index(drop=True)
 
 
-def _five_minute_candles(frame: pd.DataFrame) -> pd.DataFrame:
+def _fifteen_minute_candles(frame: pd.DataFrame) -> pd.DataFrame:
     if frame.empty:
         return frame
     df = frame.copy().sort_values("ts")
@@ -143,7 +145,7 @@ def _five_minute_candles(frame: pd.DataFrame) -> pd.DataFrame:
     df["session"] = df.ts.dt.tz_convert(IST).dt.date
     pieces = []
     for _, session in df.groupby("session"):
-        candles = session.set_index("ts").resample("5min", origin="start_day", offset="15min").agg(
+        candles = session.set_index("ts").resample("15min", origin="start_day", offset="15min").agg(
             open=("open", "first"), high=("high", "max"), low=("low", "min"), close=("close", "last"),
         ).dropna()
         pieces.append(candles.reset_index())

@@ -83,6 +83,7 @@ class Settings:
     breeze_api_key: str = ""
     breeze_api_secret: str = ""
     breeze_session_token: str = ""
+    enabled_agents: tuple[str, ...] = ("ALPHA", "BETA", "GAMMA")
 
     @classmethod
     def from_env(cls) -> "Settings":
@@ -110,6 +111,11 @@ class Settings:
         max_entry_slippage_bps = float(os.getenv("PAPER_MAX_ENTRY_SLIPPAGE_BPS", "8"))
         max_trade_risk = float(os.getenv("PAPER_MAX_RISK_PER_TRADE_INR", "500"))
         max_open_risk = float(os.getenv("PAPER_MAX_AGGREGATE_OPEN_RISK_INR", "750"))
+        enabled_agents = tuple(dict.fromkeys(
+            item.strip().upper()
+            for item in os.getenv("ENABLED_AGENTS", "ALPHA,BETA,GAMMA").split(",")
+            if item.strip()
+        ))
         if paper_capital <= 0 or not 0 < risk_pct <= 5:
             raise RuntimeError("Paper capital must be positive and risk per trade must be between 0 and 5 percent")
         if daily_target <= 0 or daily_loss <= 0:
@@ -122,6 +128,8 @@ class Settings:
             raise RuntimeError("Paper entry slippage tolerance must be between 0 and 20 bps")
         if max_trade_risk != 500 or max_open_risk != 750:
             raise RuntimeError("Paper risk caps must remain INR 500 per trade and INR 750 aggregate")
+        if not enabled_agents or not set(enabled_agents) <= {"ALPHA", "BETA", "GAMMA"}:
+            raise RuntimeError("ENABLED_AGENTS must contain one or more of ALPHA, BETA, GAMMA")
         trading_universe_size = int(os.getenv("INTRADAY_TRADING_UNIVERSE_SIZE", "250"))
         if trading_universe_size != 250:
             raise RuntimeError("INTRADAY_TRADING_UNIVERSE_SIZE must remain 250")
@@ -190,6 +198,7 @@ class Settings:
             market_data_provider=provider,
             market_index_symbol=os.getenv("MARKET_INDEX_SYMBOL", "NIFTY 50"),
             market_index_instrument_key=os.getenv("MARKET_INDEX_INSTRUMENT_KEY", "NSE_INDEX|Nifty 50"),
+            enabled_agents=enabled_agents,
         )
 
     def symbols(self) -> list[str]:

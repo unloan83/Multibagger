@@ -85,7 +85,7 @@ def scan_symbol(frame: pd.DataFrame, settings: Settings, now: datetime | None = 
     """Run only the isolated agent assigned to the current IST window."""
     now = now or datetime.now(timezone.utc)
     agent = active_agent(now)
-    if agent is None or regime == "NO_TRADE" or len(frame) < 30:
+    if agent is None or agent not in settings.enabled_agents or regime == "NO_TRADE" or len(frame) < 30:
         return []
     df = frame.copy().sort_values("ts") if frame_is_enriched else enrich(frame)
     last = df.iloc[-1]

@@ -15,6 +15,7 @@ from .config import Settings
 from .store import MarketStore
 from .scanner import run_scan
 from .paper import run_risk_monitor
+from .strategies import active_agent
 from .universe import build_daily_trading_universe
 from scripts.telegram_notify import send_telegram_message
 
@@ -83,6 +84,8 @@ def run_worker(settings: Settings, scan_interval: int = 900, monitor_interval: i
                     logging.exception("daily live-spread universe failed; scans remain fail closed")
             slot = local.strftime("%Y%m%d-%H%M")
             job_type = scheduled_upstox_job(local, monitor_interval)
+            if job_type == "FULL_SCAN" and active_agent(local) not in settings.enabled_agents:
+                continue
             max_runtime = scan_max_runtime if job_type == "FULL_SCAN" else monitor_max_runtime
             if not job_type or slot in completed_slots:
                 continue

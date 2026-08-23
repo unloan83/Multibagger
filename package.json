@@ -17,6 +17,7 @@
     "engine:scan": "PYTHONPATH=.python-packages python3 -m scripts.market_engine scan",
     "engine:collect": "PYTHONPATH=.python-packages python3 -m scripts.market_engine collect",
     "engine:worker": "PYTHONPATH=.python-packages python3 -m scripts.market_engine worker",
+    "engine:local-agent": "bash scripts/run_local_agent_offload.sh",
     "engine:backfill": "PYTHONPATH=.python-packages python3 -m scripts.market_engine backfill --start 2022-01-01",
     "engine:backtest": "PYTHONPATH=.python-packages python3 -m scripts.market_engine backtest",
     "engine:test": "PYTHONPATH=.:.python-packages python3 -m pytest tests features/breeze/python features/upstox/python",

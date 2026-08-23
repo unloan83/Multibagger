@@ -86,6 +86,10 @@ def run_paper_cycle(
                 no_entry_reasons.append("Maximum simultaneous paper positions reached.")
                 break
             candidate_agent = str(candidate.confirmations.get("agent") or active_agent(now) or "")
+            if candidate_agent not in settings.enabled_agents:
+                _record_entry_rejection(con, candidate, now, run_id, "AGENT_DISABLED")
+                no_entry_reasons.append(f"{candidate_agent} is not enabled on this worker.")
+                continue
             if any(str(row.get("agent") or "") == candidate_agent for row in open_rows):
                 no_entry_reasons.append(f"{candidate_agent} already has an open isolated position.")
                 continue

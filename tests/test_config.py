@@ -34,3 +34,15 @@ def test_daily_breakers_are_fixed(monkeypatch):
     monkeypatch.setenv("PAPER_DAILY_LOSS_LIMIT_INR", "4000")
     with pytest.raises(RuntimeError, match="must remain INR 4,000/1,000"):
         Settings.from_env()
+
+
+def test_enabled_agents_accepts_a_safe_subset(monkeypatch):
+    monkeypatch.setenv("ENABLED_AGENTS", "alpha,gamma")
+    assert Settings.from_env().enabled_agents == ("ALPHA", "GAMMA")
+
+
+@pytest.mark.parametrize("value", ["", "ALPHA,OPTIONS"])
+def test_enabled_agents_rejects_empty_or_unknown_values(monkeypatch, value):
+    monkeypatch.setenv("ENABLED_AGENTS", value)
+    with pytest.raises(RuntimeError, match="ENABLED_AGENTS"):
+        Settings.from_env()

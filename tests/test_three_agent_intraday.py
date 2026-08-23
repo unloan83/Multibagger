@@ -100,6 +100,20 @@ def test_aggregate_open_risk_cap_rejects_second_agent(tmp_path):
     assert result["entryRejections"][0]["reason"] == "AGGREGATE_OPEN_RISK_CAP"
 
 
+def test_disabled_agent_cannot_open_a_trade(tmp_path):
+    settings = replace(_settings(tmp_path), enabled_agents=("BETA", "GAMMA"))
+    store = MarketStore(settings.db_path)
+    now = datetime(2026, 8, 24, 4, 30, tzinfo=timezone.utc)
+    result = run_paper_cycle(store, settings, [_candidate("ALPHA", now, "ALPHA")],
+                             {"ALPHA": _quote(now)}, now, "disabled-agent")
+    assert result["openPositions"] == []
+    with store.connect() as con:
+        reason = con.execute(
+            "SELECT reason FROM paper_entry_rejections ORDER BY observed_at DESC LIMIT 1"
+        ).fetchone()[0]
+    assert reason == "AGENT_DISABLED"
+
+
 def test_dynamic_risk_stays_between_250_and_500(tmp_path):
     settings = _settings(tmp_path)
     assert [_dynamic_risk(pnl, settings) for pnl in (-900, -100, 0, 2500, 3500)] == [250, 375, 500, 375, 250]

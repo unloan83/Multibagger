@@ -24,7 +24,9 @@ def main() -> int:
     alerts = build_alerts(status)
     if alerts:
         send_telegram_message(
-            "🟠 OCI paper-engine resource pressure\n" + "\n".join(f"• {item}" for item in alerts),
+            "🟠 OCI paper-engine resource pressure\n"
+            + "\n".join(f"• {item}" for item in alerts)
+            + "\nOffload one agent: npm run engine:local-agent -- AUTO",
             event_key="oci-resource-pressure",
             cooldown_seconds=1800,
         )

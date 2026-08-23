@@ -39,3 +39,4 @@ data/portfolio-backups/
 *.jpeg
 
 .env*
+.local-paper-fallback/

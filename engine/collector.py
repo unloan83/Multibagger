@@ -47,11 +47,9 @@ def run_worker(settings: Settings, scan_interval: int = 900, monitor_interval: i
     removed = store.prune(35)
     if removed:
         logging.info("pruned %d minute bars older than 35 days", removed)
-    try:
-        universe_result = build_daily_trading_universe(settings, store, datetime.now(timezone.utc))
-        logging.info("daily 08:30 universe selected=%d", len(universe_result))
-    except Exception:
-        logging.exception("daily 250-stock pre-filter failed; scans will fail closed")
+    # The worker starts before the open, but the spread filter must use current-session
+    # quotes. Never stamp a new trading-day universe from the previous close.
+    settings.active_universe_path.unlink(missing_ok=True)
     stop = threading.Event()
     last_event_monitor = 0.0
     send_telegram_message(
@@ -63,11 +61,26 @@ def run_worker(settings: Settings, scan_interval: int = 900, monitor_interval: i
 
     def scanner_loop() -> None:
         completed_slots: set[str] = set()
+        universe_day = None
+        last_universe_attempt = 0.0
         while not stop.wait(0.5):
             local = datetime.now(timezone.utc).astimezone(IST)
             minute = local.hour * 60 + local.minute
             if local.weekday() >= 5 or not 9 * 60 + 16 <= minute <= 15 * 60 + 20:
                 continue
+            current = time.monotonic()
+            if minute >= 9 * 60 + 25 and universe_day != local.date() \
+                    and current - last_universe_attempt >= 60:
+                last_universe_attempt = current
+                try:
+                    universe_result = build_daily_trading_universe(
+                        settings, store, datetime.now(timezone.utc),
+                    )
+                    universe_day = local.date()
+                    logging.info("daily live-spread universe selected=%d", len(universe_result))
+                except Exception:
+                    settings.active_universe_path.unlink(missing_ok=True)
+                    logging.exception("daily live-spread universe failed; scans remain fail closed")
             slot = local.strftime("%Y%m%d-%H%M")
             job_type = scheduled_upstox_job(local, monitor_interval)
             max_runtime = scan_max_runtime if job_type == "FULL_SCAN" else monitor_max_runtime

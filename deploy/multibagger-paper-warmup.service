@@ -18,7 +18,7 @@ Environment=UPSTOX_MODE=SANDBOX
 Environment=PYTHONDONTWRITEBYTECODE=1
 Environment=OPENBLAS_NUM_THREADS=1
 Environment=OMP_NUM_THREADS=1
-ExecStart=/opt/breeze/venv/bin/python -m scripts.market_engine upstox-warmup --days 8
+ExecStart=/opt/breeze/venv/bin/python -m scripts.market_engine upstox-warmup --days 35
 UMask=0077
 NoNewPrivileges=true
 PrivateTmp=true

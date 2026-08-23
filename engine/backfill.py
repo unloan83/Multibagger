@@ -77,10 +77,10 @@ def _validate_backfill_instruments(settings: Settings, instruments: dict[str, st
     if instruments.get(settings.vix_instrument_key) != settings.vix_symbol:
         raise RuntimeError("India VIX is missing from warm-up; regime classification must fail closed")
     equity_count = len(instruments) - 2
-    minimum = max(1, int(settings.max_symbols * 0.8))
+    minimum = min(100, len(settings.symbols()) if hasattr(settings, "symbols") else settings.max_symbols)
     if equity_count < minimum:
         raise RuntimeError(
-            f"Resolved {equity_count}/{settings.max_symbols} equities plus NIFTY 50; "
+            f"Resolved only {equity_count} NIFTY-500 F&O equities plus NIFTY 50; "
             "refusing incomplete backfill"
         )
 

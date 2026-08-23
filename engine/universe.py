@@ -1,9 +1,7 @@
 from __future__ import annotations
 
-import gzip
 import json
 import logging
-import urllib.request
 from datetime import datetime
 from zoneinfo import ZoneInfo
 
@@ -15,37 +13,31 @@ from .store import MarketStore
 
 LOG = logging.getLogger("multibagger.universe")
 IST = ZoneInfo("Asia/Kolkata")
-INSTRUMENTS_URL = "https://assets.upstox.com/market-quote/instruments/exchange/NSE.json.gz"
 
 
 def build_daily_trading_universe(settings: Settings, store: MarketStore,
                                  now: datetime) -> list[str]:
     base = settings.symbols()
     fno = _fno_underlyings()
-    frames = store.bars_for_symbols(base)
-    selected: list[tuple[str, float, float]] = []
-    if not frames.empty:
-        for symbol, frame in frames.groupby("symbol"):
-            if symbol not in fno:
-                continue
-            metrics = _prefilter_metrics(frame.reset_index(drop=True), now)
-            if not metrics:
-                continue
-            average_volume, average_range_pct, spread_bps, sr_distance_pct = metrics
-            reasons = []
-            if average_volume < settings.min_average_volume:
-                reasons.append("AVERAGE_VOLUME")
-            if average_range_pct < settings.min_average_daily_range_pct:
-                reasons.append("AVERAGE_DAILY_RANGE")
-            if spread_bps > settings.max_spread_bps:
-                reasons.append("SPREAD")
-            if sr_distance_pct > settings.support_resistance_proximity_pct:
-                reasons.append("NOT_WITHIN_0_5_PERCENT_OF_PIVOT_VWAP_OR_PREVIOUS_DAY_HIGH_LOW")
-            if reasons:
-                LOG.info("universe_skip symbol=%s reasons=%s", symbol, ",".join(reasons))
-                continue
-            selected.append((str(symbol), average_volume, sr_distance_pct))
-    selected.sort(key=lambda item: (-item[1], item[2], item[0]))
+    metrics_by_symbol = store.universe_metrics([symbol for symbol in base if symbol in fno], now)
+    selected: list[tuple[str, float]] = []
+    for symbol, metrics in metrics_by_symbol.items():
+        median_volume = metrics["median_volume"]
+        median_range_pct = metrics["median_range_pct"]
+        bid, ask = metrics["bid"], metrics["ask"]
+        spread_bps = (ask - bid) / ((ask + bid) / 2) * 10_000
+        reasons = []
+        if median_volume < settings.min_average_volume:
+            reasons.append("20D_MEDIAN_VOLUME")
+        if median_range_pct < settings.min_average_daily_range_pct:
+            reasons.append("20D_MEDIAN_RANGE")
+        if spread_bps > settings.max_spread_bps:
+            reasons.append("SPREAD")
+        if reasons:
+            LOG.info("universe_skip symbol=%s reasons=%s", symbol, ",".join(reasons))
+            continue
+        selected.append((str(symbol), median_volume))
+    selected.sort(key=lambda item: (-item[1], item[0]))
     symbols = [item[0] for item in selected[:settings.trading_universe_size]]
     payload = {
         "tradingDay": now.astimezone(IST).date().isoformat(),
@@ -53,10 +45,9 @@ def build_daily_trading_universe(settings: Settings, store: MarketStore,
         "source": "UPSTOX_NSE_INSTRUMENT_MASTER_AND_RECORDED_BARS",
         "criteria": {
             "fnoOnly": True,
-            "minimumAverageVolume": settings.min_average_volume,
-            "minimumAverageDailyRangePercent": settings.min_average_daily_range_pct,
+            "minimum20DayMedianVolume": settings.min_average_volume,
+            "minimum20DayMedianRangePercent": settings.min_average_daily_range_pct,
             "maximumSpreadBps": settings.max_spread_bps,
-            "dailyPivotVwapPreviousHighLowProximityPercent": settings.support_resistance_proximity_pct,
         },
         "symbols": symbols,
     }
@@ -77,8 +68,8 @@ def active_trading_symbols(settings: Settings, now: datetime) -> list[str]:
 
 
 def _fno_underlyings() -> set[str]:
-    with urllib.request.urlopen(INSTRUMENTS_URL, timeout=30) as response:
-        rows = json.loads(gzip.decompress(response.read()))
+    from features.upstox.python.upstox_collector import nse_instrument_master
+    rows = nse_instrument_master()
     return {
         str(row.get("underlying_symbol"))
         for row in rows
@@ -94,17 +85,19 @@ def _prefilter_metrics(frame: pd.DataFrame, now: datetime | None = None) -> tupl
     df["session"] = pd.to_datetime(df.ts, utc=True).dt.tz_convert(IST).dt.date
     daily = df.groupby("session").agg(
         high=("high", "max"), low=("low", "min"), close=("close", "last"), volume=("volume", "sum"),
-    ).tail(6)
-    if len(daily) < 3:
+    ).tail(21)
+    if len(daily) < 20:
         return None
     today = now.astimezone(IST).date() if now else None
     historical_days = daily.index[daily.index < today] if today else daily.index
     if not len(historical_days):
         return None
     previous_day = historical_days[-1]
-    history = daily.loc[historical_days].tail(5)
-    average_volume = float(history.volume.mean())
-    average_range_pct = float(((history.high - history.low) / history.close * 100).mean())
+    history = daily.loc[historical_days].tail(20)
+    if len(history) < 20:
+        return None
+    average_volume = float(history.volume.median())
+    average_range_pct = float(((history.high - history.low) / history.close * 100).median())
     last = df.iloc[-1]
     bid, ask = float(last.bid or 0), float(last.ask or 0)
     if not (bid > 0 and ask > bid):

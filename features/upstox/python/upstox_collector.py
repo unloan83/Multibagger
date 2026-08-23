@@ -6,6 +6,7 @@ import logging
 import threading
 import time
 import urllib.request
+from functools import lru_cache
 from datetime import datetime, timezone
 from typing import Any, Callable
 from zoneinfo import ZoneInfo
@@ -21,19 +22,30 @@ IST = ZoneInfo("Asia/Kolkata")
 INSTRUMENTS_URL = "https://assets.upstox.com/market-quote/instruments/exchange/NSE.json.gz"
 
 
-def resolve_upstox_instruments(settings: Settings, store: MarketStore) -> dict[str, str]:
+@lru_cache(maxsize=1)
+def nse_instrument_master() -> tuple[dict[str, Any], ...]:
     with urllib.request.urlopen(INSTRUMENTS_URL, timeout=30) as response:
-        rows = json.loads(gzip.decompress(response.read()))
+        return tuple(json.loads(gzip.decompress(response.read())))
+
+
+def resolve_upstox_instruments(settings: Settings, store: MarketStore) -> dict[str, str]:
+    rows = nse_instrument_master()
     wanted = set(settings.symbols())
+    fno = {
+        str(row.get("underlying_symbol")) for row in rows
+        if row.get("segment") == "NSE_FO" and row.get("instrument_type") == "FUT"
+        and row.get("underlying_type") == "EQUITY" and row.get("underlying_symbol")
+    }
     equities = {
         str(row["instrument_key"]): str(row["trading_symbol"])
         for row in rows
         if row.get("segment") == "NSE_EQ" and row.get("instrument_type") == "EQ"
-        and row.get("trading_symbol") in wanted and row.get("instrument_key")
+        and row.get("trading_symbol") in wanted and row.get("trading_symbol") in fno
+        and row.get("instrument_key")
     }
-    minimum = max(1, int(settings.max_symbols * 0.8))
+    minimum = min(100, len(wanted))
     if len(equities) < minimum:
-        raise RuntimeError(f"Only {len(equities)}/{settings.max_symbols} Upstox symbols resolved; refusing partial paper feed")
+        raise RuntimeError(f"Only {len(equities)} NIFTY-500 F&O equities resolved; refusing partial paper feed")
     market_index = next((
         row for row in rows
         if row.get("instrument_key") == settings.market_index_instrument_key

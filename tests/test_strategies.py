@@ -64,12 +64,12 @@ def test_wide_spread_is_no_trade(tmp_path):
 
 
 def test_trending_strategy_uses_atr_risk_levels(tmp_path):
-    now = datetime.now(timezone.utc)
+    now = datetime(2026, 8, 24, 4, 30, tzinfo=timezone.utc)
     signals = scan_symbol(bars(now), settings(tmp_path), now, regime="TRENDING")
     assert any(signal.strategy == "VWAP_PULLBACK_CONTINUATION" for signal in signals)
     signal = signals[0]
     assert signal.stop < signal.entry < signal.target
-    assert round((signal.target - signal.entry) / (signal.entry - signal.stop), 6) == 2
+    assert round((signal.target - signal.entry) / (signal.entry - signal.stop), 6) == 4
 
 
 def test_price_outside_configured_cmp_range_is_no_trade(tmp_path):
@@ -80,7 +80,7 @@ def test_price_outside_configured_cmp_range_is_no_trade(tmp_path):
 
 
 def test_reverse_orb_conditions_create_only_short_setup(tmp_path):
-    now = datetime.now(timezone.utc)
+    now = datetime(2026, 8, 24, 4, 30, tzinfo=timezone.utc)
     frame = bars(now)
     old_high, old_low = frame.high.copy(), frame.low.copy()
     old_bid, old_ask = frame.bid.copy(), frame.ask.copy()
@@ -129,11 +129,11 @@ def test_setup_score_and_time_windows_are_exact():
         "spreadBps": 4.9, "noAdverseNewsLastHour": True,
     }
     assert score_setup(candidate, confirmations) == 100
-    assert entry_score_threshold(datetime(2026, 8, 24, 4, 0, tzinfo=timezone.utc)) == 65
-    assert entry_score_threshold(datetime(2026, 8, 24, 5, 0, tzinfo=timezone.utc)) == 75
-    assert entry_score_threshold(datetime(2026, 8, 24, 7, 15, tzinfo=timezone.utc)) is None
-    assert entry_score_threshold(datetime(2026, 8, 24, 8, 15, tzinfo=timezone.utc)) == 75
-    assert entry_score_threshold(datetime(2026, 8, 24, 9, 0, tzinfo=timezone.utc)) is None
+    assert entry_score_threshold(datetime(2026, 8, 24, 4, 0, tzinfo=timezone.utc)) == 0
+    assert entry_score_threshold(datetime(2026, 8, 24, 5, 0, tzinfo=timezone.utc)) == 0
+    assert entry_score_threshold(datetime(2026, 8, 24, 7, 15, tzinfo=timezone.utc)) == 0
+    assert entry_score_threshold(datetime(2026, 8, 24, 8, 15, tzinfo=timezone.utc)) == 0
+    assert entry_score_threshold(datetime(2026, 8, 24, 9, 0, tzinfo=timezone.utc)) == 0
 
 
 def test_safe_to_adverse_regime_change_locks_day(tmp_path, monkeypatch):

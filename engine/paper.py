@@ -9,14 +9,16 @@ from datetime import datetime, timezone
 from typing import Any
 from zoneinfo import ZoneInfo
 
+import pandas as pd
+
 from .config import Settings
 from .store import MarketStore
-from .strategies import Candidate, entry_score_threshold
+from .strategies import Candidate, active_agent
 
 
 IST = ZoneInfo("Asia/Kolkata")
-STRATEGY_VERSION = "intraday-dual-regime-managed-v4"
-BASELINE = "SIGNAL_ONLY_NO_EXECUTION"
+STRATEGY_VERSION = "intraday-three-agent-paper-v1"
+BASELINE = "NO_SCALE_OUT"
 LOG = logging.getLogger("multibagger.paper")
 
 
@@ -46,23 +48,12 @@ def run_paper_cycle(
             last_candle = trade.get("last_exit_candle_ts")
             if last_candle is not None and candle_ts is not None and candle_ts <= last_candle:
                 continue
+            _scale_out_if_needed(con, trade, quote, now, settings, run_id)
+            trade = _records(con, "SELECT * FROM paper_trades WHERE trade_id=?", [trade["trade_id"]])[0]
             reason = _regular_exit_reason(trade, quote, now, settings)
             _mark_trade(con, trade, quote, now, settings, reason, run_id)
             if candle_ts is not None:
                 con.execute("UPDATE paper_trades SET last_exit_candle_ts=? WHERE trade_id=?", [candle_ts, trade["trade_id"]])
-
-        open_trades = _records(con, "SELECT * FROM paper_trades WHERE status='OPEN' ORDER BY opened_at")
-        projected = _closed_net_today(con, trading_day) + sum(float(row["net_pnl"]) for row in open_trades)
-        lock_reason = None
-        if projected >= settings.paper_daily_profit_target:
-            lock_reason = "DAILY_PROFIT_TARGET_LOCK"
-        elif projected <= -settings.paper_daily_loss_limit:
-            lock_reason = "DAILY_LOSS_LIMIT_LOCK"
-        if lock_reason:
-            for trade in open_trades:
-                quote = _fresh_quote(quotes.get(trade["symbol"]), now, settings.stale_seconds)
-                if quote:
-                    _mark_trade(con, trade, quote, now, settings, lock_reason, run_id)
 
         realized = _closed_net_today(con, trading_day)
         day_count = int(con.execute("SELECT count(*) FROM paper_trades WHERE trading_day=?", [trading_day]).fetchone()[0])
@@ -73,7 +64,7 @@ def run_paper_cycle(
         progress_ratio = projected_before_entries / settings.paper_daily_profit_target
         if settings.execution_paused:
             no_entry_reasons.append("Global trading execution pause is active; paper and sandbox entries/exits are blocked.")
-        if realized >= settings.paper_daily_profit_target:
+        if realized >= settings.paper_daily_profit_target or projected_before_entries >= settings.paper_daily_profit_target:
             no_entry_reasons.append("Daily paper profit target reached; new entries are disabled.")
         if realized <= -settings.paper_daily_loss_limit or (realized + sum(float(row["net_pnl"]) for row in open_rows)) <= -settings.paper_daily_loss_limit:
             no_entry_reasons.append("Daily paper loss limit reached; new entries are disabled.")
@@ -86,7 +77,7 @@ def run_paper_cycle(
 
         entries_allowed = not no_entry_reasons
         entry_gate_open = entries_allowed
-        effective_max_positions = 1
+        effective_max_positions = settings.paper_max_open_positions
         risk_multiplier = 1.0
         for candidate in candidates:
             if not entries_allowed:
@@ -94,15 +85,22 @@ def run_paper_cycle(
             if len(open_rows) >= effective_max_positions:
                 no_entry_reasons.append("Maximum simultaneous paper positions reached.")
                 break
+            candidate_agent = str(candidate.confirmations.get("agent") or active_agent(now) or "")
+            if any(str(row.get("agent") or "") == candidate_agent for row in open_rows):
+                no_entry_reasons.append(f"{candidate_agent} already has an open isolated position.")
+                continue
             if settings.paper_max_trades_per_day > 0 and day_count >= settings.paper_max_trades_per_day:
                 no_entry_reasons.append("Maximum paper trades for the day reached.")
                 break
             quote = _fresh_quote(quotes.get(candidate.symbol), now, settings.stale_seconds)
             if not quote:
+                _record_entry_rejection(con, candidate, now, run_id, "STALE_OR_MISSING_QUOTE")
                 continue
+            open_risk = sum(_remaining_open_risk(row) for row in open_rows)
             trade, rejection_reason = _open_trade(
                 con, candidate, quote, now, trading_day, run_id, settings,
-                consecutive_losses, risk_multiplier, feedback,
+                consecutive_losses, float(candidate.confirmations.get("gateRiskMultiplier") or 1.0), feedback,
+                projected_before_entries, open_risk,
             )
             if trade:
                 open_rows.append(trade)
@@ -131,15 +129,16 @@ def run_paper_cycle(
           ORDER BY observed_at DESC LIMIT 20
         """, [trading_day])
         realized = daily["netPnl"]
-        target_reached = realized >= settings.paper_daily_profit_target
-        loss_limit_reached = realized <= -settings.paper_daily_loss_limit
+        open_net_pnl = sum(float(row["net_pnl"]) for row in open_rows)
+        projected_after_entries = realized + open_net_pnl
+        target_reached = projected_after_entries >= settings.paper_daily_profit_target
+        loss_limit_reached = projected_after_entries <= -settings.paper_daily_loss_limit
         enabled = (
             entry_gate_open and not settings.execution_paused and not target_reached and not loss_limit_reached
             and len(open_rows) < effective_max_positions
             and (settings.paper_max_trades_per_day == 0 or day_count < settings.paper_max_trades_per_day)
             and consecutive_losses < settings.paper_consecutive_loss_limit and _entry_window_open(now)
         )
-        open_net_pnl = sum(float(row["net_pnl"]) for row in open_rows)
         con.execute("""
           INSERT INTO paper_target_history VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         """, [
@@ -229,29 +228,56 @@ def _attach_live_thesis_context(store: MarketStore, settings: Settings, symbols:
             quotes[symbol]["market_trend"] = market_trend
             quotes[symbol]["sector_trend"] = sector_trend
             quotes[symbol]["symbol_trend"] = classify_price_trend(symbol_frame, now, settings.stale_seconds)
+            quotes[symbol].update(_five_minute_context(symbol_frame, now))
+
+
+def _five_minute_context(frame: Any, now: datetime) -> dict[str, Any]:
+    if frame is None or len(frame) == 0:
+        return {}
+    df = frame.copy().sort_values("ts")
+    df["ts"] = pd.to_datetime(df.ts, utc=True)
+    current_day = now.astimezone(IST).date()
+    df = df[df.ts.dt.tz_convert(IST).dt.date == current_day]
+    if df.empty:
+        return {}
+    typical = (df.high + df.low + df.close) / 3
+    total_volume = float(df.volume.sum())
+    vwap = float((typical * df.volume).sum() / total_volume) if total_volume > 0 else None
+    five = df.set_index("ts").resample("5min", origin="start_day", offset="15min").agg(
+        close=("close", "last")
+    ).dropna()
+    completed_cutoff = pd.Timestamp(now).floor("5min")
+    five = five[five.index < completed_cutoff]
+    closes = [float(value) for value in five.close.tail(10)]
+    ema9 = float(five.close.ewm(span=9, adjust=False).mean().iloc[-1]) if len(five) else None
+    return {"five_minute_closes": closes, "ema9_5m": ema9, "vwap": vwap}
 
 
 def _open_trade(con: Any, candidate: Candidate, quote: dict[str, Any], now: datetime, trading_day: Any,
                 run_id: str, settings: Settings, consecutive_losses: int = 0,
                 risk_multiplier: float = 1.0,
-                feedback: dict[str, Any] | None = None) -> tuple[dict[str, Any] | None, str | None]:
+                feedback: dict[str, Any] | None = None, system_pnl: float = 0.0,
+                aggregate_open_risk: float = 0.0) -> tuple[dict[str, Any] | None, str | None]:
     if settings.execution_paused:
         return None, "EXECUTION_PAUSED"
     side = candidate.side
+    agent = str(candidate.confirmations.get("agent") or active_agent(now) or "")
+    if not agent or agent != active_agent(now):
+        return None, "AGENT_TIME_WINDOW_MISMATCH"
     entry_quote = float(quote["ask"] if side == "LONG" else quote["bid"])
     drift_bps = abs(entry_quote - float(candidate.entry)) / float(candidate.entry) * 10_000
     if drift_bps > settings.paper_max_entry_slippage_bps:
         return None, "ENTRY_PRICE_MOVED"
-    required = ("marketDirection", "sectorDirection", "vwap", "volume", "momentum", "strategyQualified", "supportResistance", "riskReward")
+    midpoint = (float(quote["ask"]) + float(quote["bid"])) / 2
+    if (float(quote["ask"]) - float(quote["bid"])) / midpoint * 10_000 > settings.max_spread_bps:
+        return None, "EXCESSIVE_LIVE_SPREAD"
+    if settings.paper_slippage_bps_per_side > settings.paper_max_entry_slippage_bps:
+        return None, "EXCESSIVE_MODELED_SLIPPAGE"
+    required = ("sectorDirection", "vwap", "strategyQualified", "riskReward")
     if settings.require_setup_confirmation:
         missing = [name for name in required if candidate.confirmations.get(name) is not True]
         if missing:
             return None, f"CONFIRMATION_FAILED_{missing[0].upper()}"
-        minimum_score = entry_score_threshold(now)
-        if minimum_score is None:
-            return None, "TIME_OF_DAY_ENTRY_BLOCK"
-        if candidate.rank_score < minimum_score:
-            return None, "SETUP_SCORE_TOO_LOW"
         if candidate.confirmations.get("setupSource") != "PRICE_VOLUME_ONLY":
             return None, "NON_TECHNICAL_TRIGGER_REJECTED"
     stop_distance = (entry_quote - float(candidate.stop)) if side == "LONG" else (float(candidate.stop) - entry_quote)
@@ -260,10 +286,8 @@ def _open_trade(con: Any, candidate: Candidate, quote: dict[str, Any], now: date
     reward = (float(candidate.target) - entry_quote) if side == "LONG" else (entry_quote - float(candidate.target))
     if reward <= 0:
         return None, "INVALID_PROFIT_TARGET"
-    risk_budget = min(
-        settings.paper_portfolio_capital * settings.paper_risk_per_trade_pct / 100,
-        settings.paper_max_risk_per_trade,
-    ) * risk_multiplier
+    risk_budget = _dynamic_risk(system_pnl, settings) * min(max(risk_multiplier, 0.5), 1.0)
+    risk_budget = max(settings.paper_min_risk_per_trade, min(risk_budget, settings.paper_max_risk_per_trade))
     capital_budget = settings.paper_portfolio_capital * settings.paper_max_capital_per_trade_pct / 100
     quantity = min(math.floor(risk_budget / stop_distance), math.floor(capital_budget / entry_quote))
     while quantity > 0:
@@ -273,12 +297,17 @@ def _open_trade(con: Any, candidate: Candidate, quote: dict[str, Any], now: date
         quantity -= 1
     if quantity < 1:
         return None, "POSITION_SIZE_BELOW_ONE"
+    proposed_risk = stop_distance * quantity + _round_trip_cost(
+        entry_quote, float(candidate.stop), quantity, settings
+    )["total"]
+    if aggregate_open_risk + proposed_risk > settings.paper_max_aggregate_open_risk + 1e-9:
+        return None, "AGGREGATE_OPEN_RISK_CAP"
     modeled_cost = _round_trip_cost(entry_quote, float(candidate.target), quantity, settings)
     modeled_round_trip_cost = modeled_cost["total"]
     if reward * quantity <= 2 * modeled_round_trip_cost:
         return None, "EXPECTED_PROFIT_NOT_TWICE_COST"
     raw_rr = reward / stop_distance
-    if raw_rr < settings.reward_risk or raw_rr > settings.max_reward_risk + 1e-6:
+    if raw_rr < settings.reward_risk:
         return None, "RISK_REWARD_OUTSIDE_POLICY"
     slippage_factor = settings.paper_slippage_bps_per_side / 10_000
     entry_fill = entry_quote * (1 + slippage_factor if side == "LONG" else 1 - slippage_factor)
@@ -332,6 +361,10 @@ def _open_trade(con: Any, candidate: Candidate, quote: dict[str, Any], now: date
       ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
     """, [*values, execution_mode, entry_order_id, None])
     con.execute("""
+      UPDATE paper_trades SET agent=?,initial_quantity=?,original_stop_price=?,allowed_risk=?
+      WHERE trade_id=?
+    """, [agent, quantity, candidate.stop, risk_budget, trade_id])
+    con.execute("""
       UPDATE paper_signals SET status='EXECUTED'
       WHERE run_id=? AND symbol=? AND strategy=?
     """, [run_id, candidate.symbol, candidate.strategy])
@@ -345,7 +378,52 @@ def _open_trade(con: Any, candidate: Candidate, quote: dict[str, Any], now: date
             "adaptiveRisk": {"consecutiveLosses": consecutive_losses, "riskMultiplier": risk_multiplier},
         },
     )
+    _record_intraday_audit(con, run_id, now, "TRADE_ENTRY", candidate, system_pnl,
+                           risk=risk_budget, quantity=quantity)
     return _records(con, "SELECT * FROM paper_trades WHERE trade_id=?", [trade_id])[0], None
+
+
+def _scale_out_if_needed(con: Any, trade: dict[str, Any], quote: dict[str, Any], now: datetime,
+                         settings: Settings, event_run_id: str) -> None:
+    if int(trade.get("partial_quantity") or 0) > 0 or int(trade.get("quantity") or 0) < 2:
+        return
+    side = str(trade.get("side") or "LONG")
+    mark = float(quote["bid"] if side == "LONG" else quote["ask"])
+    entry = float(trade["entry_quote"])
+    original_stop = float(trade.get("original_stop_price") or trade["stop_price"])
+    risk_unit = abs(entry - original_stop)
+    favorable = (mark - entry) if side == "LONG" else (entry - mark)
+    if risk_unit <= 0 or favorable < 1.5 * risk_unit:
+        return
+    initial_quantity = int(trade.get("initial_quantity") or trade["quantity"])
+    partial_quantity = initial_quantity // 2
+    remaining = int(trade["quantity"]) - partial_quantity
+    if partial_quantity < 1 or remaining < 1:
+        return
+    slip = settings.paper_slippage_bps_per_side / 10_000
+    fill = mark * (1 - slip if side == "LONG" else 1 + slip)
+    direction = 1 if side == "LONG" else -1
+    partial_gross = direction * (mark - entry) * partial_quantity
+    exit_cost = _one_way_cost(mark, partial_quantity, settings, is_sell=side == "LONG")
+    brokerage = float(trade["brokerage"]) + settings.paper_brokerage_per_order
+    fees = float(trade["fees_taxes"]) + exit_cost["feesTaxes"]
+    slippage = float(trade["slippage"]) + exit_cost["slippageImpact"]
+    expected_runner_exit = _one_way_cost(entry, remaining, settings, is_sell=side == "LONG")
+    cost_to_cover = brokerage + fees + slippage + expected_runner_exit["brokerage"] + expected_runner_exit["feesTaxes"] + expected_runner_exit["slippageImpact"] - partial_gross
+    breakeven = entry + cost_to_cover / remaining if side == "LONG" else entry - cost_to_cover / remaining
+    breakeven = max(entry, breakeven) if side == "LONG" else min(entry, breakeven)
+    con.execute("""
+      UPDATE paper_trades SET quantity=?,stop_price=?,partial_quantity=?,partial_exit_quote=?,
+        partial_exit_fill=?,partial_exit_at=?,partial_gross_pnl=?,brokerage=?,fees_taxes=?,slippage=?,
+        break_even_stop=true WHERE trade_id=?
+    """, [remaining, breakeven, partial_quantity, mark, fill, now, partial_gross,
+          brokerage, fees, slippage, trade["trade_id"]])
+    _record_trade_event(con, str(trade["trade_id"]), event_run_id, "PARTIAL_EXIT", now, mark,
+                        partial_gross, partial_gross - brokerage - fees - slippage, "OPEN",
+                        {"quantity": partial_quantity, "remaining": remaining,
+                         "triggerR": 1.5, "costAdjustedBreakeven": breakeven})
+    _record_intraday_audit(con, event_run_id, now, "PARTIAL_EXIT", None, 0.0, trade=trade,
+                           partial_exit=mark, total_pnl=partial_gross - brokerage - fees - slippage)
 
 
 def _mark_trade(con: Any, trade: dict[str, Any], quote: dict[str, Any], now: datetime,
@@ -356,10 +434,10 @@ def _mark_trade(con: Any, trade: dict[str, Any], quote: dict[str, Any], now: dat
     entry_quote = float(trade["entry_quote"])
     entry_fill = float(trade["entry_fill"])
     direction = 1 if side == "LONG" else -1
-    gross = direction * (exit_quote - entry_quote) * quantity
+    partial_gross = float(trade.get("partial_gross_pnl") or 0)
+    gross = partial_gross + direction * (exit_quote - entry_quote) * quantity
     slip = settings.paper_slippage_bps_per_side / 10_000
     exit_fill = exit_quote * (1 - slip if side == "LONG" else 1 + slip)
-    exit_value = exit_fill * quantity
     entry_brokerage = float(trade["brokerage"])
     entry_fees = float(trade["fees_taxes"])
     entry_slippage = float(trade["slippage"])
@@ -368,14 +446,21 @@ def _mark_trade(con: Any, trade: dict[str, Any], quote: dict[str, Any], now: dat
     total_fees = entry_fees + exit_cost["feesTaxes"]
     total_slippage = entry_slippage + exit_cost["slippageImpact"]
     net = gross - total_brokerage - total_fees - total_slippage
+    initial_quantity = int(trade.get("initial_quantity") or quantity)
+    no_scale_cost = _round_trip_cost(entry_quote, exit_quote, initial_quantity, settings)["total"]
+    no_scale_out_pnl = direction * (exit_quote - entry_quote) * initial_quantity - no_scale_cost
 
     prev_peak = float(trade.get("peak_quote") or entry_quote)
     prev_lowest = float(trade.get("lowest_quote") or entry_quote)
     peak_quote = max(prev_peak, exit_quote)
     lowest_quote = min(prev_lowest, exit_quote)
-    mfe = max(0.0, ((peak_quote - entry_fill) if side == "LONG" else (entry_fill - lowest_quote)) * quantity)
-    mae = min(0.0, ((lowest_quote - entry_fill) if side == "LONG" else (entry_fill - peak_quote)) * quantity)
+    mfe = max(0.0, ((peak_quote - entry_fill) if side == "LONG" else (entry_fill - lowest_quote)) * initial_quantity)
+    mae = min(0.0, ((lowest_quote - entry_fill) if side == "LONG" else (entry_fill - peak_quote)) * initial_quantity)
     profit_giveback = max(0.0, mfe - gross)
+    original_stop = float(trade.get("original_stop_price") or trade["stop_price"])
+    risk_unit = abs(entry_quote - original_stop)
+    favorable = (peak_quote - entry_quote) if side == "LONG" else (entry_quote - lowest_quote)
+    runner_max_r = max(float(trade.get("runner_max_r") or 0), favorable / risk_unit if risk_unit > 0 else 0)
 
     opened_at = trade["opened_at"]
     if isinstance(opened_at, str):
@@ -388,9 +473,11 @@ def _mark_trade(con: Any, trade: dict[str, Any], quote: dict[str, Any], now: dat
         if settings.execution_paused:
             con.execute("""
               UPDATE paper_trades SET current_quote=?,last_marked_at=?,gross_pnl=?,net_pnl=?,
-                peak_quote=?,lowest_quote=?,mfe=?,mae=?,profit_giveback=?,holding_duration_minutes=?
+                peak_quote=?,lowest_quote=?,mfe=?,mae=?,profit_giveback=?,holding_duration_minutes=?,
+                no_scale_out_pnl=?,runner_max_r=?
               WHERE trade_id=?
-            """, [exit_quote, now, gross, net, peak_quote, lowest_quote, mfe, mae, profit_giveback, duration_min, trade["trade_id"]])
+            """, [exit_quote, now, gross, net, peak_quote, lowest_quote, mfe, mae, profit_giveback,
+                  duration_min, no_scale_out_pnl, runner_max_r, trade["trade_id"]])
             _record_trade_event(
                 con, str(trade["trade_id"]), event_run_id, "EXIT_BLOCKED", now,
                 exit_quote, gross, net, str(exit_reason), {"reason": "TRADING_EXECUTION_PAUSED"},
@@ -421,10 +508,11 @@ def _mark_trade(con: Any, trade: dict[str, Any], quote: dict[str, Any], now: dat
           UPDATE paper_trades SET status='CLOSED', current_quote=?, last_marked_at=?, exit_quote=?,
             exit_fill=?, closed_at=?, exit_reason=?, gross_pnl=?, net_pnl=?, brokerage=?,
             fees_taxes=?, slippage=?, exit_order_id=?, peak_quote=?, lowest_quote=?, mfe=?, mae=?,
-            profit_giveback=?, holding_duration_minutes=? WHERE trade_id=?
+            profit_giveback=?, holding_duration_minutes=?,no_scale_out_pnl=?,runner_max_r=? WHERE trade_id=?
         """, [exit_quote, now, exit_quote, exit_fill, now, exit_reason, gross, net,
               total_brokerage, total_fees, total_slippage, exit_order_id,
-              peak_quote, lowest_quote, mfe, mae, profit_giveback, duration_min, trade["trade_id"]])
+              peak_quote, lowest_quote, mfe, mae, profit_giveback, duration_min,
+              no_scale_out_pnl, runner_max_r, trade["trade_id"]])
         con.execute("""
           UPDATE paper_signals SET status=?
           WHERE run_id=? AND symbol=? AND strategy=?
@@ -433,14 +521,19 @@ def _mark_trade(con: Any, trade: dict[str, Any], quote: dict[str, Any], now: dat
             con, str(trade["trade_id"]), event_run_id, "EXIT", now,
             exit_quote, gross, net, str(exit_reason), {"orderId": exit_order_id, "exitFill": exit_fill, "mfe": mfe, "mae": mae},
         )
+        _record_intraday_audit(con, event_run_id, now, "FINAL_EXIT", None, net, trade=trade,
+                               final_exit=exit_quote, total_pnl=net,
+                               no_scale_out_pnl=no_scale_out_pnl)
         LOG.info("trade_exit trade_id=%s symbol=%s trigger=%s quote=%.4f net_pnl=%.2f",
                  trade["trade_id"], trade["symbol"], exit_reason, exit_quote, net)
     else:
         con.execute("""
           UPDATE paper_trades SET current_quote=?, last_marked_at=?, gross_pnl=?, net_pnl=?,
-            peak_quote=?, lowest_quote=?, mfe=?, mae=?, profit_giveback=?, holding_duration_minutes=?
+            peak_quote=?, lowest_quote=?, mfe=?, mae=?, profit_giveback=?, holding_duration_minutes=?,
+            no_scale_out_pnl=?,runner_max_r=?
           WHERE trade_id=?
-        """, [exit_quote, now, gross, net, peak_quote, lowest_quote, mfe, mae, profit_giveback, duration_min, trade["trade_id"]])
+        """, [exit_quote, now, gross, net, peak_quote, lowest_quote, mfe, mae, profit_giveback,
+              duration_min, no_scale_out_pnl, runner_max_r, trade["trade_id"]])
         _record_trade_event(
             con, str(trade["trade_id"]), event_run_id, "MARK", now,
             exit_quote, gross, net, "OPEN", {},
@@ -452,7 +545,6 @@ def _regular_exit_reason(trade: dict[str, Any], quote: dict[str, Any], now: date
     mark = float(quote["bid"] if side == "LONG" else quote["ask"])
     entry_quote = float(trade["entry_quote"])
     stop_price = float(trade["stop_price"])
-    target_price = float(trade["target_price"])
     risk_unit = (entry_quote - stop_price) if side == "LONG" else (stop_price - entry_quote)
 
     if _as_trading_date(trade.get("trading_day")) < now.astimezone(IST).date():
@@ -461,9 +553,7 @@ def _regular_exit_reason(trade: dict[str, Any], quote: dict[str, Any], now: date
         return "END_OF_DAY"
 
     if (side == "LONG" and mark <= stop_price) or (side == "SHORT" and mark >= stop_price):
-        return "STOP_LOSS"
-    if (side == "LONG" and mark >= target_price) or (side == "SHORT" and mark <= target_price):
-        return "PROFIT_TARGET"
+        return "BREAK_EVEN_STOP" if trade.get("break_even_stop") else "STOP_LOSS"
     if quote.get("regime_adverse") is True:
         return "REGIME_CHANGED_ADVERSE"
 
@@ -475,57 +565,26 @@ def _regular_exit_reason(trade: dict[str, Any], quote: dict[str, Any], now: date
     if (now - opened_at.astimezone(timezone.utc)).total_seconds() < settings.paper_minimum_hold_seconds:
         return None
 
-    adverse_trend = "BEARISH" if side == "LONG" else "BULLISH"
-    if quote.get("market_trend") == adverse_trend:
-        return "MARKET_TREND_INVALIDATED"
-    if quote.get("sector_trend") == adverse_trend:
-        return "SECTOR_TREND_INVALIDATED"
-    if quote.get("symbol_trend") == adverse_trend:
-        return "STOCK_TREND_INVALIDATED"
-
     intended = _intended_order(trade)
     confirmations = ((intended.get("signal") or {}).get("confirmations") or intended.get("entryReasons") or {})
-    breakout_level = _optional_float(confirmations.get("breakoutLevel"))
     vwap = _optional_float(quote.get("vwap"))
-    closes = [float(value) for value in quote.get("recent_closes") or []]
-    volumes = [float(value) for value in quote.get("recent_volumes") or []]
-    if breakout_level is not None:
-        tolerance = breakout_level * 0.0005
-        if (side == "LONG" and mark < breakout_level - tolerance) or (side == "SHORT" and mark > breakout_level + tolerance):
-            return "FAILED_BREAKOUT"
-    if vwap is not None and len(closes) >= 2:
+    closes = [float(value) for value in quote.get("five_minute_closes") or []]
+    agent = str(trade.get("agent") or confirmations.get("agent") or "")
+    if agent == "ALPHA" and closes and _optional_float(quote.get("ema9_5m")) is not None:
+        ema9 = float(quote["ema9_5m"])
+        if (side == "LONG" and closes[-1] < ema9) or (side == "SHORT" and closes[-1] > ema9):
+            return "ALPHA_EMA9_5M_CLOSE"
+    if agent == "BETA" and vwap is not None and len(closes) >= 2:
         if (side == "LONG" and mark < vwap and closes[-1] < vwap and closes[-2] < vwap) or (
             side == "SHORT" and mark > vwap and closes[-1] > vwap and closes[-2] > vwap
         ):
-            return "VWAP_FAILURE"
-
-    peak_quote = max(float(trade.get("peak_quote") or entry_quote), mark)
-    lowest_quote = min(float(trade.get("lowest_quote") or entry_quote), mark)
-    if risk_unit > 0:
-        favorable_quote = peak_quote if side == "LONG" else lowest_quote
-        peak_r = ((favorable_quote - entry_quote) if side == "LONG" else (entry_quote - favorable_quote)) / risk_unit
-        atr = _optional_float(confirmations.get("atr")) or risk_unit
-        trailing_distance = settings.paper_trailing_atr_multiple * atr
-        trailing_hit = mark <= peak_quote - trailing_distance if side == "LONG" else mark >= lowest_quote + trailing_distance
-        if peak_r >= settings.paper_trailing_trigger_r and trailing_hit:
-            return "TRAILING_PROFIT_STOP"
-        estimated_cost_per_share = (
-            2 * settings.paper_brokerage_per_order / max(int(trade["quantity"]), 1)
-            + _round_trip_cost(entry_quote, entry_quote, max(int(trade["quantity"]), 1), settings)["variable"]
-            / max(int(trade["quantity"]), 1)
-        )
-        break_even = entry_quote + estimated_cost_per_share if side == "LONG" else entry_quote - estimated_cost_per_share
-        if peak_r >= settings.paper_break_even_trigger_r and (
-            (side == "LONG" and mark <= break_even) or (side == "SHORT" and mark >= break_even)
-        ):
-            return "BREAK_EVEN_STOP"
-        reversal = len(closes) >= 3 and (
-            (side == "LONG" and closes[-1] < closes[-2] < closes[-3])
-            or (side == "SHORT" and closes[-1] > closes[-2] > closes[-3])
-        )
-        volume_deteriorated = len(volumes) >= 3 and volumes[-1] < sum(volumes[:-1]) / (len(volumes) - 1)
-        if reversal and volume_deteriorated:
-            return "MOMENTUM_VOLUME_DETERIORATION"
+            return "BETA_TWO_5M_VWAP_CLOSES"
+    if agent == "GAMMA" and closes:
+        mean = _optional_float(confirmations.get("mean"))
+        levels = [value for value in (mean, vwap) if value is not None]
+        if levels and ((side == "LONG" and closes[-1] >= min(levels)) or
+                       (side == "SHORT" and closes[-1] <= max(levels))):
+            return "GAMMA_MEAN_VWAP_RECROSS"
     return None
 
 
@@ -542,6 +601,22 @@ def _one_way_cost(price: float, quantity: int, settings: Settings, *, is_sell: b
         "feesTaxes": regulatory + exchange + stt + gst,
         "slippageImpact": slippage + impact,
     }
+
+
+def _dynamic_risk(system_pnl: float, settings: Settings) -> float:
+    """Step risk down near either daily breaker; never use P&L to force a trade."""
+    if system_pnl <= -500 or system_pnl >= 3_000:
+        return settings.paper_min_risk_per_trade
+    if system_pnl < 0 or system_pnl >= 2_000:
+        return 375.0
+    return settings.paper_max_risk_per_trade
+
+
+def _remaining_open_risk(trade: dict[str, Any]) -> float:
+    quantity = int(trade.get("quantity") or 0)
+    entry = float(trade.get("entry_quote") or 0)
+    stop = float(trade.get("stop_price") or entry)
+    return max(0.0, abs(entry - stop) * quantity)
 
 
 def _round_trip_cost(entry: float, exit_price: float, quantity: int, settings: Settings) -> dict[str, float]:
@@ -623,7 +698,7 @@ def _flatten_time_reached(now: datetime, settings: Settings) -> bool:
 
 def _entry_window_open(now: datetime) -> bool:
     local = now.astimezone(IST)
-    return local.weekday() < 5 and entry_score_threshold(now) is not None
+    return local.weekday() < 5 and active_agent(now) is not None
 
 
 def _fresh_quote(quote: dict[str, Any] | None, now: datetime, stale_seconds: int) -> dict[str, Any] | None:
@@ -670,6 +745,12 @@ def _metrics(con: Any, where: str, parameters: list[Any], capital: float) -> dic
         maximum_drawdown = max(maximum_drawdown, peak - equity)
     net_pnl = sum(float(row["net_pnl"]) for row in rows)
     max_capital = max((float(row["capital_used"]) for row in rows), default=0.0)
+    agent_pnl: dict[str, float] = {}
+    for row in rows:
+        agent = str(row.get("agent") or "UNKNOWN")
+        agent_pnl[agent] = agent_pnl.get(agent, 0.0) + float(row["net_pnl"])
+    no_scale_total = sum(float(row.get("no_scale_out_pnl") or 0) for row in rows)
+    mfe_total = sum(float(row.get("mfe") or 0) for row in rows)
     return {
         "closedTrades": len(rows),
         "grossPnl": _round(sum(float(row["gross_pnl"]) for row in rows)),
@@ -677,11 +758,21 @@ def _metrics(con: Any, where: str, parameters: list[Any], capital: float) -> dic
         "winRate": _round(len(wins) / len(rows) * 100) if rows else 0,
         "profitFactor": _round(gross_profit / gross_loss) if gross_loss else (None if gross_profit else 0),
         "expectancyPerTrade": _round(net_pnl / len(rows)) if rows else 0,
+        "averageWin": _round(gross_profit / len(wins)) if wins else 0,
+        "averageLoss": _round(-gross_loss / len(losses)) if losses else 0,
         "maximumDrawdown": _round(maximum_drawdown),
         "brokerage": _round(sum(float(row["brokerage"]) for row in rows)),
         "feesTaxes": _round(sum(float(row["fees_taxes"]) for row in rows)),
         "slippage": _round(sum(float(row["slippage"]) for row in rows)),
         "capitalUtilisation": _round(max_capital / capital * 100) if capital > 0 else 0,
+        "agentWisePnl": {agent: _round(value) for agent, value in sorted(agent_pnl.items())},
+        "scaleOutExpectancy": _round(net_pnl / len(rows)) if rows else 0,
+        "noScaleOutExpectancy": _round(no_scale_total / len(rows)) if rows else 0,
+        "runner2RRate": _round(sum(float(row.get("runner_max_r") or 0) >= 2 for row in rows) / len(rows) * 100) if rows else 0,
+        "runner3RRate": _round(sum(float(row.get("runner_max_r") or 0) >= 3 for row in rows) / len(rows) * 100) if rows else 0,
+        "runner4RRate": _round(sum(float(row.get("runner_max_r") or 0) >= 4 for row in rows) / len(rows) * 100) if rows else 0,
+        "breakEvenStopRate": _round(sum(str(row.get("exit_reason")) == "BREAK_EVEN_STOP" for row in rows) / len(rows) * 100) if rows else 0,
+        "mfeCapture": _round(net_pnl / mfe_total * 100) if mfe_total > 0 else 0,
     }
 
 
@@ -701,6 +792,9 @@ def _public_trade(row: dict[str, Any]) -> dict[str, Any]:
         "execution_mode", "entry_order_id", "exit_order_id",
         "peak_quote", "lowest_quote", "mfe", "mae", "profit_giveback", "holding_duration_minutes",
         "last_exit_candle_ts",
+        "agent", "initial_quantity", "original_stop_price", "allowed_risk", "partial_quantity",
+        "partial_exit_quote", "partial_exit_fill", "partial_exit_at", "partial_gross_pnl",
+        "no_scale_out_pnl", "runner_max_r", "break_even_stop",
     ]
     result = {key: row.get(key) for key in keys}
     for key, value in list(result.items()):
@@ -746,6 +840,31 @@ def _record_entry_rejection(con: Any, candidate: Candidate, observed_at: datetim
       UPDATE paper_signals SET status=?
       WHERE run_id=? AND symbol=? AND strategy=?
     """, [f"REJECTED_{reason}", run_id, candidate.symbol, candidate.strategy])
+    _record_intraday_audit(con, run_id, observed_at, "REJECTION", candidate, 0.0,
+                           rejection_reason=reason)
+
+
+def _record_intraday_audit(con: Any, run_id: str, observed_at: datetime, event_type: str,
+                           candidate: Candidate | None, system_pnl: float, *,
+                           trade: dict[str, Any] | None = None, risk: float | None = None,
+                           quantity: int | None = None, partial_exit: float | None = None,
+                           final_exit: float | None = None, total_pnl: float | None = None,
+                           no_scale_out_pnl: float | None = None,
+                           rejection_reason: str | None = None) -> None:
+    confirmations = candidate.confirmations if candidate else (
+        ((_intended_order(trade or {}).get("signal") or {}).get("confirmations") or {})
+    )
+    con.execute("INSERT INTO intraday_audit_log VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)", [
+        str(uuid.uuid4()), run_id, observed_at, event_type,
+        str(confirmations.get("agent") or (trade or {}).get("agent") or ""),
+        candidate.symbol if candidate else (trade or {}).get("symbol"), system_pnl,
+        confirmations.get("regime"), confirmations.get("sectorRank"), confirmations.get("adx"),
+        json.dumps({"ohlcv": confirmations.get("ohlcv"), "vwap": confirmations.get("vwapPrice"),
+                    "atr": confirmations.get("atr"), "bb": confirmations.get("bb")}, sort_keys=True),
+        candidate.entry if candidate else (trade or {}).get("entry_quote"),
+        candidate.stop if candidate else (trade or {}).get("stop_price"), risk, quantity,
+        partial_exit, final_exit, total_pnl, no_scale_out_pnl, rejection_reason,
+    ])
 
 
 def _submit_upstox_sandbox_order(symbol: str, instrument_key: str, quantity: int, price: float,

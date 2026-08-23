@@ -87,6 +87,13 @@ CREATE TABLE IF NOT EXISTS regime_evaluations (
   regime VARCHAR NOT NULL, details_json VARCHAR NOT NULL,
   adverse_day_lock BOOLEAN NOT NULL DEFAULT false
 );
+CREATE TABLE IF NOT EXISTS intraday_audit_log (
+  audit_id VARCHAR PRIMARY KEY, run_id VARCHAR NOT NULL, observed_at TIMESTAMPTZ NOT NULL,
+  event_type VARCHAR NOT NULL, agent VARCHAR, symbol VARCHAR, system_pnl DOUBLE NOT NULL,
+  regime VARCHAR, sector_rank INTEGER, adx DOUBLE, ohlcv_vwap_atr_bb_json VARCHAR NOT NULL,
+  entry DOUBLE, stop DOUBLE, risk DOUBLE, quantity INTEGER, partial_exit DOUBLE,
+  final_exit DOUBLE, total_pnl DOUBLE, no_scale_out_pnl DOUBLE, rejection_reason VARCHAR
+);
 """
 
 
@@ -108,6 +115,18 @@ class MarketStore:
             con.execute("ALTER TABLE paper_trades ADD COLUMN IF NOT EXISTS last_exit_candle_ts TIMESTAMPTZ")
             con.execute("ALTER TABLE paper_trades ADD COLUMN IF NOT EXISTS side VARCHAR DEFAULT 'LONG'")
             con.execute("ALTER TABLE paper_signals ADD COLUMN IF NOT EXISTS side VARCHAR DEFAULT 'LONG'")
+            con.execute("ALTER TABLE paper_trades ADD COLUMN IF NOT EXISTS agent VARCHAR")
+            con.execute("ALTER TABLE paper_trades ADD COLUMN IF NOT EXISTS initial_quantity INTEGER")
+            con.execute("ALTER TABLE paper_trades ADD COLUMN IF NOT EXISTS original_stop_price DOUBLE")
+            con.execute("ALTER TABLE paper_trades ADD COLUMN IF NOT EXISTS allowed_risk DOUBLE")
+            con.execute("ALTER TABLE paper_trades ADD COLUMN IF NOT EXISTS partial_quantity INTEGER DEFAULT 0")
+            con.execute("ALTER TABLE paper_trades ADD COLUMN IF NOT EXISTS partial_exit_quote DOUBLE")
+            con.execute("ALTER TABLE paper_trades ADD COLUMN IF NOT EXISTS partial_exit_fill DOUBLE")
+            con.execute("ALTER TABLE paper_trades ADD COLUMN IF NOT EXISTS partial_exit_at TIMESTAMPTZ")
+            con.execute("ALTER TABLE paper_trades ADD COLUMN IF NOT EXISTS partial_gross_pnl DOUBLE DEFAULT 0")
+            con.execute("ALTER TABLE paper_trades ADD COLUMN IF NOT EXISTS no_scale_out_pnl DOUBLE DEFAULT 0")
+            con.execute("ALTER TABLE paper_trades ADD COLUMN IF NOT EXISTS runner_max_r DOUBLE DEFAULT 0")
+            con.execute("ALTER TABLE paper_trades ADD COLUMN IF NOT EXISTS break_even_stop BOOLEAN DEFAULT false")
 
     @contextmanager
     def connect(self) -> Iterator[duckdb.DuckDBPyConnection]:
@@ -137,14 +156,14 @@ class MarketStore:
             """)
         return len(frame)
 
-    def bars(self, symbol: str, days: int = 10) -> pd.DataFrame:
+    def bars(self, symbol: str, days: int = 35) -> pd.DataFrame:
         with self.connect() as con:
             return con.execute("""
               SELECT * FROM minute_bars WHERE symbol=? AND ts >= now() - (? * INTERVAL '1 day')
               ORDER BY ts
             """, [symbol, days]).df()
 
-    def bars_for_symbols(self, symbols: list[str], days: int = 10) -> pd.DataFrame:
+    def bars_for_symbols(self, symbols: list[str], days: int = 35) -> pd.DataFrame:
         if not symbols:
             return pd.DataFrame()
         with self.connect() as con:
@@ -200,6 +219,45 @@ class MarketStore:
             item.pop("session_lows")
         return result
 
+    def universe_metrics(self, symbols: list[str], now) -> dict[str, dict[str, float]]:
+        """Aggregate the 20-session universe screen in DuckDB without loading all bars into RAM."""
+        if not symbols:
+            return {}
+        with self.connect() as con:
+            rows = con.execute("""
+              WITH daily AS (
+                SELECT symbol, CAST(ts AT TIME ZONE 'Asia/Kolkata' AS DATE) AS trading_day,
+                       max(high) AS high, min(low) AS low, arg_max(close, ts) AS close,
+                       sum(volume) AS volume
+                FROM minute_bars
+                WHERE symbol IN (SELECT unnest(?))
+                  AND CAST(ts AT TIME ZONE 'Asia/Kolkata' AS DATE) < CAST(? AT TIME ZONE 'Asia/Kolkata' AS DATE)
+                GROUP BY symbol,trading_day
+              ), ranked AS (
+                SELECT *, row_number() OVER (PARTITION BY symbol ORDER BY trading_day DESC) AS rn
+                FROM daily
+              ), stats AS (
+                SELECT symbol, median(volume) AS median_volume,
+                       median((high-low)/nullif(close,0)*100) AS median_range_pct,
+                       count(*) AS sessions
+                FROM ranked WHERE rn <= 20 GROUP BY symbol HAVING count(*)=20
+              ), quotes AS (
+                SELECT symbol,bid,ask,close,ts,
+                       row_number() OVER (PARTITION BY symbol ORDER BY ts DESC) AS rn
+                FROM minute_bars
+                WHERE symbol IN (SELECT unnest(?)) AND bid > 0 AND ask > bid
+              )
+              SELECT stats.symbol,median_volume,median_range_pct,bid,ask,quotes.close
+              FROM stats JOIN quotes ON quotes.symbol=stats.symbol AND quotes.rn=1
+            """, [symbols, now, symbols]).fetchall()
+        return {
+            str(symbol): {
+                "median_volume": float(volume), "median_range_pct": float(range_pct),
+                "bid": float(bid), "ask": float(ask), "close": float(close),
+            }
+            for symbol, volume, range_pct, bid, ask, close in rows
+        }
+
     def has_open_trades(self) -> bool:
         with self.connect() as con:
             return bool(con.execute("SELECT 1 FROM paper_trades WHERE status='OPEN' LIMIT 1").fetchone())
@@ -225,12 +283,13 @@ class MarketStore:
               INSERT INTO paper_job_runs VALUES (?, ?, ?, ?, now(), now(), 'SKIPPED', ?, 0, ?)
             """, [job_id, model, job_type, scheduled_at, max_runtime_seconds, reason])
 
-    def prune(self, retention_days: int = 14) -> int:
-        if retention_days < 10:
-            raise ValueError("minute-bar retention must be at least 10 days")
+    def prune(self, retention_days: int = 35) -> int:
+        if retention_days < 30:
+            raise ValueError("minute-bar retention must cover the 20-session universe lookback")
         with self.connect() as con:
             before = con.execute("SELECT count(*) FROM minute_bars").fetchone()[0]
             con.execute("DELETE FROM minute_bars WHERE ts < now() - (? * INTERVAL '1 day')", [retention_days])
+            con.execute("DELETE FROM intraday_audit_log WHERE observed_at < now() - (? * INTERVAL '1 day')", [retention_days])
             after = con.execute("SELECT count(*) FROM minute_bars").fetchone()[0]
         return before - after
 

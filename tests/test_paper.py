@@ -12,7 +12,7 @@ def _settings(tmp_path):
     universe = tmp_path / "universe.json"
     universe.write_text('[{"symbol":"TEST","sources":["NIFTY 500"]}]')
     return Settings("", tmp_path / "market.duckdb", tmp_path / "signals.json", universe,
-                    max_symbols=1, execution_paused=False)
+                    max_symbols=1, execution_paused=False, max_spread_bps=20)
 
 
 def _candidate(symbol, now, side="LONG"):
@@ -28,7 +28,7 @@ def _candidate(symbol, now, side="LONG"):
                      now, now + timedelta(minutes=20), 90.0, confirmations)
 
 
-def test_automatic_paper_entry_exit_and_daily_target_lock(tmp_path):
+def test_daily_profit_threshold_blocks_entries_without_forcing_runner_exit(tmp_path):
     settings = _settings(tmp_path)
     store = MarketStore(settings.db_path)
     opened_at = datetime(2026, 8, 17, 5, 0, tzinfo=timezone.utc)
@@ -45,16 +45,14 @@ def test_automatic_paper_entry_exit_and_daily_target_lock(tmp_path):
     second = run_paper_cycle(
         store, settings, [_candidate("OTHER", exit_time)],
         {
-            "TEST": {"bid": 225.0, "ask": 225.2, "ts": exit_time},
+            "TEST": {"bid": 260.0, "ask": 260.2, "ts": exit_time},
             "OTHER": {"bid": 199.8, "ask": 200.0, "ts": exit_time},
         }, exit_time, "run-two",
     )
-    assert second["openPositions"] == []
-    assert second["dailyMetrics"]["closedTrades"] == 1
-    assert second["dailyMetrics"]["netPnl"] >= settings.paper_daily_profit_target
+    assert len(second["openPositions"]) == 1
+    assert second["openPositions"][0]["partial_quantity"] > 0
     assert second["targetReached"] is True
     assert second["newEntriesEnabled"] is False
-    assert second["recentClosedTrades"][0]["exit_reason"] == "PROFIT_TARGET"
     assert "Daily paper profit target reached" in " ".join(second["noEntryReasons"])
 
 
@@ -161,7 +159,7 @@ def test_upstox_sandbox_order_ids_gate_entry_and_exit(tmp_path, monkeypatch):
     exit_time = opened_at + timedelta(minutes=5)
     second = run_paper_cycle(
         store, settings, [],
-        {"TEST": {"bid": 211.0, "ask": 211.2, "ts": exit_time, "instrument_key": "NSE_EQ|TEST"}},
+        {"TEST": {"bid": 194.5, "ask": 194.7, "ts": exit_time, "instrument_key": "NSE_EQ|TEST"}},
         exit_time, "run-two",
     )
     assert second["recentClosedTrades"][0]["exit_order_id"] == "sandbox-sell-1"
@@ -200,7 +198,7 @@ def test_sandbox_entry_rejection_is_audited(tmp_path, monkeypatch):
         assert con.execute("SELECT count(*) FROM paper_entry_rejections").fetchone()[0] == 1
 
 
-def test_lightweight_monitor_exits_open_trade_and_records_audit_history(tmp_path):
+def test_lightweight_monitor_scales_open_trade_and_records_audit_history(tmp_path):
     settings = _settings(tmp_path)
     store = MarketStore(settings.db_path)
     opened_at = datetime(2026, 8, 17, 5, 0, tzinfo=timezone.utc)
@@ -215,16 +213,15 @@ def test_lightweight_monitor_exits_open_trade_and_records_audit_history(tmp_path
         "volume": 1000, "bid": 211.0, "ask": 211.2, "received_at": exit_time,
     })
     result = run_risk_monitor(settings, exit_time)
-    assert result["openPositions"] == []
-    assert result["recentClosedTrades"][0]["exit_reason"] == "PROFIT_TARGET"
-    assert result["closedByMonitor"][0]["trade_id"] == result["recentClosedTrades"][0]["trade_id"]
+    assert result["openPositions"][0]["partial_quantity"] > 0
+    assert result["closedByMonitor"] == []
     snapshot = json.loads(settings.snapshot_path.read_text())
     assert snapshot["asOf"] == exit_time.isoformat()
-    assert snapshot["paperTrading"]["dailyMetrics"]["closedTrades"] == 1
+    assert snapshot["paperTrading"]["dailyMetrics"]["closedTrades"] == 0
     assert snapshot["reason"] == "NO_TRADE"
     with store.connect() as con:
         event_types = [row[0] for row in con.execute("SELECT event_type FROM paper_trade_events ORDER BY observed_at").fetchall()]
-        assert event_types == ["ENTRY", "EXIT"]
+        assert event_types == ["ENTRY", "PARTIAL_EXIT", "MARK"]
         assert con.execute("SELECT count(*) FROM paper_target_history").fetchone()[0] == 2
 
 
@@ -246,8 +243,7 @@ def test_monitor_uses_fresh_quote_receipt_when_finalized_bar_timestamp_is_delaye
         "received_at": monitor_time - timedelta(seconds=15),
     })
     result = run_risk_monitor(settings, monitor_time)
-    assert result["openPositions"] == []
-    assert result["recentClosedTrades"][0]["exit_reason"] == "PROFIT_TARGET"
+    assert result["openPositions"][0]["partial_quantity"] > 0
 
 
 def test_monitor_rejects_backfilled_quote_even_when_receipt_is_fresh(tmp_path):
@@ -297,7 +293,7 @@ def test_recommendation_without_price_volume_setup_confirmation_is_rejected(tmp_
     assert result["entryRejections"][0]["reason"].startswith("CONFIRMATION_FAILED_")
 
 
-def test_trailing_profit_exit_protects_open_gain(tmp_path):
+def test_alpha_ema9_exit_protects_open_gain(tmp_path):
     settings = _settings(tmp_path)
     store = MarketStore(settings.db_path)
     opened_at = datetime(2026, 8, 21, 5, 0, tzinfo=timezone.utc)
@@ -314,9 +310,9 @@ def test_trailing_profit_exit_protects_open_gain(tmp_path):
     result = run_paper_cycle(
         store, settings, [],
         {"TEST": {"bid": 203.5, "ask": 203.7, "ts": reversal_time,
-                  "recent_closes": [206.0, 204.8, 203.5]}}, reversal_time, "trail-run",
+                  "five_minute_closes": [203.5], "ema9_5m": 204.0}}, reversal_time, "trail-run",
     )
-    assert result["recentClosedTrades"][0]["exit_reason"] == "TRAILING_PROFIT_STOP"
+    assert result["recentClosedTrades"][0]["exit_reason"] == "ALPHA_EMA9_5M_CLOSE"
     assert result["recentClosedTrades"][0]["net_pnl"] > 0
 
 
@@ -343,7 +339,7 @@ def test_prior_session_loss_does_not_override_fixed_risk_policy(tmp_path):
     assert result["openPositions"][0]["quantity"] > 75
 
 
-def test_short_uses_bid_entry_ask_exit_and_reverse_target(tmp_path):
+def test_short_uses_bid_entry_and_ask_stop_exit(tmp_path):
     settings = _settings(tmp_path)
     store = MarketStore(settings.db_path)
     opened_at = datetime(2026, 8, 21, 5, 0, tzinfo=timezone.utc)
@@ -354,15 +350,15 @@ def test_short_uses_bid_entry_ask_exit_and_reverse_target(tmp_path):
     assert opened["openPositions"][0]["side"] == "SHORT"
     result = run_paper_cycle(
         store, settings, [],
-        {"SHORTY": {"bid": 188.8, "ask": 189.0, "ts": opened_at + timedelta(minutes=3)}},
+        {"SHORTY": {"bid": 205.0, "ask": 205.2, "ts": opened_at + timedelta(minutes=3)}},
         opened_at + timedelta(minutes=3), "short-exit",
     )
     trade = result["recentClosedTrades"][0]
-    assert trade["exit_reason"] == "PROFIT_TARGET"
-    assert trade["net_pnl"] > 0
+    assert trade["exit_reason"] == "STOP_LOSS"
+    assert trade["net_pnl"] < 0
 
 
-def test_failed_breakout_exits_before_hard_stop(tmp_path):
+def test_alpha_exit_uses_completed_ema_close(tmp_path):
     settings = _settings(tmp_path)
     store = MarketStore(settings.db_path)
     opened_at = datetime(2026, 8, 21, 5, 0, tzinfo=timezone.utc)
@@ -372,13 +368,14 @@ def test_failed_breakout_exits_before_hard_stop(tmp_path):
     )
     result = run_paper_cycle(
         store, settings, [],
-        {"FAIL": {"bid": 198.8, "ask": 199.0, "ts": opened_at + timedelta(minutes=1)}},
+        {"FAIL": {"bid": 198.8, "ask": 199.0, "ts": opened_at + timedelta(minutes=1),
+                  "five_minute_closes": [198.8], "ema9_5m": 199.2}},
         opened_at + timedelta(minutes=1), "fail-exit",
     )
-    assert result["recentClosedTrades"][0]["exit_reason"] == "FAILED_BREAKOUT"
+    assert result["recentClosedTrades"][0]["exit_reason"] == "ALPHA_EMA9_5M_CLOSE"
 
 
-def test_adverse_market_thesis_exits_without_waiting_for_stop(tmp_path):
+def test_cross_agent_market_thesis_does_not_override_agent_exit(tmp_path):
     settings = _settings(tmp_path)
     store = MarketStore(settings.db_path)
     opened_at = datetime(2026, 8, 21, 5, 0, tzinfo=timezone.utc)
@@ -392,7 +389,7 @@ def test_adverse_market_thesis_exits_without_waiting_for_stop(tmp_path):
                   "market_trend": "BEARISH", "sector_trend": "BULLISH", "symbol_trend": "BULLISH"}},
         opened_at + timedelta(seconds=61), "thesis-check",
     )
-    assert result["recentClosedTrades"][0]["exit_reason"] == "MARKET_TREND_INVALIDATED"
+    assert [trade["symbol"] for trade in result["openPositions"]] == ["TEST"]
 
 
 def test_adverse_regime_flattens_even_during_minimum_hold(tmp_path):

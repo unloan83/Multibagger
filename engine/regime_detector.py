@@ -19,6 +19,7 @@ from .config import Settings
 LOG = logging.getLogger("multibagger.regime")
 IST = ZoneInfo("Asia/Kolkata")
 Regime = Literal["TRENDING", "RANGE", "HIGH_VOL", "TRANSITION"]
+MarketGateState = Literal["NORMAL", "REDUCED", "NO_TRADE"]
 
 
 @dataclass(frozen=True)
@@ -35,6 +36,78 @@ class RegimeDetection:
 
     def to_dict(self) -> dict:
         return asdict(self)
+
+
+@dataclass(frozen=True)
+class MarketGate:
+    regime: MarketGateState
+    opening_range_pct: float | None
+    vwap_slope_bps: float | None
+    breadth_ratio: float | None
+    realized_volatility_pct: float | None
+    vix: float | None
+    skip_reasons: tuple[str, ...]
+    as_of: str
+
+    def to_dict(self) -> dict:
+        return asdict(self)
+
+
+def detect_opening_market_gate(index_frame: pd.DataFrame, vix_frame: pd.DataFrame,
+                               breadth_ratio: float | None, settings: Settings,
+                               now: datetime) -> MarketGate:
+    """Classify the 09:15-09:30 IST opening tape once its 15 bars are complete."""
+    local = now.astimezone(IST)
+    index_session = _current_session(index_frame)
+    vix_session = _current_session(vix_frame)
+    opening = index_session.iloc[:15]
+    opening_vix = vix_session.iloc[:15]
+    missing = (
+        local.hour * 60 + local.minute < 9 * 60 + 30 or len(opening) < 15 or
+        len(opening_vix) == 0 or breadth_ratio is None or
+        _session_day(index_session) != local.date() or _session_day(vix_session) != local.date() or
+        not _fresh(index_session, now, settings.stale_seconds) or
+        not _fresh(vix_session, now, settings.stale_seconds)
+    )
+    if missing:
+        return MarketGate("NO_TRADE", None, None, _round(breadth_ratio), None, None,
+                          ("REGIME_INPUT_UNAVAILABLE",), now.isoformat())
+
+    first_open = float(opening.open.iloc[0])
+    opening_range = (float(opening.high.max()) - float(opening.low.min())) / first_open * 100
+    typical = (opening.high + opening.low + opening.close) / 3
+    cumulative_volume = opening.volume.cumsum().replace(0, float("nan"))
+    vwap = (typical * opening.volume).cumsum() / cumulative_volume
+    slope_bps = (float(vwap.iloc[-1]) - float(vwap.iloc[4])) / first_open * 10_000
+    returns = opening.close.pct_change().dropna()
+    realized_vol = float(returns.std(ddof=0) * math.sqrt(len(returns)) * 100) if len(returns) else 0.0
+    vix = float(opening_vix.close.iloc[-1])
+
+    # Low VIX and a narrow opening range are caution inputs, never lone kill switches.
+    caution = sum((
+        opening_range < 0.4,
+        abs(slope_bps) < 2.0,
+        0.8 <= float(breadth_ratio) <= 1.25,
+        realized_vol < 0.12,
+        vix < 11,
+    ))
+    extreme = sum((
+        opening_range > 1.5,
+        realized_vol > 1.0,
+        vix > 25,
+        float(breadth_ratio) > 4 or float(breadth_ratio) < 0.25,
+    ))
+    if extreme >= 2:
+        regime: MarketGateState = "NO_TRADE"
+        reasons = ("OPENING_MARKET_CONDITIONS_EXTREME",)
+    elif extreme == 1 or caution >= 2:
+        regime = "REDUCED"
+        reasons = ()
+    else:
+        regime = "NORMAL"
+        reasons = ()
+    return MarketGate(regime, _round(opening_range), _round(slope_bps), _round(breadth_ratio),
+                      _round(realized_vol), _round(vix), reasons, now.isoformat())
 
 
 def detect_regime(index_frame: pd.DataFrame, vix_frame: pd.DataFrame,

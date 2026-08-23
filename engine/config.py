@@ -45,11 +45,13 @@ class Settings:
     signal_expiry_minutes: int = 20
     paper_portfolio_capital: float = 500_000.0
     paper_risk_per_trade_pct: float = 0.25
-    paper_max_risk_per_trade: float = 1_000.0
+    paper_min_risk_per_trade: float = 250.0
+    paper_max_risk_per_trade: float = 500.0
+    paper_max_aggregate_open_risk: float = 750.0
     paper_max_capital_per_trade_pct: float = 20.0
     paper_daily_profit_target: float = 4_000.0
-    paper_daily_loss_limit: float = 4_000.0
-    paper_max_open_positions: int = 1
+    paper_daily_loss_limit: float = 1_000.0
+    paper_max_open_positions: int = 3
     paper_max_trades_per_day: int = 4
     paper_consecutive_loss_limit: int = 2
     paper_profit_risk_reduction_ratio: float = 0.70
@@ -60,7 +62,7 @@ class Settings:
     paper_trailing_atr_multiple: float = 1.5
     paper_minimum_hold_seconds: int = 60
     paper_monitor_interval_seconds: int = 30
-    paper_signal_interval_seconds: int = 60
+    paper_signal_interval_seconds: int = 900
     require_setup_confirmation: bool = True
     execution_paused: bool = True
     paper_brokerage_per_order: float = 20.0
@@ -99,32 +101,32 @@ class Settings:
         paper_capital = float(os.getenv("PAPER_PORTFOLIO_CAPITAL_INR", "500000"))
         risk_pct = float(os.getenv("PAPER_RISK_PER_TRADE_PERCENT", "0.25"))
         daily_target = float(os.getenv("PAPER_DAILY_PROFIT_TARGET_INR", "4000"))
-        daily_loss = float(os.getenv("PAPER_DAILY_LOSS_LIMIT_INR", str(paper_capital * 0.008)))
-        max_positions = int(os.getenv("PAPER_MAX_OPEN_POSITIONS", "1"))
+        daily_loss = float(os.getenv("PAPER_DAILY_LOSS_LIMIT_INR", "1000"))
+        max_positions = int(os.getenv("PAPER_MAX_OPEN_POSITIONS", "3"))
         max_trades = int(os.getenv("PAPER_MAX_TRADES_PER_DAY", "4"))
         execution_paused = os.getenv("TRADING_EXECUTION_PAUSED", "true").strip().lower() != "false"
         risk_reduction_ratio = float(os.getenv("PAPER_PROFIT_RISK_REDUCTION_RATIO", "0.70"))
         entry_lock_ratio = float(os.getenv("PAPER_PROFIT_ENTRY_LOCK_RATIO", "0.90"))
         max_entry_slippage_bps = float(os.getenv("PAPER_MAX_ENTRY_SLIPPAGE_BPS", "8"))
+        max_trade_risk = float(os.getenv("PAPER_MAX_RISK_PER_TRADE_INR", "500"))
+        max_open_risk = float(os.getenv("PAPER_MAX_AGGREGATE_OPEN_RISK_INR", "750"))
         if paper_capital <= 0 or not 0 < risk_pct <= 5:
             raise RuntimeError("Paper capital must be positive and risk per trade must be between 0 and 5 percent")
         if daily_target <= 0 or daily_loss <= 0:
             raise RuntimeError("Paper daily profit target and loss limit must be positive")
-        if daily_target < daily_loss:
-            raise RuntimeError("Paper daily profit target must be at least the daily loss limit")
         if not 1 <= max_positions <= 10 or not 0 <= max_trades <= 50:
             raise RuntimeError("Paper position and daily-trade limits are outside safe bounds")
         if not 0 < risk_reduction_ratio < entry_lock_ratio <= 1:
             raise RuntimeError("Profit risk-reduction and entry-lock ratios must be ordered within (0, 1]")
         if not 0 <= max_entry_slippage_bps <= 20:
             raise RuntimeError("Paper entry slippage tolerance must be between 0 and 20 bps")
+        if max_trade_risk != 500 or max_open_risk != 750:
+            raise RuntimeError("Paper risk caps must remain INR 500 per trade and INR 750 aggregate")
         trading_universe_size = int(os.getenv("INTRADAY_TRADING_UNIVERSE_SIZE", "250"))
         if trading_universe_size != 250:
             raise RuntimeError("INTRADAY_TRADING_UNIVERSE_SIZE must remain 250")
-        if max_positions != 1 or max_trades != 4:
-            raise RuntimeError("Paper execution requires one open position and four trades per day")
-        if abs(daily_loss - paper_capital * 0.008) > 0.01:
-            raise RuntimeError("PAPER_DAILY_LOSS_LIMIT_INR must equal 0.8% of paper capital")
+        if abs(daily_target - 4_000) > 0.01 or abs(daily_loss - 1_000) > 0.01:
+            raise RuntimeError("Paper profit/loss breakers must remain INR 4,000/1,000")
         return cls(
             access_token=os.getenv("UPSTOX_ACCESS_TOKEN", ""),
             db_path=Path(os.getenv("MARKET_DATA_DB", ROOT / "data" / "market_data.duckdb")),
@@ -156,7 +158,9 @@ class Settings:
             active_universe_path=Path(os.getenv("ACTIVE_INTRADAY_UNIVERSE_PATH", ROOT / "data" / "active-intraday-universe.json")),
             paper_portfolio_capital=paper_capital,
             paper_risk_per_trade_pct=risk_pct,
-            paper_max_risk_per_trade=float(os.getenv("PAPER_MAX_RISK_PER_TRADE_INR", "1000")),
+            paper_min_risk_per_trade=250.0,
+            paper_max_risk_per_trade=max_trade_risk,
+            paper_max_aggregate_open_risk=max_open_risk,
             paper_max_capital_per_trade_pct=float(os.getenv("PAPER_MAX_CAPITAL_PER_TRADE_PERCENT", "20")),
             paper_daily_profit_target=daily_target,
             paper_daily_loss_limit=daily_loss,
@@ -170,7 +174,7 @@ class Settings:
             paper_trailing_atr_multiple=float(os.getenv("PAPER_TRAILING_ATR_MULTIPLE", "1.5")),
             paper_minimum_hold_seconds=int(os.getenv("PAPER_MINIMUM_HOLD_SECONDS", "60")),
             paper_monitor_interval_seconds=int(os.getenv("PAPER_MONITOR_INTERVAL_SECONDS", "30")),
-            paper_signal_interval_seconds=int(os.getenv("PAPER_SIGNAL_INTERVAL_SECONDS", "60")),
+            paper_signal_interval_seconds=int(os.getenv("PAPER_SIGNAL_INTERVAL_SECONDS", "900")),
             require_setup_confirmation=os.getenv("PAPER_REQUIRE_SETUP_CONFIRMATION", "true").lower() == "true",
             execution_paused=execution_paused,
             paper_brokerage_per_order=float(os.getenv("PAPER_BROKERAGE_PER_ORDER_INR", "20")),

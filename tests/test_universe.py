@@ -5,10 +5,11 @@ import pandas as pd
 from engine.universe import _prefilter_metrics
 
 
-def test_support_resistance_distance_uses_pivot_vwap_and_previous_day_extremes():
+def test_prefilter_requires_and_uses_20_session_medians():
     now = datetime(2026, 8, 24, 3, 0, tzinfo=timezone.utc)
     rows = []
-    for days_ago, close in ((3, 100.0), (2, 101.0), (1, 105.0)):
+    for days_ago in range(20, 0, -1):
+        close = 100.0 + days_ago / 10
         start = now - timedelta(days=days_ago)
         for minute in range(3):
             rows.append({
@@ -18,4 +19,5 @@ def test_support_resistance_distance_uses_pivot_vwap_and_previous_day_extremes()
             })
     metrics = _prefilter_metrics(pd.DataFrame(rows), now)
     assert metrics is not None
-    assert metrics[3] > 0.5
+    assert metrics[0] == 600000
+    assert metrics[1] >= 1.5

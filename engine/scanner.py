@@ -9,12 +9,11 @@ from dataclasses import asdict, replace
 from datetime import datetime, timezone
 
 from .config import Settings
-from .paper import run_paper_cycle
+from .paper import _five_minute_context, run_paper_cycle
 from .publication import publish_snapshot
-from .regime_detector import evaluate_regime_15m
+from .regime_detector import detect_opening_market_gate
 from .store import MarketStore
-from .strategies import (Candidate, Trend, classify_price_trend, enrich, entry_score_threshold,
-                         scan_symbol, score_setup)
+from .strategies import Candidate, Trend, active_agent, classify_price_trend, enrich, scan_symbol
 from .universe import active_trading_symbols
 
 
@@ -31,7 +30,9 @@ def run_scan(settings: Settings, deadline_monotonic: float | None = None) -> dic
     symbols = active_trading_symbols(settings, now)
     candidates: list[Candidate] = []
     symbol_trends: dict[str, Trend] = {}
-    enriched_frames: dict[str, object] = {}
+    audit_details: dict[str, dict[str, float | int]] = {}
+    opening_trends: list[Trend] = []
+    symbol_strengths: dict[str, float] = {}
     universe_rows = json.loads(settings.universe_path.read_text())
     themes = {str(row.get("symbol") or ""): str(row.get("theme") or "UNCLASSIFIED") for row in universe_rows}
     quotes: dict[str, dict] = {}
@@ -70,22 +71,35 @@ def run_scan(settings: Settings, deadline_monotonic: float | None = None) -> dic
                             }
                 if fresh_frame and len(frame) >= 16:
                     enriched = enrich(frame)
-                    enriched_frames[symbol] = enriched
                     symbol_trends[symbol] = classify_price_trend(enriched, now, settings.stale_seconds)
+                    session = enriched[enriched.session == enriched.iloc[-1].session]
+                    if len(session) >= 15:
+                        opening_return = (float(session.iloc[14].close) - float(session.iloc[0].open)) / float(session.iloc[0].open) * 100
+                        opening_trends.append("BULLISH" if opening_return > 0.1 else "BEARISH" if opening_return < -0.1 else "RANGE")
+                        symbol_strengths[symbol] = (float(session.iloc[-1].close) - float(session.iloc[0].open)) / float(session.iloc[0].open) * 100
+                    if symbol in quotes:
+                        quotes[symbol].update(_five_minute_context(enriched, now))
+                    last = enriched.iloc[-1]
+                    audit_details[symbol] = {
+                        "open": float(last.open), "high": float(last.high), "low": float(last.low),
+                        "close": float(last.close), "volume": int(last.volume), "vwap": float(last.vwap),
+                        "atr": float(last.atr), "bbMid": float(last.bb_mid),
+                        "bbUpper": float(last.bb_upper), "bbLower": float(last.bb_lower),
+                    }
+                    candidates.extend(scan_symbol(enriched, settings, now, frame_is_enriched=True,
+                                                  regime="NORMAL"))
 
         nifty_frame = store.bars(settings.market_index_symbol)
         vix_frame = store.bars(settings.vix_symbol)
-        advances = symbol_trends.values().count("BULLISH") if hasattr(symbol_trends.values(), "count") else sum(1 for value in symbol_trends.values() if value == "BULLISH")
-        declines = sum(1 for value in symbol_trends.values() if value == "BEARISH")
+        advances = opening_trends.count("BULLISH")
+        declines = opening_trends.count("BEARISH")
         breadth_ratio = advances / max(declines, 1) if advances or declines else None
-        regime, regime_day_locked, regime_changed_adverse = evaluate_regime_15m(
-            store, nifty_frame, vix_frame, breadth_ratio, settings, now,
-        )
+        regime = detect_opening_market_gate(nifty_frame, vix_frame, breadth_ratio, settings, now)
         skip_reasons = list(regime.skip_reasons)
-        if regime_day_locked:
-            skip_reasons.append("MIDSESSION_ADVERSE_REGIME_DAY_LOCK")
+        if regime.regime == "NO_TRADE" and not skip_reasons:
+            skip_reasons.append("OPENING_MARKET_GATE_NO_TRADE")
         for quote in quotes.values():
-            quote["regime_adverse"] = regime_changed_adverse or regime_day_locked
+            quote["regime_adverse"] = False
         with store.connect() as con:
             losses = con.execute("""
               SELECT net_pnl FROM paper_trades
@@ -97,55 +111,71 @@ def run_scan(settings: Settings, deadline_monotonic: float | None = None) -> dic
         if not symbols:
             skip_reasons.append("DAILY_250_STOCK_UNIVERSE_UNAVAILABLE")
         if skip_reasons:
+            candidates = []
             for reason in dict.fromkeys(skip_reasons):
                 LOG.info("no_trade_skip=%s", reason)
-        else:
-            for symbol, enriched in enriched_frames.items():
-                candidates.extend(scan_symbol(enriched, settings, now, frame_is_enriched=True, regime=regime.regime))
         market_trend = classify_price_trend(nifty_frame, now, settings.stale_seconds)
         sector_trends: dict[str, Trend] = {}
         sector_strengths: dict[tuple[str, Trend], float] = {}
+        sector_returns: dict[str, float] = {}
         for theme in set(themes.values()):
             votes = [symbol_trends[symbol] for symbol in symbol_trends if themes.get(symbol) == theme]
             sector_trends[theme] = _classify_breadth(votes)
             for direction in ("BULLISH", "BEARISH", "RANGE"):
                 sector_strengths[(theme, direction)] = votes.count(direction) / len(votes) if votes else 0.0
-        top_sectors = {
-            direction: {theme for theme, _ in sorted(
-                ((theme, sector_strengths[(theme, direction)]) for theme in set(themes.values())),
-                key=lambda item: item[1], reverse=True,
-            )[:3]}
-            for direction in ("BULLISH", "BEARISH", "RANGE")
-        }
+            returns = [symbol_strengths[symbol] for symbol in symbol_strengths if themes.get(symbol) == theme]
+            sector_returns[theme] = sum(returns) / len(returns) if returns else 0.0
+        strongest = [theme for theme, _ in sorted(sector_returns.items(), key=lambda item: item[1], reverse=True)]
+        weakest = list(reversed(strongest))
         confirmed_candidates: list[Candidate] = []
-        threshold = entry_score_threshold(now)
         for candidate in candidates:
             theme = themes.get(candidate.symbol, "UNCLASSIFIED")
             sector_trend = sector_trends.get(theme, "RANGE")
             required_trend = "BULLISH" if candidate.side == "LONG" else "BEARISH"
-            range_setup = candidate.strategy == "RANGE_MEAN_REVERSION"
+            agent = str(candidate.confirmations.get("agent") or active_agent(now) or "")
+            range_setup = agent == "GAMMA"
+            ranking = strongest if required_trend == "BULLISH" else weakest
+            sector_rank = ranking.index(theme) + 1 if theme in ranking else None
+            sector_qualified = _sector_qualified(agent, sector_trend, sector_rank)
             confirmations = {
                 **candidate.confirmations,
-                "marketDirection": market_trend == required_trend if not range_setup else market_trend == "RANGE",
-                "sectorDirection": sector_trend == required_trend if not range_setup else sector_trend == "RANGE",
+                "regime": regime.regime,
+                "marketDirection": True,
+                "sectorDirection": sector_qualified,
                 "marketTrend": market_trend,
                 "sectorTrend": sector_trend,
                 "sector": theme,
-                "sectorTop3": theme in top_sectors["RANGE" if range_setup else required_trend],
-                "niftyStronglyAligned": not range_setup and market_trend == required_trend and regime.regime == "TRENDING",
+                "sectorTop3": sector_rank is not None and sector_rank <= 3,
+                "sectorRank": sector_rank,
+                "gateRiskMultiplier": 0.5 if regime.regime == "REDUCED" else 1.0,
             }
-            score = score_setup(candidate, confirmations)
-            LOG.info("setup_score symbol=%s side=%s score=%d threshold=%s", candidate.symbol,
-                     candidate.side, score, threshold if threshold is not None else "BLOCKED")
-            if (threshold is not None and score >= threshold and confirmations["marketDirection"]
-                    and confirmations["sectorDirection"]):
-                confirmed_candidates.append(replace(candidate, rank_score=score, confirmations={**confirmations, "setupScore": score}))
+            if sector_qualified:
+                confirmed_candidates.append(replace(candidate, rank_score=float(100 - (sector_rank or 50)), confirmations=confirmations))
         candidates = confirmed_candidates
         candidates.sort(key=lambda item: item.rank_score, reverse=True)
         candidates = candidates[:1]
-        if threshold is None:
+        if active_agent(now) is None:
             skip_reasons.append("TIME_OF_DAY_ENTRY_BLOCK")
         with store.connect() as con:
+            system_pnl = float(con.execute("""
+              SELECT coalesce(sum(net_pnl),0) FROM paper_trades
+              WHERE trading_day=CAST(? AT TIME ZONE 'Asia/Kolkata' AS DATE) AND status='CLOSED'
+            """, [now]).fetchone()[0] or 0)
+            signal_symbols = {item.symbol for item in candidates}
+            audit_rows = []
+            for symbol, details in audit_details.items():
+                candidate = next((item for item in candidates if item.symbol == symbol), None)
+                confirmations = candidate.confirmations if candidate else {}
+                audit_rows.append([
+                    str(uuid.uuid4()), run_id, now, "SIGNAL" if symbol in signal_symbols else "SCAN",
+                    str(confirmations.get("agent") or active_agent(now) or ""), symbol, system_pnl,
+                    regime.regime, confirmations.get("sectorRank"), confirmations.get("adx"),
+                    json.dumps(details, sort_keys=True), candidate.entry if candidate else None,
+                    candidate.stop if candidate else None, None, None, None, None, None, None,
+                    None if candidate else "NO_VALID_SETUP",
+                ])
+            if audit_rows:
+                con.executemany("INSERT INTO intraday_audit_log VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)", audit_rows)
             con.execute("UPDATE paper_signals SET status='EXPIRED_UNEXECUTED' WHERE status='OPEN' AND expiry < ?", [now])
             for item in candidates:
                 con.execute("""INSERT INTO paper_signals
@@ -185,3 +215,9 @@ def _classify_breadth(votes: list[Trend]) -> Trend:
     if bearish >= 0.55 and bearish - bullish >= 0.10:
         return "BEARISH"
     return "RANGE"
+
+
+def _sector_qualified(agent: str, sector_trend: Trend, sector_rank: int | None) -> bool:
+    if agent == "GAMMA":
+        return sector_trend == "RANGE"
+    return agent in ("ALPHA", "BETA") and sector_rank is not None and sector_rank <= 3

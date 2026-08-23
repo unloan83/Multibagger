@@ -7,7 +7,8 @@ from zoneinfo import ZoneInfo
 
 import numpy as np
 import pandas as pd
-from ta.volatility import AverageTrueRange
+from ta.trend import ADXIndicator
+from ta.volatility import AverageTrueRange, BollingerBands
 
 from .config import Settings
 
@@ -40,6 +41,16 @@ def enrich(frame: pd.DataFrame) -> pd.DataFrame:
     fallback_vwap = typical.groupby(sessions).expanding().mean().reset_index(level=0, drop=True)
     df["vwap"] = (cumulative_value / cumulative_volume).fillna(fallback_vwap)
     df["atr"] = AverageTrueRange(df.high, df.low, df.close, window=14, fillna=False).average_true_range()
+    df["ema9"] = df.close.ewm(span=9, adjust=False).mean()
+    for window in (9, 14, 21):
+        try:
+            df[f"adx{window}"] = ADXIndicator(df.high, df.low, df.close, window=window, fillna=False).adx()
+        except IndexError:
+            df[f"adx{window}"] = np.nan
+    bands = BollingerBands(df.close, window=20, window_dev=2.5, fillna=False)
+    df["bb_mid"], df["bb_upper"], df["bb_lower"] = (
+        bands.bollinger_mavg(), bands.bollinger_hband(), bands.bollinger_lband()
+    )
     return df
 
 
@@ -71,9 +82,10 @@ def classify_price_trend(frame: pd.DataFrame, now: datetime, stale_seconds: int)
 
 def scan_symbol(frame: pd.DataFrame, settings: Settings, now: datetime | None = None,
                 frame_is_enriched: bool = False, regime: str = "TRANSITION") -> list[Candidate]:
-    """Return regime-specific price/volume setups; recommendations are never an input."""
+    """Run only the isolated agent assigned to the current IST window."""
     now = now or datetime.now(timezone.utc)
-    if regime not in ("TRENDING", "RANGE") or len(frame) < 30:
+    agent = active_agent(now)
+    if agent is None or regime == "NO_TRADE" or len(frame) < 30:
         return []
     df = frame.copy().sort_values("ts") if frame_is_enriched else enrich(frame)
     last = df.iloc[-1]
@@ -91,18 +103,17 @@ def scan_symbol(frame: pd.DataFrame, settings: Settings, now: datetime | None = 
     spread_bps = (ask - bid) / midpoint * 10_000
     atr_pct = atr / close * 100
     prior = df[df.session != last.session]
-    daily_volume = prior.volume.groupby(prior.session).sum().tail(5).mean()
+    daily_volume = prior.volume.groupby(prior.session).sum().tail(20).median()
     daily_range_pct = (((prior.high.groupby(prior.session).max() - prior.low.groupby(prior.session).min())
-                        / prior.close.groupby(prior.session).last()) * 100).tail(5).mean()
+                        / prior.close.groupby(prior.session).last()) * 100).tail(20).median()
     minute = len(session) - 1
     comparable = prior.groupby("session").nth(minute).volume if len(prior) else pd.Series(dtype=float)
-    comparable_mean = float(comparable.tail(5).mean()) if len(comparable) else 0.0
+    comparable_mean = float(comparable.tail(20).median()) if len(comparable) else 0.0
     relative_volume = float(last.volume) / comparable_mean if comparable_mean > 0 else 0.0
     if not (
         settings.min_price <= close <= settings.max_price
         and daily_volume >= settings.min_average_volume
         and daily_range_pct >= settings.min_average_daily_range_pct
-        and relative_volume >= settings.min_relative_volume
         and spread_bps <= settings.max_spread_bps
         and atr_pct >= settings.min_intraday_atr_pct
     ):
@@ -133,18 +144,26 @@ def scan_symbol(frame: pd.DataFrame, settings: Settings, now: datetime | None = 
         "relativeVolume": round(relative_volume, 3),
         "spreadBps": round(spread_bps, 3),
         "regime": regime,
+        "agent": agent,
+        "adx": round(float(last[f"adx{14 if agent == 'ALPHA' else 9 if agent == 'BETA' else 21}"]), 3),
+        "ohlcv": {name: round(float(last[name]), 4) for name in ("open", "high", "low", "close", "volume")},
+        "ema9": round(float(last.ema9), 4),
+        "bb": {"mid": round(float(last.bb_mid), 4), "upper": round(float(last.bb_upper), 4),
+               "lower": round(float(last.bb_lower), 4)},
     }
-    if regime == "TRENDING":
+    if agent == "ALPHA" and float(last.adx14) > 25:
         candidate = _vwap_pullback(session, str(last.symbol), bid, ask, atr, vwap, relative_volume,
                                    spread_bps, settings, now, expiry, common)
-        if candidate:
-            return [candidate]
-        orb = _high_volume_orb(session, str(last.symbol), bid, ask, atr, vwap, relative_volume,
-                               spread_bps, settings, now, expiry, common)
-        return [orb] if orb else []
-    candidate = _range_mean_reversion(session, str(last.symbol), bid, ask, atr, vwap, relative_volume,
-                                      spread_bps, settings, now, expiry, common)
-    return [candidate] if candidate else []
+        return [candidate] if candidate else []
+    if agent == "BETA" and relative_volume > 3 and float(last.adx9) > 20:
+        candidate = _fifteen_minute_breakout(session, str(last.symbol), bid, ask, atr, vwap,
+                                             relative_volume, spread_bps, settings, now, expiry, common)
+        return [candidate] if candidate else []
+    if agent == "GAMMA" and float(last.adx21) < 20:
+        candidate = _bollinger_fade(session, str(last.symbol), bid, ask, atr, vwap,
+                                    relative_volume, spread_bps, settings, now, expiry, common)
+        return [candidate] if candidate else []
+    return []
 
 
 def _candidate(symbol: str, side: TradeSide, entry: float, stop: float, rr: float, strategy: str,
@@ -153,23 +172,29 @@ def _candidate(symbol: str, side: TradeSide, entry: float, stop: float, rr: floa
     risk = entry - stop if side == "LONG" else stop - entry
     if risk <= 0 or risk / entry * 100 < settings.min_atr_stop_pct:
         return None
-    target = entry + (risk * rr if side == "LONG" else -risk * rr)
+    target = entry + (risk * 4 if side == "LONG" else -risk * 4)
     score = 0.0
     details = {**confirmations, "riskReward": rr >= settings.reward_risk, "targetR": rr,
                "tradeDirection": "BULLISH" if side == "LONG" else "BEARISH"}
     return Candidate(symbol, side, entry, stop, target, strategy, now, expiry, score, details)
 
 
-def entry_score_threshold(now: datetime) -> int | None:
+def active_agent(now: datetime) -> str | None:
     local = now.astimezone(ZoneInfo("Asia/Kolkata"))
     minute = local.hour * 60 + local.minute
-    if 9 * 60 + 30 <= minute < 10 * 60 + 30:
-        return 65
-    if 10 * 60 + 30 <= minute < 12 * 60 + 30:
-        return 75
-    if 13 * 60 + 30 <= minute < 14 * 60 + 30:
-        return 75
+    if local.weekday() >= 5:
+        return None
+    if 9 * 60 + 30 <= minute < 11 * 60:
+        return "ALPHA"
+    if 11 * 60 <= minute < 13 * 60 + 30:
+        return "BETA"
+    if 13 * 60 + 30 <= minute < 15 * 60:
+        return "GAMMA"
     return None
+
+
+def entry_score_threshold(now: datetime) -> int | None:
+    return 0 if active_agent(now) else None
 
 
 def score_setup(candidate: Candidate, confirmations: dict[str, object]) -> int:
@@ -217,6 +242,47 @@ def _range_mean_reversion(session, symbol, bid, ask, atr, vwap, relative_volume,
         if bid - vwap >= settings.reward_risk * risk:
             return _candidate(symbol, "SHORT", bid, stop, settings.reward_risk, "RANGE_MEAN_REVERSION",
                               now, expiry, relative_volume, spread_bps, settings, {**common, "setup": "RANGE_EXTREME"})
+    return None
+
+
+def _bollinger_fade(session, symbol, bid, ask, atr, vwap, relative_volume, spread_bps,
+                    settings, now, expiry, common):
+    last = session.iloc[-1]
+    if not all(np.isfinite(float(last[name])) for name in ("bb_mid", "bb_upper", "bb_lower")):
+        return None
+    if float(last.low) <= float(last.bb_lower) and float(last.close) > float(last.open):
+        return _candidate(symbol, "LONG", ask, float(last.low) - 0.25 * atr, settings.reward_risk,
+                          "GAMMA_BB_FADE", now, expiry, relative_volume, spread_bps, settings,
+                          {**common, "setup": "BB_20_2_5_FADE", "mean": float(last.bb_mid)})
+    if float(last.high) >= float(last.bb_upper) and float(last.close) < float(last.open):
+        return _candidate(symbol, "SHORT", bid, float(last.high) + 0.25 * atr, settings.reward_risk,
+                          "GAMMA_BB_FADE", now, expiry, relative_volume, spread_bps, settings,
+                          {**common, "setup": "BB_20_2_5_FADE", "mean": float(last.bb_mid)})
+    return None
+
+
+def _fifteen_minute_breakout(session, symbol, bid, ask, atr, vwap, relative_volume, spread_bps,
+                             settings, now, expiry, common):
+    candles = session.copy()
+    candles["ts"] = pd.to_datetime(candles.ts, utc=True)
+    fifteen = candles.set_index("ts").resample("15min", origin="start_day", offset="15min").agg(
+        open=("open", "first"), high=("high", "max"), low=("low", "min"), close=("close", "last")
+    ).dropna()
+    if len(fifteen) < 2:
+        return None
+    completed = fifteen.iloc[:-1] if len(session) % 15 else fifteen.iloc[:-1]
+    if completed.empty:
+        return None
+    last = session.iloc[-1]
+    breakout_high, breakout_low = float(completed.high.max()), float(completed.low.min())
+    if float(last.close) > breakout_high and float(last.close) > vwap:
+        return _candidate(symbol, "LONG", ask, breakout_high - 0.25 * atr, settings.reward_risk,
+                          "BETA_15M_BREAKOUT", now, expiry, relative_volume, spread_bps, settings,
+                          {**common, "setup": "15M_BREAKOUT", "breakoutLevel": breakout_high})
+    if float(last.close) < breakout_low and float(last.close) < vwap:
+        return _candidate(symbol, "SHORT", bid, breakout_low + 0.25 * atr, settings.reward_risk,
+                          "BETA_15M_BREAKOUT", now, expiry, relative_volume, spread_bps, settings,
+                          {**common, "setup": "15M_BREAKOUT", "breakoutLevel": breakout_low})
     return None
 
 

@@ -11,6 +11,7 @@ from features.upstox.python.upstox_collector import (
     UpstoxTickWriter,
     _assert_stream_freshness,
     collect_upstox,
+    nse_instrument_master,
     resolve_upstox_instruments,
 )
 
@@ -40,8 +41,10 @@ class InstrumentStore:
 
 
 def test_market_index_is_resolved_first_for_direction_warmup(monkeypatch):
+    nse_instrument_master.cache_clear()
     rows = [
         {"segment": "NSE_EQ", "instrument_type": "EQ", "trading_symbol": "ONE", "instrument_key": "NSE_EQ|ONE"},
+        {"segment": "NSE_FO", "instrument_type": "FUT", "underlying_type": "EQUITY", "underlying_symbol": "ONE"},
         {"instrument_key": "NSE_INDEX|Nifty 50", "trading_symbol": "Nifty 50"},
         {"instrument_key": "NSE_INDEX|India VIX", "trading_symbol": "India VIX"},
     ]

@@ -20,7 +20,7 @@ Breeze, Upstox and Options Quant own separate code boundaries under `features/br
 
 The existing Next.js portal reads paper signals produced out of band by a fail-closed NSE intraday engine. The OCI intraday worker uses Upstox exclusively for market data and sandbox execution; Breeze is isolated to its long-horizon feature:
 
-`Upstox read-only WebSocket → DuckDB → regime + 250-stock F&O prefilter → VWAP/range scanner → Upstox sandbox BUY/SELL + paper accounting → authenticated API/Blob → portal`
+`Upstox read-only WebSocket → DuckDB → NIFTY-500 F&O liquidity prefilter → opening market gate → isolated Alpha/Beta/Gamma paper agents → paper accounting → authenticated API/Blob → portal`
 
 Page and API GET requests never scan the market. A missing, stale, expired, malformed, or non-qualifying signal set returns `NO_TRADE` with an empty list.
 
@@ -42,7 +42,7 @@ MARKET_DATA_PROVIDER=upstox
 ENABLE_LIVE_TRADING=false
 LIVE_TRADING_ENABLED=false
 UPSTOX_MODE=SANDBOX
-PAPER_SUBMIT_UPSTOX_SANDBOX_ORDERS=true
+PAPER_SUBMIT_UPSTOX_SANDBOX_ORDERS=false
 SIGNAL_INGEST_TOKEN=long-random-shared-secret
 SIGNAL_INGEST_URL=https://your-portal.example/api/recommendations
 BLOB_READ_WRITE_TOKEN=... # portal/Vercel durable snapshot storage
@@ -60,17 +60,19 @@ npm run engine:scan
 python3 -m scripts.market_engine backtest --start 2026-01-01 --end 2026-06-30
 ```
 
-The Upstox V3 collector subscribes to the 500-stock source universe plus NIFTY and India VIX. At 08:30 IST the engine keeps at most 250 F&O stocks meeting volume, daily-range and spread filters; price must be within 0.5% of the daily pivot, previous-session VWAP, previous-day high or previous-day low. NIFTY is classified as `TRENDING`, `RANGE`, `HIGH_VOL` or `TRANSITION` from 15-minute ADX, VIX, ATR% and breadth. Only VWAP pullback continuation in `TRENDING` and range-extreme mean reversion in `RANGE` may enter; ORB is a fallback requiring more than 2× first-five-minute volume. Risk is capped at 0.25% of capital and ₹1,000 including modeled costs, with 1.5R–2R targets, one open position and four trades daily. Both the daily profit target and loss breaker are ₹4,000.
+The Upstox V3 collector resolves the current NSE F&O/NIFTY-500 intersection once and reuses that instrument master for warm-up, collection and screening. At 08:30 IST the engine retains stocks with 20-session median volume of at least 500,000, median range of at least 1.5%, and spread no wider than 8 bps; the entry path checks the live spread again. The 09:15–09:30 gate combines NIFTY opening range, VWAP slope, breadth, realised volatility and India VIX into `NORMAL`, `REDUCED` or `NO_TRADE` without treating low VIX or a narrow range as a lone kill switch.
 
-On `VM.Standard.E2.1.Micro`, deploy `deploy/multibagger-paper.service` with the hard-capped `NSE_UNIVERSE_SIZE=500` from `deploy/worker.env.example`. The worker batches candle writes and scans in 50-symbol chunks, retains only 14 days of minute bars, and systemd enforces `MemoryMax=750M`. A stream watchdog restarts the service if active-session quotes or one-minute candles silently stall. `multibagger-resource-watchdog.timer` records host/worker memory, swap, disk, load, and restart counts every ten minutes; it sends a rate-limited Telegram warning below 150 MiB available memory, above 650 MiB worker memory, above 80% disk, or above 80% swap. Upstox credentials belong only in `/etc/upstox/upstox.env`; worker settings belong in `/etc/multibagger/worker.env`. The service hard-codes `ENABLE_LIVE_TRADING=false`, contains no real-money broker-order call, and writes paper state only under `/var/lib/multibagger`.
+Alpha exclusively owns 09:30–11:00 IST and trades top/bottom-three sector VWAP pullbacks with ADX14 above 25. Beta owns 11:00–13:30 and trades top/bottom-three 15-minute breakouts with relative volume above 3× and ADX9 above 20. Gamma owns 13:30–15:00 and only fades BB(20,2.5) extremes in neutral/range sectors with ADX21 below 20. Risk is dynamically ₹250–₹500 per trade, aggregate open risk is capped at ₹750, the daily stop-entry thresholds are +₹4,000 and -₹1,000, and no setup remains `NO_TRADE`. At +1.5R half is exited and the runner moves to cost-adjusted breakeven before following its agent-specific exit rule.
 
-Equity exits are evaluated once per completed one-minute candle, with a 60-second minimum hold for normal thesis exits. Hard stops remain protective; break-even and trailing both begin at 1R, with a 1.5×ATR trailing distance. Every exit trigger and regime state change is logged. Options code remains bypassed and live trading remains prohibited.
+On `VM.Standard.E2.1.Micro`, deploy `deploy/multibagger-paper.service` with the hard-capped `NSE_UNIVERSE_SIZE=500` from `deploy/worker.env.example`. Only the F&O intersection is collected, database aggregation builds the universe without loading all bars into RAM, scans run in 50-symbol batches, 35 days are retained for the 20-session screen, and systemd enforces `MemoryMax=750M`. A stream watchdog restarts the service if active-session quotes or one-minute candles silently stall. `multibagger-resource-watchdog.timer` records host/worker memory, swap, disk, load, and restart counts every ten minutes. Upstox credentials belong only in `/etc/upstox/upstox.env`; worker settings belong in `/etc/multibagger/worker.env`. The service hard-codes `ENABLE_LIVE_TRADING=false` and `LIVE_TRADING_ENABLED=false`, permits only Upstox sandbox orders when configured, and writes paper state only under `/var/lib/multibagger`.
+
+Equity exits are evaluated from completed five-minute context with a 60-second minimum hold: Alpha closes beyond EMA9 against the trade, Beta requires two VWAP closes against it, and Gamma exits on the mean/VWAP recross. Every scan, signal, rejection, partial, mark and final exit is retained for audit. Options code remains bypassed and live trading remains prohibited.
 
 Breeze Multibagger is deliberately outside this paper scheduler. Its legacy OCI service is masked and it has no Vercel scheduled invocation; the feature remains available only as an isolated, manually invoked long-horizon research workflow.
 
 OCI operational alerts use `TELEGRAM_TOKEN` and `TELEGRAM_CHAT_ID` from the protected `/etc/multibagger/telegram.env` file. Telegram receives Upstox worker lifecycle alerts, each completed 15-minute Upstox and Options full scan, position closures/changes, P&L and target status, failures, timeouts, and missed full scans. Successful one- or two-minute risk-monitor heartbeats are deliberately silent. Repeated failure alerts are rate-limited so an outage cannot send a message every minute; Telegram delivery failures never interrupt paper trading.
 
-Store both Upstox tokens in `/home/user/projects/Multibagger/.env.local`, then run `/home/user/projects/sync-upstox-credentials.sh`. The helper securely installs the live-data and sandbox tokens, warms eight days of Upstox history, and starts the worker only during the NSE session (otherwise the timer starts it). The standard daily token also works but expires at 03:30 IST the following day.
+Store both Upstox tokens in `/home/user/projects/Multibagger/.env.local`, then run `/home/user/projects/sync-upstox-credentials.sh`. The helper securely installs the live-data and sandbox tokens, warms 35 calendar days for the 20-session screen, and starts the worker only during the NSE session (otherwise the timer starts it). The standard daily token also works but expires at 03:30 IST the following day.
 
 ## Verify
 

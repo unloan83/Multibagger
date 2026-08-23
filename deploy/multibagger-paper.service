@@ -2,6 +2,8 @@
 Description=Multibagger Upstox automatic paper-trading worker
 Wants=network-online.target tailscaled.service
 After=network-online.target tailscaled.service
+StartLimitIntervalSec=900
+StartLimitBurst=3
 
 [Service]
 Type=simple

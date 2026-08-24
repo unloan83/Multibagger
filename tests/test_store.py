@@ -24,6 +24,15 @@ def test_single_bar_upsert_and_retention(tmp_path):
     assert store.bars_for_symbols([]).empty
 
 
+def test_scan_snapshot_excludes_bars_after_its_as_of_time(tmp_path):
+    store = MarketStore(tmp_path / "market.duckdb")
+    now = datetime.now(timezone.utc)
+    store.upsert_bar(_row(now - timedelta(minutes=1)))
+    store.upsert_bar(_row(now + timedelta(minutes=1)))
+    assert list(store.bars("TEST", through=now).ts) == [now - timedelta(minutes=1)]
+    assert list(store.bars_for_symbols(["TEST"], through=now).ts) == [now - timedelta(minutes=1)]
+
+
 def test_connections_are_serialized_across_store_instances(monkeypatch, tmp_path):
     active = 0
     maximum_active = 0

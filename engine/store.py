@@ -156,22 +156,28 @@ class MarketStore:
             """)
         return len(frame)
 
-    def bars(self, symbol: str, days: int = 35) -> pd.DataFrame:
+    def bars(self, symbol: str, days: int = 35, through=None) -> pd.DataFrame:
+        through_clause = "AND ts <= ?" if through is not None else ""
+        parameters = [symbol, days, through] if through is not None else [symbol, days]
         with self.connect() as con:
-            return con.execute("""
+            return con.execute(f"""
               SELECT * FROM minute_bars WHERE symbol=? AND ts >= now() - (? * INTERVAL '1 day')
+              {through_clause}
               ORDER BY ts
-            """, [symbol, days]).df()
+            """, parameters).df()
 
-    def bars_for_symbols(self, symbols: list[str], days: int = 35) -> pd.DataFrame:
+    def bars_for_symbols(self, symbols: list[str], days: int = 35, through=None) -> pd.DataFrame:
         if not symbols:
             return pd.DataFrame()
+        through_clause = "AND ts <= ?" if through is not None else ""
+        parameters = [symbols, days, through] if through is not None else [symbols, days]
         with self.connect() as con:
-            return con.execute("""
+            return con.execute(f"""
               SELECT * FROM minute_bars
               WHERE symbol IN (SELECT unnest(?)) AND ts >= now() - (? * INTERVAL '1 day')
+              {through_clause}
               ORDER BY symbol, ts
-            """, [symbols, days]).df()
+            """, parameters).df()
 
     def latest_quotes(self, symbols: list[str], completed_before=None) -> dict[str, dict]:
         if not symbols:

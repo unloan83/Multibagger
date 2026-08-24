@@ -46,7 +46,7 @@ def run_scan(settings: Settings, deadline_monotonic: float | None = None) -> dic
             if deadline_monotonic is not None and time.monotonic() >= deadline_monotonic:
                 raise TimeoutError("Upstox full scan exceeded its maximum runtime")
             batch = symbols[offset:offset + SCAN_BATCH_SIZE]
-            frames = store.bars_for_symbols(batch)
+            frames = store.bars_for_symbols(batch, through=now)
             grouped = {symbol: frame.reset_index(drop=True) for symbol, frame in frames.groupby("symbol")} if not frames.empty else {}
             empty = frames.iloc[0:0]
             for symbol in batch:
@@ -89,8 +89,8 @@ def run_scan(settings: Settings, deadline_monotonic: float | None = None) -> dic
                     candidates.extend(scan_symbol(enriched, settings, now, frame_is_enriched=True,
                                                   regime="NORMAL"))
 
-        nifty_frame = store.bars(settings.market_index_symbol)
-        vix_frame = store.bars(settings.vix_symbol)
+        nifty_frame = store.bars(settings.market_index_symbol, through=now)
+        vix_frame = store.bars(settings.vix_symbol, through=now)
         advances = opening_trends.count("BULLISH")
         declines = opening_trends.count("BEARISH")
         breadth_ratio = advances / max(declines, 1) if advances or declines else None

@@ -21,6 +21,11 @@ from scripts.telegram_notify import send_telegram_message
 
 
 IST = ZoneInfo("Asia/Kolkata")
+OPERATIONAL_SCAN_BLOCKERS = frozenset({
+    "REGIME_INPUT_UNAVAILABLE",
+    "DAILY_250_STOCK_UNIVERSE_UNAVAILABLE",
+    "DATA_UNAVAILABLE",
+})
 
 
 def collect(settings: Settings, on_market_data=None) -> None:
@@ -113,6 +118,15 @@ def run_worker(settings: Settings, scan_interval: int = 900, monitor_interval: i
 
     try:
         collect(settings, on_market_data=event_driven_risk_monitor)
+    except Exception as error:
+        send_telegram_message(
+            "🔴 Upstox paper worker failed — entries stopped\n"
+            f"Reason: {str(error)[:500]}\n"
+            "Systemd will attempt a capped restart; investigate if no recovery message follows.",
+            event_key="upstox-worker-failed",
+            cooldown_seconds=900,
+        )
+        raise
     finally:
         stop.set()
         thread.join(timeout=5)
@@ -169,6 +183,7 @@ def _run_locked_job(store: MarketStore, settings: Settings, job_type: str, sched
                     _upstox_scan_message(result, scheduled_at, elapsed),
                     event_key=f"upstox-scan-{scheduled_at.strftime('%Y%m%d-%H%M')}",
                 )
+                _notify_scan_blocker(result, scheduled_at)
             else:
                 for trade in result.get("closedByMonitor", []):
                     send_telegram_message(
@@ -199,9 +214,30 @@ def _upstox_scan_message(result: dict, scheduled_at: datetime, elapsed_ms: int) 
     return (
         "✅ Upstox Intraday full scan completed\n"
         f"Time: {scheduled_at.strftime('%H:%M IST')} | Duration: {elapsed_ms / 1000:.1f}s\n"
+        f"Status: {result.get('status') or 'UNKNOWN'} | Reason: {result.get('reason') or 'NONE'}\n"
         f"Signals: {len(result.get('signals') or [])} | Open positions: {len(paper.get('openPositions') or [])} | Entry rejections: {len(rejections)}\n"
         f"Daily net P&L: ₹{float(metrics.get('netPnl') or 0):,.2f} / ₹{float(paper.get('dailyProfitTarget') or 0):,.2f}\n"
         f"Target reached: {'YES' if paper.get('targetReached') else 'NO'}"
+    )
+
+
+def _notify_scan_blocker(result: dict, scheduled_at: datetime) -> bool:
+    reason = str(result.get("reason") or "")
+    if reason not in OPERATIONAL_SCAN_BLOCKERS:
+        return False
+    descriptions = {
+        "REGIME_INPUT_UNAVAILABLE": "required NIFTY 50, INDIA VIX, or market-breadth data is missing/stale",
+        "DAILY_250_STOCK_UNIVERSE_UNAVAILABLE": "the daily executable trading universe is unavailable",
+        "DATA_UNAVAILABLE": "the scan could not access required market data",
+    }
+    return send_telegram_message(
+        "🔴 Upstox paper entries blocked — action required\n"
+        f"Time: {scheduled_at.strftime('%H:%M IST')}\n"
+        f"Reason: {reason}\n"
+        f"Diagnosis: {descriptions[reason]}\n"
+        "Trading remains fail-closed; the daily target cannot be pursued until this is resolved.",
+        event_key=f"upstox-operational-blocker-{reason.lower()}",
+        cooldown_seconds=1800,
     )
 
 

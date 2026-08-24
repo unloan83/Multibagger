@@ -65,7 +65,8 @@ def refresh_snapshot_with_paper(
         "source": previous.get("source") or f"{settings.market_data_provider.upper()}_1MIN_DUCKDB",
         "mode": "PAPER_ONLY",
         "evaluatedUniverseSize": previous.get("evaluatedUniverseSize", 0),
-        "reason": None if has_signals else "NO_TRADE",
+        "reason": None if has_signals else (previous.get("reason") or "NO_TRADE"),
+        "regime": previous.get("regime"),
         "signals": active_signals,
         "paperTrading": paper,
     }

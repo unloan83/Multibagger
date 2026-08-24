@@ -83,13 +83,36 @@ def test_upstox_v3_tick_is_batched_with_executable_quote():
     assert store.rows[0]["ask"] == 200.0
 
 
+def test_upstox_v3_index_tick_is_stored_without_order_book():
+    store = Store()
+    writer = UpstoxTickWriter(store, {"NSE_INDEX|Nifty 50": "NIFTY 50"})
+    writer.on_message({"feeds": {"NSE_INDEX|Nifty 50": {"fullFeed": {"indexFF": {
+        "marketOHLC": {"ohlc": [{"interval": "I1", "ts": "1786944600000", "open": 24500,
+                                     "high": 24510, "low": 24490, "close": 24505, "vol": 0}]},
+    }}}}})
+    assert writer.flush() == 1
+    assert store.rows[0]["symbol"] == "NIFTY 50"
+    assert store.rows[0]["bid"] is None and store.rows[0]["ask"] is None
+
+
+def test_upstox_v3_equity_tick_without_executable_quote_is_rejected():
+    store = Store()
+    writer = UpstoxTickWriter(store, {"NSE_EQ|TEST": "TEST"})
+    writer.on_message({"feeds": {"NSE_EQ|TEST": {"fullFeed": {"marketFF": {
+        "marketOHLC": {"ohlc": [{"interval": "I1", "ts": "1786944600000", "open": 198,
+                                     "high": 201, "low": 197, "close": 199.9, "vol": 1000}]},
+    }}}}})
+    assert writer.flush() == 0
+
+
 def test_upstox_watchdog_detects_stalled_candles():
     writer = UpstoxTickWriter(Store(), {})
     writer.last_quote_monotonic = 1_000
     writer.last_candle_monotonic = 700
     market_time = datetime(2026, 8, 17, 4, 30, tzinfo=timezone.utc)
+    settings = _watchdog_settings()
     with pytest.raises(RuntimeError, match="candle stream is stale"):
-        _assert_stream_freshness(writer, SimpleNamespace(candle_watchdog_seconds=180), 1_000, market_time)
+        _assert_stream_freshness(writer, settings, 1_000, market_time)
 
 
 def test_upstox_watchdog_detects_stream_that_never_produces_ticks():
@@ -97,7 +120,25 @@ def test_upstox_watchdog_detects_stream_that_never_produces_ticks():
     writer.started_monotonic = 700
     market_time = datetime(2026, 8, 17, 4, 30, tzinfo=timezone.utc)
     with pytest.raises(RuntimeError, match="produced no usable ticks"):
-        _assert_stream_freshness(writer, SimpleNamespace(candle_watchdog_seconds=180), 1_000, market_time)
+        _assert_stream_freshness(writer, _watchdog_settings(), 1_000, market_time)
+
+
+def test_upstox_watchdog_detects_missing_mandatory_index_candles():
+    writer = UpstoxTickWriter(Store(), {})
+    writer.started_monotonic = 700
+    writer.last_quote_monotonic = 1_000
+    writer.last_candle_monotonic = 1_000
+    market_time = datetime(2026, 8, 17, 4, 30, tzinfo=timezone.utc)
+    with pytest.raises(RuntimeError, match="mandatory NIFTY 50 feed produced no"):
+        _assert_stream_freshness(writer, _watchdog_settings(), 1_000, market_time)
+
+
+def _watchdog_settings():
+    return SimpleNamespace(
+        candle_watchdog_seconds=180,
+        market_index_instrument_key="NSE_INDEX|Nifty 50", market_index_symbol="NIFTY 50",
+        vix_instrument_key="NSE_INDEX|India VIX", vix_symbol="INDIA VIX",
+    )
 
 
 def test_async_upstox_connect_stays_alive_until_reconnects_are_exhausted(monkeypatch, tmp_path):

@@ -1,7 +1,7 @@
 from datetime import datetime
 from zoneinfo import ZoneInfo
 
-from engine.collector import _nonblocking_lock, scheduled_upstox_job
+from engine.collector import _nonblocking_lock, _notify_scan_blocker, _upstox_scan_message, scheduled_upstox_job
 from scripts.options_quant_scheduler import scheduled_options_job
 from scripts.options_quant_scheduler import notify_completed
 from scripts.telegram_notify import send_telegram_message
@@ -60,3 +60,20 @@ def test_options_full_scan_notifies_but_routine_monitor_does_not(monkeypatch):
     notify_completed("RISK_MONITOR", now, 200, summary, summary)
     assert len(sent) == 1
     assert "Options Quant full scan completed" in sent[0]
+
+
+def test_upstox_scan_summary_and_operational_blocker_are_explicit(monkeypatch):
+    result = {
+        "status": "NO_TRADE", "reason": "REGIME_INPUT_UNAVAILABLE", "signals": [],
+        "paperTrading": {"openPositions": [], "entryRejections": [], "dailyMetrics": {"netPnl": 0},
+                         "dailyProfitTarget": 4000, "targetReached": False},
+    }
+    now = datetime(2026, 8, 17, 9, 35, tzinfo=IST)
+    assert "Reason: REGIME_INPUT_UNAVAILABLE" in _upstox_scan_message(result, now, 1250)
+    sent = []
+    monkeypatch.setattr("engine.collector.send_telegram_message",
+                        lambda message, **kwargs: sent.append((message, kwargs)) or True)
+    assert _notify_scan_blocker(result, now) is True
+    assert "entries blocked — action required" in sent[0][0]
+    assert sent[0][1]["cooldown_seconds"] == 1800
+    assert _notify_scan_blocker({"reason": "NO_VALID_SETUP"}, now) is False

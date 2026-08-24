@@ -15,6 +15,7 @@ import pandas as pd
 
 from engine.config import Settings
 from engine.store import MarketStore
+from scripts.telegram_notify import send_telegram_message
 
 
 LOG = logging.getLogger("multibagger.upstox")
@@ -80,6 +81,7 @@ class UpstoxTickWriter:
         self.started_monotonic = time.monotonic()
         self.last_quote_monotonic: float | None = None
         self.last_candle_monotonic: float | None = None
+        self.last_candle_timestamp_by_key: dict[str, datetime] = {}
 
     def on_message(self, message: dict[str, Any]) -> None:
         received = datetime.now(timezone.utc)
@@ -87,8 +89,13 @@ class UpstoxTickWriter:
             symbol = self.instruments.get(key)
             if not symbol:
                 continue
-            full = (feed.get("fullFeed") or {}).get("marketFF") or {}
-            quotes = ((full.get("marketLevel") or {}).get("bidAskQuote") or [])
+            full_feed = feed.get("fullFeed") or {}
+            market_full = full_feed.get("marketFF") or {}
+            index_full = full_feed.get("indexFF") or {}
+            full = market_full or index_full
+            if not full:
+                continue
+            quotes = ((market_full.get("marketLevel") or {}).get("bidAskQuote") or [])
             best = quotes[0] if quotes else {}
             bid, ask = _positive_float(best.get("bidP")), _positive_float(best.get("askP"))
             if bid is not None and ask is not None and ask > bid:
@@ -96,7 +103,11 @@ class UpstoxTickWriter:
                 self.last_quote_monotonic = time.monotonic()
             candles = ((full.get("marketOHLC") or {}).get("ohlc") or [])
             minute = next((bar for bar in candles if bar.get("interval") == "I1"), None)
-            if not minute or bid is None or ask is None or ask <= bid:
+            if not minute:
+                continue
+            # Index feeds have OHLC but no executable order book. Equities must
+            # still have a valid spread before their candles are accepted.
+            if market_full and (bid is None or ask is None or ask <= bid):
                 continue
             timestamp = pd.to_datetime(int(minute["ts"]), unit="ms", utc=True).to_pydatetime()
             row = {
@@ -110,6 +121,7 @@ class UpstoxTickWriter:
                 self.pending[(key, timestamp)] = row
             self.candle_ticks += 1
             self.last_candle_monotonic = time.monotonic()
+            self.last_candle_timestamp_by_key[key] = timestamp
 
     def flush(self) -> int:
         with self.lock:
@@ -175,6 +187,13 @@ def collect_upstox(settings: Settings, on_market_data: Callable[[], None] | None
                     LOG.info("Upstox feed healthy; quote_ticks=%d candle_ticks=%d", writer.quote_ticks, writer.candle_ticks)
                     last_log = now
             except Exception as error:
+                send_telegram_message(
+                    "🔴 Upstox paper entries stopped — market-data failure\n"
+                    f"Reason: {str(error)[:500]}\n"
+                    "Trading remains fail-closed. Action is required before the daily target can be pursued.",
+                    event_key="upstox-market-data-blocked",
+                    cooldown_seconds=900,
+                )
                 fail(error)
 
     streamer.on("open", lambda: opened.set())
@@ -217,6 +236,18 @@ def _assert_stream_freshness(writer: UpstoxTickWriter, settings: Settings, monot
         raise RuntimeError("Upstox quote stream is stale; restarting the paper worker")
     if writer.last_candle_monotonic is None or monotonic_now - writer.last_candle_monotonic > limit:
         raise RuntimeError("Upstox one-minute candle stream is stale; restarting the paper worker")
+    for key, label in (
+        (settings.market_index_instrument_key, settings.market_index_symbol),
+        (settings.vix_instrument_key, settings.vix_symbol),
+    ):
+        timestamp = writer.last_candle_timestamp_by_key.get(key)
+        if timestamp is None:
+            if monotonic_now - writer.started_monotonic > limit:
+                raise RuntimeError(f"mandatory {label} feed produced no one-minute candles")
+            continue
+        age = (wall_now.astimezone(timezone.utc) - timestamp.astimezone(timezone.utc)).total_seconds()
+        if age < 0 or age > limit:
+            raise RuntimeError(f"mandatory {label} one-minute candle is stale ({age:.0f}s old)")
 
 
 def _positive_float(value: Any) -> float | None:

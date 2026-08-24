@@ -13,7 +13,7 @@ from .paper import _five_minute_context, run_paper_cycle
 from .publication import publish_snapshot
 from .regime_detector import detect_opening_market_gate
 from .store import MarketStore
-from .strategies import Candidate, Trend, active_agent, classify_price_trend, enrich, scan_symbol
+from .strategies import Candidate, Trend, active_agent, classify_price_trend, enrich, intraday_indicator_window, scan_symbol
 from .universe import active_trading_symbols
 
 
@@ -70,7 +70,7 @@ def run_scan(settings: Settings, deadline_monotonic: float | None = None) -> dic
                                 "completed_candle": bar_time < now.replace(second=0, microsecond=0),
                             }
                 if fresh_frame and len(frame) >= 16:
-                    enriched = enrich(frame)
+                    enriched = enrich(intraday_indicator_window(frame))
                     symbol_trends[symbol] = classify_price_trend(enriched, now, settings.stale_seconds)
                     session = enriched[enriched.session == enriched.iloc[-1].session]
                     if len(session) >= 15:
@@ -87,7 +87,7 @@ def run_scan(settings: Settings, deadline_monotonic: float | None = None) -> dic
                         "bbUpper": float(last.bb_upper), "bbLower": float(last.bb_lower),
                     }
                     candidates.extend(scan_symbol(enriched, settings, now, frame_is_enriched=True,
-                                                  regime="NORMAL"))
+                                                  regime="NORMAL", history_frame=frame))
 
         nifty_frame = store.bars(settings.market_index_symbol, through=now)
         vix_frame = store.bars(settings.vix_symbol, through=now)

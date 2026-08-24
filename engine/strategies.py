@@ -54,6 +54,17 @@ def enrich(frame: pd.DataFrame) -> pd.DataFrame:
     return df
 
 
+def intraday_indicator_window(frame: pd.DataFrame, warmup_bars: int = 500) -> pd.DataFrame:
+    """Retain all current-session bars plus enough prior bars to converge indicators."""
+    if frame.empty:
+        return frame
+    df = frame.sort_values("ts").reset_index(drop=True)
+    sessions = pd.to_datetime(df.ts, utc=True).dt.tz_convert("Asia/Kolkata").dt.date
+    current_session = sessions.iloc[-1]
+    session_start = int(np.flatnonzero(sessions.to_numpy() == current_session)[0])
+    return df.iloc[max(0, session_start - warmup_bars):].reset_index(drop=True)
+
+
 def classify_price_trend(frame: pd.DataFrame, now: datetime, stale_seconds: int) -> Trend:
     """Classify a live one-minute frame without converting RANGE into a trade."""
     if len(frame) < 16:
@@ -81,7 +92,8 @@ def classify_price_trend(frame: pd.DataFrame, now: datetime, stale_seconds: int)
 
 
 def scan_symbol(frame: pd.DataFrame, settings: Settings, now: datetime | None = None,
-                frame_is_enriched: bool = False, regime: str = "TRANSITION") -> list[Candidate]:
+                frame_is_enriched: bool = False, regime: str = "TRANSITION",
+                history_frame: pd.DataFrame | None = None) -> list[Candidate]:
     """Run only the isolated agent assigned to the current IST window."""
     now = now or datetime.now(timezone.utc)
     agent = active_agent(now)
@@ -102,7 +114,10 @@ def scan_symbol(frame: pd.DataFrame, settings: Settings, now: datetime | None = 
     midpoint = (ask + bid) / 2
     spread_bps = (ask - bid) / midpoint * 10_000
     atr_pct = atr / close * 100
-    prior = df[df.session != last.session]
+    history = history_frame.copy().sort_values("ts") if history_frame is not None else df
+    if "session" not in history.columns:
+        history["session"] = pd.to_datetime(history.ts, utc=True).dt.tz_convert("Asia/Kolkata").dt.date
+    prior = history[history.session != last.session]
     daily_volume = prior.volume.groupby(prior.session).sum().tail(20).median()
     daily_range_pct = (((prior.high.groupby(prior.session).max() - prior.low.groupby(prior.session).min())
                         / prior.close.groupby(prior.session).last()) * 100).tail(20).median()

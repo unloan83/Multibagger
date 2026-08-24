@@ -6,7 +6,7 @@ from engine.config import Settings
 from engine.regime_detector import RegimeDetection, detect_regime, evaluate_regime_15m
 from engine.store import MarketStore
 from engine.strategies import (Candidate, classify_price_trend, enrich, entry_score_threshold,
-                               scan_symbol, score_setup)
+                               intraday_indicator_window, scan_symbol, score_setup)
 
 
 def settings(tmp_path):
@@ -97,6 +97,15 @@ def test_range_is_explicit_no_direction(tmp_path):
     frame = enrich(bars(now))
     frame.loc[frame.index[-4:], "close"] = frame.iloc[:15].close.mean()
     assert classify_price_trend(frame, now, 120) == "RANGE"
+
+
+def test_intraday_indicator_window_keeps_warmup_and_full_current_session():
+    prior = pd.DataFrame({"ts": pd.date_range("2026-08-21 03:45", periods=600, freq="min", tz="UTC")})
+    current = pd.DataFrame({"ts": pd.date_range("2026-08-24 03:45", periods=30, freq="min", tz="UTC")})
+    frame = pd.concat([prior, current], ignore_index=True)
+    window = intraday_indicator_window(frame, warmup_bars=500)
+    assert len(window) == 530
+    assert list(window.ts.tail(30)) == list(current.ts)
 
 
 def test_regime_fails_closed_when_required_inputs_are_missing(tmp_path):

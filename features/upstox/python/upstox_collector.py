@@ -242,22 +242,26 @@ def _assert_stream_freshness(writer: UpstoxTickWriter, settings: Settings, monot
     if monotonic_now - writer.last_reconnect_monotonic < 60.0:
         return
 
-    if writer.last_quote_monotonic is None and writer.last_candle_monotonic is None:
-        if monotonic_now - writer.started_monotonic > limit:
+    quote_stale = (
+        writer.last_quote_monotonic is None
+        or (monotonic_now - writer.last_quote_monotonic > limit)
+    )
+    candle_stale = (
+        writer.last_candle_monotonic is None
+        or (monotonic_now - writer.last_candle_monotonic > limit)
+    )
+
+    if quote_stale and candle_stale:
+        if monotonic_now - writer.last_reconnect_monotonic > limit:
             raise RuntimeError("Upstox market-data stream produced no usable ticks; restarting the paper worker")
         return
 
-    if writer.last_quote_monotonic is None:
-        if monotonic_now - writer.last_reconnect_monotonic > limit:
-            raise RuntimeError("Upstox quote stream is stale; restarting the paper worker")
-    elif monotonic_now - writer.last_quote_monotonic > limit:
-        raise RuntimeError("Upstox quote stream is stale; restarting the paper worker")
-
-    if writer.last_candle_monotonic is None:
+    if candle_stale:
         if monotonic_now - writer.last_reconnect_monotonic > limit:
             raise RuntimeError("Upstox one-minute candle stream is stale; restarting the paper worker")
-    elif monotonic_now - writer.last_candle_monotonic > limit:
-        raise RuntimeError("Upstox one-minute candle stream is stale; restarting the paper worker")
+
+    if quote_stale:
+        LOG.warning("Upstox quote stream stale, but candle stream healthy. Continuing.")
 
     for key, label in (
         (settings.market_index_instrument_key, settings.market_index_symbol),

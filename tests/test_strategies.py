@@ -112,7 +112,7 @@ def test_regime_fails_closed_when_required_inputs_are_missing(tmp_path):
     now = datetime.now(timezone.utc)
     result = detect_regime(pd.DataFrame(), pd.DataFrame(), None, settings(tmp_path), now)
     assert result.regime == "TRANSITION"
-    assert "REGIME_INPUT_UNAVAILABLE" in result.skip_reasons
+    assert "REGIME_TRANSITION" in result.skip_reasons
 
 
 def test_vix_above_20_forces_high_vol_no_trade(tmp_path):

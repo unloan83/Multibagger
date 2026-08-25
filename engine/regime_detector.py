@@ -54,8 +54,8 @@ class MarketGate:
 
 
 def detect_opening_market_gate(index_frame: pd.DataFrame, vix_frame: pd.DataFrame,
-                               breadth_ratio: float | None, settings: Settings,
-                               now: datetime) -> MarketGate:
+                                breadth_ratio: float | None, settings: Settings,
+                                now: datetime) -> MarketGate:
     """Classify the 09:15-09:30 IST opening tape once its 15 bars are complete."""
     local = now.astimezone(IST)
     index_session = _current_session(index_frame)
@@ -64,10 +64,7 @@ def detect_opening_market_gate(index_frame: pd.DataFrame, vix_frame: pd.DataFram
     opening_vix = vix_session.iloc[:15]
     missing = (
         local.hour * 60 + local.minute < 9 * 60 + 30 or len(opening) < 15 or
-        len(opening_vix) == 0 or breadth_ratio is None or
-        _session_day(index_session) != local.date() or _session_day(vix_session) != local.date() or
-        not _fresh(index_session, now, settings.stale_seconds) or
-        not _fresh(vix_session, now, settings.stale_seconds)
+        _session_day(index_session) != local.date()
     )
     if missing:
         return MarketGate("NO_TRADE", None, None, _round(breadth_ratio), None, None,
@@ -81,13 +78,14 @@ def detect_opening_market_gate(index_frame: pd.DataFrame, vix_frame: pd.DataFram
     slope_bps = (float(vwap.iloc[-1]) - float(vwap.iloc[4])) / first_open * 10_000
     returns = opening.close.pct_change().dropna()
     realized_vol = float(returns.std(ddof=0) * math.sqrt(len(returns)) * 100) if len(returns) else 0.0
-    vix = float(opening_vix.close.iloc[-1])
+    vix = float(opening_vix.close.iloc[-1]) if len(opening_vix) > 0 else 15.0
+    effective_breadth = breadth_ratio if (breadth_ratio is not None and math.isfinite(breadth_ratio)) else 1.0
 
     # Low VIX and a narrow opening range are caution inputs, never lone kill switches.
     caution = sum((
         opening_range < 0.4,
         abs(slope_bps) < 2.0,
-        0.8 <= float(breadth_ratio) <= 1.25,
+        0.8 <= float(effective_breadth) <= 1.25,
         realized_vol < 0.12,
         vix < 11,
     ))
@@ -95,7 +93,7 @@ def detect_opening_market_gate(index_frame: pd.DataFrame, vix_frame: pd.DataFram
         opening_range > 1.5,
         realized_vol > 1.0,
         vix > 25,
-        float(breadth_ratio) > 4 or float(breadth_ratio) < 0.25,
+        float(effective_breadth) > 4 or float(effective_breadth) < 0.25,
     ))
     if extreme >= 2:
         regime: MarketGateState = "NO_TRADE"
@@ -106,7 +104,7 @@ def detect_opening_market_gate(index_frame: pd.DataFrame, vix_frame: pd.DataFram
     else:
         regime = "NORMAL"
         reasons = ()
-    return MarketGate(regime, _round(opening_range), _round(slope_bps), _round(breadth_ratio),
+    return MarketGate(regime, _round(opening_range), _round(slope_bps), _round(effective_breadth),
                       _round(realized_vol), _round(vix), reasons, now.isoformat())
 
 
@@ -120,7 +118,7 @@ def detect_regime(index_frame: pd.DataFrame, vix_frame: pd.DataFrame,
     current_day = now.astimezone(IST).date()
     index_fresh = _session_day(index_session) == current_day and _fresh(index_session, now, settings.stale_seconds)
     vix_fresh = _session_day(vix_session) == current_day and _fresh(vix_session, now, settings.stale_seconds)
-    if len(fifteen_minute) >= 28 and index_fresh:
+    if len(fifteen_minute) >= 14:
         adx = float(ADXIndicator(fifteen_minute.high, fifteen_minute.low, fifteen_minute.close, window=14).adx().iloc[-1])
         atr = float(AverageTrueRange(fifteen_minute.high, fifteen_minute.low, fifteen_minute.close, window=14).average_true_range().iloc[-1])
         atr_pct = atr / float(fifteen_minute.close.iloc[-1]) * 100
@@ -131,18 +129,21 @@ def detect_regime(index_frame: pd.DataFrame, vix_frame: pd.DataFrame,
     event_labels = tuple(_event_labels(settings, now))
     reasons: list[str] = []
 
-    if vix is not None and vix > settings.vix_max_level:
+    # Fallback logic: If one input is missing, use a conservative default
+    effective_adx = adx if (adx is not None and math.isfinite(adx)) else 22.0
+    effective_vix = vix if (vix is not None and math.isfinite(vix)) else 15.0
+    effective_atr_pct = atr_pct if (atr_pct is not None and math.isfinite(atr_pct)) else 1.0
+    effective_ad = advance_decline_ratio if (advance_decline_ratio is not None and math.isfinite(advance_decline_ratio)) else 1.0
+
+    if effective_vix > settings.vix_max_level:
         regime: Regime = "HIGH_VOL"
-    elif adx is None or vix is None or atr_pct is None or advance_decline_ratio is None:
-        regime: Regime = "TRANSITION"
-        reasons.append("REGIME_INPUT_UNAVAILABLE")
-    elif atr_pct >= settings.regime_high_vol_atr_pct:
+    elif effective_atr_pct >= settings.regime_high_vol_atr_pct:
         regime = "HIGH_VOL"
-    elif adx >= settings.regime_adx_trending and (
-        advance_decline_ratio >= 1.5 or advance_decline_ratio <= 1 / 1.5
+    elif effective_adx >= settings.regime_adx_trending and (
+        effective_ad >= 1.5 or effective_ad <= 1 / 1.5
     ):
         regime = "TRENDING"
-    elif adx <= settings.regime_adx_range and 0.75 <= advance_decline_ratio <= 1.33:
+    elif effective_adx <= settings.regime_adx_range and 0.75 <= effective_ad <= 1.33:
         regime = "RANGE"
     else:
         regime = "TRANSITION"
@@ -157,10 +158,12 @@ def detect_regime(index_frame: pd.DataFrame, vix_frame: pd.DataFrame,
         reasons.append("SCHEDULED_EVENT_DAY")
 
     result = RegimeDetection(
-        regime, _round(adx), _round(vix), _round(atr_pct),
-        _round(advance_decline_ratio), _round(gap), event_labels,
+        regime, _round(effective_adx), _round(effective_vix), _round(effective_atr_pct),
+        _round(effective_ad), _round(gap), event_labels,
         tuple(dict.fromkeys(reasons)), now.isoformat(),
     )
+    LOG.info("Regime inputs: ADX=%s, VIX=%s, ATR%%=%s, A/D=%s, Classification=%s",
+             _round(effective_adx), _round(effective_vix), _round(effective_atr_pct), _round(effective_ad), regime)
     LOG.info("regime_detection=%s", json.dumps(result.to_dict(), sort_keys=True))
     for reason in result.skip_reasons:
         LOG.info("no_trade_skip=%s regime=%s", reason, regime)

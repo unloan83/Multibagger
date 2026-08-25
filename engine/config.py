@@ -22,7 +22,7 @@ class Settings:
     max_price: float = 750.0
     min_daily_value: float = 500_000_000.0
     min_relative_volume: float = 1.5
-    max_spread_bps: float = 8.0
+    max_spread_bps: float = 10.0
     min_intraday_atr_pct: float = 0.35
     max_breakout_extension_atr: float = 0.60
     min_atr_stop_pct: float = 0.5
@@ -30,8 +30,8 @@ class Settings:
     atr_stop_multiple: float = 3.0
     reward_risk: float = 1.5
     max_reward_risk: float = 2.0
-    min_average_volume: int = 500_000
-    min_average_daily_range_pct: float = 1.5
+    min_average_volume: int = 300_000
+    min_average_daily_range_pct: float = 1.2
     support_resistance_proximity_pct: float = 0.5
     regime_adx_trending: float = 25.0
     regime_adx_range: float = 20.0
@@ -49,7 +49,7 @@ class Settings:
     paper_max_risk_per_trade: float = 500.0
     paper_max_aggregate_open_risk: float = 750.0
     paper_max_capital_per_trade_pct: float = 20.0
-    paper_daily_profit_target: float = 4_000.0
+    paper_daily_profit_target: float = 3_000.0
     paper_daily_loss_limit: float = 1_000.0
     paper_max_open_positions: int = 3
     paper_max_trades_per_day: int = 4
@@ -57,7 +57,7 @@ class Settings:
     paper_profit_risk_reduction_ratio: float = 0.70
     paper_profit_entry_lock_ratio: float = 0.90
     paper_max_entry_slippage_bps: float = 8.0
-    paper_break_even_trigger_r: float = 1.0
+    paper_break_even_trigger_r: float = 1.25
     paper_trailing_trigger_r: float = 1.0
     paper_trailing_atr_multiple: float = 1.5
     paper_minimum_hold_seconds: int = 60
@@ -101,7 +101,7 @@ class Settings:
             raise RuntimeError("MIN_PRICE_INR and MAX_PRICE_INR must define a positive increasing range")
         paper_capital = float(os.getenv("PAPER_PORTFOLIO_CAPITAL_INR", "500000"))
         risk_pct = float(os.getenv("PAPER_RISK_PER_TRADE_PERCENT", "0.25"))
-        daily_target = float(os.getenv("PAPER_DAILY_PROFIT_TARGET_INR", "4000"))
+        daily_target = float(os.getenv("PAPER_DAILY_PROFIT_TARGET_INR", "3000"))
         daily_loss = float(os.getenv("PAPER_DAILY_LOSS_LIMIT_INR", "1000"))
         max_positions = int(os.getenv("PAPER_MAX_OPEN_POSITIONS", "3"))
         max_trades = int(os.getenv("PAPER_MAX_TRADES_PER_DAY", "4"))
@@ -133,8 +133,8 @@ class Settings:
         trading_universe_size = int(os.getenv("INTRADAY_TRADING_UNIVERSE_SIZE", "250"))
         if trading_universe_size != 250:
             raise RuntimeError("INTRADAY_TRADING_UNIVERSE_SIZE must remain 250")
-        if abs(daily_target - 4_000) > 0.01 or abs(daily_loss - 1_000) > 0.01:
-            raise RuntimeError("Paper profit/loss breakers must remain INR 4,000/1,000")
+        if abs(daily_target - 3_000) > 0.01 or abs(daily_loss - 1_000) > 0.01:
+            raise RuntimeError("Paper profit/loss breakers must remain INR 3,000 profit / 1,000 loss")
         return cls(
             access_token=os.getenv("UPSTOX_ACCESS_TOKEN", ""),
             db_path=Path(os.getenv("MARKET_DATA_DB", ROOT / "data" / "market_data.duckdb")),
@@ -147,13 +147,13 @@ class Settings:
             max_price=max_price,
             min_daily_value=float(os.getenv("MIN_DAILY_VALUE_INR", "500000000")),
             min_relative_volume=float(os.getenv("MIN_RELATIVE_VOLUME", "1.5")),
-            max_spread_bps=float(os.getenv("MAX_SPREAD_BPS", "8")),
+            max_spread_bps=float(os.getenv("MAX_SPREAD_BPS", "10")),
             min_intraday_atr_pct=float(os.getenv("MIN_INTRADAY_ATR_PERCENT", "0.35")),
             max_breakout_extension_atr=float(os.getenv("MAX_BREAKOUT_EXTENSION_ATR", "0.60")),
             reward_risk=float(os.getenv("MIN_REWARD_RISK", "1.5")),
             max_reward_risk=float(os.getenv("MAX_REWARD_RISK", "2.0")),
-            min_average_volume=int(os.getenv("MIN_AVERAGE_DAILY_VOLUME", "500000")),
-            min_average_daily_range_pct=float(os.getenv("MIN_AVERAGE_DAILY_RANGE_PERCENT", "1.5")),
+            min_average_volume=int(os.getenv("MIN_AVERAGE_DAILY_VOLUME", "300000")),
+            min_average_daily_range_pct=float(os.getenv("MIN_AVERAGE_DAILY_RANGE_PERCENT", "1.2")),
             support_resistance_proximity_pct=float(os.getenv("SUPPORT_RESISTANCE_PROXIMITY_PERCENT", "0.5")),
             regime_adx_trending=float(os.getenv("REGIME_ADX_TRENDING", "25")),
             regime_adx_range=float(os.getenv("REGIME_ADX_RANGE", "20")),
@@ -177,7 +177,7 @@ class Settings:
             paper_profit_risk_reduction_ratio=risk_reduction_ratio,
             paper_profit_entry_lock_ratio=entry_lock_ratio,
             paper_max_entry_slippage_bps=max_entry_slippage_bps,
-            paper_break_even_trigger_r=float(os.getenv("PAPER_BREAK_EVEN_TRIGGER_R", "1.0")),
+            paper_break_even_trigger_r=float(os.getenv("PAPER_BREAK_EVEN_TRIGGER_R", "1.25")),
             paper_trailing_trigger_r=float(os.getenv("PAPER_TRAILING_TRIGGER_R", "1.0")),
             paper_trailing_atr_multiple=float(os.getenv("PAPER_TRAILING_ATR_MULTIPLE", "1.5")),
             paper_minimum_hold_seconds=int(os.getenv("PAPER_MINIMUM_HOLD_SECONDS", "60")),

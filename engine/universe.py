@@ -39,6 +39,7 @@ def build_daily_trading_universe(settings: Settings, store: MarketStore,
         selected.append((str(symbol), median_volume))
     selected.sort(key=lambda item: (-item[1], item[0]))
     symbols = [item[0] for item in selected[:settings.trading_universe_size]]
+    LOG.info("Universe scan: %d stocks passed filters out of %d total", len(selected), len(metrics_by_symbol))
     payload = {
         "tradingDay": now.astimezone(IST).date().isoformat(),
         "generatedAt": now.isoformat(),

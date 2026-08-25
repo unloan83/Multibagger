@@ -79,9 +79,13 @@ class UpstoxTickWriter:
         self.quote_ticks = 0
         self.candle_ticks = 0
         self.started_monotonic = time.monotonic()
+        self.last_reconnect_monotonic = self.started_monotonic
         self.last_quote_monotonic: float | None = None
         self.last_candle_monotonic: float | None = None
         self.last_candle_timestamp_by_key: dict[str, datetime] = {}
+
+    def mark_reconnect(self) -> None:
+        self.last_reconnect_monotonic = time.monotonic()
 
     def on_message(self, message: dict[str, Any]) -> None:
         received = datetime.now(timezone.utc)
@@ -196,7 +200,12 @@ def collect_upstox(settings: Settings, on_market_data: Callable[[], None] | None
                 )
                 fail(error)
 
-    streamer.on("open", lambda: opened.set())
+    def on_open() -> None:
+        opened.set()
+        writer.mark_reconnect()
+
+    streamer.on("open", on_open)
+    streamer.on("reconnect", writer.mark_reconnect)
     streamer.on("message", writer.on_message)
     streamer.on("error", on_error)
     streamer.on("autoReconnectStopped", on_reconnect_stopped)
@@ -228,14 +237,28 @@ def _assert_stream_freshness(writer: UpstoxTickWriter, settings: Settings, monot
     if local.weekday() >= 5 or not 9 * 60 + 16 <= minute <= 15 * 60 + 30:
         return
     limit = settings.candle_watchdog_seconds
+
+    # Grace period: Skip freshness assertions for 60 seconds after a connection/reconnection
+    if monotonic_now - writer.last_reconnect_monotonic < 60.0:
+        return
+
     if writer.last_quote_monotonic is None and writer.last_candle_monotonic is None:
         if monotonic_now - writer.started_monotonic > limit:
             raise RuntimeError("Upstox market-data stream produced no usable ticks; restarting the paper worker")
         return
-    if writer.last_quote_monotonic is None or monotonic_now - writer.last_quote_monotonic > limit:
+
+    if writer.last_quote_monotonic is None:
+        if monotonic_now - writer.last_reconnect_monotonic > limit:
+            raise RuntimeError("Upstox quote stream is stale; restarting the paper worker")
+    elif monotonic_now - writer.last_quote_monotonic > limit:
         raise RuntimeError("Upstox quote stream is stale; restarting the paper worker")
-    if writer.last_candle_monotonic is None or monotonic_now - writer.last_candle_monotonic > limit:
+
+    if writer.last_candle_monotonic is None:
+        if monotonic_now - writer.last_reconnect_monotonic > limit:
+            raise RuntimeError("Upstox one-minute candle stream is stale; restarting the paper worker")
+    elif monotonic_now - writer.last_candle_monotonic > limit:
         raise RuntimeError("Upstox one-minute candle stream is stale; restarting the paper worker")
+
     for key, label in (
         (settings.market_index_instrument_key, settings.market_index_symbol),
         (settings.vix_instrument_key, settings.vix_symbol),

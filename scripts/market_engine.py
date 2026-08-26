@@ -11,6 +11,9 @@ from engine.config import Settings
 from engine.scanner import run_scan
 
 
+from scripts.telegram_control import TelegramController
+
+
 import gc
 import sys
 
@@ -35,6 +38,11 @@ logging.basicConfig(
         logging.StreamHandler(sys.stdout)
     ]
 )
+
+# Start Telegram Remote Control Panel in daemon thread
+telegram_ctrl = TelegramController(settings)
+telegram_ctrl.start()
+
 try:
     if args.command == "backfill":
         from engine.backfill import backfill

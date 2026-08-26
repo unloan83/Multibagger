@@ -3,8 +3,12 @@ set -euo pipefail
 
 echo "=== Deploying Multibagger to OCI ==="
 
-# Pull latest code
-git pull origin main
+# Pull latest code if git repo is present
+if [ -d .git ]; then
+    git pull origin main
+else
+    echo "Notice: .git directory not present, skipping git pull."
+fi
 
 # Copy service files to systemd
 sudo cp deploy/multibagger-paper.service /etc/systemd/system/

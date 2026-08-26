@@ -121,6 +121,7 @@ def test_upstox_watchdog_detects_stream_that_never_produces_ticks():
     writer = UpstoxTickWriter(Store(), {})
     writer.started_monotonic = 700
     writer.last_reconnect_monotonic = 700
+    writer.last_quote_monotonic = None
     market_time = datetime(2026, 8, 17, 4, 30, tzinfo=timezone.utc)
     with pytest.raises(RuntimeError, match="produced no usable ticks"):
         _assert_stream_freshness(writer, _watchdog_settings(), 1_000, market_time)

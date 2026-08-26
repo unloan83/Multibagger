@@ -82,7 +82,7 @@ class UpstoxTickWriter:
         self.candle_ticks = 0
         self.started_monotonic = time.monotonic()
         self.last_reconnect_monotonic = self.started_monotonic
-        self.last_quote_monotonic: float | None = None
+        self.last_quote_monotonic: float = self.started_monotonic
         self.last_candle_monotonic: float | None = None
         self.last_candle_timestamp_by_key: dict[str, datetime] = {}
 
@@ -101,12 +101,17 @@ class UpstoxTickWriter:
             full = market_full or index_full
             if not full:
                 continue
+            ltpc = full.get("ltpc") or {}
+            ltp = _positive_float(ltpc.get("ltp"))
             quotes = ((market_full.get("marketLevel") or {}).get("bidAskQuote") or [])
             best = quotes[0] if quotes else {}
             bid, ask = _positive_float(best.get("bidP")), _positive_float(best.get("askP"))
-            if bid is not None and ask is not None and ask > bid:
+
+            # Any LTP tick or executable order book depth update increments quote_ticks
+            if ltp is not None or (bid is not None and ask is not None):
                 self.quote_ticks += 1
                 self.last_quote_monotonic = time.monotonic()
+
             candles = ((full.get("marketOHLC") or {}).get("ohlc") or [])
             minute = next((bar for bar in candles if bar.get("interval") == "I1"), None)
             if not minute:
@@ -155,6 +160,7 @@ def collect_upstox(settings: Settings, on_market_data: Callable[[], None] | None
     instruments = resolve_upstox_instruments(settings, store)
     config = upstox_client.Configuration()
     config.access_token = settings.access_token
+    # Explicitly subscribe all instruments to Upstox V3 "full" mode (LTP + Depth + OHLC)
     streamer = upstox_client.MarketDataStreamerV3(
         upstox_client.ApiClient(config), list(instruments), "full",
     )
@@ -243,9 +249,12 @@ def _assert_stream_freshness(writer: UpstoxTickWriter, settings: Settings, monot
     if local.weekday() >= 5 or not 9 * 60 + 16 <= minute <= 15 * 60 + 30:
         return
 
-    # Diagnostic logging before freshness assertions
-    quote_age = (monotonic_now - writer.last_quote_monotonic) if writer.last_quote_monotonic is not None else None
-    LOG.info("Stream freshness: last_quote_age=%s seconds", f"{quote_age:.1f}" if quote_age is not None else "N/A")
+    # Diagnostic logging for stream freshness
+    quote_age = (monotonic_now - writer.last_quote_monotonic) if writer.last_quote_monotonic is not None else 0.0
+    if quote_age > 60.0:
+        LOG.warning("Stream freshness warning: last_quote_age=%.1f seconds", quote_age)
+    else:
+        LOG.debug("Stream freshness: last_quote_age=%.1f seconds", quote_age)
 
     # Stale threshold set to 120 seconds (2 minutes) to prevent crashes on brief network hiccups
     limit = max(float(settings.candle_watchdog_seconds), 120.0)

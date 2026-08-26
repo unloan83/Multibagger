@@ -242,7 +242,13 @@ def _assert_stream_freshness(writer: UpstoxTickWriter, settings: Settings, monot
     minute = local.hour * 60 + local.minute
     if local.weekday() >= 5 or not 9 * 60 + 16 <= minute <= 15 * 60 + 30:
         return
-    limit = settings.candle_watchdog_seconds
+
+    # Diagnostic logging before freshness assertions
+    quote_age = (monotonic_now - writer.last_quote_monotonic) if writer.last_quote_monotonic is not None else None
+    LOG.info("Stream freshness: last_quote_age=%s seconds", f"{quote_age:.1f}" if quote_age is not None else "N/A")
+
+    # Stale threshold set to 120 seconds (2 minutes) to prevent crashes on brief network hiccups
+    limit = max(float(settings.candle_watchdog_seconds), 120.0)
 
     # Grace period: Skip freshness assertions for 60 seconds after a connection/reconnection
     if monotonic_now - writer.last_reconnect_monotonic < 60.0:
@@ -260,11 +266,14 @@ def _assert_stream_freshness(writer: UpstoxTickWriter, settings: Settings, monot
     if quote_stale and candle_stale:
         if monotonic_now - writer.last_reconnect_monotonic > limit:
             raise RuntimeError("Upstox market-data stream produced no usable ticks; restarting the paper worker")
+        LOG.warning("Upstox market-data stream delayed under 120s threshold; waiting for recovery...")
         return
 
     if candle_stale:
         if monotonic_now - writer.last_reconnect_monotonic > limit:
             raise RuntimeError("Upstox one-minute candle stream is stale; restarting the paper worker")
+        LOG.warning("Upstox candle stream delayed under 120s threshold; waiting for recovery...")
+        return
 
     if quote_stale:
         LOG.warning("Upstox quote stream stale, but candle stream healthy. Continuing.")

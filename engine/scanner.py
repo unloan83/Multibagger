@@ -29,6 +29,7 @@ def run_scan(settings: Settings, deadline_monotonic: float | None = None) -> dic
     run_id = str(uuid.uuid4())
     now = datetime.now(timezone.utc)
     symbols = active_trading_symbols(settings, now)
+    LOG.info("Scanner reading from DuckDB: %d symbols in active universe", len(symbols))
     candidates: list[Candidate] = []
     symbol_trends: dict[str, Trend] = {}
     audit_details: dict[str, dict[str, float | int]] = {}
@@ -90,6 +91,7 @@ def run_scan(settings: Settings, deadline_monotonic: float | None = None) -> dic
                     candidates.extend(scan_symbol(enriched, settings, now, frame_is_enriched=True,
                                                   regime="NORMAL", history_frame=frame))
 
+        LOG.info("Regime detection starting...")
         nifty_frame = store.bars(settings.market_index_symbol, through=now)
         vix_frame = store.bars(settings.vix_symbol, through=now)
         advances = opening_trends.count("BULLISH")
@@ -99,6 +101,7 @@ def run_scan(settings: Settings, deadline_monotonic: float | None = None) -> dic
         skip_reasons = list(regime.skip_reasons)
         if regime.regime == "NO_TRADE" and not skip_reasons:
             skip_reasons.append("OPENING_MARKET_GATE_NO_TRADE")
+        LOG.info("Regime classification: %s (skip_reasons=%s)", regime.regime, skip_reasons)
         for quote in quotes.values():
             quote["regime_adverse"] = False
         with store.connect() as con:

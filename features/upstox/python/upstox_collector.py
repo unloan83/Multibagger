@@ -141,7 +141,10 @@ class UpstoxTickWriter:
         if not rows:
             return 0
         try:
-            return self.store.upsert_bars(pd.DataFrame(rows))
+            count = self.store.upsert_bars(pd.DataFrame(rows))
+            if count > 0:
+                LOG.debug("Data written to DuckDB: %d bars upserted", count)
+            return count
         except Exception:
             with self.lock:
                 for row in rows:

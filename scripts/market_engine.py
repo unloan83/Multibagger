@@ -4,6 +4,7 @@ from __future__ import annotations
 import argparse
 import json
 import logging
+import threading
 from datetime import date
 
 from engine.collector import collect, run_worker
@@ -42,6 +43,26 @@ logging.basicConfig(
 # Start Telegram Remote Control Panel in daemon thread
 telegram_ctrl = TelegramController(settings)
 telegram_ctrl.start()
+
+
+def monitor_resources() -> None:
+    """Logs RSS memory usage (MB) and CPU % every 5 minutes."""
+    import os
+    import time
+    try:
+        import psutil
+        process = psutil.Process(os.getpid())
+        while True:
+            mem_mb = process.memory_info().rss / (1024 * 1024)
+            cpu_pct = process.cpu_percent(interval=1.0)
+            logging.info("Resource monitor: memory=%.1fMB, cpu=%.1f%%", mem_mb, cpu_pct)
+            time.sleep(300)
+    except Exception as err:
+        logging.debug("Resource monitor unavailable: %s", err)
+
+
+threading.Thread(target=monitor_resources, name="resource-monitor", daemon=True).start()
+
 
 try:
     if args.command == "backfill":

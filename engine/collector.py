@@ -69,18 +69,28 @@ def run_worker(settings: Settings, scan_interval: int = 900, monitor_interval: i
         completed_slots: set[str] = set()
         universe_day = None
         last_universe_attempt = 0.0
+        last_hours_log = 0.0
         while not stop.wait(0.5):
-            local = datetime.now(timezone.utc).astimezone(IST)
+            utc_now = datetime.now(timezone.utc)
+            local = utc_now.astimezone(IST)
             minute = local.hour * 60 + local.minute
-            if local.weekday() >= 5 or not 9 * 60 + 16 <= minute <= 15 * 60 + 20:
-                continue
             current = time.monotonic()
+            in_hours = (local.weekday() < 5 and 9 * 60 + 16 <= minute <= 15 * 60 + 20)
+
+            if current - last_hours_log >= 300:
+                logging.info("Market hours check: %s UTC, %s IST, market_open=%s",
+                             utc_now.strftime("%H:%M:%S"), local.strftime("%H:%M:%S"), "PASS" if in_hours else "FAIL")
+                last_hours_log = current
+
+            if not in_hours:
+                continue
             if minute >= 9 * 60 + 25 and universe_day != local.date() \
                     and current - last_universe_attempt >= 60:
                 last_universe_attempt = current
                 try:
+                    logging.info("Universe selection starting...")
                     universe_result = build_daily_trading_universe(
-                        settings, store, datetime.now(timezone.utc),
+                        settings, store, utc_now,
                     )
                     universe_day = local.date()
                     logging.info("daily live-spread universe selected=%d", len(universe_result))
@@ -97,6 +107,7 @@ def run_worker(settings: Settings, scan_interval: int = 900, monitor_interval: i
             completed_slots.add(slot)
             if len(completed_slots) > 600:
                 completed_slots = {slot}
+            logging.info("Scanner triggered at %s (IST) - job_type=%s, slot=%s", local.strftime("%H:%M:%S"), job_type, slot)
             _run_locked_job(store, settings, job_type, local, max_runtime, Path(lock_path))
 
     thread = threading.Thread(target=scanner_loop, name="paper-scheduler", daemon=True)

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import logging
 import os
 import urllib.request
 from datetime import datetime, timezone
@@ -8,6 +9,9 @@ from typing import Any
 from urllib.error import HTTPError
 
 from .config import Settings
+
+
+LOG = logging.getLogger("multibagger.publication")
 
 
 def publish_snapshot(settings: Settings, payload: dict[str, Any]) -> None:
@@ -28,12 +32,12 @@ def publish_snapshot(settings: Settings, payload: dict[str, Any]) -> None:
     try:
         with urllib.request.urlopen(request, timeout=30) as response:
             if response.status >= 300:
-                print(f"[Publication Warning] Signal publication returned HTTP {response.status}")
+                LOG.warning("Signal publication returned HTTP %s", response.status)
     except HTTPError as error:
         detail = error.read(1000).decode("utf-8", errors="replace")
-        print(f"[Publication Warning] Signal publication failed with HTTP {error.code}: {detail}")
+        LOG.error("Signal publication failed with HTTP %s: %s", error.code, detail)
     except Exception as error:
-        print(f"[Publication Warning] Signal publication failed: {error}")
+        LOG.error("Signal publication failed: %s", error)
 
 
 def refresh_snapshot_with_paper(

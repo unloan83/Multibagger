@@ -102,14 +102,25 @@ def get_sandbox_configuration(access_token: Optional[str] = None) -> upstox_clie
     """
     Returns an explicitly configured Upstox Sandbox Configuration instance.
     """
-    verify_sandbox_safety_guardrails()
-
-    token = access_token or os.getenv("UPSTOX_SANDBOX_ACCESS_TOKEN", "").strip()
-    if not token:
-        raise UpstoxSandboxAuthError(
-            "MISSING CREDENTIAL: UPSTOX_SANDBOX_ACCESS_TOKEN is not set.\n"
-            "Please set UPSTOX_SANDBOX_ACCESS_TOKEN in your local .env.local file or environment."
-        )
+    try:
+        verify_sandbox_safety_guardrails()
+        token = access_token or os.getenv("UPSTOX_SANDBOX_ACCESS_TOKEN", "").strip()
+        if not token:
+            raise UpstoxSandboxAuthError(
+                "MISSING CREDENTIAL: UPSTOX_SANDBOX_ACCESS_TOKEN is not set.\n"
+                "Please set UPSTOX_SANDBOX_ACCESS_TOKEN in your local .env.local file or environment."
+            )
+    except UpstoxSandboxAuthError as e:
+        logger.error(f"Authentication Token Error: {e}")
+        try:
+            from scripts.telegram_notify import send_telegram_message
+            send_telegram_message("🚨 AUTH FAILURE: Sandbox token expired or missing. Bot cannot start.", event_key="auth-failure", cooldown_seconds=300)
+        except Exception:
+            pass
+        raise
+    except Exception as e:
+        logger.error(f"Unexpected error loading Sandbox Configuration: {e}")
+        raise UpstoxSandboxAuthError(f"Failed to load sandbox credentials: {e}") from e
 
     # Upstox's Configuration metaclass returns a copy of the first Configuration
     # created in the process and ignores later constructor arguments.  The market
@@ -175,21 +186,26 @@ def place_sandbox_order(
         )
     )
 
-    res = order_api.place_order(body=req, api_version="2.0")
-    
-    # Process SDK response
-    data = getattr(res, "data", None)
-    order_id = getattr(data, "order_id", None) if data else None
-    
-    if not order_id and isinstance(res, dict):
-        order_id = res.get("data", {}).get("order_id")
+    try:
+        res = order_api.place_order(body=req, api_version="2.0")
+        
+        # Process SDK response
+        data = getattr(res, "data", None)
+        order_id = getattr(data, "order_id", None) if data else None
+        
+        if not order_id and isinstance(res, dict):
+            order_id = res.get("data", {}).get("order_id")
 
-    logger.info(
-        sanitize_log_message(
-            f"SANDBOX ORDER PLACED SUCCESS | Order ID: {order_id}"
+        logger.info(
+            sanitize_log_message(
+                f"SANDBOX ORDER PLACED SUCCESS | Order ID: {order_id}"
+            )
         )
-    )
-    return {"status": "SUCCESS", "order_id": order_id, "raw_response": res}
+        return {"status": "SUCCESS", "order_id": order_id, "raw_response": res}
+    except Exception as e:
+        err_msg = sanitize_log_message(str(e))
+        logger.error(f"Broker API failed in place_sandbox_order: {err_msg}")
+        return {"status": "ERROR", "order_id": None, "error": err_msg}
 
 
 def verify_sandbox_order(
@@ -210,6 +226,7 @@ def verify_sandbox_order(
         if "not available in sandbox mode" in err_msg.lower():
             logger.info(sanitize_log_message(f"SANDBOX GET QUERY SKIPPED (Not supported by Upstox Sandbox API) | Order ID: {order_id}"))
             return {"status": "SKIPPED_NOT_SUPPORTED_BY_SANDBOX", "order_id": order_id, "message": err_msg}
+        logger.error(f"Broker API failed in verify_sandbox_order: {err_msg}")
         raise
 
 
@@ -241,9 +258,14 @@ def modify_sandbox_order(
         )
     )
 
-    res = order_api.modify_order(body=req, api_version="2.0")
-    logger.info(sanitize_log_message(f"SANDBOX ORDER MODIFIED SUCCESS | Order ID: {order_id}"))
-    return {"status": "SUCCESS", "order_id": order_id, "raw_response": res}
+    try:
+        res = order_api.modify_order(body=req, api_version="2.0")
+        logger.info(sanitize_log_message(f"SANDBOX ORDER MODIFIED SUCCESS | Order ID: {order_id}"))
+        return {"status": "SUCCESS", "order_id": order_id, "raw_response": res}
+    except Exception as e:
+        err_msg = sanitize_log_message(str(e))
+        logger.error(f"Broker API failed in modify_sandbox_order: {err_msg}")
+        return {"status": "ERROR", "order_id": order_id, "error": err_msg}
 
 
 def cancel_sandbox_order(
@@ -255,9 +277,14 @@ def cancel_sandbox_order(
     order_api = get_sandbox_order_api(access_token=access_token)
 
     logger.info(sanitize_log_message(f"CANCELLING SANDBOX ORDER | Order ID: {order_id}"))
-    res = order_api.cancel_order(order_id=order_id, api_version="2.0")
-    logger.info(sanitize_log_message(f"SANDBOX ORDER CANCELLED SUCCESS | Order ID: {order_id}"))
-    return {"status": "SUCCESS", "order_id": order_id, "raw_response": res}
+    try:
+        res = order_api.cancel_order(order_id=order_id, api_version="2.0")
+        logger.info(sanitize_log_message(f"SANDBOX ORDER CANCELLED SUCCESS | Order ID: {order_id}"))
+        return {"status": "SUCCESS", "order_id": order_id, "raw_response": res}
+    except Exception as e:
+        err_msg = sanitize_log_message(str(e))
+        logger.error(f"Broker API failed in cancel_sandbox_order: {err_msg}")
+        return {"status": "ERROR", "order_id": order_id, "error": err_msg}
 
 
 def run_full_sandbox_lifecycle_test(
@@ -297,6 +324,8 @@ def run_full_sandbox_lifecycle_test(
             price=test_price,
             access_token=access_token,
         )
+        if place_res.get("status") != "SUCCESS":
+            raise RuntimeError(f"Place order failed: {place_res.get('error')}")
         order_id = place_res.get("order_id")
         if not order_id:
             raise RuntimeError("Place order returned success status but no order_id.")
@@ -315,6 +344,8 @@ def run_full_sandbox_lifecycle_test(
             new_price=modified_price,
             access_token=access_token,
         )
+        if modify_res.get("status") != "SUCCESS":
+            raise RuntimeError(f"Modify order failed: {modify_res.get('error')}")
         results["modify_order"] = "PASS"
 
         # Step 4: VERIFY MODIFY
@@ -323,6 +354,8 @@ def run_full_sandbox_lifecycle_test(
 
         # Step 5: CANCEL
         cancel_res = cancel_sandbox_order(order_id=order_id, access_token=access_token)
+        if cancel_res.get("status") != "SUCCESS":
+            raise RuntimeError(f"Cancel order failed: {cancel_res.get('error')}")
         results["cancel_order"] = "PASS"
 
         # Step 6: VERIFY CANCEL

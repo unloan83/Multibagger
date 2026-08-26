@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import fcntl
 import json
+import logging
 import os
 import sqlite3
 import sys
@@ -15,6 +16,8 @@ from pathlib import Path
 from urllib.error import HTTPError, URLError
 from urllib.request import Request, urlopen
 from zoneinfo import ZoneInfo
+
+logger = logging.getLogger("options_quant_scheduler")
 
 try:
     from scripts.telegram_notify import send_telegram_message
@@ -35,7 +38,7 @@ def main() -> int:
     ).strip()
     token = os.environ.get("OPTIONS_QUANT_INGEST_TOKEN", "").strip()
     if not token:
-        print("OPTIONS_QUANT_INGEST_TOKEN is missing; refusing scheduled cycle.", file=sys.stderr)
+        logger.error("OPTIONS_QUANT_INGEST_TOKEN is missing; refusing scheduled cycle.")
         send_telegram_message(
             "🔴 Options Quant scheduler failed\nReason: ingest token is missing",
             event_key="options-ingest-token-missing", cooldown_seconds=3600,
@@ -89,7 +92,7 @@ def invoke(history: sqlite3.Connection, job_id: str, job_type: str, scheduled_at
         detail = error.read(1000).decode("utf-8", errors="replace")
         duration = int((time.monotonic() - started) * 1000)
         record(history, job_id, job_type, scheduled_at, "FAILED", duration, f"HTTP_{error.code}: {detail}"[:1000], None)
-        print(f"Options Quant HTTP {error.code}: {detail}", file=sys.stderr)
+        logger.error("Options Quant HTTP %s: %s", error.code, detail)
         send_telegram_message(
             f"🔴 Options Quant {job_type.lower()} failed\nHTTP status: {error.code}",
             event_key=f"options-{job_type.lower()}-failed", cooldown_seconds=900,
@@ -99,7 +102,7 @@ def invoke(history: sqlite3.Connection, job_id: str, job_type: str, scheduled_at
         duration = int((time.monotonic() - started) * 1000)
         status = "MAX_RUNTIME_EXCEEDED" if isinstance(error, TimeoutError) else "FAILED"
         record(history, job_id, job_type, scheduled_at, status, duration, str(error)[:1000], None)
-        print(f"Options Quant {job_type.lower()} failed: {error}", file=sys.stderr)
+        logger.error("Options Quant %s failed: %s", job_type.lower(), error)
         send_telegram_message(
             f"🔴 Options Quant {job_type.lower()} {status.lower().replace('_', ' ')}",
             event_key=f"options-{job_type.lower()}-{status.lower()}", cooldown_seconds=900,

@@ -30,8 +30,8 @@ def send_telegram_message(text: str, *, event_key: str, cooldown_seconds: int = 
         "TELEGRAM_NOTIFICATION_STATE",
         "/var/lib/multibagger/telegram_notification_state.json",
     ))
-    state_path.parent.mkdir(parents=True, exist_ok=True)
     try:
+        state_path.parent.mkdir(parents=True, exist_ok=True)
         with state_path.open("a+", encoding="utf-8") as state_file:
             fcntl.flock(state_file.fileno(), fcntl.LOCK_EX)
             state_file.seek(0)

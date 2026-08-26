@@ -7,6 +7,7 @@ import time
 import uuid
 from dataclasses import asdict, replace
 from datetime import datetime, timezone
+import gc
 
 from .config import Settings
 from .paper import _five_minute_context, run_paper_cycle
@@ -203,6 +204,8 @@ def run_scan(settings: Settings, deadline_monotonic: float | None = None) -> dic
         with store.connect() as con:
             con.execute("UPDATE scanner_runs SET completed_at=?, status='FAILED', reason=? WHERE run_id=?", [datetime.now(timezone.utc), reason, run_id])
         raise
+    finally:
+        gc.collect()
 
 
 def _classify_breadth(votes: list[Trend]) -> Trend:

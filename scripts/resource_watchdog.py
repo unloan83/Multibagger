@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import json
+import logging
 import os
 import shutil
 import subprocess
@@ -14,12 +15,15 @@ try:
 except ModuleNotFoundError:
     from telegram_notify import send_telegram_message
 
+logger = logging.getLogger("resource_watchdog")
+
 
 MIB = 1024 * 1024
 
 
 def main() -> int:
     status = collect_status()
+    logger.info("Host resource status collected")
     print(json.dumps(status, separators=(",", ":"), sort_keys=True))
     alerts = build_alerts(status)
     if alerts:

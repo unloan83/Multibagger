@@ -14,6 +14,7 @@ import socketio
 
 from engine.config import Settings
 from engine.store import MarketStore
+from features.upstox.python.websocket_handler import reconnect_with_backoff
 
 
 LOG = logging.getLogger("multibagger.breeze")
@@ -232,9 +233,9 @@ def _assert_stream_freshness(writer: BreezeTickWriter, settings: Settings, monot
         raise RuntimeError("Breeze one-minute candle stream is stale; restarting the paper worker")
 
 
-def _connect_ohlc_stream(client: Any, tokens: list[str], writer: BreezeTickWriter, attempts: int = 5) -> socketio.Client:
-    """Connect to Breeze's documented OHLC Socket.IO channel with a practical timeout."""
-    for attempt in range(1, attempts + 1):
+def _connect_ohlc_stream(client: Any, tokens: list[str], writer: BreezeTickWriter, attempts: int = 10) -> socketio.Client:
+    """Connect to Breeze's documented OHLC Socket.IO channel with exponential backoff."""
+    def try_connect() -> socketio.Client:
         stream = socketio.Client(reconnection=True, reconnection_attempts=0)
 
         @stream.event
@@ -245,19 +246,17 @@ def _connect_ohlc_stream(client: Any, tokens: list[str], writer: BreezeTickWrite
         def on_minute(data: str) -> None:
             writer.on_ticks(client.parse_ohlc_data(data))
 
-        try:
-            stream.connect(
-                "https://breezeapi.icicidirect.com",
-                socketio_path="ohlcvstream",
-                headers={"User-Agent": "python-socketio[client]/socket"},
-                auth={"user": client.user_id, "token": client.session_key},
-                transports=["websocket"],
-                wait_timeout=20,
-            )
-            if stream.connected:
-                return stream
-        except Exception as error:
-            LOG.warning("Breeze OHLC connection attempt %d/%d failed: %s", attempt, attempts, error)
-        if attempt < attempts:
-            time.sleep(min(attempt * 2, 8))
-    raise RuntimeError(f"Breeze OHLC connection failed after {attempts} attempts")
+        stream.connect(
+            "https://breezeapi.icicidirect.com",
+            socketio_path="ohlcvstream",
+            headers={"User-Agent": "python-socketio[client]/socket"},
+            auth={"user": client.user_id, "token": client.session_key},
+            transports=["websocket"],
+            wait_timeout=20,
+        )
+        if stream.connected:
+            return stream
+        raise RuntimeError("Breeze socket stream created but not connected")
+
+    return reconnect_with_backoff(try_connect, max_attempts=attempts, logger=LOG)
+

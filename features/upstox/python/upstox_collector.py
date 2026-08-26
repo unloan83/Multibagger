@@ -16,11 +16,13 @@ import pandas as pd
 from engine.config import Settings
 from engine.store import MarketStore
 from scripts.telegram_notify import send_telegram_message
+from features.upstox.python.websocket_handler import reconnect_with_backoff
 
 
 LOG = logging.getLogger("multibagger.upstox")
 IST = ZoneInfo("Asia/Kolkata")
 INSTRUMENTS_URL = "https://assets.upstox.com/market-quote/instruments/exchange/NSE.json.gz"
+
 
 
 @lru_cache(maxsize=1)
@@ -205,17 +207,21 @@ def collect_upstox(settings: Settings, on_market_data: Callable[[], None] | None
         writer.mark_reconnect()
 
     streamer.on("open", on_open)
-    streamer.on("reconnect", writer.mark_reconnect)
     streamer.on("message", writer.on_message)
     streamer.on("error", on_error)
     streamer.on("autoReconnectStopped", on_reconnect_stopped)
     streamer.auto_reconnect(True, 5, 20)
     watcher = threading.Thread(target=monitor, name="upstox-feed-monitor", daemon=True)
     watcher.start()
-    try:
+
+    def do_connect() -> None:
+        opened.clear()
         streamer.connect()
         if not opened.wait(timeout=60):
-            fail(RuntimeError("Upstox market-data stream did not open within 60 seconds"))
+            raise RuntimeError("Upstox market-data stream did not open within 60 seconds")
+
+    try:
+        reconnect_with_backoff(do_connect, max_attempts=10, logger=LOG)
         while not stop.wait(1):
             pass
     finally:

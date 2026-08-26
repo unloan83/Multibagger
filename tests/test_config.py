@@ -30,9 +30,9 @@ def test_environment_rejects_invalid_price_range(monkeypatch):
 
 def test_daily_breakers_are_fixed(monkeypatch):
     monkeypatch.setenv("PAPER_PORTFOLIO_CAPITAL_INR", "500000")
-    monkeypatch.setenv("PAPER_DAILY_PROFIT_TARGET_INR", "3999")
-    monkeypatch.setenv("PAPER_DAILY_LOSS_LIMIT_INR", "4000")
-    with pytest.raises(RuntimeError, match="must remain INR 4,000/1,000"):
+    monkeypatch.setenv("PAPER_DAILY_PROFIT_TARGET_INR", "2999")
+    monkeypatch.setenv("PAPER_DAILY_LOSS_LIMIT_INR", "1000")
+    with pytest.raises(RuntimeError, match="must remain INR 3,000 profit / 1,000 loss"):
         Settings.from_env()
 
 

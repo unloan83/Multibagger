@@ -161,7 +161,8 @@ class MarketStore:
         parameters = [symbol, days, through] if through is not None else [symbol, days]
         with self.connect() as con:
             return con.execute(f"""
-              SELECT * FROM minute_bars WHERE symbol=? AND ts >= now() - (? * INTERVAL '1 day')
+              SELECT instrument_key, symbol, ts, open, high, low, close, volume, bid, ask, received_at
+              FROM minute_bars WHERE symbol=? AND ts >= now() - (? * INTERVAL '1 day')
               {through_clause}
               ORDER BY ts
             """, parameters).df()
@@ -173,7 +174,8 @@ class MarketStore:
         parameters = [symbols, days, through] if through is not None else [symbols, days]
         with self.connect() as con:
             return con.execute(f"""
-              SELECT * FROM minute_bars
+              SELECT instrument_key, symbol, ts, open, high, low, close, volume, bid, ask, received_at
+              FROM minute_bars
               WHERE symbol IN (SELECT unnest(?)) AND ts >= now() - (? * INTERVAL '1 day')
               {through_clause}
               ORDER BY symbol, ts

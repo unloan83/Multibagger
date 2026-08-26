@@ -44,6 +44,9 @@ from features.upstox.python.upstox_sandbox import (
 )
 
 
+logger = logging.getLogger("sandbox_cli")
+
+
 def main() -> None:
     print("=" * 65)
     print("  UPSTOX SANDBOX — NO REAL MONEY / NO LIVE ORDERS")
@@ -56,7 +59,7 @@ def main() -> None:
         print("[SAFETY ASSERTION] LIVE_TRADING_ENABLED=false verified.")
         print("[SAFETY ASSERTION] Target endpoint: https://api-sandbox.upstox.com")
     except UpstoxSandboxSafetyError as err:
-        print(f"\n[CRITICAL SAFETY BLOCK] {err}")
+        logger.error(f"[CRITICAL SAFETY BLOCK] {err}")
         sys.exit(1)
 
     sandbox_token = os.getenv("UPSTOX_SANDBOX_ACCESS_TOKEN", "").strip()

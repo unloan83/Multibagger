@@ -17,7 +17,7 @@ sudo cp deploy/multibagger-paper.service /etc/systemd/system/
 sudo systemctl daemon-reload
 
 # Reset failure counter
-sudo systemctl reset-failed multibagger-paper
+sudo systemctl reset-failed multibagger-paper || true
 
 # Restart bot
 sudo systemctl restart multibagger-paper

@@ -98,44 +98,52 @@ CREATE TABLE IF NOT EXISTS intraday_audit_log (
 
 
 class MarketStore:
-    def __init__(self, path: Path):
+    def __init__(self, path: Path, read_only: bool = False):
         self.path = path
         path.parent.mkdir(parents=True, exist_ok=True)
-        with self.connect() as con:
-            con.execute(SCHEMA)
-            con.execute("ALTER TABLE paper_trades ADD COLUMN IF NOT EXISTS execution_mode VARCHAR DEFAULT 'INTERNAL_PAPER'")
-            con.execute("ALTER TABLE paper_trades ADD COLUMN IF NOT EXISTS entry_order_id VARCHAR")
-            con.execute("ALTER TABLE paper_trades ADD COLUMN IF NOT EXISTS exit_order_id VARCHAR")
-            con.execute("ALTER TABLE paper_trades ADD COLUMN IF NOT EXISTS peak_quote DOUBLE")
-            con.execute("ALTER TABLE paper_trades ADD COLUMN IF NOT EXISTS lowest_quote DOUBLE")
-            con.execute("ALTER TABLE paper_trades ADD COLUMN IF NOT EXISTS mfe DOUBLE")
-            con.execute("ALTER TABLE paper_trades ADD COLUMN IF NOT EXISTS mae DOUBLE")
-            con.execute("ALTER TABLE paper_trades ADD COLUMN IF NOT EXISTS profit_giveback DOUBLE")
-            con.execute("ALTER TABLE paper_trades ADD COLUMN IF NOT EXISTS holding_duration_minutes DOUBLE")
-            con.execute("ALTER TABLE paper_trades ADD COLUMN IF NOT EXISTS last_exit_candle_ts TIMESTAMPTZ")
-            con.execute("ALTER TABLE paper_trades ADD COLUMN IF NOT EXISTS side VARCHAR DEFAULT 'LONG'")
-            con.execute("ALTER TABLE paper_signals ADD COLUMN IF NOT EXISTS side VARCHAR DEFAULT 'LONG'")
-            con.execute("ALTER TABLE paper_trades ADD COLUMN IF NOT EXISTS agent VARCHAR")
-            con.execute("ALTER TABLE paper_trades ADD COLUMN IF NOT EXISTS initial_quantity INTEGER")
-            con.execute("ALTER TABLE paper_trades ADD COLUMN IF NOT EXISTS original_stop_price DOUBLE")
-            con.execute("ALTER TABLE paper_trades ADD COLUMN IF NOT EXISTS allowed_risk DOUBLE")
-            con.execute("ALTER TABLE paper_trades ADD COLUMN IF NOT EXISTS partial_quantity INTEGER DEFAULT 0")
-            con.execute("ALTER TABLE paper_trades ADD COLUMN IF NOT EXISTS partial_exit_quote DOUBLE")
-            con.execute("ALTER TABLE paper_trades ADD COLUMN IF NOT EXISTS partial_exit_fill DOUBLE")
-            con.execute("ALTER TABLE paper_trades ADD COLUMN IF NOT EXISTS partial_exit_at TIMESTAMPTZ")
-            con.execute("ALTER TABLE paper_trades ADD COLUMN IF NOT EXISTS partial_gross_pnl DOUBLE DEFAULT 0")
-            con.execute("ALTER TABLE paper_trades ADD COLUMN IF NOT EXISTS no_scale_out_pnl DOUBLE DEFAULT 0")
-            con.execute("ALTER TABLE paper_trades ADD COLUMN IF NOT EXISTS runner_max_r DOUBLE DEFAULT 0")
-            con.execute("ALTER TABLE paper_trades ADD COLUMN IF NOT EXISTS break_even_stop BOOLEAN DEFAULT false")
+        if not read_only:
+            try:
+                with self.connect(read_only=False) as con:
+                    con.execute(SCHEMA)
+                    con.execute("ALTER TABLE paper_trades ADD COLUMN IF NOT EXISTS execution_mode VARCHAR DEFAULT 'INTERNAL_PAPER'")
+                    con.execute("ALTER TABLE paper_trades ADD COLUMN IF NOT EXISTS entry_order_id VARCHAR")
+                    con.execute("ALTER TABLE paper_trades ADD COLUMN IF NOT EXISTS exit_order_id VARCHAR")
+                    con.execute("ALTER TABLE paper_trades ADD COLUMN IF NOT EXISTS peak_quote DOUBLE")
+                    con.execute("ALTER TABLE paper_trades ADD COLUMN IF NOT EXISTS lowest_quote DOUBLE")
+                    con.execute("ALTER TABLE paper_trades ADD COLUMN IF NOT EXISTS mfe DOUBLE")
+                    con.execute("ALTER TABLE paper_trades ADD COLUMN IF NOT EXISTS mae DOUBLE")
+                    con.execute("ALTER TABLE paper_trades ADD COLUMN IF NOT EXISTS profit_giveback DOUBLE")
+                    con.execute("ALTER TABLE paper_trades ADD COLUMN IF NOT EXISTS holding_duration_minutes DOUBLE")
+                    con.execute("ALTER TABLE paper_trades ADD COLUMN IF NOT EXISTS last_exit_candle_ts TIMESTAMPTZ")
+                    con.execute("ALTER TABLE paper_trades ADD COLUMN IF NOT EXISTS side VARCHAR DEFAULT 'LONG'")
+                    con.execute("ALTER TABLE paper_signals ADD COLUMN IF NOT EXISTS side VARCHAR DEFAULT 'LONG'")
+                    con.execute("ALTER TABLE paper_trades ADD COLUMN IF NOT EXISTS agent VARCHAR")
+                    con.execute("ALTER TABLE paper_trades ADD COLUMN IF NOT EXISTS initial_quantity INTEGER")
+                    con.execute("ALTER TABLE paper_trades ADD COLUMN IF NOT EXISTS original_stop_price DOUBLE")
+                    con.execute("ALTER TABLE paper_trades ADD COLUMN IF NOT EXISTS allowed_risk DOUBLE")
+                    con.execute("ALTER TABLE paper_trades ADD COLUMN IF NOT EXISTS partial_quantity INTEGER DEFAULT 0")
+                    con.execute("ALTER TABLE paper_trades ADD COLUMN IF NOT EXISTS partial_exit_quote DOUBLE")
+                    con.execute("ALTER TABLE paper_trades ADD COLUMN IF NOT EXISTS partial_exit_fill DOUBLE")
+                    con.execute("ALTER TABLE paper_trades ADD COLUMN IF NOT EXISTS partial_exit_at TIMESTAMPTZ")
+                    con.execute("ALTER TABLE paper_trades ADD COLUMN IF NOT EXISTS partial_gross_pnl DOUBLE DEFAULT 0")
+                    con.execute("ALTER TABLE paper_trades ADD COLUMN IF NOT EXISTS no_scale_out_pnl DOUBLE DEFAULT 0")
+                    con.execute("ALTER TABLE paper_trades ADD COLUMN IF NOT EXISTS runner_max_r DOUBLE DEFAULT 0")
+                    con.execute("ALTER TABLE paper_trades ADD COLUMN IF NOT EXISTS break_even_stop BOOLEAN DEFAULT false")
+            except duckdb.IOException:
+                pass
 
     @contextmanager
-    def connect(self) -> Iterator[duckdb.DuckDBPyConnection]:
+    def connect(self, read_only: bool = False) -> Iterator[duckdb.DuckDBPyConnection]:
         with _DATABASE_LOCK:
-            con = duckdb.connect(str(self.path))
+            try:
+                con = duckdb.connect(str(self.path), read_only=read_only)
+            except duckdb.IOException:
+                con = duckdb.connect(str(self.path), read_only=True)
             try:
                 yield con
             finally:
                 con.close()
+
 
     def upsert_bar(self, row: dict) -> None:
         with self.connect() as con:

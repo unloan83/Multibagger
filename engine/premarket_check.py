@@ -77,14 +77,15 @@ def run_premarket_safety_check(settings: Settings, store: MarketStore | None = N
         config_reason = "Live trading disabled, risk parameters verified (₹500/₹1,000/₹750)"
 
     # 3. DATA Check
-    data_store = store or MarketStore(settings.db_path)
+    data_store = store or MarketStore(settings.db_path, read_only=True)
     now_ist = datetime.now(ZoneInfo("Asia/Kolkata"))
     is_weekend = now_ist.weekday() >= 5
 
     try:
-        with data_store.connect() as con:
+        with data_store.connect(read_only=True) as con:
             latest_bar = con.execute("SELECT max(ts) FROM minute_bars").fetchone()
             latest_ts_str = latest_bar[0] if latest_bar and latest_bar[0] else None
+
             
         if latest_ts_str:
             dt = datetime.fromisoformat(str(latest_ts_str).replace("Z", "+00:00"))

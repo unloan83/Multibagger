@@ -172,7 +172,6 @@ class TelegramController:
         body: dict[str, Any] = {
             "chat_id": chat_id,
             "text": text,
-            "parse_mode": "Markdown",
             "disable_web_page_preview": True,
         }
         if include_keyboard:
@@ -180,9 +179,6 @@ class TelegramController:
 
         try:
             res = requests.post(url, json=body, timeout=10)
-            if res.status_code != 200:
-                body.pop("parse_mode", None)
-                res = requests.post(url, json=body, timeout=10)
             return res.status_code == 200
         except Exception as err:
             LOG.error("Failed to send Telegram message: %s", err)

@@ -134,7 +134,9 @@ def evaluate_opportunity(frame: pd.DataFrame, settings: Settings, now: datetime 
     if len(session) < 15 or not np.isfinite(last.atr) or float(last.atr) <= 0:
         return None
 
-    bid, ask, close, atr = float(last.bid or 0), float(last.ask or 0), float(last.close), float(last.atr)
+    bid = float(getattr(last, "bid", getattr(last, "close", 0)) or getattr(last, "close", 0))
+    ask = float(getattr(last, "ask", bid * 1.0001) or (bid * 1.0001))
+    close, atr = float(last.close), float(last.atr)
     if bid <= 0 or ask <= bid:
         return None
     midpoint = (ask + bid) / 2

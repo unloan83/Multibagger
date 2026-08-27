@@ -196,8 +196,8 @@ def detect_regime(index_frame: pd.DataFrame, vix_frame: pd.DataFrame,
         tuple(dict.fromkeys(reasons)), now.isoformat(),
     )
 
-    LOG.info("Regime inputs: ADX=%s, VIX=%s, ATR%%=%s, A/D=%s, Classification=%s",
-             _round(effective_adx), _round(effective_vix), _round(effective_atr_pct), _round(effective_ad), regime)
+    LOG.info("Regime inputs: VIX=%s, A/D=%s, Classification=%s",
+             _round(vix), _round(effective_ad), regime)
     return result
 
 

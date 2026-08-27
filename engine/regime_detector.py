@@ -108,6 +108,13 @@ def detect_opening_market_gate(index_frame: pd.DataFrame, vix_frame: pd.DataFram
                       _round(realized_vol), _round(vix), reasons, now.isoformat())
 
 
+Regime = Literal[
+    "STRONG_TREND_UP", "STRONG_TREND_DOWN", "WEAK_TREND",
+    "RANGE", "HIGH_VOLATILITY", "LOW_VOLATILITY", "REVERSAL", "NO_TRADE",
+    "TRENDING", "HIGH_VOL", "TRANSITION"
+]
+
+
 def detect_regime(index_frame: pd.DataFrame, vix_frame: pd.DataFrame,
                   advance_decline_ratio: float | None, settings: Settings,
                   now: datetime) -> RegimeDetection:
@@ -118,6 +125,9 @@ def detect_regime(index_frame: pd.DataFrame, vix_frame: pd.DataFrame,
     current_day = now.astimezone(IST).date()
     index_fresh = _session_day(index_session) == current_day and _fresh(index_session, now, settings.stale_seconds)
     vix_fresh = _session_day(vix_session) == current_day and _fresh(vix_session, now, settings.stale_seconds)
+    
+    reasons: list[str] = []
+    
     if len(fifteen_minute) >= 14:
         adx = float(ADXIndicator(fifteen_minute.high, fifteen_minute.low, fifteen_minute.close, window=14).adx().iloc[-1])
         atr = float(AverageTrueRange(fifteen_minute.high, fifteen_minute.low, fifteen_minute.close, window=14).average_true_range().iloc[-1])
@@ -125,30 +135,37 @@ def detect_regime(index_frame: pd.DataFrame, vix_frame: pd.DataFrame,
         prior = _prior_session(index_frame, index_session)
         if len(prior):
             gap = (float(index_session.open.iloc[0]) - float(prior.close.iloc[-1])) / float(prior.close.iloc[-1]) * 100
+
     vix = float(vix_session.close.iloc[-1]) if len(vix_session) and vix_fresh else None
     event_labels = tuple(_event_labels(settings, now))
-    reasons: list[str] = []
 
-    # Fallback logic: If one input is missing, use a conservative default
     effective_adx = adx if (adx is not None and math.isfinite(adx)) else 22.0
     effective_vix = vix if (vix is not None and math.isfinite(vix)) else 15.0
     effective_atr_pct = atr_pct if (atr_pct is not None and math.isfinite(atr_pct)) else 1.0
     effective_ad = advance_decline_ratio if (advance_decline_ratio is not None and math.isfinite(advance_decline_ratio)) else 1.0
 
-    if effective_vix > settings.vix_max_level:
-        regime: Regime = "HIGH_VOL"
-    elif effective_atr_pct >= settings.regime_high_vol_atr_pct:
+    # 8-state Regime Classifier
+    if index_frame.empty or not index_fresh:
+        regime: Regime = "TRANSITION"
+        reasons.append("REGIME_INPUT_UNAVAILABLE")
+    elif effective_vix > settings.vix_max_level or effective_atr_pct >= settings.regime_high_vol_atr_pct:
         regime = "HIGH_VOL"
-    elif effective_adx >= settings.regime_adx_trending and (
-        effective_ad >= 1.5 or effective_ad <= 1 / 1.5
-    ):
-        regime = "TRENDING"
+    elif effective_adx >= 30.0 and effective_ad >= 1.5:
+        regime = "STRONG_TREND_UP"
+    elif effective_adx >= 30.0 and effective_ad <= 1 / 1.5:
+        regime = "STRONG_TREND_DOWN"
+    elif effective_adx >= settings.regime_adx_trending:
+        regime = "WEAK_TREND"
     elif effective_adx <= settings.regime_adx_range and 0.75 <= effective_ad <= 1.33:
         regime = "RANGE"
+    elif effective_vix < 11.0:
+        regime = "LOW_VOLATILITY"
+    elif effective_ad >= 2.0 or effective_ad <= 0.5:
+        regime = "REVERSAL"
     else:
         regime = "TRANSITION"
 
-    if regime in ("HIGH_VOL", "TRANSITION"):
+    if regime in ("HIGH_VOL", "HIGH_VOLATILITY", "TRANSITION", "NO_TRADE"):
         reasons.append(f"REGIME_{regime}")
     if vix is not None and vix > settings.vix_max_level:
         reasons.append("VIX_ABOVE_20")
@@ -162,12 +179,12 @@ def detect_regime(index_frame: pd.DataFrame, vix_frame: pd.DataFrame,
         _round(effective_ad), _round(gap), event_labels,
         tuple(dict.fromkeys(reasons)), now.isoformat(),
     )
+
     LOG.info("Regime inputs: ADX=%s, VIX=%s, ATR%%=%s, A/D=%s, Classification=%s",
              _round(effective_adx), _round(effective_vix), _round(effective_atr_pct), _round(effective_ad), regime)
-    LOG.info("regime_detection=%s", json.dumps(result.to_dict(), sort_keys=True))
-    for reason in result.skip_reasons:
-        LOG.info("no_trade_skip=%s regime=%s", reason, regime)
     return result
+
+
 
 
 def evaluate_regime_15m(store, index_frame: pd.DataFrame, vix_frame: pd.DataFrame,

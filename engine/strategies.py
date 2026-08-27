@@ -170,14 +170,18 @@ def scan_symbol(frame: pd.DataFrame, settings: Settings, now: datetime | None = 
         candidate = _vwap_pullback(session, str(last.symbol), bid, ask, atr, vwap, relative_volume,
                                    spread_bps, settings, now, expiry, common)
         return [candidate] if candidate else []
-    if agent == "BETA" and relative_volume > 3 and float(last.adx9) > 20:
+    if agent == "BETA" and relative_volume >= 1.8 and float(last.adx9) > 18:
         candidate = _fifteen_minute_breakout(session, str(last.symbol), bid, ask, atr, vwap,
                                              relative_volume, spread_bps, settings, now, expiry, common)
         return [candidate] if candidate else []
-    if agent == "GAMMA" and float(last.adx21) < 20:
+    if agent == "GAMMA" and float(last.adx21) < 22:
         candidate = _bollinger_fade(session, str(last.symbol), bid, ask, atr, vwap,
                                     relative_volume, spread_bps, settings, now, expiry, common)
+        if not candidate:
+            candidate = _range_mean_reversion(session, str(last.symbol), bid, ask, atr, vwap,
+                                              relative_volume, spread_bps, settings, now, expiry, common)
         return [candidate] if candidate else []
+
     return []
 
 

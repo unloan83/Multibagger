@@ -321,8 +321,8 @@ def _open_trade(con: Any, candidate: Candidate, quote: dict[str, Any], now: date
         return None, "AGGREGATE_OPEN_RISK_CAP"
     modeled_cost = _round_trip_cost(entry_quote, float(candidate.target), quantity, settings)
     modeled_round_trip_cost = modeled_cost["total"]
-    if reward * quantity <= 2 * modeled_round_trip_cost:
-        return None, "EXPECTED_PROFIT_NOT_TWICE_COST"
+    # if reward * quantity <= 2 * modeled_round_trip_cost:
+    #     return None, "EXPECTED_PROFIT_NOT_TWICE_COST"
     raw_rr = reward / stop_distance
     if raw_rr < settings.reward_risk:
         return None, "RISK_REWARD_OUTSIDE_POLICY"

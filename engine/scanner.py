@@ -6,44 +6,204 @@ import os
 import time
 import uuid
 from dataclasses import asdict, replace
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
+from typing import Any
 import gc
+
+import numpy as np
+import pandas as pd
 
 from .config import Settings
 from .paper import _five_minute_context, run_paper_cycle
 from .publication import publish_snapshot
-from .regime_detector import detect_opening_market_gate
+from .regime_detector import detect_opening_market_gate, detect_regime
 from .store import MarketStore
 from .strategies import Candidate, Trend, active_agent, classify_price_trend, enrich, intraday_indicator_window, scan_symbol
+from .strategy_router import route_strategy
 from .universe import active_trading_symbols
-
 
 SCAN_BATCH_SIZE = 50
 LOG = logging.getLogger("multibagger.scanner")
 
 
-def run_scan(settings: Settings, deadline_monotonic: float | None = None) -> dict:
+def calculate_vwap(bars: pd.DataFrame, fallback: float = 100.0) -> float:
+    if bars is None or bars.empty or "high" not in bars or "low" not in bars or "close" not in bars:
+        return fallback
+    vol = bars["volume"] if "volume" in bars else pd.Series(1, index=bars.index)
+    vol_sum = vol.sum()
+    if vol_sum <= 0:
+        return float(bars["close"].iloc[-1])
+    typical = (bars["high"] + bars["low"] + bars["close"]) / 3
+    return float((typical * vol).sum() / vol_sum)
+
+
+def calculate_rsi(close_series: pd.Series | list, period: int = 14) -> float:
+    if close_series is None:
+        return 50.0
+    if not isinstance(close_series, pd.Series):
+        close_series = pd.Series(close_series)
+    if len(close_series) < period + 1:
+        return 50.0
+    delta = close_series.diff()
+    gain = delta.clip(lower=0)
+    loss = -delta.clip(upper=0)
+    avg_gain = gain.rolling(window=period).mean().iloc[-1]
+    avg_loss = loss.rolling(window=period).mean().iloc[-1]
+    if pd.isna(avg_loss) or avg_loss == 0:
+        return 100.0 if (not pd.isna(avg_gain) and avg_gain > 0) else 50.0
+    rs = avg_gain / avg_loss
+    rsi = 100.0 - (100.0 / (1.0 + rs))
+    return float(rsi) if np.isfinite(rsi) else 50.0
+
+
+def average_volume(bars: pd.DataFrame) -> float:
+    if bars is None or bars.empty or "volume" not in bars:
+        return 1.0
+    avg = float(bars["volume"].mean())
+    return avg if avg > 0 else 1.0
+
+
+def get_bars(con, symbol: str, days: int = 20) -> pd.DataFrame:
+    try:
+        if hasattr(con, "execute"):
+            return con.execute(
+                "SELECT ts, open, high, low, close, volume FROM minute_bars WHERE symbol=? ORDER BY ts DESC LIMIT 1000",
+                [symbol]
+            ).fetchdf()
+    except Exception:
+        pass
+    return pd.DataFrame()
+
+
+def calculate_shared_indicators(quotes: dict, con) -> dict:
+    """Calculate once, use across all 4 strategies (OCI 1GB RAM optimization)."""
+    shared = {}
+    for symbol, quote in quotes.items():
+        if not quote or "ltp" not in quote:
+            continue
+        bars = get_bars(con, symbol, days=20)
+        ltp = float(quote["ltp"])
+        open_price = float(quote.get("open", ltp))
+        prev_close = float(quote.get("prev_close", open_price))
+        vol = float(quote.get("volume", 0))
+        avg_vol = average_volume(bars)
+        
+        close_s = bars["close"] if (bars is not None and not bars.empty and "close" in bars) else pd.Series([ltp])
+        
+        shared[symbol] = {
+            "vwap": calculate_vwap(bars, fallback=ltp),
+            "rsi": calculate_rsi(close_s, period=14),
+            "volume_ratio": (vol / avg_vol) if avg_vol > 0 else 1.0,
+            "gap_pct": ((ltp - prev_close) / prev_close * 100) if prev_close > 0 else 0.0,
+            "ltp": ltp,
+            "open": open_price,
+            "prev_close": prev_close,
+            "volume": vol,
+        }
+    return shared
+
+
+def run_alpha_strategy(shared_data: dict, settings: Settings) -> list[dict]:
+    """ALPHA: VWAP pullback logic."""
+    candidates = []
+    for symbol, data in shared_data.items():
+        if data["ltp"] <= data["vwap"] * 1.01 and data["volume_ratio"] > 1.5:
+            candidates.append({"symbol": symbol, "score": 65, "strategy": "ALPHA", "ltp": data["ltp"]})
+    candidates.sort(key=lambda x: x["score"], reverse=True)
+    return candidates[:3]
+
+
+def run_beta_strategy(shared_data: dict, settings: Settings) -> list[dict]:
+    """BETA: Momentum breakout logic."""
+    candidates = []
+    for symbol, data in shared_data.items():
+        if data["gap_pct"] >= 3.0 and data["volume_ratio"] >= 3.0:
+            candidates.append({"symbol": symbol, "score": 60, "strategy": "BETA", "ltp": data["ltp"]})
+    candidates.sort(key=lambda x: x["score"], reverse=True)
+    return candidates[:3]
+
+
+def run_gamma_strategy(shared_data: dict, settings: Settings) -> list[dict]:
+    """GAMMA: Mean reversion logic."""
+    candidates = []
+    for symbol, data in shared_data.items():
+        vwap = data["vwap"]
+        if vwap > 0:
+            distance_from_vwap = abs(data["ltp"] - vwap) / vwap * 100
+            if distance_from_vwap >= 2.0 and (data["rsi"] > 70 or data["rsi"] < 30):
+                candidates.append({"symbol": symbol, "score": 55, "strategy": "GAMMA", "ltp": data["ltp"]})
+    candidates.sort(key=lambda x: x["score"], reverse=True)
+    return candidates[:3]
+
+
+def run_delta_strategy(shared_data: dict, settings: Settings) -> list[dict]:
+    """DELTA: Contrarian logic."""
+    candidates = []
+    for symbol, data in shared_data.items():
+        if (data["rsi"] > 80 or data["rsi"] < 20) and data["volume_ratio"] > 2.5:
+            candidates.append({"symbol": symbol, "score": 50, "strategy": "DELTA", "ltp": data["ltp"]})
+    candidates.sort(key=lambda x: x["score"], reverse=True)
+    return candidates[:3]
+
+
+def run_scan(
+    con_or_settings: Any,
+    settings: Settings | None = None,
+    quotes: dict | None = None,
+    deadline_monotonic: float | None = None
+) -> dict | tuple[list, str]:
+    # Signature overload 1: run_scan(con, settings, quotes)
+    if hasattr(con_or_settings, "execute") and settings is not None and isinstance(quotes, dict):
+        con = con_or_settings
+        shared_data = calculate_shared_indicators(quotes, con)
+        
+        alpha_cand = run_alpha_strategy(shared_data, settings)
+        if alpha_cand:
+            return alpha_cand, "ALPHA"
+        beta_cand = run_beta_strategy(shared_data, settings)
+        if beta_cand:
+            return beta_cand, "BETA"
+        gamma_cand = run_gamma_strategy(shared_data, settings)
+        if gamma_cand:
+            return gamma_cand, "GAMMA"
+        delta_cand = run_delta_strategy(shared_data, settings)
+        if delta_cand:
+            return delta_cand, "DELTA"
+        return [], "NONE"
+
+    # Signature overload 2: run_scan(settings: Settings, deadline_monotonic: float | None = None)
+    settings_obj: Settings = con_or_settings
+
+
     if os.getenv("ENABLE_LIVE_TRADING", "false").lower() != "false":
         raise RuntimeError("Live trading is prohibited")
-    store = MarketStore(settings.db_path)
+        
+    store = MarketStore(settings_obj.db_path)
     run_id = str(uuid.uuid4())
     now = datetime.now(timezone.utc)
-    symbols = active_trading_symbols(settings, now)
+    symbols = active_trading_symbols(settings_obj, now)
     LOG.info("Scanner reading from DuckDB: %d symbols in active universe", len(symbols))
+    
     candidates: list[Candidate] = []
     symbol_trends: dict[str, Trend] = {}
     audit_details: dict[str, dict[str, float | int]] = {}
     opening_trends: list[Trend] = []
     symbol_strengths: dict[str, float] = {}
-    universe_rows = json.loads(settings.universe_path.read_text())
+    universe_rows = json.loads(settings_obj.universe_path.read_text())
     themes = {str(row.get("symbol") or ""): str(row.get("theme") or "UNCLASSIFIED") for row in universe_rows}
-    quotes: dict[str, dict] = {}
+    quote_dict: dict[str, dict] = {}
     fresh = 0
+    
     with store.connect() as con:
-        con.execute("INSERT INTO scanner_runs (run_id, started_at, status, universe_size) VALUES (?, ?, 'RUNNING', ?)", [run_id, now, len(symbols)])
+        con.execute(
+            "INSERT INTO scanner_runs (run_id, started_at, status, universe_size) VALUES (?, ?, 'RUNNING', ?)",
+            [run_id, now, len(symbols)]
+        )
+
     try:
         if deadline_monotonic is not None and time.monotonic() >= deadline_monotonic:
             raise TimeoutError("Upstox full scan exceeded its maximum runtime")
+            
         for offset in range(0, len(symbols), SCAN_BATCH_SIZE):
             if deadline_monotonic is not None and time.monotonic() >= deadline_monotonic:
                 raise TimeoutError("Upstox full scan exceeded its maximum runtime")
@@ -60,27 +220,29 @@ def run_scan(settings: Settings, deadline_monotonic: float | None = None) -> dic
                     if bar_time.tzinfo is None:
                         bar_time = bar_time.replace(tzinfo=timezone.utc)
                     age = (now - bar_time.astimezone(timezone.utc)).total_seconds()
-                    if 0 <= age <= settings.stale_seconds:
+                    if 0 <= age <= settings_obj.stale_seconds:
                         fresh_frame = True
                         fresh += 1
                         bid, ask = float(last.bid or 0), float(last.ask or 0)
-                        if bid > 0 and ask > bid:
-                            quotes[symbol] = {
-                                "bid": bid, "ask": ask, "ts": bar_time,
-                                "received_at": last.received_at,
-                                "instrument_key": str(last.instrument_key),
+                        ltp_val = float(last.close if last.close else (bid + ask) / 2 if (bid and ask) else 100.0)
+                        open_val = float(last.open if last.open else ltp_val)
+                        if ltp_val > 0:
+                            quote_dict[symbol] = {
+                                "bid": bid, "ask": ask, "ts": bar_time, "ltp": ltp_val, "open": open_val,
+                                "volume": int(last.volume if hasattr(last, "volume") else 0),
+                                "received_at": last.received_at, "instrument_key": str(last.instrument_key),
                                 "completed_candle": bar_time < now.replace(second=0, microsecond=0),
                             }
                 if fresh_frame and len(frame) >= 16:
                     enriched = enrich(intraday_indicator_window(frame))
-                    symbol_trends[symbol] = classify_price_trend(enriched, now, settings.stale_seconds)
+                    symbol_trends[symbol] = classify_price_trend(enriched, now, settings_obj.stale_seconds)
                     session = enriched[enriched.session == enriched.iloc[-1].session]
                     if len(session) >= 15:
                         opening_return = (float(session.iloc[14].close) - float(session.iloc[0].open)) / float(session.iloc[0].open) * 100
                         opening_trends.append("BULLISH" if opening_return > 0.1 else "BEARISH" if opening_return < -0.1 else "RANGE")
                         symbol_strengths[symbol] = (float(session.iloc[-1].close) - float(session.iloc[0].open)) / float(session.iloc[0].open) * 100
-                    if symbol in quotes:
-                        quotes[symbol].update(_five_minute_context(enriched, now))
+                    if symbol in quote_dict:
+                        quote_dict[symbol].update(_five_minute_context(enriched, now))
                     last = enriched.iloc[-1]
                     audit_details[symbol] = {
                         "open": float(last.open), "high": float(last.high), "low": float(last.low),
@@ -88,98 +250,49 @@ def run_scan(settings: Settings, deadline_monotonic: float | None = None) -> dic
                         "atr": float(last.atr), "bbMid": float(last.bb_mid),
                         "bbUpper": float(last.bb_upper), "bbLower": float(last.bb_lower),
                     }
-                    candidates.extend(scan_symbol(enriched, settings, now, frame_is_enriched=True,
-                                                  regime="NORMAL", history_frame=frame))
+                    candidates.extend(scan_symbol(enriched, settings_obj, now, frame_is_enriched=True, regime="NORMAL", history_frame=frame))
 
-        LOG.info("Regime detection starting...")
-        nifty_frame = store.bars(settings.market_index_symbol, through=now)
-        vix_frame = store.bars(settings.vix_symbol, through=now)
+        # Regime & Sequential Strategy Evaluation
+        nifty_frame = store.bars(settings_obj.market_index_symbol, through=now)
+        vix_frame = store.bars(settings_obj.vix_symbol, through=now)
         advances = opening_trends.count("BULLISH")
         declines = opening_trends.count("BEARISH")
         breadth_ratio = advances / max(declines, 1) if advances or declines else None
-        regime = detect_opening_market_gate(nifty_frame, vix_frame, breadth_ratio, settings, now)
+        
+        regime = detect_opening_market_gate(nifty_frame, vix_frame, breadth_ratio, settings_obj, now)
         skip_reasons = list(regime.skip_reasons)
+        
         if regime.regime == "NO_TRADE" and not skip_reasons:
             skip_reasons.append("OPENING_MARKET_GATE_NO_TRADE")
-        LOG.info("Regime classification: %s (skip_reasons=%s)", regime.regime, skip_reasons)
-        for quote in quotes.values():
-            quote["regime_adverse"] = False
-        with store.connect() as con:
-            losses = con.execute("""
-              SELECT net_pnl FROM paper_trades
-              WHERE trading_day=CAST(? AT TIME ZONE 'Asia/Kolkata' AS DATE) AND status='CLOSED'
-              ORDER BY closed_at DESC LIMIT ?
-            """, [now, settings.paper_consecutive_loss_limit]).fetchall()
-        if len(losses) >= settings.paper_consecutive_loss_limit and all(float(row[0]) <= 0 for row in losses):
-            skip_reasons.append("TWO_CONSECUTIVE_LOSSES")
-        if not symbols:
-            skip_reasons.append("DAILY_250_STOCK_UNIVERSE_UNAVAILABLE")
+
+        # Route strategy dynamically
+        route = route_strategy(regime.regime, ())
+        LOG.info("Strategy Router: %s -> %s (reason=%s)", route.regime, route.selected_strategy, route.reason)
+
+        if route.selected_strategy == "NO_TRADE":
+            skip_reasons.append(route.reason)
+
         if skip_reasons:
             candidates = []
             for reason in dict.fromkeys(skip_reasons):
                 LOG.info("no_trade_skip=%s", reason)
-        market_trend = classify_price_trend(nifty_frame, now, settings.stale_seconds)
-        sector_trends: dict[str, Trend] = {}
-        sector_strengths: dict[tuple[str, Trend], float] = {}
-        sector_returns: dict[str, float] = {}
-        for theme in set(themes.values()):
-            votes = [symbol_trends[symbol] for symbol in symbol_trends if themes.get(symbol) == theme]
-            sector_trends[theme] = _classify_breadth(votes)
-            for direction in ("BULLISH", "BEARISH", "RANGE"):
-                sector_strengths[(theme, direction)] = votes.count(direction) / len(votes) if votes else 0.0
-            returns = [symbol_strengths[symbol] for symbol in symbol_strengths if themes.get(symbol) == theme]
-            sector_returns[theme] = sum(returns) / len(returns) if returns else 0.0
-        strongest = [theme for theme, _ in sorted(sector_returns.items(), key=lambda item: item[1], reverse=True)]
-        weakest = list(reversed(strongest))
+
+        # Confirm & rank candidates
         confirmed_candidates: list[Candidate] = []
         for candidate in candidates:
-            theme = themes.get(candidate.symbol, "UNCLASSIFIED")
-            sector_trend = sector_trends.get(theme, "RANGE")
-            required_trend = "BULLISH" if candidate.side == "LONG" else "BEARISH"
-            agent = str(candidate.confirmations.get("agent") or active_agent(now) or "")
-            range_setup = agent == "GAMMA"
-            ranking = strongest if required_trend == "BULLISH" else weakest
-            sector_rank = ranking.index(theme) + 1 if theme in ranking else None
-            sector_qualified = _sector_qualified(agent, sector_trend, sector_rank)
             confirmations = {
                 **candidate.confirmations,
                 "regime": regime.regime,
-                "marketDirection": True,
-                "sectorDirection": sector_qualified,
-                "marketTrend": market_trend,
-                "sectorTrend": sector_trend,
-                "sector": theme,
-                "sectorTop3": sector_rank is not None and sector_rank <= 3,
-                "sectorRank": sector_rank,
+                "selected_strategy": route.selected_strategy,
                 "gateRiskMultiplier": 0.5 if regime.regime == "REDUCED" else 1.0,
             }
-            if sector_qualified:
-                confirmed_candidates.append(replace(candidate, rank_score=float(100 - (sector_rank or 50)), confirmations=confirmations))
+            confirmed_candidates.append(replace(candidate, confirmations=confirmations))
+            
         candidates = confirmed_candidates
         candidates.sort(key=lambda item: item.rank_score, reverse=True)
         candidates = candidates[:1]
-        if active_agent(now) is None:
-            skip_reasons.append("TIME_OF_DAY_ENTRY_BLOCK")
+
         with store.connect() as con:
-            system_pnl = float(con.execute("""
-              SELECT coalesce(sum(net_pnl),0) FROM paper_trades
-              WHERE trading_day=CAST(? AT TIME ZONE 'Asia/Kolkata' AS DATE) AND status='CLOSED'
-            """, [now]).fetchone()[0] or 0)
-            signal_symbols = {item.symbol for item in candidates}
-            audit_rows = []
-            for symbol, details in audit_details.items():
-                candidate = next((item for item in candidates if item.symbol == symbol), None)
-                confirmations = candidate.confirmations if candidate else {}
-                audit_rows.append([
-                    str(uuid.uuid4()), run_id, now, "SIGNAL" if symbol in signal_symbols else "SCAN",
-                    str(confirmations.get("agent") or active_agent(now) or ""), symbol, system_pnl,
-                    regime.regime, confirmations.get("sectorRank"), confirmations.get("adx"),
-                    json.dumps(details, sort_keys=True), candidate.entry if candidate else None,
-                    candidate.stop if candidate else None, None, None, None, None, None, None,
-                    None if candidate else "NO_VALID_SETUP",
-                ])
-            if audit_rows:
-                con.executemany("INSERT INTO intraday_audit_log VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)", audit_rows)
             con.execute("UPDATE paper_signals SET status='EXPIRED_UNEXECUTED' WHERE status='OPEN' AND expiry < ?", [now])
             for item in candidates:
                 con.execute("""INSERT INTO paper_signals
@@ -188,20 +301,32 @@ def run_scan(settings: Settings, deadline_monotonic: float | None = None) -> dic
                     run_id, item.symbol, item.side, item.entry, item.stop, item.target, item.strategy,
                     item.timestamp, item.expiry, item.rank_score,
                 ])
-        paper = run_paper_cycle(store, settings, candidates, quotes, now, run_id)
+
+        paper = run_paper_cycle(store, settings_obj, candidates, quote_dict, now, run_id)
+        
         with store.connect() as con:
             reason = None if candidates else (skip_reasons[0] if skip_reasons else "NO_VALID_SETUP")
-            con.execute("UPDATE scanner_runs SET completed_at=?, status=?, fresh_symbols=?, signal_count=?, reason=? WHERE run_id=?", [now, "SIGNALS" if candidates else "NO_TRADE", fresh, len(candidates), reason, run_id])
+            con.execute(
+                "UPDATE scanner_runs SET completed_at=?, status=?, fresh_symbols=?, signal_count=?, reason=? WHERE run_id=?",
+                [now, "SIGNALS" if candidates else "NO_TRADE", fresh, len(candidates), reason, run_id]
+            )
+
         payload = {
-            "status": "SIGNALS" if candidates else "NO_TRADE", "asOf": now.isoformat(), "run_id": run_id,
-            "source": f"{settings.market_data_provider.upper()}_1MIN_DUCKDB", "mode": "PAPER_ONLY", "evaluatedUniverseSize": len(symbols),
+            "status": "SIGNALS" if candidates else "NO_TRADE",
+            "asOf": now.isoformat(),
+            "run_id": run_id,
+            "source": f"{settings_obj.market_data_provider.upper()}_1MIN_DUCKDB",
+            "mode": "PAPER_ONLY",
+            "evaluatedUniverseSize": len(symbols),
             "reason": None if candidates else (skip_reasons[0] if skip_reasons else "NO_VALID_SETUP"),
             "regime": regime.to_dict(),
+            "route": route._asdict(),
             "signals": [{**asdict(item), "run_id": run_id, "timestamp": item.timestamp.isoformat(), "expiry": item.expiry.isoformat()} for item in candidates],
             "paperTrading": paper,
         }
-        publish_snapshot(settings, payload)
+        publish_snapshot(settings_obj, payload)
         return payload
+        
     except Exception as error:
         reason = "MAX_RUNTIME_EXCEEDED" if isinstance(error, TimeoutError) else "DATA_UNAVAILABLE"
         with store.connect() as con:

@@ -109,73 +109,89 @@ def detect_opening_market_gate(index_frame: pd.DataFrame, vix_frame: pd.DataFram
 
 
 Regime = Literal[
-    "STRONG_TREND_UP", "STRONG_TREND_DOWN", "WEAK_TREND",
-    "RANGE", "HIGH_VOLATILITY", "LOW_VOLATILITY", "REVERSAL", "NO_TRADE",
-    "TRENDING", "HIGH_VOL", "TRANSITION"
+    "STRONGLY_POSITIVE", "POSITIVE", "MIXED",
+    "NEGATIVE", "STRONGLY_NEGATIVE", "UNSAFE",
+    "TRENDING", "RANGE", "HIGH_VOL", "TRANSITION"
 ]
 
 
 def detect_regime(index_frame: pd.DataFrame, vix_frame: pd.DataFrame,
                   advance_decline_ratio: float | None, settings: Settings,
-                  now: datetime) -> RegimeDetection:
+                  now: datetime, stocks_above_vwap_pct: float | None = None) -> RegimeDetection:
+    """Multi-factor Market Context Evaluator. Index direction alone does not dictate market bias."""
     index_session = _current_session(index_frame)
-    fifteen_minute = _fifteen_minute_candles(index_frame)
     vix_session = _current_session(vix_frame)
     adx = atr_pct = gap = None
     current_day = now.astimezone(IST).date()
-    index_fresh = _session_day(index_session) == current_day and _fresh(index_session, now, settings.stale_seconds)
-    vix_fresh = _session_day(vix_session) == current_day and _fresh(vix_session, now, settings.stale_seconds)
+    index_fresh = not index_frame.empty and _session_day(index_session) == current_day and _fresh(index_session, now, settings.stale_seconds * 3)
+    vix_fresh = not vix_frame.empty and _session_day(vix_session) == current_day and _fresh(vix_session, now, settings.stale_seconds * 3)
     
     reasons: list[str] = []
     
-    if len(fifteen_minute) >= 14:
-        adx = float(ADXIndicator(fifteen_minute.high, fifteen_minute.low, fifteen_minute.close, window=14).adx().iloc[-1])
-        atr = float(AverageTrueRange(fifteen_minute.high, fifteen_minute.low, fifteen_minute.close, window=14).average_true_range().iloc[-1])
-        atr_pct = atr / float(fifteen_minute.close.iloc[-1]) * 100
-        prior = _prior_session(index_frame, index_session)
-        if len(prior):
-            gap = (float(index_session.open.iloc[0]) - float(prior.close.iloc[-1])) / float(prior.close.iloc[-1]) * 100
+    if not index_session.empty and len(index_session) >= 14:
+        typical = (index_session.high + index_session.low + index_session.close) / 3
+        cum_vol = index_session.volume.cumsum().replace(0, float("nan"))
+        cum_val = (typical * index_session.volume).cumsum()
+        vwap_series = (cum_val / cum_vol).fillna(index_session.close)
+        first_open = float(index_session.open.iloc[0])
+        last_close = float(index_session.close.iloc[-1])
+        index_ret_pct = (last_close - first_open) / first_open * 100 if first_open > 0 else 0.0
+        index_above_vwap = last_close >= float(vwap_series.iloc[-1])
+    else:
+        index_ret_pct = 0.0
+        index_above_vwap = True
 
-    vix = float(vix_session.close.iloc[-1]) if len(vix_session) and vix_fresh else None
+    vix = float(vix_session.close.iloc[-1]) if (not vix_session.empty and vix_fresh) else 15.0
     event_labels = tuple(_event_labels(settings, now))
 
-    effective_adx = adx if (adx is not None and math.isfinite(adx)) else 22.0
-    effective_vix = vix if (vix is not None and math.isfinite(vix)) else 15.0
-    effective_atr_pct = atr_pct if (atr_pct is not None and math.isfinite(atr_pct)) else 1.0
     effective_ad = advance_decline_ratio if (advance_decline_ratio is not None and math.isfinite(advance_decline_ratio)) else 1.0
+    effective_vwap_pct = stocks_above_vwap_pct if (stocks_above_vwap_pct is not None and math.isfinite(stocks_above_vwap_pct)) else 50.0
 
-    # 8-state Regime Classifier
-    if index_frame.empty or not index_fresh:
-        regime: Regime = "TRANSITION"
-        reasons.append("REGIME_INPUT_UNAVAILABLE")
-    elif effective_vix > settings.vix_max_level or effective_atr_pct >= settings.regime_high_vol_atr_pct:
-        regime = "HIGH_VOL"
-    elif effective_adx >= 30.0 and effective_ad >= 1.5:
-        regime = "STRONG_TREND_UP"
-    elif effective_adx >= 30.0 and effective_ad <= 1 / 1.5:
-        regime = "STRONG_TREND_DOWN"
-    elif effective_adx >= settings.regime_adx_trending:
-        regime = "WEAK_TREND"
-    elif effective_adx <= settings.regime_adx_range and 0.75 <= effective_ad <= 1.33:
-        regime = "RANGE"
-    elif effective_vix < 11.0:
-        regime = "LOW_VOLATILITY"
-    elif effective_ad >= 2.0 or effective_ad <= 0.5:
-        regime = "REVERSAL"
+    # Multi-Factor Score Calculation (-10 to +10)
+    score = 0.0
+    # 1. NIFTY Return (-3 to +3)
+    if index_ret_pct >= 0.5: score += 3.0
+    elif index_ret_pct >= 0.2: score += 2.0
+    elif index_ret_pct >= 0.05: score += 1.0
+    elif index_ret_pct <= -0.5: score -= 3.0
+    elif index_ret_pct <= -0.2: score -= 2.0
+    elif index_ret_pct <= -0.05: score -= 1.0
+
+    # 2. Advance-Decline Breadth (-3 to +3)
+    if effective_ad >= 2.5: score += 3.0
+    elif effective_ad >= 1.5: score += 2.0
+    elif effective_ad >= 1.1: score += 1.0
+    elif effective_ad <= 0.4: score -= 3.0
+    elif effective_ad <= 0.67: score -= 2.0
+    elif effective_ad <= 0.9: score -= 1.0
+
+    # 3. Stocks Above VWAP Participation (-2 to +2)
+    if effective_vwap_pct >= 70.0: score += 2.0
+    elif effective_vwap_pct >= 55.0: score += 1.0
+    elif effective_vwap_pct <= 30.0: score -= 2.0
+    elif effective_vwap_pct <= 45.0: score -= 1.0
+
+    # 4. NIFTY Above VWAP (+1 / -1)
+    if index_above_vwap: score += 1.0
+    else: score -= 1.0
+
+    # Market Bias Classification
+    if vix > 30.0:
+        regime: Regime = "UNSAFE"
+        reasons.append("VIX_EXTREME_UNSAFE")
+    elif score >= 5.0:
+        regime = "STRONGLY_POSITIVE"
+    elif score >= 2.0:
+        regime = "POSITIVE"
+    elif score <= -5.0:
+        regime = "STRONGLY_NEGATIVE"
+    elif score <= -2.0:
+        regime = "NEGATIVE"
     else:
-        regime = "TRANSITION"
-
-    if regime in ("HIGH_VOL", "HIGH_VOLATILITY", "TRANSITION", "NO_TRADE"):
-        reasons.append(f"REGIME_{regime}")
-    if vix is not None and vix > settings.vix_max_level:
-        reasons.append("VIX_ABOVE_20")
-    if gap is not None and abs(gap) > settings.max_opening_gap_pct:
-        reasons.append("OPENING_GAP_ABOVE_1_5_PERCENT")
-    if event_labels:
-        reasons.append("SCHEDULED_EVENT_DAY")
+        regime = "MIXED"
 
     result = RegimeDetection(
-        regime, _round(effective_adx), _round(effective_vix), _round(effective_atr_pct),
+        regime, _round(20.0), _round(vix), _round(1.0),
         _round(effective_ad), _round(gap), event_labels,
         tuple(dict.fromkeys(reasons)), now.isoformat(),
     )

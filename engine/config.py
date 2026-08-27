@@ -33,10 +33,11 @@ class Settings:
     atr_stop_multiple: float = 3.0
     reward_risk: float = 1.5
     max_reward_risk: float = 2.0
-    min_average_volume: int = 300_000
-    min_average_daily_range_pct: float = 1.2
+    min_average_volume: int = 150_000
+    min_average_daily_range_pct: float = 0.85
+    min_opportunity_score: float = 55.0
     support_resistance_proximity_pct: float = 0.5
-    regime_adx_trending: float = 25.0
+    regime_adx_trending: float = 20.0
     regime_adx_range: float = 20.0
     regime_high_vol_atr_pct: float = 1.5
     vix_max_level: float = 20.0
@@ -87,7 +88,7 @@ class Settings:
     breeze_api_key: str = ""
     breeze_api_secret: str = ""
     breeze_session_token: str = ""
-    enabled_agents: tuple[str, ...] = ("ALPHA", "BETA", "GAMMA")
+    enabled_agents: tuple[str, ...] = ("ALPHA", "BETA", "GAMMA", "UNIFIED_OPPORTUNITY_ENGINE")
 
     @classmethod
     def from_env(cls) -> "Settings":

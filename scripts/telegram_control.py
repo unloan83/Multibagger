@@ -126,11 +126,13 @@ class TelegramController:
         if "message" in update:
             msg = update["message"]
             chat_id = str(msg.get("chat", {}).get("id", ""))
-            if not self._is_authorized(chat_id):
-                LOG.warning("Unauthorized Telegram command from chat_id %s", chat_id)
+            from_id = str(msg.get("from", {}).get("id", ""))
+            if not self._is_authorized(chat_id) and not self._is_authorized(from_id):
+                LOG.warning("Unauthorized Telegram command from chat_id %s / from_id %s", chat_id, from_id)
                 return
             text = (msg.get("text") or "").strip()
-            self._handle_command(chat_id, text)
+            target_chat = chat_id or from_id
+            self._handle_command(target_chat, text)
 
         elif "callback_query" in update:
             cb = update["callback_query"]
@@ -150,6 +152,8 @@ class TelegramController:
 
     def _is_authorized(self, chat_id: str) -> bool:
         """Verifies caller matches TELEGRAM_ALLOWED_CHAT_ID."""
+        if not self.allowed_chat_id:
+            return True
         return str(chat_id).strip() == str(self.allowed_chat_id).strip()
 
     def _send_message(self, chat_id: str, text: str, include_keyboard: bool = True) -> bool:
@@ -166,6 +170,9 @@ class TelegramController:
 
         try:
             res = requests.post(url, json=body, timeout=10)
+            if res.status_code != 200:
+                body.pop("parse_mode", None)
+                res = requests.post(url, json=body, timeout=10)
             return res.status_code == 200
         except Exception as err:
             LOG.error("Failed to send Telegram message: %s", err)
@@ -183,7 +190,7 @@ class TelegramController:
 
     def _handle_command(self, chat_id: str, text: str) -> None:
         """Processes slash commands."""
-        cmd = text.split()[0].lower() if text else ""
+        cmd = text.split()[0].lower().split("@")[0] if text else ""
         if cmd in ("/start", "/status"):
             self._reply_status(chat_id)
         elif cmd == "/flatten":

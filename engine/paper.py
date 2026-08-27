@@ -716,7 +716,8 @@ def _flatten_time_reached(now: datetime, settings: Settings) -> bool:
 
 def _entry_window_open(now: datetime) -> bool:
     local = now.astimezone(IST)
-    return local.weekday() < 5 and active_agent(now) is not None
+    minute = local.hour * 60 + local.minute
+    return local.weekday() < 5 and (9 * 60 + 15 <= minute < 15 * 60 + 15)
 
 
 def _fresh_quote(quote: dict[str, Any] | None, now: datetime, stale_seconds: int) -> dict[str, Any] | None:

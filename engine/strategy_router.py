@@ -15,24 +15,21 @@ class RouteDecision(NamedTuple):
 
 def route_strategy(regime: str, event_labels: tuple[str, ...] = ()) -> RouteDecision:
     """
-    Select strategy dynamically based on current market regime.
+    Select allowable trade direction based on multi-factor Market Bias.
     Logs: REGIME -> SELECTED_STRATEGY -> REASON -> CONFIDENCE
     """
     if "NIFTY_EXPIRY" in event_labels or "EVENT_CALENDAR_UNAVAILABLE" in event_labels:
         decision = RouteDecision(regime, "NO_TRADE", "SCHEDULED_EVENT_RISK_BLOCK", 0.0)
-    elif regime in ("STRONG_TREND_UP", "STRONG_TREND_DOWN", "TRENDING", "NORMAL"):
-        decision = RouteDecision(regime, "ALPHA", "STRONG_TREND_VWAP_PULLBACK_CONTINUATION", 0.85)
-    elif regime == "WEAK_TREND":
-        decision = RouteDecision(regime, "BETA", "WEAK_TREND_MOMENTUM_BREAKOUT", 0.70)
-    elif regime in ("RANGE", "LOW_VOLATILITY", "REDUCED"):
-        decision = RouteDecision(regime, "GAMMA", "RANGE_BOUND_MEAN_REVERSION", 0.65)
-    elif regime == "REVERSAL":
-        decision = RouteDecision(regime, "DELTA", "CONFIRMED_EXTREME_REVERSAL", 0.60)
-    elif regime in ("HIGH_VOLATILITY", "HIGH_VOL", "TRANSITION", "NO_TRADE"):
-        decision = RouteDecision(regime, "NO_TRADE", "NO_TRADE_UNFAVOURABLE_REGIME", 0.0)
+    elif regime in ("STRONGLY_POSITIVE", "POSITIVE"):
+        decision = RouteDecision(regime, "UNIFIED_OPPORTUNITY_ENGINE", "POSITIVE_MARKET_BIAS_ALL_THESES_ACTIVE", 0.85)
+    elif regime in ("MIXED", "NORMAL", "RANGE"):
+        decision = RouteDecision(regime, "UNIFIED_OPPORTUNITY_ENGINE", "MIXED_MARKET_BIAS_NEUTRAL_CONFLUENCE_ACTIVE", 0.75)
+    elif regime in ("STRONGLY_NEGATIVE", "NEGATIVE"):
+        decision = RouteDecision(regime, "UNIFIED_OPPORTUNITY_ENGINE", "NEGATIVE_MARKET_BIAS_ALL_THESES_ACTIVE", 0.85)
+    elif regime == "UNSAFE":
+        decision = RouteDecision(regime, "NO_TRADE", "UNSAFE_MARKET_BIAS_VIX_SPIKE", 0.0)
     else:
-        decision = RouteDecision(regime, "NO_TRADE", "NO_TRADE_UNFAVOURABLE_REGIME", 0.0)
-
+        decision = RouteDecision(regime, "UNIFIED_OPPORTUNITY_ENGINE", "UNIFIED_OPPORTUNITY_ENGINE_ACTIVE", 0.70)
 
     LOG.info(
         "REGIME -> SELECTED_STRATEGY -> REASON -> CONFIDENCE: %s -> %s -> %s -> %.2f",

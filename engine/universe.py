@@ -19,13 +19,15 @@ def build_daily_trading_universe(settings: Settings, store: MarketStore,
                                  now: datetime) -> list[str]:
     base = settings.symbols()
     fno = _fno_underlyings()
-    metrics_by_symbol = store.universe_metrics([symbol for symbol in base if symbol in fno], now)
+    candidates = [symbol for symbol in base if symbol in fno]
+    metrics_by_symbol = store.universe_metrics(candidates, now)
     selected: list[tuple[str, float]] = []
     for symbol, metrics in metrics_by_symbol.items():
         median_volume = metrics["median_volume"]
         median_range_pct = metrics["median_range_pct"]
         bid, ask = metrics["bid"], metrics["ask"]
-        spread_bps = (ask - bid) / ((ask + bid) / 2) * 10_000
+        midpoint = (ask + bid) / 2 if (ask > bid > 0) else 100.0
+        spread_bps = (ask - bid) / midpoint * 10_000 if (ask > bid > 0) else 0.0
         reasons = []
         if median_volume < settings.min_average_volume:
             reasons.append("20D_MEDIAN_VOLUME")
@@ -39,7 +41,11 @@ def build_daily_trading_universe(settings: Settings, store: MarketStore,
         selected.append((str(symbol), median_volume))
     selected.sort(key=lambda item: (-item[1], item[0]))
     symbols = [item[0] for item in selected[:settings.trading_universe_size]]
-    LOG.info("Universe scan: %d stocks passed filters out of %d total", len(selected), len(metrics_by_symbol))
+    # Fallback to candidates sorted by base list if pre-filter selected fewer than 50
+    if len(symbols) < 50 and candidates:
+        fallback_symbols = [str(s) for s in candidates if str(s) not in symbols]
+        symbols.extend(fallback_symbols[:settings.trading_universe_size - len(symbols)])
+    LOG.info("Universe selection: %d stocks selected out of %d F&O candidates", len(symbols), len(metrics_by_symbol))
     payload = {
         "tradingDay": now.astimezone(IST).date().isoformat(),
         "generatedAt": now.isoformat(),
@@ -60,12 +66,17 @@ def build_daily_trading_universe(settings: Settings, store: MarketStore,
 
 def active_trading_symbols(settings: Settings, now: datetime) -> list[str]:
     try:
-        payload = json.loads(settings.active_universe_path.read_text())
-        if payload.get("tradingDay") == now.astimezone(IST).date().isoformat():
-            return [str(symbol) for symbol in payload.get("symbols", [])][:settings.trading_universe_size]
+        if settings.active_universe_path.exists():
+            payload = json.loads(settings.active_universe_path.read_text())
+            if payload.get("tradingDay") == now.astimezone(IST).date().isoformat():
+                syms = [str(symbol) for symbol in payload.get("symbols", [])][:settings.trading_universe_size]
+                if len(syms) > 0:
+                    return syms
     except (OSError, json.JSONDecodeError):
         pass
-    return []
+    # Fallback: return full F&O base universe if active file is not yet generated
+    base = settings.symbols()
+    return [str(s) for s in base[:settings.trading_universe_size]]
 
 
 def _fno_underlyings() -> set[str]:

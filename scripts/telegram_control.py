@@ -20,7 +20,10 @@ from typing import Any
 import requests
 
 from engine.config import Settings
-from engine.store import MarketStore
+try:
+    from engine.store import MarketStore
+except ImportError:
+    MarketStore = None
 
 import re
 
@@ -71,9 +74,14 @@ class TelegramController:
     Non-blocking background polling service for remote Telegram control.
     """
 
-    def __init__(self, settings: Settings, store: MarketStore | None = None) -> None:
+    def __init__(self, settings: Settings, store: Any | None = None) -> None:
         self.settings = settings
-        self.store = store or MarketStore(settings.db_path)
+        if store is not None:
+            self.store = store
+        elif MarketStore is not None:
+            self.store = MarketStore(settings.db_path)
+        else:
+            self.store = None
         self.token = (
             os.environ.get("TELEGRAM_BOT_TOKEN", "").strip()
             or os.environ.get("TELEGRAM_TOKEN", "").strip()
@@ -282,29 +290,30 @@ class TelegramController:
         latest_reason = "NO_TRADE_NO_VALID_SETUP"
 
         try:
-            with self.store.connect(read_only=True) as con:
-                rows = con.execute("SELECT * FROM paper_trades WHERE status='OPEN'").fetchall()
-                open_positions = len(rows)
-                today_str = now.strftime("%Y-%m-%d")
-                closed_rows = con.execute(
-                    "SELECT net_pnl FROM paper_trades WHERE status='CLOSED' AND strftime('%Y-%m-%d', closed_at)=?",
-                    [today_str],
-                ).fetchall()
-                net_pnl = sum(float(r[0] or 0) for r in closed_rows)
-                if net_pnl < 0:
-                    daily_loss_used = abs(net_pnl)
+            if self.store is not None:
+                with self.store.connect(read_only=True) as con:
+                    rows = con.execute("SELECT * FROM paper_trades WHERE status='OPEN'").fetchall()
+                    open_positions = len(rows)
+                    today_str = now.strftime("%Y-%m-%d")
+                    closed_rows = con.execute(
+                        "SELECT net_pnl FROM paper_trades WHERE status='CLOSED' AND strftime('%Y-%m-%d', closed_at)=?",
+                        [today_str],
+                    ).fetchall()
+                    net_pnl = sum(float(r[0] or 0) for r in closed_rows)
+                    if net_pnl < 0:
+                        daily_loss_used = abs(net_pnl)
 
-                scan_row = con.execute("SELECT regime, reason, completed_at FROM scanner_runs ORDER BY started_at DESC LIMIT 1").fetchone()
-                if scan_row:
-                    regime = str(scan_row[0] or regime)
-                    latest_reason = str(scan_row[1] or "NO_TRADE_NO_VALID_SETUP")
-                    if scan_row[2]:
-                        scan_dt = scan_row[2] if isinstance(scan_row[2], datetime) else datetime.fromisoformat(str(scan_row[2]))
-                        if scan_dt.tzinfo is None:
-                            scan_dt = scan_dt.replace(tzinfo=timezone.utc)
-                        age = max(0, int((now - scan_dt.astimezone(timezone.utc)).total_seconds()))
-                        bar_age_str = f"{age}s"
-                        regime_age_str = f"{age}s"
+                    scan_row = con.execute("SELECT regime, reason, completed_at FROM scanner_runs ORDER BY started_at DESC LIMIT 1").fetchone()
+                    if scan_row:
+                        regime = str(scan_row[0] or regime)
+                        latest_reason = str(scan_row[1] or "NO_TRADE_NO_VALID_SETUP")
+                        if scan_row[2]:
+                            scan_dt = scan_row[2] if isinstance(scan_row[2], datetime) else datetime.fromisoformat(str(scan_row[2]))
+                            if scan_dt.tzinfo is None:
+                                scan_dt = scan_dt.replace(tzinfo=timezone.utc)
+                            age = max(0, int((now - scan_dt.astimezone(timezone.utc)).total_seconds()))
+                            bar_age_str = f"{age}s"
+                            regime_age_str = f"{age}s"
         except Exception as err:
             LOG.error("Failed to query store status: %s", err)
 

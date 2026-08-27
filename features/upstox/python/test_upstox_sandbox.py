@@ -79,8 +79,9 @@ def test_missing_sandbox_token_raises_auth_error(monkeypatch):
     monkeypatch.setenv("UPSTOX_MODE", "SANDBOX")
     monkeypatch.setenv("LIVE_TRADING_ENABLED", "false")
     monkeypatch.delenv("UPSTOX_SANDBOX_ACCESS_TOKEN", raising=False)
+    monkeypatch.delenv("UPSTOX_ACCESS_TOKEN", raising=False)
 
-    with pytest.raises(UpstoxSandboxAuthError, match="UPSTOX_SANDBOX_ACCESS_TOKEN is not set"):
+    with pytest.raises(UpstoxSandboxAuthError, match="UPSTOX_ACCESS_TOKEN or UPSTOX_SANDBOX_ACCESS_TOKEN is not set"):
         get_sandbox_configuration(access_token=None)
 
 

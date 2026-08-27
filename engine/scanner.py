@@ -259,18 +259,47 @@ def run_scan(
         declines = opening_trends.count("BEARISH")
         breadth_ratio = advances / max(declines, 1) if advances or declines else None
         
-        regime = detect_opening_market_gate(nifty_frame, vix_frame, breadth_ratio, settings_obj, now)
+        regime = detect_regime(nifty_frame, vix_frame, breadth_ratio, settings_obj, now)
         skip_reasons = list(regime.skip_reasons)
-        
-        if regime.regime == "NO_TRADE" and not skip_reasons:
-            skip_reasons.append("OPENING_MARKET_GATE_NO_TRADE")
+
+        if len(nifty_frame):
+            last_nifty = nifty_frame.iloc[-1]
+            last_market_bar_ts = last_nifty.ts.to_pydatetime() if hasattr(last_nifty.ts, "to_pydatetime") else last_nifty.ts
+            if last_market_bar_ts.tzinfo is None:
+                last_market_bar_ts = last_market_bar_ts.replace(tzinfo=timezone.utc)
+        else:
+            last_market_bar_ts = now
+
+        bar_age = max(0.0, (now - last_market_bar_ts.astimezone(timezone.utc)).total_seconds())
+        regime_dt = datetime.fromisoformat(regime.as_of)
+        if regime_dt.tzinfo is None:
+            regime_dt = regime_dt.replace(tzinfo=timezone.utc)
+        regime_age = max(0.0, (now - regime_dt.astimezone(timezone.utc)).total_seconds())
 
         # Route strategy dynamically
         route = route_strategy(regime.regime, ())
-        LOG.info("Strategy Router: %s -> %s (reason=%s)", route.regime, route.selected_strategy, route.reason)
 
-        if route.selected_strategy == "NO_TRADE":
-            skip_reasons.append(route.reason)
+        # Strict NO_TRADE Reason Categorization
+        if bar_age > settings_obj.stale_seconds:
+            exact_no_trade_reason = "NO_TRADE_STALE_DATA"
+        elif regime_age > settings_obj.stale_seconds:
+            exact_no_trade_reason = "NO_TRADE_STALE_REGIME"
+        elif regime.regime in ("HIGH_VOLATILITY", "HIGH_VOL", "TRANSITION", "NO_TRADE") or route.selected_strategy == "NO_TRADE":
+            exact_no_trade_reason = "NO_TRADE_UNFAVOURABLE_REGIME"
+        elif not candidates:
+            exact_no_trade_reason = "NO_TRADE_NO_VALID_SETUP"
+        else:
+            exact_no_trade_reason = "NO_TRADE_RISK_VETO"
+
+        LOG.info(
+            "NOW | LAST_MARKET_BAR_TS | BAR_AGE_SEC | REGIME_TS | REGIME_AGE_SEC | REGIME | STRATEGY | NO_TRADE_REASON: "
+            "%s | %s | %ds | %s | %ds | %s | %s | %s",
+            now.isoformat(), last_market_bar_ts.isoformat(), int(bar_age), regime.as_of, int(regime_age),
+            regime.regime, route.selected_strategy, exact_no_trade_reason
+        )
+
+        if exact_no_trade_reason != "NO_TRADE_NO_VALID_SETUP" and route.selected_strategy == "NO_TRADE":
+            skip_reasons.append(exact_no_trade_reason)
 
         if skip_reasons:
             candidates = []
@@ -305,7 +334,7 @@ def run_scan(
         paper = run_paper_cycle(store, settings_obj, candidates, quote_dict, now, run_id)
         
         with store.connect() as con:
-            reason = None if candidates else (skip_reasons[0] if skip_reasons else "NO_VALID_SETUP")
+            reason = None if candidates else exact_no_trade_reason
             con.execute(
                 "UPDATE scanner_runs SET completed_at=?, status=?, fresh_symbols=?, signal_count=?, reason=? WHERE run_id=?",
                 [now, "SIGNALS" if candidates else "NO_TRADE", fresh, len(candidates), reason, run_id]
@@ -318,12 +347,15 @@ def run_scan(
             "source": f"{settings_obj.market_data_provider.upper()}_1MIN_DUCKDB",
             "mode": "PAPER_ONLY",
             "evaluatedUniverseSize": len(symbols),
-            "reason": None if candidates else (skip_reasons[0] if skip_reasons else "NO_VALID_SETUP"),
+            "reason": None if candidates else exact_no_trade_reason,
             "regime": regime.to_dict(),
             "route": route._asdict(),
+            "bar_age_sec": int(bar_age),
+            "regime_age_sec": int(regime_age),
             "signals": [{**asdict(item), "run_id": run_id, "timestamp": item.timestamp.isoformat(), "expiry": item.expiry.isoformat()} for item in candidates],
             "paperTrading": paper,
         }
+
         publish_snapshot(settings_obj, payload)
         return payload
         

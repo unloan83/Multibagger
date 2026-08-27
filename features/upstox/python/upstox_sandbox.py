@@ -104,11 +104,11 @@ def get_sandbox_configuration(access_token: Optional[str] = None) -> upstox_clie
     """
     try:
         verify_sandbox_safety_guardrails()
-        token = access_token or os.getenv("UPSTOX_SANDBOX_ACCESS_TOKEN", "").strip()
+        token = access_token or os.getenv("UPSTOX_ACCESS_TOKEN", "").strip() or os.getenv("UPSTOX_SANDBOX_ACCESS_TOKEN", "").strip()
         if not token:
             raise UpstoxSandboxAuthError(
-                "MISSING CREDENTIAL: UPSTOX_SANDBOX_ACCESS_TOKEN is not set.\n"
-                "Please set UPSTOX_SANDBOX_ACCESS_TOKEN in your local .env.local file or environment."
+                "MISSING CREDENTIAL: UPSTOX_ACCESS_TOKEN or UPSTOX_SANDBOX_ACCESS_TOKEN is not set.\n"
+                "Please set UPSTOX_ACCESS_TOKEN in /etc/upstox/upstox.env or environment."
             )
     except UpstoxSandboxAuthError as e:
         logger.error(f"Authentication Token Error: {e}")

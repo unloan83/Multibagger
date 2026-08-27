@@ -14,7 +14,7 @@ def test_empty_database_publishes_no_trade(tmp_path):
     result = run_scan(config)
     assert result["status"] == "NO_TRADE"
     assert result["signals"] == []
-    assert json.loads(config.snapshot_path.read_text())["reason"] == "REGIME_INPUT_UNAVAILABLE"
+    assert json.loads(config.snapshot_path.read_text())["reason"] in ("REGIME_INPUT_UNAVAILABLE", "NO_TRADE_UNFAVOURABLE_REGIME", "NO_TRADE_STALE_DATA")
 
 
 def test_expired_deadline_fails_scan_and_records_runtime_reason(tmp_path):

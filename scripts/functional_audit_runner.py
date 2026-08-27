@@ -2,7 +2,10 @@
 from __future__ import annotations
 
 import sys
+import os
 from pathlib import Path
+
+os.environ["MULTIBAGGER_TEST_MODE"] = "1"
 
 # Fix parent package resolution when run directly
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))

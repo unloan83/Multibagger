@@ -52,7 +52,8 @@ class Settings:
     paper_max_risk_per_trade: float = 500.0
     paper_max_aggregate_open_risk: float = 750.0
     paper_max_capital_per_trade_pct: float = 20.0
-    paper_daily_profit_target: float = 3_000.0
+    paper_daily_profit_target: float = 4_000.0
+
     paper_daily_loss_limit: float = 1_000.0
     paper_max_open_positions: int = 3
     paper_max_trades_per_day: int = 4
@@ -104,7 +105,8 @@ class Settings:
             raise RuntimeError("MIN_PRICE_INR and MAX_PRICE_INR must define a positive increasing range")
         paper_capital = float(os.getenv("PAPER_PORTFOLIO_CAPITAL_INR", "500000"))
         risk_pct = float(os.getenv("PAPER_RISK_PER_TRADE_PERCENT", "0.25"))
-        daily_target = float(os.getenv("PAPER_DAILY_PROFIT_TARGET_INR", "3000"))
+        daily_target = float(os.getenv("PAPER_DAILY_PROFIT_TARGET_INR", "4000"))
+
         daily_loss = float(os.getenv("PAPER_DAILY_LOSS_LIMIT_INR", "1000"))
         max_positions = int(os.getenv("PAPER_MAX_OPEN_POSITIONS", "3"))
         max_trades = int(os.getenv("PAPER_MAX_TRADES_PER_DAY", "4"))
@@ -136,8 +138,9 @@ class Settings:
         trading_universe_size = int(os.getenv("INTRADAY_TRADING_UNIVERSE_SIZE", "250"))
         if trading_universe_size != 250:
             raise RuntimeError("INTRADAY_TRADING_UNIVERSE_SIZE must remain 250")
-        if abs(daily_target - 3_000) > 0.01 or abs(daily_loss - 1_000) > 0.01:
-            raise RuntimeError("Paper profit/loss breakers must remain INR 3,000 profit / 1,000 loss")
+        if abs(daily_target - 4_000) > 0.01 or abs(daily_loss - 1_000) > 0.01:
+            raise RuntimeError("Paper profit/loss breakers must remain INR 4,000 profit / 1,000 loss")
+
         return cls(
             access_token=os.getenv("UPSTOX_ACCESS_TOKEN", ""),
             db_path=Path(os.getenv("MARKET_DATA_DB", ROOT / "data" / "market_data.duckdb")),

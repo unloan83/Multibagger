@@ -135,14 +135,25 @@ class MarketStore:
     @contextmanager
     def connect(self, read_only: bool = False) -> Iterator[duckdb.DuckDBPyConnection]:
         with _DATABASE_LOCK:
-            try:
-                con = duckdb.connect(str(self.path), read_only=read_only)
-            except duckdb.IOException:
-                con = duckdb.connect(str(self.path), read_only=True)
+            for attempt in range(5):
+                try:
+                    con = duckdb.connect(str(self.path), read_only=read_only)
+                    break
+                except duckdb.IOException:
+                    try:
+                        con = duckdb.connect(str(self.path), read_only=True)
+                        break
+                    except duckdb.IOException:
+                        if attempt < 4:
+                            import time
+                            time.sleep(0.5)
+                        else:
+                            raise
             try:
                 yield con
             finally:
                 con.close()
+
 
 
     def upsert_bar(self, row: dict) -> None:

@@ -21,6 +21,10 @@ def telegram_configured() -> bool:
 
 def send_telegram_message(text: str, *, event_key: str, cooldown_seconds: int = 0) -> bool:
     """Send without ever interrupting trading; suppress repeated operational alerts."""
+    if os.environ.get("MULTIBAGGER_TEST_MODE") == "1":
+        if not text.startswith("[TEST ONLY]"):
+            text = f"[TEST ONLY] {text}"
+
     token = os.environ.get("TELEGRAM_TOKEN", "").strip()
     chat_id = os.environ.get("TELEGRAM_CHAT_ID", "").strip()
     if not token or not chat_id:

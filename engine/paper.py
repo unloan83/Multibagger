@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 import logging
 import math
+import os
 import uuid
 from dataclasses import asdict
 from datetime import datetime, timezone
@@ -904,8 +905,34 @@ def _submit_upstox_sandbox_order(symbol: str, instrument_key: str, quantity: int
     return order_id
 
 
-def send_telegram_safety_report(reason: str, stats: dict[str, int] | None = None) -> bool:
+def send_telegram_safety_report(
+    reason: str,
+    stats: dict[str, int] | None = None,
+    settings: Settings | None = None,
+    auth_valid: bool | None = None,
+    realised_pnl: float = 0.0,
+    unrealised_pnl: float = 0.0,
+) -> bool:
     """Send automated Telegram 5-Step Safety Report on trading halt or kill-switch events."""
+    if settings is None:
+        try:
+            settings = Settings.from_env()
+        except Exception:
+            settings = None
+
+    target = settings.paper_daily_profit_target if settings else 4000.0
+    loss_limit = settings.paper_daily_loss_limit if settings else 1000.0
+
+    # Verify actual loss breaker state before sending Daily Loss Limit alert
+    if "Daily Loss Limit" in reason or "HARD_DAILY_LOSS_BREAKER" in reason:
+        daily_pnl = realised_pnl + unrealised_pnl
+        if daily_pnl > -loss_limit + 1e-9:
+            LOG.warning(
+                "Suppressed false Daily Loss Limit alert: actual PnL is INR %.2f (Limit: -INR %.2f)",
+                daily_pnl, loss_limit
+            )
+            return False
+
     try:
         from scripts.telegram_notify import send_telegram_message
     except ModuleNotFoundError:
@@ -914,13 +941,19 @@ def send_telegram_safety_report(reason: str, stats: dict[str, int] | None = None
         except ModuleNotFoundError:
             return False
 
+    if auth_valid is None:
+        token = os.getenv("UPSTOX_ACCESS_TOKEN", os.getenv("UPSTOX_SANDBOX_ACCESS_TOKEN", ""))
+        auth_valid = bool(token and len(token) > 20)
+
     stats = stats or {"flattened": 0, "failed": 0}
     flattened = stats.get("flattened", 0)
     failed = stats.get("failed", 0)
+    auth_str = "VALID" if auth_valid else "INVALID"
+
     message = (
         f"🚨 TRADING HALTED: [Reason: {reason}]\n"
-        "✅ Token/Auth: Verified & Safe\n"
-        "✅ Risk Math: Loss Limit = ₹1,000 | Target = ₹3,000\n"
+        f"✅ Token/Auth: {auth_str}\n"
+        f"✅ Risk Math: Loss Limit = ₹{loss_limit:,.0f} | Target = ₹{target:,.0f}\n"
         "✅ Hard Stop: Active (Liquidating open positions)\n"
         "✅ Logging: Active (intraday_bot_log.txt)\n"
         f"✅ Kill Switch: Executed (Flattened: {flattened}, Failed: {failed})"

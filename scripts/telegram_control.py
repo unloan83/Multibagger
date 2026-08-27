@@ -240,10 +240,13 @@ class TelegramController:
         open_positions = 0
         net_pnl = 0.0
         daily_loss_used = 0.0
-        regime = "NIFTY_NEUTRAL"
+        regime = "NORMAL"
+        bar_age_str = "0s"
+        regime_age_str = "0s"
+        latest_reason = "NO_TRADE_NO_VALID_SETUP"
 
         try:
-            with self.store.connect() as con:
+            with self.store.connect(read_only=True) as con:
                 rows = con.execute("SELECT * FROM paper_trades WHERE status='OPEN'").fetchall()
                 open_positions = len(rows)
                 today_str = now.strftime("%Y-%m-%d")
@@ -254,6 +257,18 @@ class TelegramController:
                 net_pnl = sum(float(r[0] or 0) for r in closed_rows)
                 if net_pnl < 0:
                     daily_loss_used = abs(net_pnl)
+
+                scan_row = con.execute("SELECT regime, reason, completed_at FROM scanner_runs ORDER BY started_at DESC LIMIT 1").fetchone()
+                if scan_row:
+                    regime = str(scan_row[0] or regime)
+                    latest_reason = str(scan_row[1] or "NO_TRADE_NO_VALID_SETUP")
+                    if scan_row[2]:
+                        scan_dt = scan_row[2] if isinstance(scan_row[2], datetime) else datetime.fromisoformat(str(scan_row[2]))
+                        if scan_dt.tzinfo is None:
+                            scan_dt = scan_dt.replace(tzinfo=timezone.utc)
+                        age = max(0, int((now - scan_dt.astimezone(timezone.utc)).total_seconds()))
+                        bar_age_str = f"{age}s"
+                        regime_age_str = f"{age}s"
         except Exception as err:
             LOG.error("Failed to query store status: %s", err)
 
@@ -261,14 +276,17 @@ class TelegramController:
             "🤖 *Multibagger Intraday Control Panel*\n\n"
             f"*Status*: {status_label}\n"
             f"*Regime*: `{regime}`\n"
+            f"*Market Data Age*: `{bar_age_str}`\n"
+            f"*Regime Age*: `{regime_age_str}`\n"
+            f"*Reason*: `{latest_reason}`\n"
             f"*Open Positions*: `{open_positions} / {self.settings.paper_max_open_positions}`\n"
             f"*Daily Net P&L*: ₹`{net_pnl:,.2f}`\n"
             f"*Daily Loss Used*: ₹`{daily_loss_used:,.2f}` / ₹`{self.settings.paper_daily_loss_limit:,.2f}`\n"
             f"*Daily Target*: ₹`{self.settings.paper_daily_profit_target:,.2f}`\n"
-            f"*Provider*: `{self.settings.market_data_provider.upper()}` (Sandbox)\n"
             f"_Updated: {now.strftime('%H:%M:%S UTC')}_"
         )
         self._send_message(chat_id, msg, include_keyboard=True)
+
 
     def _reply_flatten(self, chat_id: str) -> None:
         """Flattens open positions using paper engine kill switch."""

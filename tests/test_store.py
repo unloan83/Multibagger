@@ -47,12 +47,13 @@ def test_connections_are_serialized_across_store_instances(monkeypatch, tmp_path
             with counter_lock:
                 active -= 1
 
-    def connect(_path):
+    def connect(_path, *args, **kwargs):
         nonlocal active, maximum_active
         with counter_lock:
             active += 1
             maximum_active = max(maximum_active, active)
         return Connection()
+
 
     monkeypatch.setattr("engine.store.duckdb.connect", connect)
     first = object.__new__(MarketStore)

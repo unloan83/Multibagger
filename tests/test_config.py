@@ -32,7 +32,8 @@ def test_daily_breakers_are_fixed(monkeypatch):
     monkeypatch.setenv("PAPER_PORTFOLIO_CAPITAL_INR", "500000")
     monkeypatch.setenv("PAPER_DAILY_PROFIT_TARGET_INR", "2999")
     monkeypatch.setenv("PAPER_DAILY_LOSS_LIMIT_INR", "1000")
-    with pytest.raises(RuntimeError, match="must remain INR 3,000 profit / 1,000 loss"):
+    with pytest.raises(RuntimeError, match="must remain INR 4,000 profit / 1,000 loss"):
+
         Settings.from_env()
 
 

@@ -383,24 +383,56 @@ class TelegramController:
 
 
     def _reply_logs(self, chat_id: str, message_id: int | None = None) -> None:
-        """Sends last 20 lines of intraday_bot_log.txt with credential redaction."""
-        log_file = Path("intraday_bot_log.txt")
-        if not log_file.exists():
-            self._edit_message(chat_id, message_id, "📜 Log file intraday_bot_log.txt not found.", include_keyboard=True)
-            return
+        """Sends last 20 lines of the newest active log source with credential redaction."""
+        candidate_paths = [
+            Path("/var/log/multibagger.log"),
+            Path("/var/lib/multibagger/intraday_bot_log.txt"),
+            Path("/opt/multibagger/intraday_bot_log.txt"),
+            Path("intraday_bot_log.txt"),
+        ]
+        log_file = None
+        best_mtime = 0.0
+        for p in candidate_paths:
+            if p.exists():
+                try:
+                    mtime = p.stat().st_mtime
+                    if mtime > best_mtime:
+                        best_mtime = mtime
+                        log_file = p
+                except OSError:
+                    pass
 
+        if log_file is not None:
+            try:
+                lines = log_file.read_text(encoding="utf-8", errors="replace").splitlines()
+                last_20 = lines[-20:] if len(lines) >= 20 else lines
+                snippet = "\n".join(last_20)
+                if len(snippet) > 3500:
+                    snippet = snippet[-3500:]
+                safe_snippet = redact_sensitive_info(snippet)
+                mtime_str = datetime.fromtimestamp(best_mtime, tz=timezone.utc).strftime("%H:%M:%S UTC")
+                msg = f"📜 Last 20 Log Lines ({log_file.name} - {mtime_str}):\n\n{safe_snippet}"
+                self._edit_message(chat_id, message_id, msg, include_keyboard=True)
+                return
+            except Exception as err:
+                LOG.warning("Failed reading file log %s: %s", log_file, err)
+
+        # Fallback to systemd journal if file log is not present or outdated
         try:
-            lines = log_file.read_text(encoding="utf-8", errors="replace").splitlines()
-            last_20 = lines[-20:] if len(lines) >= 20 else lines
-            snippet = "\n".join(last_20)
-            if len(snippet) > 3500:
-                snippet = snippet[-3500:]
-            safe_snippet = redact_sensitive_info(snippet)
-            msg = f"📜 Last 20 Log Lines:\n\n{safe_snippet}"
+            import subprocess
+            proc = subprocess.run(
+                ["journalctl", "-u", "multibagger-paper.service", "-n", "20", "--no-pager"],
+                capture_output=True, text=True, timeout=5
+            )
+            if proc.returncode == 0 and proc.stdout.strip():
+                safe_snippet = redact_sensitive_info(proc.stdout.strip()[-3500:])
+                msg = f"📜 Systemd Journal (Last 20 Lines):\n\n{safe_snippet}"
+                self._edit_message(chat_id, message_id, msg, include_keyboard=True)
+                return
         except Exception as err:
-            msg = f"❌ Failed to read log file: {err}"
+            LOG.warning("Failed running journalctl: %s", err)
 
-        self._edit_message(chat_id, message_id, msg, include_keyboard=True)
+        self._edit_message(chat_id, message_id, "📜 No active log files or systemd journal found.", include_keyboard=True)
 
     def _reply_restart(self, chat_id: str, message_id: int | None = None) -> None:
         """Notifies user and triggers forced process exit for systemd restart."""

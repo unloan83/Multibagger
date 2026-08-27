@@ -17,8 +17,9 @@ def test_get_inline_keyboard_markup_structure():
     assert rows[1][1]["callback_data"] == "cb_resume"
     assert rows[2][0]["callback_data"] == "cb_logs"
     assert rows[2][1]["callback_data"] == "cb_restart"
-    assert rows[3][0]["callback_data"] == "cb_reset_breaker"
+    assert rows[3][0]["callback_data"] == "cb_reset_technical_freeze"
     assert rows[3][1]["callback_data"] == "cb_reset_regime"
+
     assert rows[4][0]["callback_data"] == "cb_health"
     assert rows[4][1]["callback_data"] == "cb_rescan"
 

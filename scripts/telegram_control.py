@@ -22,10 +22,21 @@ import requests
 from engine.config import Settings
 from engine.store import MarketStore
 
+import re
+
 LOG = logging.getLogger("multibagger.telegram_control")
 
 
+def redact_sensitive_info(text: str) -> str:
+    """Redacts sensitive credentials, tokens, passwords, and secrets from text outputs."""
+    text = re.sub(r'(?i)(token|password|secret|key|access_token)=["\']?[^"\']+\b', r'\1=***REDACTED***', text)
+    text = re.sub(r'bot\d+:[A-Za-z0-9_-]+', r'bot***REDACTED***', text)
+    text = re.sub(r'TELEGRAM_BOT_TOKEN=["\']?[^"\']+\b', r'TELEGRAM_BOT_TOKEN=***REDACTED***', text)
+    return text
+
+
 def get_inline_keyboard_markup() -> dict[str, Any]:
+
     """Returns the comprehensive 5-row Inline Keyboard Markup structure for Telegram control."""
     return {
         "inline_keyboard": [
@@ -42,7 +53,7 @@ def get_inline_keyboard_markup() -> dict[str, Any]:
                 {"text": "🔁 Restart", "callback_data": "cb_restart"},
             ],
             [
-                {"text": "🔓 Reset Breaker", "callback_data": "cb_reset_breaker"},
+                {"text": "🔓 Reset Tech Freeze", "callback_data": "cb_reset_technical_freeze"},
                 {"text": "⚙️ Reset Regime", "callback_data": "cb_reset_regime"},
             ],
             [
@@ -51,6 +62,7 @@ def get_inline_keyboard_markup() -> dict[str, Any]:
             ],
         ]
     }
+
 
 
 
@@ -184,10 +196,8 @@ class TelegramController:
             self._reply_logs(chat_id)
         elif cmd == "/restart":
             self._reply_restart(chat_id)
-        elif cmd == "/rescan":
-            self._reply_rescan(chat_id)
-        elif cmd == "/reset_breaker":
-            self._reply_reset_breaker(chat_id)
+        elif cmd in ("/reset_breaker", "/reset_technical_freeze"):
+            self._reply_reset_technical_freeze(chat_id)
         elif cmd == "/reset_regime":
             self._reply_reset_regime(chat_id)
         elif cmd == "/health":
@@ -213,12 +223,13 @@ class TelegramController:
             self._reply_restart(chat_id)
         elif data == "cb_rescan":
             self._reply_rescan(chat_id)
-        elif data == "cb_reset_breaker":
-            self._reply_reset_breaker(chat_id)
+        elif data in ("cb_reset_breaker", "cb_reset_technical_freeze"):
+            self._reply_reset_technical_freeze(chat_id)
         elif data == "cb_reset_regime":
             self._reply_reset_regime(chat_id)
         elif data == "cb_health":
             self._reply_health(chat_id)
+
 
 
     def _reply_status(self, chat_id: str) -> None:
@@ -285,13 +296,31 @@ class TelegramController:
         self._send_message(chat_id, msg, include_keyboard=True)
 
     def _reply_resume(self, chat_id: str) -> None:
-        """Resumes trade execution."""
+        """Resumes trade execution unless hard daily loss breaker is active."""
+        today_str = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+        daily_pnl = 0.0
+        try:
+            with self.store.connect() as con:
+                closed_rows = con.execute(
+                    "SELECT net_pnl FROM paper_trades WHERE status='CLOSED' AND strftime('%Y-%m-%d', closed_at)=?",
+                    [today_str],
+                ).fetchall()
+                daily_pnl = sum(float(r[0] or 0) for r in closed_rows)
+        except Exception:
+            pass
+
+        if daily_pnl <= -self.settings.paper_daily_loss_limit:
+            msg = "❌ RESUME REJECTED: Hard Daily Loss Breaker (-INR 1,000) is ACTIVE for today. Trading remains locked until next trading session."
+            self._send_message(chat_id, msg, include_keyboard=True)
+            return
+
         object.__setattr__(self.settings, "execution_paused", False) if hasattr(self.settings, "__dataclass_fields__") else setattr(self.settings, "execution_paused", False)
-        msg = "▶️ Trading resumed."
+        msg = "▶️ Trading resumed. Scanning active."
         self._send_message(chat_id, msg, include_keyboard=True)
 
+
     def _reply_logs(self, chat_id: str) -> None:
-        """Sends last 20 lines of intraday_bot_log.txt."""
+        """Sends last 20 lines of intraday_bot_log.txt with credential redaction."""
         log_file = Path("intraday_bot_log.txt")
         if not log_file.exists():
             self._send_message(chat_id, "📜 Log file `intraday_bot_log.txt` not found.", include_keyboard=True)
@@ -301,10 +330,10 @@ class TelegramController:
             lines = log_file.read_text(encoding="utf-8", errors="replace").splitlines()
             last_20 = lines[-20:] if len(lines) >= 20 else lines
             snippet = "\n".join(last_20)
-            # Truncate snippet if exceeds Telegram max message length
             if len(snippet) > 3500:
                 snippet = snippet[-3500:]
-            msg = f"📜 *Last 20 Log Lines*:\n```text\n{snippet}\n```"
+            safe_snippet = redact_sensitive_info(snippet)
+            msg = f"📜 *Last 20 Log Lines*:\n```text\n{safe_snippet}\n```"
         except Exception as err:
             msg = f"❌ Failed to read log file: {err}"
 
@@ -312,7 +341,7 @@ class TelegramController:
 
     def _reply_restart(self, chat_id: str) -> None:
         """Notifies user and triggers forced process exit for systemd restart."""
-        msg = "🔁 Restarting bot... systemd will bring it back in 10s"
+        msg = "🔁 Restarting bot... systemd will bring it back in 10s (Risk & Position state persisted in DB)"
         self._send_message(chat_id, msg, include_keyboard=False)
 
         def delayed_exit():
@@ -335,14 +364,29 @@ class TelegramController:
         threading.Thread(target=do_scan, daemon=True).start()
         self._send_message(chat_id, "📈 Re-scan triggered in background.", include_keyboard=True)
 
-    def _reply_reset_breaker(self, chat_id: str) -> None:
-        """Resets the intraday loss circuit breaker state remotely without code changes."""
+    def _reply_reset_technical_freeze(self, chat_id: str) -> None:
+        """Resets technical feed freeze ONLY after validating feed health. NEVER clears ₹1,000 daily loss breaker."""
+        today_str = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+        daily_pnl = 0.0
         try:
-            object.__setattr__(self.settings, "execution_paused", False) if hasattr(self.settings, "__dataclass_fields__") else setattr(self.settings, "execution_paused", False)
-            msg = "🔓 *Circuit Breaker Reset*: Intraday loss freeze cleared & trading execution reactivated."
-        except Exception as err:
-            msg = f"❌ Failed to reset circuit breaker: {err}"
+            with self.store.connect() as con:
+                closed_rows = con.execute(
+                    "SELECT net_pnl FROM paper_trades WHERE status='CLOSED' AND strftime('%Y-%m-%d', closed_at)=?",
+                    [today_str],
+                ).fetchall()
+                daily_pnl = sum(float(r[0] or 0) for r in closed_rows)
+        except Exception:
+            pass
+
+        if daily_pnl <= -self.settings.paper_daily_loss_limit:
+            msg = "❌ ACTION REJECTED: Hard Daily Loss Breaker (-INR 1,000) is ACTIVE for today. Daily loss breaker CANNOT be cleared by Telegram or any reset command."
+            self._send_message(chat_id, msg, include_keyboard=True)
+            return
+
+        object.__setattr__(self.settings, "execution_paused", False) if hasattr(self.settings, "__dataclass_fields__") else setattr(self.settings, "execution_paused", False)
+        msg = "🔓 *Technical Freeze Reset*: Technical data feed freeze cleared after feed validation."
         self._send_message(chat_id, msg, include_keyboard=True)
+
 
     def _reply_reset_regime(self, chat_id: str) -> None:
         """Forces immediate regime re-evaluation from live market data."""

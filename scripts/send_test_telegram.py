@@ -2,8 +2,10 @@
 import json
 import urllib.request
 
-TOKEN = "8526197794:AAFw50jwofc5l9J7fkwQfZDvBZ_pvWMVtcE"
-CHAT_ID = "8424853134"
+import os
+
+TOKEN = os.environ.get("TELEGRAM_TOKEN", "").strip() or os.environ.get("TELEGRAM_BOT_TOKEN", "").strip()
+CHAT_ID = os.environ.get("TELEGRAM_CHAT_ID", "").strip() or os.environ.get("TELEGRAM_ALLOWED_CHAT_ID", "").strip()
 
 url = f"https://api.telegram.org/bot{TOKEN}/sendMessage"
 payload = {

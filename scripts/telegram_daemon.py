@@ -15,8 +15,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 from engine.config import Settings
 from scripts.telegram_control import TelegramController
 
-os.environ["TELEGRAM_TOKEN"] = "8526197794:AAFw50jwofc5l9J7fkwQfZDvBZ_pvWMVtcE"
-os.environ["TELEGRAM_CHAT_ID"] = "8424853134"
+
 
 def main():
     settings = Settings.from_env()

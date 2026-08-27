@@ -116,8 +116,6 @@ def run_rehearsal():
     print(f"[5] Trade Exit & P&L: Exit=₹{exit_price}, Gross P&L=₹{gross_pnl:.2f}, Net P&L=₹{net_pnl:.2f}")
     
     # 6. TELEGRAM NOTIFICATION
-    os.environ["TELEGRAM_TOKEN"] = "8526197794:AAFw50jwofc5l9J7fkwQfZDvBZ_pvWMVtcE"
-    os.environ["TELEGRAM_CHAT_ID"] = "8424853134"
     tele_res = send_telegram_message(
         f"[REHEARSAL] Trade Exit: RELIANCE | Side: BUY | Net P&L: +₹{net_pnl:.2f} | Status: TARGET_REACHED",
         event_key="rehearsal-exit-1",

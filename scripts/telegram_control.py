@@ -399,23 +399,26 @@ class TelegramController:
         self._send_message(chat_id, msg, include_keyboard=True)
 
     def _reply_health(self, chat_id: str) -> None:
-        """Sends OCI Free Tier telemetry and system health report."""
+        """Sends OCI Free Tier telemetry and pre-market safety check summary."""
+        from engine.premarket_check import run_premarket_safety_check
         try:
+            check_res = run_premarket_safety_check(self.settings, self.store)
+            compact_summary = check_res.summary_text()
+            
             import psutil
             ram = psutil.virtual_memory().percent
             cpu = psutil.cpu_percent(interval=None)
-            swap = psutil.swap_memory().percent
+            
             msg = (
-                "🏥 *OCI System Telemetry & Health*\n\n"
-                f"*RAM Usage*: `{ram:.1f}%` (Cap 1GB)\n"
-                f"*CPU Load*: `{cpu:.1f}%` \n"
-                f"*Swap Usage*: `{swap:.1f}%` \n"
-                f"*Service Status*: `ACTIVE (systemd)`\n"
+                "🏥 *Pre-Market Safety & Telemetry Report*\n\n"
+                f"```text\n{compact_summary}\n```\n"
+                f"*RAM Usage*: `{ram:.1f}%` | *CPU Load*: `{cpu:.1f}%`\n"
                 f"_Watchdog Priority: Risk & Execution 100% Protected_"
             )
-        except Exception:
-            msg = "🏥 *OCI Health*: Running within normal limits (RAM < 80%)."
+        except Exception as err:
+            msg = f"🏥 *Health Check Failure*: {err}"
         self._send_message(chat_id, msg, include_keyboard=True)
+
 
     def _reply_account(self, chat_id: str) -> None:
 

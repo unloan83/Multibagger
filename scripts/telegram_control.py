@@ -147,16 +147,17 @@ class TelegramController:
             chat_id = str(cb.get("message", {}).get("chat", {}).get("id", ""))
             from_id = str(cb.get("from", {}).get("id", ""))
             callback_id = cb.get("id")
+            message_id = cb.get("message", {}).get("message_id")
 
             if not self._is_authorized(chat_id) and not self._is_authorized(from_id):
                 LOG.warning("Unauthorized Telegram callback from chat_id %s / from_id %s", chat_id, from_id)
                 self._answer_callback(callback_id, "Unauthorized")
                 return
 
-            self._answer_callback(callback_id, "Processing...")
             data = cb.get("data", "")
+            self._answer_callback(callback_id, f"Action: {data}")
             target_chat = chat_id or from_id
-            self._handle_callback_data(target_chat, data)
+            self._handle_callback_data(target_chat, data, message_id=message_id)
 
     def _is_authorized(self, chat_id: str) -> bool:
         """Verifies caller matches TELEGRAM_ALLOWED_CHAT_ID."""
@@ -183,6 +184,28 @@ class TelegramController:
         except Exception as err:
             LOG.error("Failed to send Telegram message: %s", err)
             return False
+
+    def _edit_message(self, chat_id: str, message_id: int | None, text: str, include_keyboard: bool = True) -> bool:
+        """Edits an existing message in-place for seamless button interactions."""
+        if not message_id:
+            return self._send_message(chat_id, text, include_keyboard)
+        url = f"https://api.telegram.org/bot{self.token}/editMessageText"
+        body: dict[str, Any] = {
+            "chat_id": chat_id,
+            "message_id": message_id,
+            "text": text,
+            "disable_web_page_preview": True,
+        }
+        if include_keyboard:
+            body["reply_markup"] = get_inline_keyboard_markup()
+
+        try:
+            res = requests.post(url, json=body, timeout=10)
+            if res.status_code == 200:
+                return True
+        except Exception as err:
+            LOG.error("Failed to edit Telegram message: %s", err)
+        return self._send_message(chat_id, text, include_keyboard)
 
     def _answer_callback(self, callback_query_id: str, text: str = "") -> None:
         """Acknowledges button tap in Telegram UI."""
@@ -218,34 +241,34 @@ class TelegramController:
         elif cmd == "/account":
             self._reply_account(chat_id)
         elif text:
-            self._send_message(chat_id, f"Unknown command: `{text}`\nUse /status or the buttons below.")
+            self._send_message(chat_id, f"Unknown command: {text}\nUse /status or the buttons below.")
 
-    def _handle_callback_data(self, chat_id: str, data: str) -> None:
+    def _handle_callback_data(self, chat_id: str, data: str, message_id: int | None = None) -> None:
         """Processes inline button callback actions."""
         if data == "cb_refresh":
-            self._reply_status(chat_id)
+            self._reply_status(chat_id, message_id=message_id)
         elif data == "cb_flatten":
-            self._reply_flatten(chat_id)
+            self._reply_flatten(chat_id, message_id=message_id)
         elif data == "cb_pause":
-            self._reply_pause(chat_id)
+            self._reply_pause(chat_id, message_id=message_id)
         elif data == "cb_resume":
-            self._reply_resume(chat_id)
+            self._reply_resume(chat_id, message_id=message_id)
         elif data == "cb_logs":
-            self._reply_logs(chat_id)
+            self._reply_logs(chat_id, message_id=message_id)
         elif data == "cb_restart":
-            self._reply_restart(chat_id)
+            self._reply_restart(chat_id, message_id=message_id)
         elif data == "cb_rescan":
-            self._reply_rescan(chat_id)
+            self._reply_rescan(chat_id, message_id=message_id)
         elif data in ("cb_reset_breaker", "cb_reset_technical_freeze"):
-            self._reply_reset_technical_freeze(chat_id)
+            self._reply_reset_technical_freeze(chat_id, message_id=message_id)
         elif data == "cb_reset_regime":
-            self._reply_reset_regime(chat_id)
+            self._reply_reset_regime(chat_id, message_id=message_id)
         elif data == "cb_health":
-            self._reply_health(chat_id)
+            self._reply_health(chat_id, message_id=message_id)
 
 
 
-    def _reply_status(self, chat_id: str) -> None:
+    def _reply_status(self, chat_id: str, message_id: int | None = None) -> None:
         """Generates and sends engine status summary with buttons."""
         now = datetime.now(timezone.utc)
         status_label = "⏸️ PAUSED" if getattr(self.settings, "execution_paused", False) else "🟢 ACTIVE"
@@ -286,22 +309,22 @@ class TelegramController:
             LOG.error("Failed to query store status: %s", err)
 
         msg = (
-            "🤖 *Multibagger Intraday Control Panel*\n\n"
-            f"*Status*: {status_label}\n"
-            f"*Regime*: `{regime}`\n"
-            f"*Market Data Age*: `{bar_age_str}`\n"
-            f"*Regime Age*: `{regime_age_str}`\n"
-            f"*Reason*: `{latest_reason}`\n"
-            f"*Open Positions*: `{open_positions} / {self.settings.paper_max_open_positions}`\n"
-            f"*Daily Net P&L*: ₹`{net_pnl:,.2f}`\n"
-            f"*Daily Loss Used*: ₹`{daily_loss_used:,.2f}` / ₹`{self.settings.paper_daily_loss_limit:,.2f}`\n"
-            f"*Daily Target*: ₹`{self.settings.paper_daily_profit_target:,.2f}`\n"
-            f"_Updated: {now.strftime('%H:%M:%S UTC')}_"
+            "🤖 Multibagger Intraday Control Panel\n\n"
+            f"Status: {status_label}\n"
+            f"Regime: {regime}\n"
+            f"Market Data Age: {bar_age_str}\n"
+            f"Regime Age: {regime_age_str}\n"
+            f"Reason: {latest_reason}\n"
+            f"Open Positions: {open_positions} / {self.settings.paper_max_open_positions}\n"
+            f"Daily Net P&L: INR {net_pnl:,.2f}\n"
+            f"Daily Loss Used: INR {daily_loss_used:,.2f} / INR {self.settings.paper_daily_loss_limit:,.2f}\n"
+            f"Daily Target: INR {self.settings.paper_daily_profit_target:,.2f}\n"
+            f"Updated: {now.strftime('%H:%M:%S UTC')}"
         )
-        self._send_message(chat_id, msg, include_keyboard=True)
+        self._edit_message(chat_id, message_id, msg, include_keyboard=True)
 
 
-    def _reply_flatten(self, chat_id: str) -> None:
+    def _reply_flatten(self, chat_id: str, message_id: int | None = None) -> None:
         """Flattens open positions using paper engine kill switch."""
         from engine.paper import flatten_all_positions_and_orders
 
@@ -318,15 +341,15 @@ class TelegramController:
             LOG.exception("Telegram flatten action failed")
             msg = f"❌ Flatten failed: {err}"
 
-        self._send_message(chat_id, msg, include_keyboard=True)
+        self._edit_message(chat_id, message_id, msg, include_keyboard=True)
 
-    def _reply_pause(self, chat_id: str) -> None:
+    def _reply_pause(self, chat_id: str, message_id: int | None = None) -> None:
         """Pauses new trade entries."""
         object.__setattr__(self.settings, "execution_paused", True) if hasattr(self.settings, "__dataclass_fields__") else setattr(self.settings, "execution_paused", True)
         msg = "⏸️ Trading paused. No new entries will be taken."
-        self._send_message(chat_id, msg, include_keyboard=True)
+        self._edit_message(chat_id, message_id, msg, include_keyboard=True)
 
-    def _reply_resume(self, chat_id: str) -> None:
+    def _reply_resume(self, chat_id: str, message_id: int | None = None) -> None:
         """Resumes trade execution unless hard daily loss breaker is active."""
         today_str = datetime.now(timezone.utc).strftime("%Y-%m-%d")
         daily_pnl = 0.0
@@ -342,19 +365,19 @@ class TelegramController:
 
         if daily_pnl <= -self.settings.paper_daily_loss_limit:
             msg = "❌ RESUME REJECTED: Hard Daily Loss Breaker (-INR 1,000) is ACTIVE for today. Trading remains locked until next trading session."
-            self._send_message(chat_id, msg, include_keyboard=True)
+            self._edit_message(chat_id, message_id, msg, include_keyboard=True)
             return
 
         object.__setattr__(self.settings, "execution_paused", False) if hasattr(self.settings, "__dataclass_fields__") else setattr(self.settings, "execution_paused", False)
         msg = "▶️ Trading resumed. Scanning active."
-        self._send_message(chat_id, msg, include_keyboard=True)
+        self._edit_message(chat_id, message_id, msg, include_keyboard=True)
 
 
-    def _reply_logs(self, chat_id: str) -> None:
+    def _reply_logs(self, chat_id: str, message_id: int | None = None) -> None:
         """Sends last 20 lines of intraday_bot_log.txt with credential redaction."""
         log_file = Path("intraday_bot_log.txt")
         if not log_file.exists():
-            self._send_message(chat_id, "📜 Log file `intraday_bot_log.txt` not found.", include_keyboard=True)
+            self._edit_message(chat_id, message_id, "📜 Log file intraday_bot_log.txt not found.", include_keyboard=True)
             return
 
         try:
@@ -364,16 +387,16 @@ class TelegramController:
             if len(snippet) > 3500:
                 snippet = snippet[-3500:]
             safe_snippet = redact_sensitive_info(snippet)
-            msg = f"📜 *Last 20 Log Lines*:\n```text\n{safe_snippet}\n```"
+            msg = f"📜 Last 20 Log Lines:\n\n{safe_snippet}"
         except Exception as err:
             msg = f"❌ Failed to read log file: {err}"
 
-        self._send_message(chat_id, msg, include_keyboard=True)
+        self._edit_message(chat_id, message_id, msg, include_keyboard=True)
 
-    def _reply_restart(self, chat_id: str) -> None:
+    def _reply_restart(self, chat_id: str, message_id: int | None = None) -> None:
         """Notifies user and triggers forced process exit for systemd restart."""
         msg = "🔁 Restarting bot... systemd will bring it back in 10s (Risk & Position state persisted in DB)"
-        self._send_message(chat_id, msg, include_keyboard=False)
+        self._edit_message(chat_id, message_id, msg, include_keyboard=False)
 
         def delayed_exit():
             time.sleep(1)
@@ -381,7 +404,7 @@ class TelegramController:
 
         threading.Thread(target=delayed_exit, daemon=True).start()
 
-    def _reply_rescan(self, chat_id: str) -> None:
+    def _reply_rescan(self, chat_id: str, message_id: int | None = None) -> None:
         """Triggers an immediate universe scan in a background thread."""
         from engine.scanner import run_scan
 
@@ -393,9 +416,9 @@ class TelegramController:
                 self._send_message(chat_id, f"❌ Force Re-Scan failed: {err}", include_keyboard=True)
 
         threading.Thread(target=do_scan, daemon=True).start()
-        self._send_message(chat_id, "📈 Re-scan triggered in background.", include_keyboard=True)
+        self._edit_message(chat_id, message_id, "📈 Re-scan triggered in background.", include_keyboard=True)
 
-    def _reply_reset_technical_freeze(self, chat_id: str) -> None:
+    def _reply_reset_technical_freeze(self, chat_id: str, message_id: int | None = None) -> None:
         """Resets technical feed freeze ONLY after validating feed health. NEVER clears ₹1,000 daily loss breaker."""
         today_str = datetime.now(timezone.utc).strftime("%Y-%m-%d")
         daily_pnl = 0.0
@@ -411,25 +434,25 @@ class TelegramController:
 
         if daily_pnl <= -self.settings.paper_daily_loss_limit:
             msg = "❌ ACTION REJECTED: Hard Daily Loss Breaker (-INR 1,000) is ACTIVE for today. Daily loss breaker CANNOT be cleared by Telegram or any reset command."
-            self._send_message(chat_id, msg, include_keyboard=True)
+            self._edit_message(chat_id, message_id, msg, include_keyboard=True)
             return
 
         object.__setattr__(self.settings, "execution_paused", False) if hasattr(self.settings, "__dataclass_fields__") else setattr(self.settings, "execution_paused", False)
-        msg = "🔓 *Technical Freeze Reset*: Technical data feed freeze cleared after feed validation."
-        self._send_message(chat_id, msg, include_keyboard=True)
+        msg = "🔓 Technical Freeze Reset: Technical data feed freeze cleared after feed validation."
+        self._edit_message(chat_id, message_id, msg, include_keyboard=True)
 
 
-    def _reply_reset_regime(self, chat_id: str) -> None:
+    def _reply_reset_regime(self, chat_id: str, message_id: int | None = None) -> None:
         """Forces immediate regime re-evaluation from live market data."""
         from engine.regime_detector import detect_opening_market_gate
         try:
             gate, reasons = detect_opening_market_gate(self.settings)
-            msg = f"⚙️ *Regime Reset*: Market regime re-evaluated to `{gate}` (Reasons: {reasons or 'None'})."
+            msg = f"⚙️ Regime Reset: Market regime re-evaluated to {gate} (Reasons: {reasons or 'None'})."
         except Exception as err:
             msg = f"❌ Failed to reset market regime: {err}"
-        self._send_message(chat_id, msg, include_keyboard=True)
+        self._edit_message(chat_id, message_id, msg, include_keyboard=True)
 
-    def _reply_health(self, chat_id: str) -> None:
+    def _reply_health(self, chat_id: str, message_id: int | None = None) -> None:
         """Sends OCI Free Tier telemetry and pre-market safety check summary."""
         from engine.premarket_check import run_premarket_safety_check
         try:
@@ -441,27 +464,26 @@ class TelegramController:
             cpu = psutil.cpu_percent(interval=None)
             
             msg = (
-                "🏥 *Pre-Market Safety & Telemetry Report*\n\n"
-                f"```text\n{compact_summary}\n```\n"
-                f"*RAM Usage*: `{ram:.1f}%` | *CPU Load*: `{cpu:.1f}%`\n"
-                f"_Watchdog Priority: Risk & Execution 100% Protected_"
+                "🏥 Pre-Market Safety & Telemetry Report\n\n"
+                f"{compact_summary}\n\n"
+                f"RAM Usage: {ram:.1f}% | CPU Load: {cpu:.1f}%\n"
+                f"Watchdog Priority: Risk & Execution 100% Protected"
             )
         except Exception as err:
-            msg = f"🏥 *Health Check Failure*: {err}"
-        self._send_message(chat_id, msg, include_keyboard=True)
+            msg = f"🏥 Health Check Failure: {err}"
+        self._edit_message(chat_id, message_id, msg, include_keyboard=True)
 
 
-    def _reply_account(self, chat_id: str) -> None:
-
+    def _reply_account(self, chat_id: str, message_id: int | None = None) -> None:
         """Displays account and risk parameter details."""
         msg = (
-            "💼 *Account & Risk Parameters*\n\n"
-            f"*Portfolio Capital*: ₹`{self.settings.paper_portfolio_capital:,.2f}`\n"
-            f"*Risk Per Trade*: `{self.settings.paper_risk_per_trade_pct}%` (Max ₹`{self.settings.paper_max_risk_per_trade:,.2f}`)\n"
-            f"*Daily Profit Target*: ₹`{self.settings.paper_daily_profit_target:,.2f}`\n"
-            f"*Daily Loss Limit*: ₹`{self.settings.paper_daily_loss_limit:,.2f}`\n"
-            f"*Max Open Positions*: `{self.settings.paper_max_open_positions}`\n"
-            f"*Max Trades / Day*: `{self.settings.paper_max_trades_per_day}`\n"
-            f"*Universe Size*: `{self.settings.trading_universe_size} F&O Equities`"
+            "💼 Account & Risk Parameters\n\n"
+            f"Portfolio Capital: INR {self.settings.paper_portfolio_capital:,.2f}\n"
+            f"Risk Per Trade: {self.settings.paper_risk_per_trade_pct}% (Max INR {self.settings.paper_max_risk_per_trade:,.2f})\n"
+            f"Daily Profit Target: INR {self.settings.paper_daily_profit_target:,.2f}\n"
+            f"Daily Loss Limit: INR {self.settings.paper_daily_loss_limit:,.2f}\n"
+            f"Max Open Positions: {self.settings.paper_max_open_positions}\n"
+            f"Max Trades / Day: {self.settings.paper_max_trades_per_day}\n"
+            f"Universe Size: {self.trading_universe_size if hasattr(self, 'trading_universe_size') else 129} F&O Equities"
         )
-        self._send_message(chat_id, msg, include_keyboard=True)
+        self._edit_message(chat_id, message_id, msg, include_keyboard=True)

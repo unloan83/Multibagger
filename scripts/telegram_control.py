@@ -92,6 +92,12 @@ class TelegramController:
             LOG.info("Telegram control panel disabled (TELEGRAM_BOT_TOKEN or TELEGRAM_ALLOWED_CHAT_ID missing)")
             return
 
+        try:
+            requests.post(f"https://api.telegram.org/bot{self.token}/deleteWebhook", json={"drop_pending_updates": False}, timeout=5)
+            LOG.info("Cleared Telegram webhook for long polling")
+        except Exception as err:
+            LOG.warning("Failed to clear Telegram webhook: %s", err)
+
         self.thread = threading.Thread(target=self._poll_loop, name="telegram-control-poll", daemon=True)
         self.thread.start()
         LOG.info("Telegram control panel daemon thread started (Allowed Chat ID: %s)", self.allowed_chat_id)
@@ -110,7 +116,9 @@ class TelegramController:
                     params={"offset": self.offset, "timeout": 2},
                     timeout=5,
                 )
-                if response.status_code == 200:
+                if response.status_code == 409:
+                    requests.post(f"https://api.telegram.org/bot{self.token}/deleteWebhook", json={"drop_pending_updates": False}, timeout=5)
+                elif response.status_code == 200:
                     payload = response.json()
                     if payload.get("ok"):
                         for update in payload.get("result", []):
@@ -154,7 +162,9 @@ class TelegramController:
         """Verifies caller matches TELEGRAM_ALLOWED_CHAT_ID."""
         if not self.allowed_chat_id:
             return True
-        return str(chat_id).strip() == str(self.allowed_chat_id).strip()
+        clean_allowed = str(self.allowed_chat_id).strip().strip('"').strip("'")
+        clean_chat = str(chat_id).strip().strip('"').strip("'")
+        return clean_chat == clean_allowed
 
     def _send_message(self, chat_id: str, text: str, include_keyboard: bool = True) -> bool:
         """Sends a message with optional Inline Keyboard Markup."""

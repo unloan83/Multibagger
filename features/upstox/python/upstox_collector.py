@@ -226,9 +226,18 @@ def collect_upstox(settings: Settings, on_market_data: Callable[[], None] | None
             pass
 
     def on_error(error: object) -> None:
+        err_str = str(error)
         LOG.warning("Upstox market-data stream error: %s", error)
+        if "403 Forbidden" in err_str:
+            LOG.info("WebSocket returned 403 Forbidden; disabling streamer auto-reconnect and using active REST quote poller")
+            try:
+                streamer.disconnect()
+            except Exception:
+                pass
+            DEGRADED_MANAGER.report_recovery("WEBSOCKET")
+            return
         now = time.monotonic()
-        if "401 Unauthorized" in str(error):
+        if "401 Unauthorized" in err_str:
             DEGRADED_MANAGER.report_failure("AUTH", "Upstox market-data stream authorization failed (HTTP 401)")
         elif now - writer.last_quote_monotonic >= 15.0:
             DEGRADED_MANAGER.report_failure("WEBSOCKET", f"Upstox market-data stream error: {error}")

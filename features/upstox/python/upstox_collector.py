@@ -12,6 +12,7 @@ from typing import Any, Callable
 from zoneinfo import ZoneInfo
 
 import pandas as pd
+import duckdb
 
 from engine.config import Settings
 from engine.store import MarketStore
@@ -218,7 +219,9 @@ def collect_upstox(settings: Settings, on_market_data: Callable[[], None] | None
                 flushed = writer.flush()
                 if flushed and on_market_data:
                     on_market_data()
-                DEGRADED_MANAGER.report_recovery("WEBSOCKET")
+                DEGRADED_MANAGER.report_recovery("DATABASE")
+                DEGRADED_MANAGER.report_recovery("AUTH")
+                DEGRADED_MANAGER.report_recovery("MARKET_DATA")
                 
                 now = time.monotonic()
                 if now - last_log >= 60:
@@ -226,10 +229,21 @@ def collect_upstox(settings: Settings, on_market_data: Callable[[], None] | None
                     last_log = now
         except Exception as error:
             LOG.warning("Upstox market-data fetch error: %s", error)
-            if "401" in str(error):
-                DEGRADED_MANAGER.report_failure("AUTH", "Upstox authorization failed (HTTP 401)")
-            else:
-                DEGRADED_MANAGER.report_failure("WEBSOCKET", f"Upstox market-data fetch error: {error}")
+            dependency = _failure_dependency(error)
+            reason = (
+                "Upstox authorization failed (HTTP 401)"
+                if dependency == "AUTH"
+                else f"Upstox market-data fetch error: {error}"
+            )
+            DEGRADED_MANAGER.report_failure(dependency, reason)
+
+
+def _failure_dependency(error: Exception) -> str:
+    if isinstance(error, duckdb.Error):
+        return "DATABASE"
+    if "401" in str(error):
+        return "AUTH"
+    return "MARKET_DATA"
 
 
 def fetch_upstox_quotes_rest(access_token: str, instrument_keys: list[str]) -> dict[str, Any]:

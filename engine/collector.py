@@ -131,12 +131,12 @@ def run_worker(settings: Settings, scan_interval: int = 900, monitor_interval: i
     while not stop.is_set():
         try:
             collect(settings, on_market_data=event_driven_risk_monitor)
-            DEGRADED_MANAGER.report_recovery("WEBSOCKET")
+            DEGRADED_MANAGER.report_recovery("MARKET_DATA")
             break
         except Exception as error:
-            DEGRADED_MANAGER.report_failure("WEBSOCKET", f"Upstox paper worker feed error: {error}")
+            DEGRADED_MANAGER.report_failure("MARKET_DATA", f"Upstox paper worker feed error: {error}")
             delay = DEGRADED_MANAGER.compute_backoff(
-                "WEBSOCKET",
+                "MARKET_DATA",
                 initial_delay=getattr(settings, "backoff_initial_seconds", 1.0),
                 max_delay=getattr(settings, "backoff_max_seconds", 60.0),
             )

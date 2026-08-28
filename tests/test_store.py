@@ -2,6 +2,9 @@ from datetime import datetime, timedelta, timezone
 import threading
 import time
 
+import duckdb
+import pytest
+
 from engine.store import MarketStore
 
 
@@ -83,3 +86,22 @@ def test_connections_are_serialized_across_store_instances(monkeypatch, tmp_path
     second_thread.join(timeout=2)
     assert second_entered.is_set()
     assert maximum_active == 1
+
+
+def test_write_connection_never_falls_back_to_read_only(monkeypatch, tmp_path):
+    attempted_modes = []
+
+    def unavailable_write(_path, read_only=False):
+        attempted_modes.append(read_only)
+        raise duckdb.IOException("database write lock unavailable")
+
+    monkeypatch.setattr("engine.store.duckdb.connect", unavailable_write)
+    monkeypatch.setattr("time.sleep", lambda _delay: None)
+    store = object.__new__(MarketStore)
+    store.path = tmp_path / "market.duckdb"
+
+    with pytest.raises(duckdb.IOException, match="DuckDB connection failed after retries"):
+        with store.connect(read_only=False):
+            pass
+
+    assert attempted_modes == [False] * 7

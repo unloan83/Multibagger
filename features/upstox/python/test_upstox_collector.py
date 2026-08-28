@@ -5,15 +5,23 @@ import json
 from datetime import datetime, timezone
 from types import SimpleNamespace
 
+import duckdb
 import pytest
 
 from features.upstox.python.upstox_collector import (
     UpstoxTickWriter,
     _assert_stream_freshness,
+    _failure_dependency,
     collect_upstox,
     nse_instrument_master,
     resolve_upstox_instruments,
 )
+
+
+def test_fetch_failures_are_classified_without_false_websocket_incidents():
+    assert _failure_dependency(duckdb.IOException("write lock")) == "DATABASE"
+    assert _failure_dependency(RuntimeError("HTTP 401 Unauthorized")) == "AUTH"
+    assert _failure_dependency(RuntimeError("HTTP 503")) == "MARKET_DATA"
 
 
 class Store:

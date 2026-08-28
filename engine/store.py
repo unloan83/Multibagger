@@ -143,12 +143,6 @@ class MarketStore:
                     break
                 except (duckdb.IOException, duckdb.Error, OSError) as err:
                     last_err = err
-                    if not read_only:
-                        try:
-                            con = duckdb.connect(str(self.path), read_only=True)
-                            break
-                        except (duckdb.IOException, duckdb.Error, OSError):
-                            pass
                     if attempt < 7:
                         import time
                         delay = min(5.0, 0.2 * (2 ** (attempt - 1)))

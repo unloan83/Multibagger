@@ -104,6 +104,12 @@ class DegradedModeManager:
         with self._lock:
             self._attempts[dep_key] = 0
 
+    def reset(self) -> None:
+        with self._lock:
+            self._degraded = False
+            self._active_failures.clear()
+            self._attempts.clear()
+
 
 # Global singleton instance
 DEGRADED_MANAGER = DegradedModeManager()

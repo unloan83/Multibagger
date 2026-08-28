@@ -172,6 +172,8 @@ def collect_upstox(settings: Settings, on_market_data: Callable[[], None] | None
     stop = threading.Event()
     opened = threading.Event()
 
+    from engine.degraded import DEGRADED_MANAGER
+
     def fail(error: Exception) -> None:
         if not failure:
             failure.append(error)
@@ -184,10 +186,13 @@ def collect_upstox(settings: Settings, on_market_data: Callable[[], None] | None
     def on_error(error: object) -> None:
         LOG.warning("Upstox market-data stream error: %s", error)
         if "401 Unauthorized" in str(error):
-            fail(RuntimeError("Upstox market-data stream authorization failed"))
+            DEGRADED_MANAGER.report_failure("AUTH", "Upstox market-data stream authorization failed (HTTP 401)")
+        else:
+            DEGRADED_MANAGER.report_failure("WEBSOCKET", f"Upstox market-data stream error: {error}")
 
     def on_reconnect_stopped(reason: object) -> None:
-        fail(RuntimeError(f"Upstox market-data reconnects exhausted: {reason}"))
+        LOG.warning("Upstox market-data reconnects stopped: %s", reason)
+        DEGRADED_MANAGER.report_failure("WEBSOCKET", f"Upstox market-data reconnects stopped: {reason}")
 
     def monitor() -> None:
         last_log = time.monotonic()
@@ -198,18 +203,13 @@ def collect_upstox(settings: Settings, on_market_data: Callable[[], None] | None
                     on_market_data()
                 now = time.monotonic()
                 _assert_stream_freshness(writer, settings, now, datetime.now(timezone.utc))
+                DEGRADED_MANAGER.report_recovery("WEBSOCKET")
                 if now - last_log >= 60:
                     LOG.info("Upstox feed healthy; quote_ticks=%d candle_ticks=%d", writer.quote_ticks, writer.candle_ticks)
                     last_log = now
             except Exception as error:
-                send_telegram_message(
-                    "🔴 Upstox paper entries stopped — market-data failure\n"
-                    f"Reason: {str(error)[:500]}\n"
-                    "Trading remains fail-closed. Action is required before the daily target can be pursued.",
-                    event_key="upstox-market-data-blocked",
-                    cooldown_seconds=900,
-                )
-                fail(error)
+                DEGRADED_MANAGER.report_failure("WEBSOCKET", f"Upstox market-data stream delayed or stale: {error}")
+                # Keep monitoring loop running in SAFE_DEGRADED mode rather than crashing worker
 
     def on_open() -> None:
         opened.set()

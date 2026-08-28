@@ -85,10 +85,11 @@ class Settings:
     market_data_provider: str = "upstox"
     market_index_symbol: str = "NIFTY 50"
     market_index_instrument_key: str = "NSE_INDEX|Nifty 50"
-    breeze_api_key: str = ""
-    breeze_api_secret: str = ""
     breeze_session_token: str = ""
     enabled_agents: tuple[str, ...] = ("ALPHA", "BETA", "GAMMA", "UNIFIED_OPPORTUNITY_ENGINE")
+    backoff_initial_seconds: float = 1.0
+    backoff_max_seconds: float = 60.0
+    backoff_max_attempts: int = 10
 
     @classmethod
     def from_env(cls) -> "Settings":

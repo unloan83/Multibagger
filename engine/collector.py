@@ -127,24 +127,28 @@ def run_worker(settings: Settings, scan_interval: int = 900, monitor_interval: i
         # Full-universe scans are handled by the aligned 15-minute scheduler.
         # Feed callbacks only run the cheap open-position monitor.
 
-    try:
-        collect(settings, on_market_data=event_driven_risk_monitor)
-    except Exception as error:
-        send_telegram_message(
-            "🔴 Upstox paper worker failed — entries stopped\n"
-            f"Reason: {str(error)[:500]}\n"
-            "Systemd will attempt a capped restart; investigate if no recovery message follows.",
-            event_key="upstox-worker-failed",
-            cooldown_seconds=900,
-        )
-        raise
-    finally:
-        stop.set()
-        thread.join(timeout=5)
-        send_telegram_message(
-            "⚪ Upstox Intraday paper engine stopped.",
-            event_key="upstox-worker-stopped", cooldown_seconds=300,
-        )
+    from engine.degraded import DEGRADED_MANAGER
+
+    while not stop.is_set():
+        try:
+            collect(settings, on_market_data=event_driven_risk_monitor)
+            DEGRADED_MANAGER.report_recovery("WEBSOCKET")
+            break
+        except Exception as error:
+            DEGRADED_MANAGER.report_failure("WEBSOCKET", f"Upstox paper worker feed error: {error}")
+            delay = DEGRADED_MANAGER.compute_backoff(
+                "WEBSOCKET",
+                initial_delay=getattr(settings, "backoff_initial_seconds", 1.0),
+                max_delay=getattr(settings, "backoff_max_seconds", 60.0),
+            )
+            logging.warning("Upstox worker collection error: %s; retrying in %.1fs (SAFE_DEGRADED mode active)", error, delay)
+            time.sleep(delay)
+    stop.set()
+    thread.join(timeout=5)
+    send_telegram_message(
+        "⚪ Upstox Intraday paper engine stopped.",
+        event_key="upstox-worker-stopped", cooldown_seconds=300,
+    )
 
 
 def scheduled_upstox_job(local: datetime, monitor_interval: int = 30) -> str | None:

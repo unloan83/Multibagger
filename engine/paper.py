@@ -39,6 +39,7 @@ def run_paper_cycle(
 
     with store.connect() as con:
         open_trades = _records(con, "SELECT * FROM paper_trades WHERE status='OPEN' ORDER BY opened_at")
+        had_prior_day_open = any(_as_trading_date(row.get("trading_day")) < trading_day for row in open_trades)
         for trade in open_trades:
             quote = _fresh_quote(quotes.get(trade["symbol"]), now, settings.stale_seconds)
             if not quote:
@@ -63,6 +64,11 @@ def run_paper_cycle(
         open_rows = _records(con, "SELECT * FROM paper_trades WHERE status='OPEN' ORDER BY opened_at")
         projected_before_entries = realized + sum(float(row["net_pnl"]) for row in open_rows)
         progress_ratio = projected_before_entries / settings.paper_daily_profit_target
+
+        from .degraded import DEGRADED_MANAGER
+        if DEGRADED_MANAGER.is_degraded:
+            active_deps = ", ".join(DEGRADED_MANAGER.active_failures().keys()) or "UNKNOWN"
+            no_entry_reasons.append(f"SAFE_DEGRADED mode active ({active_deps} failure); new entries are disabled.")
         if settings.execution_paused:
             no_entry_reasons.append("Global trading execution pause is active; paper and sandbox entries/exits are blocked.")
         if realized >= settings.paper_daily_profit_target or projected_before_entries >= settings.paper_daily_profit_target:
@@ -70,7 +76,7 @@ def run_paper_cycle(
         if realized <= -settings.paper_daily_loss_limit or (realized + sum(float(row["net_pnl"]) for row in open_rows)) <= -settings.paper_daily_loss_limit:
             no_entry_reasons.append("Daily paper loss limit reached; new entries are disabled.")
             send_telegram_safety_report("Daily Loss Limit ₹1,000 Reached", {"flattened": len(open_rows), "failed": 0})
-        if any(_as_trading_date(row.get("trading_day")) < trading_day for row in open_rows):
+        if had_prior_day_open or any(_as_trading_date(row.get("trading_day")) < trading_day for row in open_rows):
             no_entry_reasons.append("A prior-day paper position is awaiting a fresh executable exit; new entries are halted.")
         if not _entry_window_open(now):
             no_entry_reasons.append("Current time-of-day window blocks new entries; position management remains active.")
@@ -278,6 +284,12 @@ def _open_trade(con: Any, candidate: Candidate, quote: dict[str, Any], now: date
                 aggregate_open_risk: float = 0.0) -> tuple[dict[str, Any] | None, str | None]:
     if settings.execution_paused:
         return None, "EXECUTION_PAUSED"
+    from .degraded import DEGRADED_MANAGER
+    if DEGRADED_MANAGER.is_degraded:
+        return None, "SAFE_DEGRADED_ACTIVE"
+    existing_open = con.execute("SELECT trade_id FROM paper_trades WHERE symbol=? AND status='OPEN'", [candidate.symbol]).fetchone()
+    if existing_open:
+        return None, "DUPLICATE_OPEN_POSITION_PREVENTED"
     side = candidate.side
     agent = str(candidate.confirmations.get("agent") or active_agent(now) or "")
     if not agent or agent != active_agent(now):
@@ -446,6 +458,10 @@ def _scale_out_if_needed(con: Any, trade: dict[str, Any], quote: dict[str, Any],
 
 def _mark_trade(con: Any, trade: dict[str, Any], quote: dict[str, Any], now: datetime,
                 settings: Settings, exit_reason: str | None, event_run_id: str) -> None:
+    if exit_reason:
+        row = con.execute("SELECT status FROM paper_trades WHERE trade_id=?", [trade["trade_id"]]).fetchone()
+        if row and row[0] == "CLOSED":
+            return
     side = str(trade.get("side") or "LONG")
     exit_quote = float(quote["bid"] if side == "LONG" else quote["ask"])
     quantity = int(trade["quantity"])
@@ -588,7 +604,7 @@ def _regular_exit_reason(trade: dict[str, Any], quote: dict[str, Any], now: date
     vwap = _optional_float(quote.get("vwap"))
     closes = [float(value) for value in quote.get("five_minute_closes") or []]
     agent = str(trade.get("agent") or confirmations.get("agent") or "")
-    if agent == "ALPHA" and closes and _optional_float(quote.get("ema9_5m")) is not None:
+    if agent in ("ALPHA", "UNIFIED_OPPORTUNITY_ENGINE") and closes and _optional_float(quote.get("ema9_5m")) is not None:
         ema9 = float(quote["ema9_5m"])
         if (side == "LONG" and closes[-1] < ema9) or (side == "SHORT" and closes[-1] > ema9):
             return "ALPHA_EMA9_5M_CLOSE"

@@ -135,24 +135,33 @@ class MarketStore:
     @contextmanager
     def connect(self, read_only: bool = False) -> Iterator[duckdb.DuckDBPyConnection]:
         with _DATABASE_LOCK:
-            for attempt in range(5):
+            con = None
+            last_err = None
+            for attempt in range(1, 8):
                 try:
                     con = duckdb.connect(str(self.path), read_only=read_only)
                     break
-                except duckdb.IOException:
-                    try:
-                        con = duckdb.connect(str(self.path), read_only=True)
-                        break
-                    except duckdb.IOException:
-                        if attempt < 4:
-                            import time
-                            time.sleep(0.5)
-                        else:
-                            raise
+                except (duckdb.IOException, duckdb.Error, OSError) as err:
+                    last_err = err
+                    if not read_only:
+                        try:
+                            con = duckdb.connect(str(self.path), read_only=True)
+                            break
+                        except (duckdb.IOException, duckdb.Error, OSError):
+                            pass
+                    if attempt < 7:
+                        import time
+                        delay = min(5.0, 0.2 * (2 ** (attempt - 1)))
+                        time.sleep(delay)
+            if con is None:
+                raise duckdb.IOException(f"DuckDB connection failed after retries: {last_err}") from last_err
             try:
                 yield con
             finally:
-                con.close()
+                try:
+                    con.close()
+                except Exception:
+                    pass
 
 
 

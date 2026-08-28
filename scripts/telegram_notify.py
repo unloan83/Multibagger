@@ -60,6 +60,65 @@ def send_telegram_message(text: str, *, event_key: str, cooldown_seconds: int = 
         return False
 
 
+_ACTIVE_INCIDENTS: dict[str, bool] = {}
+
+
+def notify_incident_event(incident_key: str, is_failure: bool, message: str) -> bool:
+    """
+    Ensures Telegram sends exactly ONE FAILURE alert when an incident occurs,
+    and exactly ONE RECOVERED alert when the incident resolves.
+    """
+    global _ACTIVE_INCIDENTS
+    state_path = Path(os.environ.get(
+        "TELEGRAM_NOTIFICATION_STATE",
+        "/var/lib/multibagger/telegram_notification_state.json",
+    ))
+    # Load persistent state if needed
+    try:
+        if state_path.exists():
+            with state_path.open("r", encoding="utf-8") as f:
+                saved = json.load(f)
+                _ACTIVE_INCIDENTS.update(saved.get("active_incidents", {}))
+    except Exception:
+        pass
+
+    currently_active = _ACTIVE_INCIDENTS.get(incident_key, False)
+
+    if is_failure:
+        if currently_active:
+            # Failure already reported for this incident, suppress repeat alert
+            return False
+        _ACTIVE_INCIDENTS[incident_key] = True
+        event_key = f"incident-{incident_key}-failure"
+    else:
+        if not currently_active:
+            # No active failure recorded for this incident, suppress unnecessary recovery alert
+            return False
+        _ACTIVE_INCIDENTS[incident_key] = False
+        event_key = f"incident-{incident_key}-recovered"
+
+    # Save persistent incident state
+    try:
+        state_path.parent.mkdir(parents=True, exist_ok=True)
+        with state_path.open("a+", encoding="utf-8") as state_file:
+            fcntl.flock(state_file.fileno(), fcntl.LOCK_EX)
+            state_file.seek(0)
+            try:
+                state = json.load(state_file)
+            except Exception:
+                state = {}
+            state["active_incidents"] = _ACTIVE_INCIDENTS
+            state_file.seek(0)
+            state_file.truncate()
+            json.dump(state, state_file, separators=(",", ":"), sort_keys=True)
+            state_file.flush()
+    except Exception:
+        pass
+
+    return send_telegram_message(message, event_key=event_key, cooldown_seconds=0)
+
+
+
 def _post(token: str, chat_id: str, text: str) -> bool:
     request = Request(
         f"https://api.telegram.org/bot{token}/sendMessage",

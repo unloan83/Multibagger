@@ -154,9 +154,9 @@ def scheduled_upstox_job(local: datetime, monitor_interval: int = 30) -> str | N
     minute = local.hour * 60 + local.minute
     if local.weekday() >= 5 or not 9 * 60 + 16 <= minute <= 15 * 60 + 20:
         return None
-    if 9 * 60 + 35 <= minute <= 14 * 60 + 50 and minute % 15 == 5:
+    if 9 * 60 + 35 <= minute <= 15 * 60 + 20 and minute % 15 == 5:
         return "FULL_SCAN"
-    if 9 * 60 + 28 <= minute <= 14 * 60 + 43 and minute % 15 == 13:
+    if 9 * 60 + 28 <= minute <= 15 * 60 + 13 and minute % 15 == 13:
         return None
     if minute % 1 == 0:
         return "RISK_MONITOR"

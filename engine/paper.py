@@ -139,6 +139,21 @@ def run_paper_cycle(
             if trade:
                 open_rows.append(trade)
                 day_count += 1
+                if candidate.confirmations.get("tag") != "ACCEPTANCE_TEST":
+                    try:
+                        from scripts.telegram_notify import send_telegram_message
+                        sig_id = candidate.confirmations.get("signal_id") or trade.get("trade_id")
+                        send_telegram_message(
+                            f"🚀 Upstox Paper Order Created ({trade['side']})\n"
+                            f"Symbol: {trade['symbol']} | Qty: {trade['quantity']}\n"
+                            f"Entry Quote: ₹{float(trade['entry_quote']):,.2f} | Fill: ₹{float(trade['entry_fill']):,.2f}\n"
+                            f"Stop: ₹{float(trade['stop_price']):,.2f} | Target: ₹{float(trade['target_price']):,.2f}\n"
+                            f"Signal ID: {sig_id}",
+                            event_key=f"upstox-entry-{trade['trade_id']}",
+                            cooldown_seconds=0,
+                        )
+                    except Exception as err:
+                        LOG.warning("Telegram entry notification failed: %s", err)
             elif rejection_reason:
                 _record_entry_rejection(con, candidate, now, run_id, rejection_reason)
                 entry_rejections.append({
@@ -151,6 +166,19 @@ def run_paper_cycle(
                 no_entry_reasons.append(
                     f"{candidate.symbol} paper entry rejected: {rejection_reason}."
                 )
+                if candidate.confirmations.get("tag") != "ACCEPTANCE_TEST":
+                    try:
+                        from scripts.telegram_notify import send_telegram_message
+                        send_telegram_message(
+                            f"⚠️ Upstox Candidate Entry Blocked\n"
+                            f"Symbol: {candidate.symbol} | Strategy: {candidate.strategy}\n"
+                            f"Reason: {rejection_reason}\n"
+                            f"Score: {candidate.rank_score:.1f}",
+                            event_key=f"upstox-rejection-{candidate.symbol}-{rejection_reason}",
+                            cooldown_seconds=300,
+                        )
+                    except Exception as err:
+                        LOG.warning("Telegram rejection notification failed: %s", err)
 
         daily = _metrics(con, "WHERE trading_day=? AND status='CLOSED'", [trading_day], settings.paper_portfolio_capital)
         overall = _metrics(con, "WHERE status='CLOSED'", [], settings.paper_portfolio_capital)
@@ -588,6 +616,20 @@ def _mark_trade(con: Any, trade: dict[str, Any], quote: dict[str, Any], now: dat
                                no_scale_out_pnl=no_scale_out_pnl)
         LOG.info("trade_exit trade_id=%s symbol=%s trigger=%s quote=%.4f net_pnl=%.2f",
                  trade["trade_id"], trade["symbol"], exit_reason, exit_quote, net)
+        if exit_reason != "ACCEPTANCE_TEST":
+            try:
+                from scripts.telegram_notify import send_telegram_message
+                send_telegram_message(
+                    f"🔔 Upstox Paper Position Closed\n"
+                    f"Symbol: {trade['symbol']} | Side: {side}\n"
+                    f"Entry Fill: ₹{entry_fill:,.2f} | Exit Fill: ₹{exit_fill:,.2f}\n"
+                    f"Realized Net P&L: ₹{net:,.2f} (Gross: ₹{gross:,.2f})\n"
+                    f"Trigger: {exit_reason}",
+                    event_key=f"upstox-exit-{trade['trade_id']}",
+                    cooldown_seconds=0,
+                )
+            except Exception as err:
+                LOG.warning("Telegram exit notification failed: %s", err)
     else:
         con.execute("""
           UPDATE paper_trades SET current_quote=?, last_marked_at=?, gross_pnl=?, net_pnl=?,

@@ -44,6 +44,22 @@ logging.basicConfig(
 telegram_ctrl = TelegramController(settings)
 telegram_ctrl.start()
 
+try:
+    from scripts.telegram_notify import send_telegram_message
+    from datetime import datetime
+    import zoneinfo
+    IST = zoneinfo.ZoneInfo("Asia/Kolkata")
+    now_ist = datetime.now(IST)
+    send_telegram_message(
+        f"🟢 Upstox Intraday Paper Engine Started & Active\n"
+        f"Time: {now_ist.strftime('%H:%M:%S IST')}\n"
+        f"Status: Pure REST Market Quote Engine + Unified Model Active",
+        event_key=f"engine-startup-{now_ist.strftime('%Y%m%d-%H%M%S')}",
+        cooldown_seconds=0,
+    )
+except Exception as err:
+    logging.warning("Telegram startup notification failed: %s", err)
+
 
 def monitor_resources() -> None:
     """Logs RSS memory usage (MB) and CPU % every 5 minutes."""

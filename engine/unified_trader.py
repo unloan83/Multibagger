@@ -375,6 +375,7 @@ def run_unified_opportunity_scan(settings: Settings | None = None) -> dict[str, 
         "cumulative_pnl": cumulative_pnl,
         "best_candidate": best_candidate_symbol,
         "reason": entry_reason,
+        "paperTrading": paper_res,
     }
 
     return result_summary

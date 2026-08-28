@@ -303,12 +303,11 @@ class TelegramController:
                     if net_pnl < 0:
                         daily_loss_used = abs(net_pnl)
 
-                    scan_row = con.execute("SELECT regime, reason, completed_at FROM scanner_runs ORDER BY started_at DESC LIMIT 1").fetchone()
+                    scan_row = con.execute("SELECT reason, completed_at FROM scanner_runs ORDER BY started_at DESC LIMIT 1").fetchone()
                     if scan_row:
-                        regime = str(scan_row[0] or regime)
-                        latest_reason = str(scan_row[1] or "NO_TRADE_NO_VALID_SETUP")
-                        if scan_row[2]:
-                            scan_dt = scan_row[2] if isinstance(scan_row[2], datetime) else datetime.fromisoformat(str(scan_row[2]))
+                        latest_reason = str(scan_row[0] or "NO_TRADE_NO_VALID_SETUP")
+                        if scan_row[1]:
+                            scan_dt = scan_row[1] if isinstance(scan_row[1], datetime) else datetime.fromisoformat(str(scan_row[1]))
                             if scan_dt.tzinfo is None:
                                 scan_dt = scan_dt.replace(tzinfo=timezone.utc)
                             age = max(0, int((now - scan_dt.astimezone(timezone.utc)).total_seconds()))

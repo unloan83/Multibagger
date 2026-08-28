@@ -14,6 +14,7 @@ import numpy as np
 import pandas as pd
 
 from .config import Settings
+from .learning_mode import learning_mode_active, prepare_learning_shortlist
 from .paper import _five_minute_context, run_paper_cycle
 from .publication import publish_snapshot
 from .regime_detector import detect_regime
@@ -138,6 +139,12 @@ def run_scan(
         LOG.info("SCANNER OUTPUT | MARKET BIAS: %s | EVALUATED: %d | BEST SCORE: %.1f | STATUS: %s",
                  regime.regime, len(evaluations), best_score, exact_reason)
 
+        learning_shortlist: list[dict[str, Any]] = []
+        if learning_mode_active(settings_obj, now):
+            learning_shortlist, candidates = prepare_learning_shortlist(
+                evaluations, nifty_frame, settings_obj, now
+            )
+
         # Sort & Rank Executable Candidates
         candidates.sort(key=lambda c: c.rank_score, reverse=True)
         candidates = candidates[:1]  # Select top scoring candidate for paper execution
@@ -160,6 +167,10 @@ def run_scan(
                 [now, "SIGNALS" if candidates else "NO_TRADE", fresh, len(candidates), exact_reason, run_id]
             )
 
+        # Integrate Unified Opportunity Engine (Sector Top 8 + Stock Top 5 + Global Top 10)
+        from engine.unified_trader import run_unified_opportunity_scan
+        unified_res = run_unified_opportunity_scan(settings_obj)
+
         payload = {
             "status": "SIGNALS" if candidates else "NO_TRADE",
             "asOf": now.isoformat(),
@@ -171,8 +182,17 @@ def run_scan(
             "best_score": round(best_score, 1),
             "why_not_executable": exact_reason,
             "top_opportunities": top_leaders + top_laggards,
+            "unified_engine": unified_res,
             "signals": [{**asdict(item), "run_id": run_id, "timestamp": item.timestamp.isoformat(), "expiry": item.expiry.isoformat()} for item in candidates],
             "paperTrading": paper,
+            "temporaryLearningMode": {
+                "active": learning_mode_active(settings_obj, now),
+                "expiresAfterIstDate": settings_obj.paper_learning_mode_date or None,
+                "profitObjective": settings_obj.paper_learning_profit_objective,
+                "topCandidates": learning_shortlist,
+                "automaticMainWeightUpdate": False,
+                "weightRecommendation": "EVIDENCE_REVIEW_ONLY",
+            },
         }
 
         publish_snapshot(settings_obj, payload)

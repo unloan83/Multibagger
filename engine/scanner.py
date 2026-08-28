@@ -171,8 +171,11 @@ def run_scan(
         from engine.unified_trader import run_unified_opportunity_scan
         unified_res = run_unified_opportunity_scan(settings_obj)
 
+        has_unified_trade = bool(unified_res.get("trade_taken") and unified_res.get("trade_taken") != "NONE")
+        scan_status = "SIGNALS" if (candidates or has_unified_trade) else "NO_TRADE"
+
         payload = {
-            "status": "SIGNALS" if candidates else "NO_TRADE",
+            "status": scan_status,
             "asOf": now.isoformat(),
             "run_id": run_id,
             "source": f"{settings_obj.market_data_provider.upper()}_1MIN_DUCKDB",
@@ -180,11 +183,11 @@ def run_scan(
             "evaluatedUniverseSize": len(symbols),
             "market_bias": regime.regime,
             "best_score": round(best_score, 1),
-            "why_not_executable": exact_reason,
+            "why_not_executable": "QUALIFIED_SIGNALS_PRESENT" if has_unified_trade else exact_reason,
             "top_opportunities": top_leaders + top_laggards,
             "unified_engine": unified_res,
             "signals": [{**asdict(item), "run_id": run_id, "timestamp": item.timestamp.isoformat(), "expiry": item.expiry.isoformat()} for item in candidates],
-            "paperTrading": paper,
+            "paperTrading": unified_res.get("paperTrading") or paper,
             "temporaryLearningMode": {
                 "active": learning_mode_active(settings_obj, now),
                 "expiresAfterIstDate": settings_obj.paper_learning_mode_date or None,

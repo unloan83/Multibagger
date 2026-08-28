@@ -56,6 +56,27 @@ def test_daily_profit_threshold_blocks_entries_without_forcing_runner_exit(tmp_p
     assert "Daily paper profit target reached" in " ".join(second["noEntryReasons"])
 
 
+def test_high_score_signal_is_not_rejected_for_weak_sector_confirmation(tmp_path):
+    settings = _settings(tmp_path)
+    store = MarketStore(settings.db_path)
+    now = datetime(2026, 8, 21, 5, 0, tzinfo=timezone.utc)
+    candidate = replace(
+        _candidate("TEST", now),
+        rank_score=92.0,
+        confirmations={**_candidate("TEST", now).confirmations, "sectorDirection": False},
+    )
+
+    result = run_paper_cycle(
+        store, settings, [candidate],
+        {"TEST": {"bid": 199.8, "ask": 200.0, "ts": now}}, now, "weak-sector",
+    )
+
+    assert len(result["openPositions"]) == 1
+    assert result["openPositions"][0]["allowed_risk"] == 375.0
+    assert all(item["reason"] != "CONFIRMATION_FAILED_SECTORDIRECTION"
+               for item in result["entryRejections"])
+
+
 def test_stop_loss_is_cost_adjusted_and_recorded(tmp_path):
     settings = _settings(tmp_path)
     store = MarketStore(settings.db_path)

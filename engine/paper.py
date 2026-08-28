@@ -303,7 +303,12 @@ def _open_trade(con: Any, candidate: Candidate, quote: dict[str, Any], now: date
         return None, "EXCESSIVE_LIVE_SPREAD"
     if settings.paper_slippage_bps_per_side > settings.paper_max_entry_slippage_bps:
         return None, "EXCESSIVE_MODELED_SLIPPAGE"
-    required = ("sectorDirection", "vwap", "strategyQualified", "riskReward")
+    sector_state = _sector_direction_state(candidate.confirmations)
+    if sector_state == "ADVERSE":
+        return None, "CONFIRMATION_FAILED_SECTORDIRECTION"
+    if sector_state == "WEAK":
+        risk_multiplier *= 0.75
+    required = ("vwap", "strategyQualified", "riskReward")
     if settings.require_setup_confirmation:
         missing = [name for name in required if candidate.confirmations.get(name) is not True]
         if missing:
@@ -411,6 +416,15 @@ def _open_trade(con: Any, candidate: Candidate, quote: dict[str, Any], now: date
     _record_intraday_audit(con, run_id, now, "TRADE_ENTRY", candidate, system_pnl,
                            risk=risk_budget, quantity=quantity)
     return _records(con, "SELECT * FROM paper_trades WHERE trade_id=?", [trade_id])[0], None
+
+
+def _sector_direction_state(confirmations: dict[str, object]) -> str:
+    explicit = str(confirmations.get("sectorDirectionState") or "").strip().upper()
+    if confirmations.get("sectorDirection") is True or explicit in {"ALIGNED", "STRONG"}:
+        return "ALIGNED"
+    if explicit in {"ADVERSE", "CLEARLY_ADVERSE"}:
+        return "ADVERSE"
+    return "WEAK"
 
 
 def _scale_out_if_needed(con: Any, trade: dict[str, Any], quote: dict[str, Any], now: datetime,

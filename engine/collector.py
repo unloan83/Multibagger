@@ -239,7 +239,9 @@ def _upstox_scan_message(result: dict, scheduled_at: datetime, elapsed_ms: int) 
     paper = result.get("paperTrading") or {}
     metrics = paper.get("dailyMetrics") or {}
     rejections = paper.get("entryRejections") or []
-    return (
+    unified = result.get("unified_engine") or {}
+    
+    base_msg = (
         "✅ Upstox Intraday full scan completed\n"
         f"Time: {scheduled_at.strftime('%H:%M IST')} | Duration: {elapsed_ms / 1000:.1f}s\n"
         f"Status: {result.get('status') or 'UNKNOWN'} | Reason: {result.get('reason') or 'NONE'}\n"
@@ -247,6 +249,19 @@ def _upstox_scan_message(result: dict, scheduled_at: datetime, elapsed_ms: int) 
         f"Daily net P&L: ₹{float(metrics.get('netPnl') or 0):,.2f} / ₹{float(paper.get('dailyProfitTarget') or 0):,.2f}\n"
         f"Target reached: {'YES' if paper.get('targetReached') else 'NO'}"
     )
+
+    if unified:
+        top_sec = ", ".join(unified.get("top_8_sectors", []))
+        top_10 = ", ".join(unified.get("global_top_10", []))
+        base_msg += (
+            f"\n\n📊 Unified Model Summary:\n"
+            f"Top 8 Sectors: {top_sec}\n"
+            f"Global Top 10: {top_10}\n"
+            f"Trade Taken: {unified.get('trade_taken')} | Entry: {unified.get('entry')} | Exit: {unified.get('exit')}\n"
+            f"Realized P&L: ₹{unified.get('realized_pnl', 0.0):,.2f} | Cumulative: ₹{unified.get('cumulative_pnl', 0.0):,.2f}"
+        )
+
+    return base_msg
 
 
 def _notify_scan_blocker(result: dict, scheduled_at: datetime) -> bool:

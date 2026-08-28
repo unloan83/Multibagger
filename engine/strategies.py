@@ -10,7 +10,7 @@ import pandas as pd
 from ta.trend import ADXIndicator
 from ta.volatility import AverageTrueRange, BollingerBands
 
-from .config import Settings
+from .config import EXECUTION_ENGINE_IDENTITY, Settings
 
 TradeSide = Literal["LONG", "SHORT"]
 Trend = Literal["BULLISH", "BEARISH", "RANGE"]
@@ -295,7 +295,7 @@ def scan_symbol(frame: pd.DataFrame, settings: Settings, now: datetime | None = 
 
 
 def active_agent(now: datetime) -> str | None:
-    return "UNIFIED_OPPORTUNITY_ENGINE"
+    return EXECUTION_ENGINE_IDENTITY
 
 
 def entry_score_threshold(now: datetime) -> int | None:

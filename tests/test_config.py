@@ -37,12 +37,12 @@ def test_daily_breakers_are_fixed(monkeypatch):
         Settings.from_env()
 
 
-def test_enabled_agents_accepts_a_safe_subset(monkeypatch):
-    monkeypatch.setenv("ENABLED_AGENTS", "alpha,gamma")
-    assert Settings.from_env().enabled_agents == ("ALPHA", "GAMMA")
+def test_enabled_agents_accepts_unified_execution_engine(monkeypatch):
+    monkeypatch.setenv("ENABLED_AGENTS", "unified_opportunity_engine")
+    assert Settings.from_env().enabled_agents == ("UNIFIED_OPPORTUNITY_ENGINE",)
 
 
-@pytest.mark.parametrize("value", ["", "ALPHA,OPTIONS"])
+@pytest.mark.parametrize("value", ["", "ALPHA,GAMMA", "UNIFIED_OPPORTUNITY_ENGINE,ALPHA"])
 def test_enabled_agents_rejects_empty_or_unknown_values(monkeypatch, value):
     monkeypatch.setenv("ENABLED_AGENTS", value)
     with pytest.raises(RuntimeError, match="ENABLED_AGENTS"):

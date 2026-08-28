@@ -40,6 +40,7 @@ def run_worker(settings: Settings, scan_interval: int = 900, monitor_interval: i
                scan_max_runtime: int = 240, monitor_max_runtime: int = 45,
                lock_path: str = "/var/lib/multibagger/paper_jobs.lock") -> None:
     """Collect continuously while aligned, locked jobs scan or monitor paper positions."""
+    validate_scheduled_execution_identity(settings)
     if scan_interval != 900:
         raise ValueError("Upstox full scans must run every 900 seconds")
     if monitor_interval != 30:
@@ -99,8 +100,6 @@ def run_worker(settings: Settings, scan_interval: int = 900, monitor_interval: i
                     logging.exception("daily live-spread universe failed; scans remain fail closed")
             slot = local.strftime("%Y%m%d-%H%M")
             job_type = scheduled_upstox_job(local, monitor_interval)
-            if job_type == "FULL_SCAN" and active_agent(local) not in settings.enabled_agents:
-                continue
             max_runtime = scan_max_runtime if job_type == "FULL_SCAN" else monitor_max_runtime
             if not job_type or slot in completed_slots:
                 continue
@@ -166,6 +165,8 @@ def scheduled_upstox_job(local: datetime, monitor_interval: int = 30) -> str | N
 
 def _run_locked_job(store: MarketStore, settings: Settings, job_type: str, scheduled_at: datetime,
                     max_runtime: int, lock_path: Path) -> dict | None:
+    if job_type == "FULL_SCAN":
+        validate_scheduled_execution_identity(settings, scheduled_at)
     job_id = str(uuid.uuid4())
     started = time.monotonic()
     with _nonblocking_lock(lock_path) as acquired:
@@ -220,6 +221,18 @@ def _run_locked_job(store: MarketStore, settings: Settings, job_type: str, sched
                 f"🔴 Upstox Intraday {job_type.lower()} failed\nReason: {str(error)[:300]}",
                 event_key=f"upstox-{job_type.lower()}-failed", cooldown_seconds=900,
             )
+
+
+def validate_scheduled_execution_identity(settings: Settings,
+                                           now: datetime | None = None) -> str:
+    identity = active_agent(now or datetime.now(timezone.utc))
+    if not identity or identity not in settings.enabled_agents:
+        configured = ",".join(settings.enabled_agents) or "NONE"
+        raise RuntimeError(
+            f"Scheduled execution identity {identity or 'NONE'} is not enabled "
+            f"(configured: {configured})"
+        )
+    return identity
 
 
 def _upstox_scan_message(result: dict, scheduled_at: datetime, elapsed_ms: int) -> str:

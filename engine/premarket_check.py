@@ -9,6 +9,7 @@ from pathlib import Path
 from zoneinfo import ZoneInfo
 
 from engine.config import Settings
+from engine.collector import validate_scheduled_execution_identity
 from engine.store import MarketStore
 
 LOG = logging.getLogger("multibagger.premarket")
@@ -63,18 +64,30 @@ def run_premarket_safety_check(settings: Settings, store: MarketStore | None = N
     if live_env != "false":
         config_pass = False
         config_reason = f"ENABLE_LIVE_TRADING is '{live_env}', must be 'false'"
-    elif settings.paper_max_risk_per_trade != 500.0:
+    else:
+        try:
+            execution_identity = validate_scheduled_execution_identity(settings)
+        except RuntimeError as error:
+            config_pass = False
+            config_reason = str(error)
+        else:
+            config_pass = True
+            config_reason = f"Scheduled execution identity verified ({execution_identity})"
+    if config_pass and settings.paper_max_risk_per_trade != 500.0:
         config_pass = False
         config_reason = f"Max risk per trade is INR {settings.paper_max_risk_per_trade}, expected 500.0"
-    elif settings.paper_daily_loss_limit != 1000.0:
+    elif config_pass and settings.paper_daily_loss_limit != 1000.0:
         config_pass = False
         config_reason = f"Daily loss limit is INR {settings.paper_daily_loss_limit}, expected 1000.0"
-    elif settings.paper_max_aggregate_open_risk != 750.0:
+    elif config_pass and settings.paper_max_aggregate_open_risk != 750.0:
         config_pass = False
         config_reason = f"Aggregate open risk is INR {settings.paper_max_aggregate_open_risk}, expected 750.0"
-    else:
+    elif config_pass:
         config_pass = True
-        config_reason = "Live trading disabled, risk parameters verified (₹500/₹1,000/₹750)"
+        config_reason = (
+            f"Live trading disabled, {execution_identity} eligible, "
+            "risk parameters verified (₹500/₹1,000/₹750)"
+        )
 
     # 3. DATA Check
     data_store = store or MarketStore(settings.db_path, read_only=True)

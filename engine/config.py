@@ -7,6 +7,7 @@ from pathlib import Path
 
 
 ROOT = Path(__file__).resolve().parents[1]
+EXECUTION_ENGINE_IDENTITY = "UNIFIED_OPPORTUNITY_ENGINE"
 
 
 @dataclass(frozen=True)
@@ -120,7 +121,7 @@ class Settings:
         max_open_risk = float(os.getenv("PAPER_MAX_AGGREGATE_OPEN_RISK_INR", "750"))
         enabled_agents = tuple(dict.fromkeys(
             item.strip().upper()
-            for item in os.getenv("ENABLED_AGENTS", "ALPHA,BETA,GAMMA").split(",")
+            for item in os.getenv("ENABLED_AGENTS", EXECUTION_ENGINE_IDENTITY).split(",")
             if item.strip()
         ))
         if paper_capital <= 0 or not 0 < risk_pct <= 5:
@@ -135,8 +136,10 @@ class Settings:
             raise RuntimeError("Paper entry slippage tolerance must be between 0 and 20 bps")
         if max_trade_risk != 500 or max_open_risk != 750:
             raise RuntimeError("Paper risk caps must remain INR 500 per trade and INR 750 aggregate")
-        if not enabled_agents or not set(enabled_agents) <= {"ALPHA", "BETA", "GAMMA"}:
-            raise RuntimeError("ENABLED_AGENTS must contain one or more of ALPHA, BETA, GAMMA")
+        if set(enabled_agents) != {EXECUTION_ENGINE_IDENTITY}:
+            raise RuntimeError(
+                f"ENABLED_AGENTS must be {EXECUTION_ENGINE_IDENTITY} so scheduled scans can execute"
+            )
         trading_universe_size = int(os.getenv("INTRADAY_TRADING_UNIVERSE_SIZE", "250"))
         if trading_universe_size != 250:
             raise RuntimeError("INTRADAY_TRADING_UNIVERSE_SIZE must remain 250")

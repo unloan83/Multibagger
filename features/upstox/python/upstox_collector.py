@@ -134,6 +134,48 @@ class UpstoxTickWriter:
             self.last_candle_monotonic = time.monotonic()
             self.last_candle_timestamp_by_key[key] = timestamp
 
+    def ingest_quotes_dict(self, quotes: dict[str, Any]) -> None:
+        received = datetime.now(timezone.utc)
+        for raw_key, quote in quotes.items():
+            key = raw_key.replace(":", "|")
+            symbol = self.instruments.get(key)
+            if not symbol:
+                continue
+            last_price = _positive_float(quote.get("last_price"))
+            ohlc = quote.get("ohlc") or {}
+            depth = quote.get("depth") or {}
+            bids = depth.get("buy") or []
+            asks = depth.get("sell") or []
+            bid = _positive_float(bids[0].get("price")) if bids else last_price
+            ask = _positive_float(asks[0].get("price")) if asks else last_price
+
+            if last_price is not None or (bid is not None and ask is not None):
+                self.quote_ticks += 1
+                self.last_quote_monotonic = time.monotonic()
+
+            open_p = _positive_float(ohlc.get("open")) or last_price
+            high_p = _positive_float(ohlc.get("high")) or last_price
+            low_p = _positive_float(ohlc.get("low")) or last_price
+            close_p = _positive_float(ohlc.get("close")) or last_price
+
+            if None in (open_p, high_p, low_p, close_p):
+                continue
+
+            ts = received.replace(second=0, microsecond=0)
+            row = {
+                "instrument_key": key, "symbol": symbol, "ts": ts,
+                "open": open_p, "high": high_p, "low": low_p, "close": close_p,
+                "volume": max(0, int(quote.get("volume") or 0)),
+                "bid": bid if bid is not None else last_price,
+                "ask": ask if ask is not None else last_price,
+                "received_at": received,
+            }
+            with self.lock:
+                self.pending[(key, ts)] = row
+            self.candle_ticks += 1
+            self.last_candle_monotonic = time.monotonic()
+            self.last_candle_timestamp_by_key[key] = ts
+
     def flush(self) -> int:
         with self.lock:
             rows = list(self.pending.values())
@@ -223,14 +265,40 @@ def collect_upstox(settings: Settings, on_market_data: Callable[[], None] | None
     watcher = threading.Thread(target=monitor, name="upstox-feed-monitor", daemon=True)
     watcher.start()
 
+    def rest_poller() -> None:
+        """Fallback REST API Quote Polling loop when WebSocket stream is delayed/disconnected."""
+        last_poll = 0.0
+        while not stop.wait(1):
+            now = time.monotonic()
+            if now - last_poll < 5.0:
+                continue
+            last_poll = now
+            # If WebSocket stream has not received fresh quotes in last 10 seconds, poll REST API
+            if now - writer.last_quote_monotonic >= 10.0:
+                try:
+                    quotes = fetch_upstox_quotes_rest(settings.access_token, list(instruments.keys()))
+                    if quotes:
+                        writer.ingest_quotes_dict(quotes)
+                        flushed = writer.flush()
+                        if flushed and on_market_data:
+                            on_market_data()
+                        DEGRADED_MANAGER.report_recovery("WEBSOCKET")
+                except Exception as poll_err:
+                    LOG.debug("REST quote poller error: %s", poll_err)
+
+    poller_thread = threading.Thread(target=rest_poller, name="upstox-rest-poller", daemon=True)
+    poller_thread.start()
+
     def do_connect() -> None:
         opened.clear()
-        streamer.connect()
-        if not opened.wait(timeout=60):
-            raise RuntimeError("Upstox market-data stream did not open within 60 seconds")
+        try:
+            streamer.connect()
+            opened.wait(timeout=10)
+        except Exception as conn_err:
+            LOG.warning("WebSocket connect attempt error (REST fallback active): %s", conn_err)
 
     try:
-        reconnect_with_backoff(do_connect, max_attempts=10, logger=LOG)
+        do_connect()
         while not stop.wait(1):
             pass
     finally:
@@ -240,9 +308,35 @@ def collect_upstox(settings: Settings, on_market_data: Callable[[], None] | None
         except Exception:
             pass
         watcher.join(timeout=5)
+        poller_thread.join(timeout=5)
         writer.flush()
     if failure:
         raise failure[0]
+
+
+def fetch_upstox_quotes_rest(access_token: str, instrument_keys: list[str]) -> dict[str, Any]:
+    """Fetch live quotes via Upstox REST API in batches of 50 instrument keys."""
+    import urllib.request, urllib.parse, json
+    results: dict[str, Any] = {}
+    headers = {
+        'Authorization': f'Bearer {access_token}',
+        'Accept': 'application/json',
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+    }
+    batch_size = 50
+    for i in range(0, len(instrument_keys), batch_size):
+        chunk = instrument_keys[i:i + batch_size]
+        encoded_chunk = [urllib.parse.quote(k, safe='|:') for k in chunk]
+        url = f"https://api.upstox.com/v2/market-quote/quotes?instrument_key={','.join(encoded_chunk)}"
+        try:
+            req = urllib.request.Request(url, headers=headers)
+            with urllib.request.urlopen(req, timeout=10) as resp:
+                data = json.load(resp)
+                if data.get("status") == "success" and data.get("data"):
+                    results.update(data["data"])
+        except Exception as e:
+            LOG.debug("Failed to fetch Upstox quotes batch: %s", e)
+    return results
 
 
 def _assert_stream_freshness(writer: UpstoxTickWriter, settings: Settings, monotonic_now: float,

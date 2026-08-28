@@ -77,6 +77,12 @@ class UpstoxTickWriter:
     def __init__(self, store: MarketStore, instruments: dict[str, str]):
         self.store = store
         self.instruments = instruments
+        self.rest_key_aliases: dict[str, str] = {}
+        for instrument_key, symbol in instruments.items():
+            segment, separator, _token = instrument_key.partition("|")
+            self.rest_key_aliases[instrument_key] = instrument_key
+            if separator:
+                self.rest_key_aliases[f"{segment}:{symbol}"] = instrument_key
         self.pending: dict[tuple[str, datetime], dict[str, Any]] = {}
         self.lock = threading.Lock()
         self.quote_ticks = 0
@@ -138,7 +144,9 @@ class UpstoxTickWriter:
     def ingest_quotes_dict(self, quotes: dict[str, Any]) -> None:
         received = datetime.now(timezone.utc)
         for raw_key, quote in quotes.items():
-            key = raw_key.replace(":", "|")
+            key = self.rest_key_aliases.get(raw_key)
+            if not key:
+                continue
             symbol = self.instruments.get(key)
             if not symbol:
                 continue

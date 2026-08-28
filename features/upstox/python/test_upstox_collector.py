@@ -91,6 +91,27 @@ def test_upstox_v3_tick_is_batched_with_executable_quote():
     assert store.rows[0]["ask"] == 200.0
 
 
+def test_rest_equity_symbol_key_maps_to_canonical_instrument_key():
+    store = Store()
+    writer = UpstoxTickWriter(store, {"NSE_EQ|INE002A01018": "RELIANCE"})
+
+    writer.ingest_quotes_dict({
+        "NSE_EQ:RELIANCE": {
+            "last_price": 1400.0,
+            "ohlc": {"open": 1390.0, "high": 1410.0, "low": 1385.0, "close": 1400.0},
+            "volume": 1000,
+            "depth": {
+                "buy": [{"price": 1399.9}],
+                "sell": [{"price": 1400.1}],
+            },
+        },
+    })
+
+    assert writer.flush() == 1
+    assert store.rows[0]["instrument_key"] == "NSE_EQ|INE002A01018"
+    assert store.rows[0]["symbol"] == "RELIANCE"
+
+
 def test_upstox_v3_index_tick_is_stored_without_order_book():
     store = Store()
     writer = UpstoxTickWriter(store, {"NSE_INDEX|Nifty 50": "NIFTY 50"})

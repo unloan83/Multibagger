@@ -64,6 +64,9 @@ def run_paper_cycle(
         open_rows = _records(con, "SELECT * FROM paper_trades WHERE status='OPEN' ORDER BY opened_at")
         projected_before_entries = realized + sum(float(row["net_pnl"]) for row in open_rows)
         progress_ratio = projected_before_entries / settings.paper_daily_profit_target
+        learning_rows = [row for row in _records(con, "SELECT * FROM paper_trades WHERE trading_day=?", [trading_day])
+                         if _is_learning_trade(row)]
+        learning_projected = sum(float(row.get("net_pnl") or 0.0) for row in learning_rows)
 
         from .degraded import DEGRADED_MANAGER
         if DEGRADED_MANAGER.is_degraded:
@@ -73,6 +76,9 @@ def run_paper_cycle(
             no_entry_reasons.append("Global trading execution pause is active; paper and sandbox entries/exits are blocked.")
         if realized >= settings.paper_daily_profit_target or projected_before_entries >= settings.paper_daily_profit_target:
             no_entry_reasons.append("Daily paper profit target reached; new entries are disabled.")
+        if any(bool(item.confirmations.get("learningMode")) for item in candidates) and \
+                learning_projected >= settings.paper_learning_profit_objective:
+            no_entry_reasons.append("Temporary learning-mode INR 1,000 objective reached; new challenger entries are disabled.")
         if realized <= -settings.paper_daily_loss_limit or (realized + sum(float(row["net_pnl"]) for row in open_rows)) <= -settings.paper_daily_loss_limit:
             no_entry_reasons.append("Daily paper loss limit reached; new entries are disabled.")
             send_telegram_safety_report("Daily Loss Limit ₹1,000 Reached", {"flattened": len(open_rows), "failed": 0})
@@ -163,6 +169,7 @@ def run_paper_cycle(
             and (settings.paper_max_trades_per_day == 0 or day_count < settings.paper_max_trades_per_day)
             and consecutive_losses < settings.paper_consecutive_loss_limit and _entry_window_open(now)
         )
+        learning_summary = _learning_summary(con, trading_day, settings)
         con.execute("""
           INSERT INTO paper_target_history VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         """, [
@@ -195,6 +202,7 @@ def run_paper_cycle(
         "recentEntryRejections": [_public_rejection(row) for row in recent_rejections],
         "dailyMetrics": daily,
         "overallMetrics": overall,
+        "temporaryLearningMode": learning_summary,
     }
 
 
@@ -292,7 +300,8 @@ def _open_trade(con: Any, candidate: Candidate, quote: dict[str, Any], now: date
         return None, "DUPLICATE_OPEN_POSITION_PREVENTED"
     side = candidate.side
     agent = str(candidate.confirmations.get("agent") or active_agent(now) or "")
-    if not agent or agent != active_agent(now):
+    current_active = active_agent(now)
+    if not agent or (agent != current_active and agent != "UNIFIED_OPPORTUNITY_ENGINE" and candidate.strategy != "UNIFIED_OPPORTUNITY_ENGINE"):
         return None, "AGENT_TIME_WINDOW_MISMATCH"
     entry_quote = float(quote["ask"] if side == "LONG" else quote["bid"])
     drift_bps = abs(entry_quote - float(candidate.entry)) / float(candidate.entry) * 10_000
@@ -683,6 +692,50 @@ def _intended_order(trade: dict[str, Any]) -> dict[str, Any]:
         return json.loads(value) if isinstance(value, str) else dict(value)
     except (TypeError, ValueError, json.JSONDecodeError):
         return {}
+
+
+def _is_learning_trade(trade: dict[str, Any]) -> bool:
+    confirmations = ((_intended_order(trade).get("signal") or {}).get("confirmations") or {})
+    return confirmations.get("learningMode") is True
+
+
+def _learning_summary(con: Any, trading_day: Any, settings: Settings) -> dict[str, Any]:
+    rows = [row for row in _records(con, "SELECT * FROM paper_trades WHERE trading_day=? ORDER BY opened_at", [trading_day])
+            if _is_learning_trade(row)]
+    completed = []
+    for row in rows:
+        if row.get("status") != "CLOSED":
+            continue
+        intended = _intended_order(row)
+        confirmations = ((intended.get("signal") or {}).get("confirmations") or {})
+        pnl = float(row.get("net_pnl") or 0.0)
+        completed.append({
+            "symbol": row.get("symbol"),
+            "entryReason": confirmations.get("entryReason"),
+            "entry": row.get("entry_fill"),
+            "exit": row.get("exit_fill"),
+            "pnl": round(pnl, 2),
+            "holdTimeMinutes": row.get("holding_duration_minutes"),
+            "outcome": "WIN" if pnl > 0 else "LOSS",
+            "signalScore": confirmations.get("score"),
+            "marketState": confirmations.get("marketBias"),
+            "sectorState": confirmations.get("sectorDirectionState") or "WEAK_OR_NEUTRAL",
+        })
+    current_pnl = round(sum(float(row.get("net_pnl") or 0.0) for row in rows), 2)
+    wins = [item for item in completed if item["outcome"] == "WIN"]
+    losses = [item for item in completed if item["outcome"] == "LOSS"]
+    return {
+        "active": bool(settings.paper_learning_mode_date),
+        "tradesTaken": len(rows),
+        "currentPnl": current_pnl,
+        "profitObjective": settings.paper_learning_profit_objective,
+        "targetProgressPercent": round(max(0.0, current_pnl) / settings.paper_learning_profit_objective * 100, 2),
+        "completedTradeEvidence": completed,
+        "lessonsCaptured": {
+            "completed": len(completed), "wins": len(wins), "losses": len(losses),
+            "weightUpdate": "NOT_AUTOMATIC_EVIDENCE_REVIEW_ONLY",
+        },
+    }
 
 
 def _optional_float(value: Any) -> float | None:

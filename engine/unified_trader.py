@@ -365,6 +365,41 @@ def run_unified_opportunity_scan(settings: Settings | None = None) -> dict[str, 
         entry_fill = f"₹{float(trade.get('entry_fill', 0)):.2f}"
         exit_fill = f"₹{float(trade.get('exit_fill', 0)):.2f}"
 
+    # Determine Signal-to-Execution Invariant Outcome
+    signal_outcome = "NO_QUALIFIED_SIGNAL"
+    blocking_reason = "NONE"
+
+    if executable_candidates:
+        cand_sym = executable_candidates[0].symbol
+        rejections = paper_res.get("recentEntryRejections") or []
+        cand_rejections = [r for r in rejections if r.get("symbol") == cand_sym]
+        no_reasons = paper_res.get("noEntryReasons") or []
+
+        if open_positions and any(p.get("symbol") == cand_sym for p in open_positions):
+            signal_outcome = "ORDER_CREATED"
+        elif recent_closed and any(t.get("symbol") == cand_sym for t in recent_closed):
+            signal_outcome = "ORDER_CREATED"
+        else:
+            if cand_rejections:
+                blocking_reason = str(cand_rejections[0].get("reason") or "REJECTED")
+            elif no_reasons:
+                blocking_reason = str(no_reasons[0])
+            else:
+                blocking_reason = "UNKNOWN_ENTRY_GATE_BLOCKER"
+
+            upper_reason = blocking_reason.upper()
+            if any(k in upper_reason for k in ["STALE", "MISSING_QUOTE", "PRICE_MOVED", "SPREAD", "DATA"]):
+                signal_outcome = "DATA_BLOCKED"
+            elif any(k in upper_reason for k in ["PAUSED", "SANDBOX", "DEGRADED", "ERROR", "EXCEPTION"]):
+                signal_outcome = "EXECUTION_ERROR"
+            else:
+                signal_outcome = "RISK_BLOCKED"
+
+            logging.getLogger("multibagger.unified_trader").warning(
+                "SIGNAL_EXECUTION_BLOCKER | Candidate: %s | Outcome: %s | Blocker: %s",
+                cand_sym, signal_outcome, blocking_reason
+            )
+
     result_summary = {
         "top_8_sectors": top_8_sectors,
         "global_top_10": [item["symbol"] for item in global_top_10],
@@ -375,6 +410,8 @@ def run_unified_opportunity_scan(settings: Settings | None = None) -> dict[str, 
         "cumulative_pnl": cumulative_pnl,
         "best_candidate": best_candidate_symbol,
         "reason": entry_reason,
+        "signal_outcome": signal_outcome,
+        "blocking_reason": blocking_reason,
         "paperTrading": paper_res,
     }
 

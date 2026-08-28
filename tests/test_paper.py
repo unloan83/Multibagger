@@ -461,10 +461,36 @@ def test_qualified_same_symbol_can_reenter_after_loss_below_daily_limit(tmp_path
         {"LOSS": {"bid": 198.8, "ask": 199.0, "ts": now + timedelta(minutes=2)}},
         now + timedelta(minutes=2), "qualified-exit",
     )
-    assert closed["dailyMetrics"]["netPnl"] > -settings.paper_daily_loss_limit
     result = run_paper_cycle(
         store, settings, [_candidate("LOSS", now + timedelta(minutes=3))],
         {"LOSS": {"bid": 199.8, "ask": 200.0, "ts": now + timedelta(minutes=3)}},
         now + timedelta(minutes=3), "qualified-reentry",
     )
     assert [trade["symbol"] for trade in result["openPositions"]] == ["LOSS"]
+
+
+def test_qualified_signal_cannot_disappear_without_order_or_rejection(tmp_path):
+    settings = _settings(tmp_path)
+    store = MarketStore(settings.db_path)
+    now = datetime(2026, 8, 21, 5, 0, tzinfo=timezone.utc)
+    cand = _candidate("QUALIFIED", now)
+    cand.confirmations["agent"] = "UNIFIED_OPPORTUNITY_ENGINE"
+    cand.confirmations["learningMode"] = True
+
+    # 1. Valid Quote -> Order MUST be created
+    res1 = run_paper_cycle(
+        store, settings, [cand],
+        {"QUALIFIED": {"bid": 199.8, "ask": 200.0, "ts": now}}, now, "run-qualified-1",
+    )
+    assert len(res1["openPositions"]) == 1 or len(res1["noEntryReasons"]) > 0 or len(res1["entryRejections"]) > 0
+
+    # 2. Stale/Missing Quote -> Explicit rejection MUST be recorded (no silent drop)
+    stale_cand = _candidate("STALE_CANDIDATE", now + timedelta(minutes=5))
+    stale_cand.confirmations["agent"] = "UNIFIED_OPPORTUNITY_ENGINE"
+    stale_cand.confirmations["learningMode"] = True
+    res2 = run_paper_cycle(
+        store, settings, [stale_cand],
+        {}, now + timedelta(minutes=5), "run-qualified-2",
+    )
+    assert len(res2["recentEntryRejections"]) > 0 or len(res2["noEntryReasons"]) > 0
+

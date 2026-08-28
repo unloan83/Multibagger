@@ -189,12 +189,7 @@ def _run_locked_job(store: MarketStore, settings: Settings, job_type: str, sched
             elapsed = int((time.monotonic() - started) * 1000)
             status = "COMPLETED" if elapsed <= max_runtime * 1000 else "MAX_RUNTIME_EXCEEDED"
             store.finish_job(job_id, status, elapsed, None if status == "COMPLETED" else "JOB_FINISHED_LATE")
-            if status != "COMPLETED":
-                send_telegram_message(
-                    f"⚠️ Upstox Intraday {job_type.lower()} exceeded its runtime limit\nDuration: {elapsed / 1000:.1f}s",
-                    event_key=f"upstox-{job_type.lower()}-late", cooldown_seconds=900,
-                )
-            elif job_type == "FULL_SCAN":
+            if job_type == "FULL_SCAN":
                 send_telegram_message(
                     _upstox_scan_message(result, scheduled_at, elapsed),
                     event_key=f"upstox-scan-{scheduled_at.strftime('%Y%m%d-%H%M')}",

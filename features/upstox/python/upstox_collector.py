@@ -199,134 +199,37 @@ def collect_upstox(settings: Settings, on_market_data: Callable[[], None] | None
         raise RuntimeError("UPSTOX_ACCESS_TOKEN is required")
     if settings.market_data_provider != "upstox":
         raise RuntimeError("Upstox collector requires MARKET_DATA_PROVIDER=upstox")
-    import upstox_client
 
     store = MarketStore(settings.db_path)
     instruments = resolve_upstox_instruments(settings, store)
-    config = upstox_client.Configuration()
-    config.access_token = settings.access_token
-    # Explicitly subscribe all instruments to Upstox V3 "full" mode (LTP + Depth + OHLC)
-    streamer = upstox_client.MarketDataStreamerV3(
-        upstox_client.ApiClient(config), list(instruments), "full",
-    )
     writer = UpstoxTickWriter(store, instruments)
-    failure: list[Exception] = []
     stop = threading.Event()
-    opened = threading.Event()
 
     from engine.degraded import DEGRADED_MANAGER
 
-    def fail(error: Exception) -> None:
-        if not failure:
-            failure.append(error)
-        stop.set()
+    LOG.info("Upstox market-data collector active (REST Market Quote Engine)")
+
+    last_log = time.monotonic()
+    while not stop.wait(3):
         try:
-            streamer.disconnect()
-        except Exception:
-            pass
-
-    def on_error(error: object) -> None:
-        err_str = str(error)
-        LOG.warning("Upstox market-data stream error: %s", error)
-        if "403 Forbidden" in err_str:
-            LOG.info("WebSocket returned 403 Forbidden; disabling streamer auto-reconnect and using active REST quote poller")
-            try:
-                streamer.disconnect()
-            except Exception:
-                pass
-            DEGRADED_MANAGER.report_recovery("WEBSOCKET")
-            return
-        now = time.monotonic()
-        if "401 Unauthorized" in err_str:
-            DEGRADED_MANAGER.report_failure("AUTH", "Upstox market-data stream authorization failed (HTTP 401)")
-        elif now - writer.last_quote_monotonic >= 15.0:
-            DEGRADED_MANAGER.report_failure("WEBSOCKET", f"Upstox market-data stream error: {error}")
-
-    def on_reconnect_stopped(reason: object) -> None:
-        LOG.warning("Upstox market-data reconnects stopped: %s", reason)
-        now = time.monotonic()
-        if now - writer.last_quote_monotonic >= 15.0:
-            DEGRADED_MANAGER.report_failure("WEBSOCKET", f"Upstox market-data reconnects stopped: {reason}")
-
-    def monitor() -> None:
-        last_log = time.monotonic()
-        while not stop.wait(1):
-            try:
+            quotes = fetch_upstox_quotes_rest(settings.access_token, list(instruments.keys()))
+            if quotes:
+                writer.ingest_quotes_dict(quotes)
                 flushed = writer.flush()
                 if flushed and on_market_data:
                     on_market_data()
-                now = time.monotonic()
-                _assert_stream_freshness(writer, settings, now, datetime.now(timezone.utc))
                 DEGRADED_MANAGER.report_recovery("WEBSOCKET")
+                
+                now = time.monotonic()
                 if now - last_log >= 60:
                     LOG.info("Upstox feed healthy; quote_ticks=%d candle_ticks=%d", writer.quote_ticks, writer.candle_ticks)
                     last_log = now
-            except Exception as error:
-                now = time.monotonic()
-                if now - writer.last_quote_monotonic >= 15.0:
-                    DEGRADED_MANAGER.report_failure("WEBSOCKET", f"Upstox market-data stream delayed or stale: {error}")
-                else:
-                    DEGRADED_MANAGER.report_recovery("WEBSOCKET")
-
-    def on_open() -> None:
-        opened.set()
-        writer.mark_reconnect()
-
-    streamer.on("open", on_open)
-    streamer.on("message", writer.on_message)
-    streamer.on("error", on_error)
-    streamer.on("autoReconnectStopped", on_reconnect_stopped)
-    streamer.auto_reconnect(True, 5, 20)
-    watcher = threading.Thread(target=monitor, name="upstox-feed-monitor", daemon=True)
-    watcher.start()
-
-    def rest_poller() -> None:
-        """Fallback REST API Quote Polling loop when WebSocket stream is delayed/disconnected."""
-        last_poll = 0.0
-        while not stop.wait(1):
-            now = time.monotonic()
-            if now - last_poll < 5.0:
-                continue
-            last_poll = now
-            # If WebSocket stream has not received fresh quotes in last 10 seconds, poll REST API
-            if now - writer.last_quote_monotonic >= 10.0:
-                try:
-                    quotes = fetch_upstox_quotes_rest(settings.access_token, list(instruments.keys()))
-                    if quotes:
-                        writer.ingest_quotes_dict(quotes)
-                        flushed = writer.flush()
-                        if flushed and on_market_data:
-                            on_market_data()
-                        DEGRADED_MANAGER.report_recovery("WEBSOCKET")
-                except Exception as poll_err:
-                    LOG.debug("REST quote poller error: %s", poll_err)
-
-    poller_thread = threading.Thread(target=rest_poller, name="upstox-rest-poller", daemon=True)
-    poller_thread.start()
-
-    def do_connect() -> None:
-        opened.clear()
-        try:
-            streamer.connect()
-            opened.wait(timeout=10)
-        except Exception as conn_err:
-            LOG.warning("WebSocket connect attempt error (REST fallback active): %s", conn_err)
-
-    try:
-        do_connect()
-        while not stop.wait(1):
-            pass
-    finally:
-        stop.set()
-        try:
-            streamer.disconnect()
-        except Exception:
-            pass
-        watcher.join(timeout=5)
-        poller_thread.join(timeout=5)
-        writer.flush()
-    if failure:
-        raise failure[0]
+        except Exception as error:
+            LOG.warning("Upstox market-data fetch error: %s", error)
+            if "401" in str(error):
+                DEGRADED_MANAGER.report_failure("AUTH", "Upstox authorization failed (HTTP 401)")
+            else:
+                DEGRADED_MANAGER.report_failure("WEBSOCKET", f"Upstox market-data fetch error: {error}")
 
 
 def fetch_upstox_quotes_rest(access_token: str, instrument_keys: list[str]) -> dict[str, Any]:

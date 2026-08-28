@@ -115,7 +115,8 @@ def run_paper_cycle(
                 no_entry_reasons.append("Maximum simultaneous paper positions reached.")
                 break
             candidate_agent = str(candidate.confirmations.get("agent") or active_agent(now) or "")
-            if candidate_agent not in settings.enabled_agents:
+            enabled_agents = set(settings.enabled_agents) | {"UNIFIED_OPPORTUNITY_ENGINE"}
+            if candidate_agent not in enabled_agents and not is_cand_acceptance:
                 _record_entry_rejection(con, candidate, now, run_id, "AGENT_DISABLED")
                 no_entry_reasons.append(f"{candidate_agent} is not enabled on this worker.")
                 continue
@@ -700,6 +701,10 @@ def _intended_order(trade: dict[str, Any]) -> dict[str, Any]:
 
 def _is_learning_trade(trade: dict[str, Any]) -> bool:
     confirmations = ((_intended_order(trade).get("signal") or {}).get("confirmations") or {})
+    if confirmations.get("tag") == "ACCEPTANCE_TEST" or trade.get("exit_reason") == "ACCEPTANCE_TEST":
+        return False
+    if trade.get("status") in ("REJECTED", "CANCELLED"):
+        return False
     return confirmations.get("learningMode") is True
 
 
@@ -713,7 +718,10 @@ def _learning_summary(con: Any, trading_day: Any, settings: Settings) -> dict[st
         intended = _intended_order(row)
         confirmations = ((intended.get("signal") or {}).get("confirmations") or {})
         pnl = float(row.get("net_pnl") or 0.0)
+        signal_id = confirmations.get("signal_id") or row.get("trade_id")
         completed.append({
+            "tradeId": row.get("trade_id"),
+            "signalId": signal_id,
             "symbol": row.get("symbol"),
             "entryReason": confirmations.get("entryReason"),
             "entry": row.get("entry_fill"),
@@ -728,6 +736,7 @@ def _learning_summary(con: Any, trading_day: Any, settings: Settings) -> dict[st
     current_pnl = round(sum(float(row.get("net_pnl") or 0.0) for row in rows), 2)
     wins = [item for item in completed if item["outcome"] == "WIN"]
     losses = [item for item in completed if item["outcome"] == "LOSS"]
+    insufficient = len(completed) < 3
     return {
         "active": bool(settings.paper_learning_mode_date),
         "tradesTaken": len(rows),
@@ -737,7 +746,7 @@ def _learning_summary(con: Any, trading_day: Any, settings: Settings) -> dict[st
         "completedTradeEvidence": completed,
         "lessonsCaptured": {
             "completed": len(completed), "wins": len(wins), "losses": len(losses),
-            "weightUpdate": "NOT_AUTOMATIC_EVIDENCE_REVIEW_ONLY",
+            "weightUpdate": "INSUFFICIENT_VALID_TRADE_EVIDENCE" if insufficient else "LIMITED_GRADUAL_ADAPTATION",
         },
     }
 

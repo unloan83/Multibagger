@@ -227,14 +227,17 @@ def collect_upstox(settings: Settings, on_market_data: Callable[[], None] | None
 
     def on_error(error: object) -> None:
         LOG.warning("Upstox market-data stream error: %s", error)
+        now = time.monotonic()
         if "401 Unauthorized" in str(error):
             DEGRADED_MANAGER.report_failure("AUTH", "Upstox market-data stream authorization failed (HTTP 401)")
-        else:
+        elif now - writer.last_quote_monotonic >= 15.0:
             DEGRADED_MANAGER.report_failure("WEBSOCKET", f"Upstox market-data stream error: {error}")
 
     def on_reconnect_stopped(reason: object) -> None:
         LOG.warning("Upstox market-data reconnects stopped: %s", reason)
-        DEGRADED_MANAGER.report_failure("WEBSOCKET", f"Upstox market-data reconnects stopped: {reason}")
+        now = time.monotonic()
+        if now - writer.last_quote_monotonic >= 15.0:
+            DEGRADED_MANAGER.report_failure("WEBSOCKET", f"Upstox market-data reconnects stopped: {reason}")
 
     def monitor() -> None:
         last_log = time.monotonic()
@@ -250,8 +253,11 @@ def collect_upstox(settings: Settings, on_market_data: Callable[[], None] | None
                     LOG.info("Upstox feed healthy; quote_ticks=%d candle_ticks=%d", writer.quote_ticks, writer.candle_ticks)
                     last_log = now
             except Exception as error:
-                DEGRADED_MANAGER.report_failure("WEBSOCKET", f"Upstox market-data stream delayed or stale: {error}")
-                # Keep monitoring loop running in SAFE_DEGRADED mode rather than crashing worker
+                now = time.monotonic()
+                if now - writer.last_quote_monotonic >= 15.0:
+                    DEGRADED_MANAGER.report_failure("WEBSOCKET", f"Upstox market-data stream delayed or stale: {error}")
+                else:
+                    DEGRADED_MANAGER.report_recovery("WEBSOCKET")
 
     def on_open() -> None:
         opened.set()

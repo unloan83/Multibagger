@@ -24,7 +24,7 @@ class Settings:
     min_daily_value: float = 500_000_000.0
     min_relative_volume: float = 1.5
     max_spread_bps: float = 10.0
-    min_intraday_atr_pct: float = 0.35
+    min_intraday_atr_pct: float = 0.04
     max_breakout_extension_atr: float = 0.60
     min_atr_stop_pct: float = 0.5
     min_confluence_score: float = 50.0
@@ -185,7 +185,7 @@ class Settings:
             min_daily_value=float(os.getenv("MIN_DAILY_VALUE_INR", "500000000")),
             min_relative_volume=float(os.getenv("MIN_RELATIVE_VOLUME", "1.5")),
             max_spread_bps=float(os.getenv("MAX_SPREAD_BPS", "10")),
-            min_intraday_atr_pct=float(os.getenv("MIN_INTRADAY_ATR_PERCENT", "0.35")),
+            min_intraday_atr_pct=float(os.getenv("MIN_INTRADAY_ATR_PERCENT", "0.04")),
             max_breakout_extension_atr=float(os.getenv("MAX_BREAKOUT_EXTENSION_ATR", "0.60")),
             reward_risk=float(os.getenv("MIN_REWARD_RISK", "1.5")),
             max_reward_risk=float(os.getenv("MAX_REWARD_RISK", "2.0")),

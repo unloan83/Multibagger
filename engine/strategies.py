@@ -134,11 +134,25 @@ def evaluate_opportunity(frame: pd.DataFrame, settings: Settings, now: datetime 
     if len(session) < 15 or not np.isfinite(last.atr) or float(last.atr) <= 0:
         return None
 
-    bid = float(getattr(last, "bid", getattr(last, "close", 0)) or getattr(last, "close", 0))
-    ask = float(getattr(last, "ask", bid * 1.0001) or (bid * 1.0001))
-    close, atr = float(last.close), float(last.atr)
-    if bid <= 0 or ask <= bid:
-        return None
+    close = float(last.close)
+    atr = float(last.atr)
+    raw_bid = float(last.bid) if "bid" in last and pd.notna(last.bid) else 0.0
+    raw_ask = float(last.ask) if "ask" in last and pd.notna(last.ask) else 0.0
+
+    tick = max(0.05, round(close * 0.0001, 2))
+    if (
+        raw_bid <= 0
+        or raw_ask <= 0
+        or raw_ask <= raw_bid
+        or abs(raw_bid - close) / close > 0.003
+        or abs(raw_ask - close) / close > 0.003
+    ):
+        bid = close - (tick / 2.0)
+        ask = close + (tick / 2.0)
+    else:
+        bid = raw_bid
+        ask = raw_ask
+
     midpoint = (ask + bid) / 2
     spread_bps = (ask - bid) / midpoint * 10_000
     atr_pct = atr / close * 100

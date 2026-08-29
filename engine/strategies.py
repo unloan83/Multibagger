@@ -60,6 +60,12 @@ class OpportunityEvaluation:
         }
 
 
+def round_to_tick(price: float, tick_size: float = 0.05) -> float:
+    if price <= 0 or tick_size <= 0:
+        return price
+    return round(round(price / tick_size) * tick_size, 2)
+
+
 def enrich(frame: pd.DataFrame) -> pd.DataFrame:
     df = frame.copy().sort_values("ts")
     typical = (df.high + df.low + df.close) / 3
@@ -68,7 +74,7 @@ def enrich(frame: pd.DataFrame) -> pd.DataFrame:
     cumulative_value = (typical * df.volume).groupby(sessions).cumsum()
     cumulative_volume = df.volume.groupby(sessions).cumsum().replace(0, np.nan)
     fallback_vwap = typical.groupby(sessions).expanding().mean().reset_index(level=0, drop=True)
-    df["vwap"] = (cumulative_value / cumulative_volume).fillna(fallback_vwap)
+    df["vwap"] = (cumulative_value / cumulative_volume).fillna(fallback_vwap).fillna(typical).fillna(df.close)
     df["atr"] = AverageTrueRange(df.high, df.low, df.close, window=14, fillna=False).average_true_range()
     df["ema9"] = df.close.ewm(span=9, adjust=False).mean()
     for window in (9, 14, 21):
@@ -181,6 +187,14 @@ def evaluate_opportunity(frame: pd.DataFrame, settings: Settings, now: datetime 
     if market_bias == "UNSAFE":
         reasons.append("UNSAFE_MARKET_BIAS")
 
+    # Upper / Lower Circuit Limit Protection
+    upper_circuit = float(getattr(last, "upper_circuit_limit", getattr(last, "upper_circuit", 0.0)) or 0.0)
+    lower_circuit = float(getattr(last, "lower_circuit_limit", getattr(last, "lower_circuit", 0.0)) or 0.0)
+    if upper_circuit > 0 and (upper_circuit - close) / close <= 0.005:
+        reasons.append("CIRCUIT_LIMIT_NEAR")
+    if lower_circuit > 0 and (close - lower_circuit) / close <= 0.005:
+        reasons.append("CIRCUIT_LIMIT_NEAR")
+
     vwap = float(last.vwap)
     side: TradeSide = "LONG" if close >= vwap else "SHORT"
     trend = classify_price_trend(session, now, settings.stale_seconds)
@@ -204,17 +218,17 @@ def evaluate_opportunity(frame: pd.DataFrame, settings: Settings, now: datetime 
     # Stop & Target Calculation
     min_stop_distance = max(0.5 * atr, close * 0.002)
     if side == "LONG":
-        entry = ask
+        entry = round_to_tick(ask)
         calculated_stop = max(vwap - 0.25 * atr, entry - 1.5 * atr) if thesis == "CONTINUATION" else (entry - 1.2 * atr)
-        stop = min(calculated_stop, entry - min_stop_distance)
+        stop = round_to_tick(min(calculated_stop, entry - min_stop_distance))
         risk = entry - stop
-        target = entry + risk * 2.0
+        target = round_to_tick(entry + risk * 2.0)
     else:
-        entry = bid
+        entry = round_to_tick(bid)
         calculated_stop = min(vwap + 0.25 * atr, entry + 1.5 * atr) if thesis == "CONTINUATION" else (entry + 1.2 * atr)
-        stop = max(calculated_stop, entry + min_stop_distance)
+        stop = round_to_tick(max(calculated_stop, entry + min_stop_distance))
         risk = stop - entry
-        target = entry - risk * 2.0
+        target = round_to_tick(entry - risk * 2.0)
 
     if risk <= 0:
         return None

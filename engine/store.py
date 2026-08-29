@@ -140,6 +140,8 @@ class MarketStore:
             for attempt in range(1, 8):
                 try:
                     con = duckdb.connect(str(self.path), read_only=read_only)
+                    con.execute("SET max_memory = '350MB';")
+                    con.execute("SET threads = 2;")
                     break
                 except (duckdb.IOException, duckdb.Error, OSError) as err:
                     last_err = err

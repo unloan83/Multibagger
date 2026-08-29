@@ -190,6 +190,12 @@ def detect_regime(index_frame: pd.DataFrame, vix_frame: pd.DataFrame,
     else:
         regime = "MIXED"
 
+    # Breadth-Confirmed Regime Cap (Prevent Mega-Cap Index Divergence)
+    if index_ret_pct > 0 and (effective_ad < 1.0 or effective_vwap_pct < 45.0):
+        if regime == "STRONGLY_POSITIVE":
+            regime = "MIXED"
+            reasons.append("MEGACAP_DIVERGENCE_BREADTH_CAP")
+
     result = RegimeDetection(
         regime, _round(20.0), _round(vix), _round(1.0),
         _round(effective_ad), _round(gap), event_labels,

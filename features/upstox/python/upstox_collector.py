@@ -288,8 +288,9 @@ def _failure_dependency(error: Exception) -> str:
 
 
 def fetch_upstox_quotes_rest(access_token: str, instrument_keys: list[str]) -> dict[str, Any]:
-    """Fetch live quotes via Upstox REST API in batches of 50 instrument keys using ThreadPoolExecutor."""
-    import urllib.request, urllib.parse, json
+    """Fetch live quotes via Upstox REST API in batches of 50 instrument keys using ThreadPoolExecutor with rate limiting."""
+    import urllib.request, urllib.parse, json, time, threading
+    from urllib.error import HTTPError
     from concurrent.futures import ThreadPoolExecutor, as_completed
     results: dict[str, Any] = {}
     headers = {
@@ -300,17 +301,37 @@ def fetch_upstox_quotes_rest(access_token: str, instrument_keys: list[str]) -> d
     batch_size = 50
     chunks = [instrument_keys[i:i + batch_size] for i in range(0, len(instrument_keys), batch_size)]
 
+    rate_limit_lock = threading.Lock()
+    last_req_time = [0.0]
+
     def _fetch_chunk(chunk: list[str]) -> dict[str, Any]:
         encoded_chunk = [urllib.parse.quote(k, safe='|:') for k in chunk]
         url = f"https://api.upstox.com/v2/market-quote/quotes?instrument_key={','.join(encoded_chunk)}"
-        try:
-            req = urllib.request.Request(url, headers=headers)
-            with urllib.request.urlopen(req, timeout=10) as resp:
-                data = json.load(resp)
-                if data.get("status") == "success" and data.get("data"):
-                    return data["data"]
-        except Exception as e:
-            LOG.debug("Failed to fetch Upstox quotes batch: %s", e)
+
+        for attempt in range(1, 4):
+            with rate_limit_lock:
+                now_t = time.monotonic()
+                elapsed = now_t - last_req_time[0]
+                if elapsed < 0.10:
+                    time.sleep(0.10 - elapsed)
+                last_req_time[0] = time.monotonic()
+
+            try:
+                req = urllib.request.Request(url, headers=headers)
+                with urllib.request.urlopen(req, timeout=10) as resp:
+                    data = json.load(resp)
+                    if data.get("status") == "success" and data.get("data"):
+                        return data["data"]
+            except HTTPError as http_err:
+                if http_err.code == 429 and attempt < 3:
+                    backoff = 0.5 * (2 ** (attempt - 1))
+                    time.sleep(backoff)
+                    continue
+                LOG.debug("Failed to fetch Upstox quotes batch (HTTP %s): %s", getattr(http_err, 'code', 'error'), http_err)
+                break
+            except Exception as e:
+                LOG.debug("Failed to fetch Upstox quotes batch: %s", e)
+                break
         return {}
 
     with ThreadPoolExecutor(max_workers=4) as executor:

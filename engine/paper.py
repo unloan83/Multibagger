@@ -694,17 +694,25 @@ def _regular_exit_reason(trade: dict[str, Any], quote: dict[str, Any], now: date
     return None
 
 
+def round_to_tick(price: float, tick_size: float = 0.05) -> float:
+    if price <= 0 or tick_size <= 0:
+        return price
+    return round(round(price / tick_size) * tick_size, 2)
+
+
 def _one_way_cost(price: float, quantity: int, settings: Settings, *, is_sell: bool) -> dict[str, float]:
     turnover = price * quantity
-    exchange = turnover * settings.paper_exchange_bps_per_side / 10_000
-    regulatory = turnover * settings.paper_fees_bps_per_side / 10_000
-    stt = turnover * settings.paper_stt_bps_sell / 10_000 if is_sell else 0.0
-    gst = (settings.paper_brokerage_per_order + exchange) * settings.paper_gst_percent / 100
+    brokerage = settings.paper_brokerage_per_order
+    exchange = turnover * (settings.paper_exchange_bps_per_side / 10_000 if hasattr(settings, "paper_exchange_bps_per_side") else 0.000031)
+    sebi_fee = turnover * 0.000001
+    stamp_duty = (turnover * 0.00003) if not is_sell else 0.0
+    stt = (turnover * (settings.paper_stt_bps_sell / 10_000 if hasattr(settings, "paper_stt_bps_sell") else 0.00025)) if is_sell else 0.0
+    gst = (brokerage + exchange) * (settings.paper_gst_percent / 100 if hasattr(settings, "paper_gst_percent") else 0.18)
     slippage = turnover * settings.paper_slippage_bps_per_side / 10_000
     impact = turnover * settings.paper_market_impact_bps_per_side / 10_000
     return {
-        "brokerage": settings.paper_brokerage_per_order,
-        "feesTaxes": regulatory + exchange + stt + gst,
+        "brokerage": brokerage,
+        "feesTaxes": exchange + sebi_fee + stamp_duty + stt + gst,
         "slippageImpact": slippage + impact,
     }
 

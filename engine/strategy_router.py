@@ -24,6 +24,9 @@ def route_strategy(regime: str, event_labels: tuple[str, ...] = ()) -> RouteDeci
         decision = RouteDecision(regime, "UNIFIED_OPPORTUNITY_ENGINE", "POSITIVE_MARKET_BIAS_ALL_THESES_ACTIVE", 0.85)
     elif regime in ("MIXED", "NORMAL", "RANGE"):
         decision = RouteDecision(regime, "UNIFIED_OPPORTUNITY_ENGINE", "MIXED_MARKET_BIAS_NEUTRAL_CONFLUENCE_ACTIVE", 0.75)
+    elif regime == "REDUCED":
+        # Allows high-conviction continuation/breakout setups with 50% position risk (e.g., ₹250 instead of ₹500)
+        decision = RouteDecision(regime, "SELECTIVE_EXECUTION", "REDUCED_VOLATILITY_SCALED", 0.50)
     elif regime in ("STRONGLY_NEGATIVE", "NEGATIVE"):
         decision = RouteDecision(regime, "UNIFIED_OPPORTUNITY_ENGINE", "NEGATIVE_MARKET_BIAS_ALL_THESES_ACTIVE", 0.85)
     elif regime == "UNSAFE":

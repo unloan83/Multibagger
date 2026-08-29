@@ -563,10 +563,12 @@ def _mark_trade(con: Any, trade: dict[str, Any], quote: dict[str, Any], now: dat
         if settings.execution_paused and exit_reason != "ACCEPTANCE_TEST":
             con.execute("""
               UPDATE paper_trades SET current_quote=?,last_marked_at=?,gross_pnl=?,net_pnl=?,
+                brokerage=?,fees_taxes=?,slippage=?,
                 peak_quote=?,lowest_quote=?,mfe=?,mae=?,profit_giveback=?,holding_duration_minutes=?,
                 no_scale_out_pnl=?,runner_max_r=?
               WHERE trade_id=?
-            """, [exit_quote, now, gross, net, peak_quote, lowest_quote, mfe, mae, profit_giveback,
+            """, [exit_quote, now, gross, net, total_brokerage, total_fees, total_slippage,
+                  peak_quote, lowest_quote, mfe, mae, profit_giveback,
                   duration_min, no_scale_out_pnl, runner_max_r, trade["trade_id"]])
             _record_trade_event(
                 con, str(trade["trade_id"]), event_run_id, "EXIT_BLOCKED", now,

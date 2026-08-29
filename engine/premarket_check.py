@@ -1,11 +1,13 @@
 from __future__ import annotations
 
+import json
 import logging
 import os
 import shutil
 import sys
+import urllib.request
 from dataclasses import dataclass
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 from pathlib import Path
 from zoneinfo import ZoneInfo
 
@@ -15,6 +17,7 @@ from engine.store import MarketStore
 
 LOG = logging.getLogger("multibagger.premarket")
 IST = ZoneInfo("Asia/Kolkata")
+_REGISTER_PATH = Path(__file__).resolve().parent.parent / "data" / "SELF_LEARNING_FAILURE_REGISTER.json"
 
 
 @dataclass
@@ -49,23 +52,65 @@ def run_premarket_safety_check(settings: Settings, store: MarketStore | None = N
     except Exception as err:
         checks["service"] = (False, f"Service error: {err}")
 
-    # 2. REST DATA Check
+    # 2. REST DATA Check — SUBSTANTIVE: validates live quote, not just token presence (INC-015 fix)
     token = os.environ.get("UPSTOX_ACCESS_TOKEN", "").strip()
-    if not token and getattr(settings, "trading_environment", "paper") == "live":
-        checks["rest_data"] = (False, "UPSTOX_ACCESS_TOKEN unconfigured")
+    if not token:
+        checks["rest_data"] = (False, "UPSTOX_ACCESS_TOKEN not set — cannot authenticate with Upstox")
     else:
-        checks["rest_data"] = (True, "Upstox REST API access token present & active")
+        try:
+            req = urllib.request.Request(
+                "https://api.upstox.com/v2/market-quote/ltp"
+                "?instrument_key=NSE_INDEX%7CNifty+50",
+                headers={"Authorization": f"Bearer {token}", "Accept": "application/json"},
+            )
+            with urllib.request.urlopen(req, timeout=6) as resp:
+                body = json.loads(resp.read())
+            if resp.status == 200 and body.get("status") != "error":
+                checks["rest_data"] = (True, "Upstox REST auth valid — live NIFTY LTP received")
+            else:
+                checks["rest_data"] = (False, f"Upstox REST returned error: {body.get('message', 'unknown')}")
+        except Exception as rest_err:
+            err_str = str(rest_err)
+            if "403" in err_str or "401" in err_str:
+                # Token expired — this is INC-016 / INC-015 pattern
+                checks["rest_data"] = (False, f"Upstox auth FAILED (403/401) — token may have expired (INC-015/016): {err_str[:80]}")
+            elif "timeout" in err_str.lower() or "urlopen" in err_str.lower() or "connection" in err_str.lower():
+                checks["rest_data"] = (False, f"Upstox REST endpoint unreachable (live auth unverified): {err_str[:60]}")
+            else:
+                checks["rest_data"] = (False, f"Upstox REST validation error: {err_str[:80]}")
 
-    # 3. DATA FRESHNESS Check
+    # 3. DATA FRESHNESS Check — SUBSTANTIVE: requires fresh bars, not just 'any bar exists' (INC-015/017 fix)
     try:
+        now_utc = datetime.now(timezone.utc)
         with data_store.connect(read_only=True) as con:
             latest_bar = con.execute("SELECT max(ts) FROM minute_bars").fetchone()
             latest_ts = latest_bar[0] if latest_bar and latest_bar[0] else None
-        if latest_ts:
-            dt = datetime.fromisoformat(str(latest_ts).replace("Z", "+00:00")).astimezone(IST)
-            checks["data_freshness"] = (True, f"Latest bar timestamp: {dt.strftime('%Y-%m-%d %H:%M IST')}")
+        if latest_ts is None:
+            # Empty DB is NOT a pass during market hours
+            ist_now = now_ist
+            ist_min = ist_now.hour * 60 + ist_now.minute
+            in_market = 9 * 60 + 15 <= ist_min <= 15 * 60 + 30
+            if in_market:
+                checks["data_freshness"] = (False,
+                    "DB has zero bars during market hours — feed not collecting (INC-015/017 pattern)")
+            else:
+                checks["data_freshness"] = (True, "DB empty outside market hours (pre-market state)")
         else:
-            checks["data_freshness"] = (True, "Database clean; waiting for market open feed")
+            dt_utc = datetime.fromisoformat(str(latest_ts).replace("Z", "+00:00"))
+            if dt_utc.tzinfo is None:
+                dt_utc = dt_utc.replace(tzinfo=timezone.utc)
+            age_minutes = (now_utc - dt_utc).total_seconds() / 60.0
+            dt_ist = dt_utc.astimezone(IST)
+            ist_now = now_ist
+            ist_min = ist_now.hour * 60 + ist_now.minute
+            in_market = 9 * 60 + 15 <= ist_min <= 15 * 60 + 30
+            if in_market and age_minutes > 5.0:
+                checks["data_freshness"] = (False,
+                    f"Latest bar is {age_minutes:.1f} min old (>5 min threshold during market hours) — "
+                    f"INC-011/017 frozen-feed pattern. Last bar: {dt_ist.strftime('%H:%M IST')}")
+            else:
+                checks["data_freshness"] = (True,
+                    f"Latest bar: {dt_ist.strftime('%Y-%m-%d %H:%M IST')} ({age_minutes:.1f} min ago)")
     except Exception as err:
         checks["data_freshness"] = (False, f"Data freshness read error: {err}")
 
@@ -85,10 +130,31 @@ def run_premarket_safety_check(settings: Settings, store: MarketStore | None = N
     except Exception as err:
         checks["engine_identity"] = (False, f"Engine identity error: {err}")
 
-    # 6. SCANNER Check
+    # 6. SCANNER Check — SUBSTANTIVE: validates last run output, not just import (INC-007/018 fix)
     try:
-        from engine.scanner import run_scan
-        checks["scanner"] = (True, "Unified opportunity scanner pipeline ready")
+        from engine.scanner import run_scan  # noqa: F401 — import confirms module loads
+        with data_store.connect(read_only=True) as con:
+            row = con.execute(
+                "SELECT run_id, started_at, status, signal_count "
+                "FROM scanner_runs ORDER BY started_at DESC LIMIT 1"
+            ).fetchone()
+        if not row:
+            checks["scanner"] = (True, "Scanner pipeline ready; no runs yet (pre-market state)")
+        else:
+            run_id, started_at, status, signal_count = row
+            lt = datetime.fromisoformat(str(started_at).replace("Z", "+00:00"))
+            if lt.tzinfo is None:
+                lt = lt.replace(tzinfo=timezone.utc)
+            age_min = (datetime.now(timezone.utc) - lt).total_seconds() / 60.0
+            if age_min > 90:
+                checks["scanner"] = (False,
+                    f"Last scanner run was {age_min:.0f} min ago — scanner may be stalled (INC-007 pattern)")
+            elif signal_count is None:
+                checks["scanner"] = (False,
+                    f"Last scanner run {run_id} has NULL signal_count — SQL schema error (INC-018 pattern)")
+            else:
+                checks["scanner"] = (True,
+                    f"Scanner last ran {age_min:.0f} min ago, status={status}, signal_count={signal_count}")
     except Exception as err:
         checks["scanner"] = (False, f"Scanner pipeline error: {err}")
 
@@ -173,6 +239,33 @@ def run_premarket_safety_check(settings: Settings, store: MarketStore | None = N
         checks["scheduler"] = (True, f"Scheduler timing (09:15-15:30 IST) & lock path accessible ({lock_path})")
     except Exception as err:
         checks["scheduler"] = (False, f"Scheduler lock path error: {err}")
+
+    # 15. FAILURE REGISTER Check — block on OPEN CRITICAL incidents (INC-015/017 root cause prevention)
+    try:
+        register_path = _REGISTER_PATH
+        if register_path.exists():
+            register = json.loads(register_path.read_text())
+            open_criticals = [
+                inc for inc in register.get("incidents", [])
+                if inc.get("status") == "OPEN" and inc.get("severity") == "CRITICAL"
+            ]
+            if open_criticals:
+                ids = ", ".join(inc["id"] for inc in open_criticals)
+                first = open_criticals[0]
+                checks["failure_register"] = (False,
+                    f"OPEN CRITICAL incidents block trading: {ids}. "
+                    f"Latest: {first['id']} ({first['category']}) — {first['symptom'][:60]}")
+            else:
+                open_monitoring = sum(1 for inc in register.get("incidents", [])
+                                     if inc.get("status") in ("OPEN", "MONITORING"))
+                checks["failure_register"] = (True,
+                    f"No CRITICAL open incidents. Register has {open_monitoring} monitoring items.")
+        else:
+            checks["failure_register"] = (False,
+                f"SELF_LEARNING_FAILURE_REGISTER.json missing at {register_path} — "
+                f"cannot verify system is clear of known failures")
+    except Exception as err:
+        checks["failure_register"] = (False, f"Failure register check error: {err}")
 
     ready = all(passed for passed, _ in checks.values())
     result = PreMarketCheckResult(checks=checks, ready=ready)

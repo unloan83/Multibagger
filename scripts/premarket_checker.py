@@ -1,10 +1,16 @@
 #!/usr/bin/env python3
+"""
+Pre-Market Readiness Checker Script
+Executes 14 operational checks across service, REST data, data freshness, universe,
+engine identity, scanner, execution, risk, DB, storage, CPU/RAM headroom, Telegram,
+learning state, and scheduler.
+"""
+
 from __future__ import annotations
 
 import os
 import sys
 from pathlib import Path
-
 
 # Fix parent package resolution when run directly
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
@@ -20,14 +26,8 @@ def main():
             os.environ["MARKET_DATA_DB"] = str(upstox_db)
     try:
         settings = Settings.from_env()
-
     except Exception as err:
-        print(f"CODE: FAIL (Settings initialization error: {err})")
-        print("CONFIG: FAIL")
-        print("DATA: FAIL")
-        print("SERVICE: FAIL")
-        print("")
-        print("PAPER TRADING READY: NO")
+        print(f"PREMARKET CHECK FAILED (Settings initialization error: {err})")
         sys.exit(1)
 
     result = run_premarket_safety_check(settings)

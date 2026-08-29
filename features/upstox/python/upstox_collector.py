@@ -202,6 +202,31 @@ class UpstoxTickWriter:
                     self.pending[(row["instrument_key"], row["ts"])] = row
             raise
 
+    def check_health(self, monotonic_now: float | None = None, wall_now: datetime | None = None) -> tuple[bool, str]:
+        """
+        Production Feed Health Check:
+        Requires active tick flow and non-zero tick counts during active market hours.
+        Process alive != data healthy.
+        Zero or frozen tick condition automatically returns False (DATA_UNHEALTHY).
+        """
+        from engine.calendar import get_market_session_state
+        m_now = monotonic_now if monotonic_now is not None else time.monotonic()
+        w_now = wall_now if wall_now is not None else datetime.now(timezone.utc)
+        session = get_market_session_state(w_now)
+
+        if self.quote_ticks == 0 and self.candle_ticks == 0:
+            if session["is_market_open"]:
+                return False, "DATA_UNHEALTHY: 0 quote_ticks and 0 candle_ticks during active market session"
+            else:
+                return False, f"DATA_UNAVAILABLE: 0 ticks recorded ({session['session_type']})"
+
+        if session["is_market_open"]:
+            quote_age = m_now - self.last_quote_monotonic if self.last_quote_monotonic else 9999.0
+            if quote_age > 120.0:
+                return False, f"DATA_UNHEALTHY: Quote ticks frozen (no new ticks for {quote_age:.1f}s)"
+
+        return True, f"DATA_HEALTHY: quote_ticks={self.quote_ticks}, candle_ticks={self.candle_ticks}"
+
 
 def collect_upstox(settings: Settings, on_market_data: Callable[[], None] | None = None) -> None:
     if not settings.access_token:
@@ -227,14 +252,22 @@ def collect_upstox(settings: Settings, on_market_data: Callable[[], None] | None
                 flushed = writer.flush()
                 if flushed and on_market_data:
                     on_market_data()
-                DEGRADED_MANAGER.report_recovery("DATABASE")
-                DEGRADED_MANAGER.report_recovery("AUTH")
-                DEGRADED_MANAGER.report_recovery("MARKET_DATA")
-                
+
                 now = time.monotonic()
-                if now - last_log >= 60:
-                    LOG.info("Upstox feed healthy; quote_ticks=%d candle_ticks=%d", writer.quote_ticks, writer.candle_ticks)
-                    last_log = now
+                is_healthy, health_reason = writer.check_health(now, datetime.now(timezone.utc))
+
+                if is_healthy:
+                    DEGRADED_MANAGER.report_recovery("DATABASE")
+                    DEGRADED_MANAGER.report_recovery("AUTH")
+                    DEGRADED_MANAGER.report_recovery("MARKET_DATA")
+                    if now - last_log >= 60:
+                        LOG.info("Upstox feed healthy; quote_ticks=%d candle_ticks=%d", writer.quote_ticks, writer.candle_ticks)
+                        last_log = now
+                else:
+                    if now - last_log >= 60:
+                        LOG.warning("Upstox feed UNHEALTHY: %s", health_reason)
+                        last_log = now
+                    DEGRADED_MANAGER.report_failure("MARKET_DATA", health_reason)
         except Exception as error:
             LOG.warning("Upstox market-data fetch error: %s", error)
             dependency = _failure_dependency(error)
@@ -255,8 +288,9 @@ def _failure_dependency(error: Exception) -> str:
 
 
 def fetch_upstox_quotes_rest(access_token: str, instrument_keys: list[str]) -> dict[str, Any]:
-    """Fetch live quotes via Upstox REST API in batches of 50 instrument keys."""
+    """Fetch live quotes via Upstox REST API in batches of 50 instrument keys using ThreadPoolExecutor."""
     import urllib.request, urllib.parse, json
+    from concurrent.futures import ThreadPoolExecutor, as_completed
     results: dict[str, Any] = {}
     headers = {
         'Authorization': f'Bearer {access_token}',
@@ -264,8 +298,9 @@ def fetch_upstox_quotes_rest(access_token: str, instrument_keys: list[str]) -> d
         'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
     }
     batch_size = 50
-    for i in range(0, len(instrument_keys), batch_size):
-        chunk = instrument_keys[i:i + batch_size]
+    chunks = [instrument_keys[i:i + batch_size] for i in range(0, len(instrument_keys), batch_size)]
+
+    def _fetch_chunk(chunk: list[str]) -> dict[str, Any]:
         encoded_chunk = [urllib.parse.quote(k, safe='|:') for k in chunk]
         url = f"https://api.upstox.com/v2/market-quote/quotes?instrument_key={','.join(encoded_chunk)}"
         try:
@@ -273,9 +308,21 @@ def fetch_upstox_quotes_rest(access_token: str, instrument_keys: list[str]) -> d
             with urllib.request.urlopen(req, timeout=10) as resp:
                 data = json.load(resp)
                 if data.get("status") == "success" and data.get("data"):
-                    results.update(data["data"])
+                    return data["data"]
         except Exception as e:
             LOG.debug("Failed to fetch Upstox quotes batch: %s", e)
+        return {}
+
+    with ThreadPoolExecutor(max_workers=4) as executor:
+        futures = [executor.submit(_fetch_chunk, chunk) for chunk in chunks]
+        for future in as_completed(futures):
+            try:
+                res = future.result()
+                if res:
+                    results.update(res)
+            except Exception as exc:
+                LOG.debug("Upstox quote worker exception: %s", exc)
+
     return results
 
 

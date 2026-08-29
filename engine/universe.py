@@ -31,7 +31,8 @@ def build_daily_trading_universe(settings: Settings, store: MarketStore,
         reasons = []
         if median_volume < settings.min_average_volume:
             reasons.append("20D_MEDIAN_VOLUME")
-        if median_range_pct < settings.min_average_daily_range_pct:
+        min_range = 0.8 if median_volume >= 1_000_000 else settings.min_average_daily_range_pct
+        if median_range_pct < min_range:
             reasons.append("20D_MEDIAN_RANGE")
         if spread_bps > settings.max_spread_bps:
             reasons.append("SPREAD")

@@ -188,16 +188,22 @@ def evaluate_opportunity(frame: pd.DataFrame, settings: Settings, now: datetime 
         thesis = "CONTINUATION"
 
     # Stop & Target Calculation
+    min_stop_distance = max(0.5 * atr, close * 0.002)
     if side == "LONG":
         entry = ask
-        stop = max(vwap - 0.25 * atr, entry - 1.5 * atr) if thesis == "CONTINUATION" else (entry - 1.2 * atr)
+        calculated_stop = max(vwap - 0.25 * atr, entry - 1.5 * atr) if thesis == "CONTINUATION" else (entry - 1.2 * atr)
+        stop = min(calculated_stop, entry - min_stop_distance)
         risk = entry - stop
         target = entry + risk * 2.0
     else:
         entry = bid
-        stop = min(vwap + 0.25 * atr, entry + 1.5 * atr) if thesis == "CONTINUATION" else (entry + 1.2 * atr)
+        calculated_stop = min(vwap + 0.25 * atr, entry + 1.5 * atr) if thesis == "CONTINUATION" else (entry + 1.2 * atr)
+        stop = max(calculated_stop, entry + min_stop_distance)
         risk = stop - entry
         target = entry - risk * 2.0
+
+    if risk <= 0:
+        return None
 
     expected_r = (abs(target - entry) / risk) if risk > 0 else 0.0
 
@@ -265,6 +271,8 @@ def evaluate_opportunity(frame: pd.DataFrame, settings: Settings, now: datetime 
         "relativeVolume": round(relative_volume, 3),
         "spreadBps": round(spread_bps, 3),
         "expectedR": round(expected_r, 2),
+        "sessionReturnBps": round((close - float(session.iloc[0].open)) / float(session.iloc[0].open) * 10_000, 2),
+        "momentumBps": round((close - float(recent.iloc[0].close)) / float(recent.iloc[0].close) * 10_000, 2),
     }
 
     candidate = Candidate(str(last.symbol), side, entry, stop, target, thesis, now, expiry, score, common) if status == "TRADE" else None

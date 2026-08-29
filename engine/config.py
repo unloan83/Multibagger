@@ -20,7 +20,7 @@ class Settings:
     trading_universe_size: int = 250
     stale_seconds: int = 120
     min_price: float = 50.0
-    max_price: float = 10000.0
+    max_price: float = 15000.0
     min_daily_value: float = 500_000_000.0
     min_relative_volume: float = 1.5
     max_spread_bps: float = 10.0
@@ -55,8 +55,10 @@ class Settings:
     paper_max_aggregate_open_risk: float = 750.0
     paper_max_capital_per_trade_pct: float = 20.0
     paper_daily_profit_target: float = 4_000.0
-
     paper_daily_loss_limit: float = 1_000.0
+    paper_learning_mode_date: str = ""
+    paper_learning_profit_objective: float = 1_000.0
+    paper_learning_shortlist_size: int = 5
     paper_max_open_positions: int = 3
     paper_max_trades_per_day: int = 4
     paper_consecutive_loss_limit: int = 2
@@ -103,7 +105,7 @@ class Settings:
         if not 1 <= max_symbols <= 500:
             raise RuntimeError("NSE_UNIVERSE_SIZE must be between 1 and 500")
         min_price = float(os.getenv("MIN_PRICE_INR", "150"))
-        max_price = float(os.getenv("MAX_PRICE_INR", "750"))
+        max_price = float(os.getenv("MAX_PRICE_INR", "15000"))
         if min_price <= 0 or max_price <= min_price:
             raise RuntimeError("MIN_PRICE_INR and MAX_PRICE_INR must define a positive increasing range")
         paper_capital = float(os.getenv("PAPER_PORTFOLIO_CAPITAL_INR", "500000"))
@@ -119,6 +121,9 @@ class Settings:
         max_entry_slippage_bps = float(os.getenv("PAPER_MAX_ENTRY_SLIPPAGE_BPS", "8"))
         max_trade_risk = float(os.getenv("PAPER_MAX_RISK_PER_TRADE_INR", "500"))
         max_open_risk = float(os.getenv("PAPER_MAX_AGGREGATE_OPEN_RISK_INR", "750"))
+        learning_mode_date = os.getenv("TEMPORARY_PAPER_LEARNING_DATE", "").strip()
+        learning_objective = float(os.getenv("TEMPORARY_PAPER_LEARNING_OBJECTIVE_INR", "1000"))
+        learning_shortlist_size = int(os.getenv("TEMPORARY_PAPER_LEARNING_SHORTLIST_SIZE", "5"))
         enabled_agents = tuple(dict.fromkeys(
             item.strip().upper()
             for item in os.getenv("ENABLED_AGENTS", EXECUTION_ENGINE_IDENTITY).split(",")
@@ -145,9 +150,30 @@ class Settings:
             raise RuntimeError("INTRADAY_TRADING_UNIVERSE_SIZE must remain 250")
         if abs(daily_target - 4_000) > 0.01 or abs(daily_loss - 1_000) > 0.01:
             raise RuntimeError("Paper profit/loss breakers must remain INR 4,000 profit / 1,000 loss")
+        if learning_mode_date:
+            try:
+                from datetime import date
+                date.fromisoformat(learning_mode_date)
+            except ValueError as error:
+                raise RuntimeError("TEMPORARY_PAPER_LEARNING_DATE must be YYYY-MM-DD") from error
+        if abs(learning_objective - 1_000) > 0.01 or not 3 <= learning_shortlist_size <= 5:
+            raise RuntimeError("Temporary learning mode must keep the INR 1,000 objective and shortlist 3-5 symbols")
+
+        token = os.getenv("UPSTOX_ACCESS_TOKEN", "").strip()
+        if not token:
+            env_local = ROOT / ".env.local"
+            if env_local.exists():
+                for line in env_local.read_text().splitlines():
+                    line = line.strip()
+                    if line and not line.startswith("#") and "=" in line:
+                        k, v = line.split("=", 1)
+                        if k.strip() == "UPSTOX_ACCESS_TOKEN":
+                            token = v.strip().strip("\"'")
+                            os.environ["UPSTOX_ACCESS_TOKEN"] = token
+                            break
 
         return cls(
-            access_token=os.getenv("UPSTOX_ACCESS_TOKEN", ""),
+            access_token=token,
             db_path=Path(os.getenv("MARKET_DATA_DB", ROOT / "data" / "market_data.duckdb")),
             snapshot_path=Path(os.getenv("SIGNAL_SNAPSHOT_PATH", ROOT / "data" / "paper_signals.json")),
             universe_path=Path(os.getenv("NSE_UNIVERSE_PATH", ROOT / "data" / "market-universe.json")),
@@ -183,6 +209,9 @@ class Settings:
             paper_max_capital_per_trade_pct=float(os.getenv("PAPER_MAX_CAPITAL_PER_TRADE_PERCENT", "20")),
             paper_daily_profit_target=daily_target,
             paper_daily_loss_limit=daily_loss,
+            paper_learning_mode_date=learning_mode_date,
+            paper_learning_profit_objective=learning_objective,
+            paper_learning_shortlist_size=learning_shortlist_size,
             paper_max_open_positions=max_positions,
             paper_max_trades_per_day=max_trades,
             paper_profit_risk_reduction_ratio=risk_reduction_ratio,

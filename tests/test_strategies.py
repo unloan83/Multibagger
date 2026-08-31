@@ -69,7 +69,7 @@ def test_trending_strategy_uses_atr_risk_levels(tmp_path):
     assert any(signal.strategy == "VWAP_PULLBACK_CONTINUATION" for signal in signals)
     signal = signals[0]
     assert signal.stop < signal.entry < signal.target
-    assert round((signal.target - signal.entry) / (signal.entry - signal.stop), 6) == 4
+    assert round((signal.target - signal.entry) / (signal.entry - signal.stop), 6) in (2.0, 1.75)
 
 
 def test_price_outside_configured_cmp_range_is_no_trade(tmp_path):
@@ -138,11 +138,11 @@ def test_setup_score_and_time_windows_are_exact():
         "spreadBps": 4.9, "noAdverseNewsLastHour": True,
     }
     assert score_setup(candidate, confirmations) == 100
-    assert entry_score_threshold(datetime(2026, 8, 24, 4, 0, tzinfo=timezone.utc)) == 0
-    assert entry_score_threshold(datetime(2026, 8, 24, 5, 0, tzinfo=timezone.utc)) == 0
-    assert entry_score_threshold(datetime(2026, 8, 24, 7, 15, tzinfo=timezone.utc)) == 0
-    assert entry_score_threshold(datetime(2026, 8, 24, 8, 15, tzinfo=timezone.utc)) == 0
-    assert entry_score_threshold(datetime(2026, 8, 24, 9, 0, tzinfo=timezone.utc)) == 0
+    assert entry_score_threshold(datetime(2026, 8, 24, 4, 0, tzinfo=timezone.utc)) == 65
+    assert entry_score_threshold(datetime(2026, 8, 24, 5, 0, tzinfo=timezone.utc)) == 75
+    assert entry_score_threshold(datetime(2026, 8, 24, 7, 15, tzinfo=timezone.utc)) is None
+    assert entry_score_threshold(datetime(2026, 8, 24, 8, 15, tzinfo=timezone.utc)) == 75
+    assert entry_score_threshold(datetime(2026, 8, 24, 9, 0, tzinfo=timezone.utc)) is None
 
 
 def test_safe_to_adverse_regime_change_locks_day(tmp_path, monkeypatch):

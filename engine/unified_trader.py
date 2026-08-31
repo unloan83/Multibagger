@@ -76,11 +76,11 @@ SYMBOL_TO_SECTOR = reverse_sector_lookup()
 def refresh_market_quotes(settings: Settings, store: MarketStore) -> dict[str, dict]:
     """Confirms and auto-refreshes fresh market quotes via REST API before evaluation."""
     from engine.degraded import DEGRADED_MANAGER
-    instruments = resolve_upstox_instruments(settings, store)
     if not settings.access_token:
         LOG.warning("No UPSTOX_ACCESS_TOKEN set; skipping REST quote auto-refresh")
         return {}
     try:
+        instruments = resolve_upstox_instruments(settings, store)
         quotes = fetch_upstox_quotes_rest(settings.access_token, list(instruments.keys()))
         writer = UpstoxTickWriter(store, instruments)
         writer.ingest_quotes_dict(quotes)

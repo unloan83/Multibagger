@@ -462,7 +462,7 @@ def _open_trade(con: Any, candidate: Candidate, quote: dict[str, Any], now: date
 
 def _sector_direction_state(confirmations: dict[str, object]) -> str:
     explicit = str(confirmations.get("sectorDirectionState") or "").strip().upper()
-    if confirmations.get("sectorDirection") is True or explicit in {"ALIGNED", "STRONG"}:
+    if confirmations.get("sectorDirection") is not False or explicit in {"ALIGNED", "STRONG"}:
         return "ALIGNED"
     if explicit in {"ADVERSE", "CLEARLY_ADVERSE"}:
         return "ADVERSE"

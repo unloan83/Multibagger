@@ -209,7 +209,7 @@ class UpstoxTickWriter:
         Process alive != data healthy.
         Zero or frozen tick condition automatically returns False (DATA_UNHEALTHY).
         """
-        from engine.calendar import get_market_session_state
+        from engine.trading_calendar import get_market_session_state
         m_now = monotonic_now if monotonic_now is not None else time.monotonic()
         w_now = wall_now if wall_now is not None else datetime.now(timezone.utc)
         session = get_market_session_state(w_now)

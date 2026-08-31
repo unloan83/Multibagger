@@ -34,7 +34,7 @@ def test_recovery_lifecycle_tests():
 
 def test_authoritative_calendar_checksum():
     """Requirement 8: Authoritative calendar checksum and load status."""
-    from engine.calendar import load_authoritative_calendar
+    from engine.trading_calendar import load_authoritative_calendar
     ok, csum, hols, meta = load_authoritative_calendar()
     assert ok is True
     assert len(csum) == 16

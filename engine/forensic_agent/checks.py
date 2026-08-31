@@ -20,7 +20,7 @@ from datetime import datetime, timezone, timedelta
 from pathlib import Path
 from typing import Any
 
-from engine.calendar import get_market_session_state
+from engine.trading_calendar import get_market_session_state
 
 ROOT = Path(__file__).resolve().parents[2]
 REGISTER_PATH = ROOT / "data" / "SELF_LEARNING_FAILURE_REGISTER.json"

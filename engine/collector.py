@@ -220,6 +220,9 @@ def _run_locked_job(store: MarketStore, settings: Settings, job_type: str, sched
 
 def validate_scheduled_execution_identity(settings: Settings,
                                            now: datetime | None = None) -> str:
+    from engine.config import EXECUTION_ENGINE_IDENTITY
+    if EXECUTION_ENGINE_IDENTITY in settings.enabled_agents:
+        return EXECUTION_ENGINE_IDENTITY
     identity = active_agent(now or datetime.now(timezone.utc))
     if not identity or identity not in settings.enabled_agents:
         configured = ",".join(settings.enabled_agents) or "NONE"

@@ -45,6 +45,8 @@ def test_connections_are_serialized_across_store_instances(monkeypatch, tmp_path
     second_entered = threading.Event()
 
     class Connection:
+        def execute(self, query, params=None):
+            pass
         def close(self):
             nonlocal active
             with counter_lock:

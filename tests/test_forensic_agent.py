@@ -88,7 +88,7 @@ def test_global_rule_chk17_insufficient_samples():
 
 def test_market_calendar_holidays_and_weekends():
     """Requirement 3: Test market calendar holiday awareness."""
-    from engine.calendar import get_market_session_state
+    from engine.trading_calendar import get_market_session_state
 
     # Republic Day: 2026-01-26 (Monday)
     rep_day = datetime(2026, 1, 26, 5, 30, tzinfo=timezone.utc)

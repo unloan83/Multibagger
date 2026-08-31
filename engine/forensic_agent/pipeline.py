@@ -17,7 +17,7 @@ from datetime import datetime, timezone, timedelta
 from pathlib import Path
 from typing import Any
 
-from engine.calendar import get_market_session_state
+from engine.trading_calendar import get_market_session_state
 
 ROOT = Path(__file__).resolve().parents[2]
 
@@ -115,7 +115,7 @@ def validate_pipeline() -> list[PipelineStageResult]:
             run_dt = datetime.fromisoformat(str(started_at_raw).replace("Z", "+00:00"))
             if run_dt.tzinfo is None:
                 run_dt = run_dt.replace(tzinfo=timezone.utc)
-            from engine.calendar import IST
+            from engine.trading_calendar import IST
             run_date_ist = run_dt.astimezone(IST).date().isoformat()
 
             ev = f"run_id={run_id}, run_date_ist={run_date_ist}, today_date_ist={today_date_ist}, status={status}, signal_count={signal_count}"

@@ -1,38 +1,20 @@
 [Unit]
-Description=Multibagger Upstox automatic paper-trading worker
-Wants=network-online.target tailscaled.service
-After=network-online.target tailscaled.service
-StartLimitIntervalSec=300
-StartLimitBurst=10
+Description=Multibagger Production-Grade Paper Trading Engine
+After=network.target network-online.target
+Wants=network-online.target
 
 [Service]
 Type=simple
-User=breeze
-Group=breeze
-WorkingDirectory=/var/lib/multibagger
-EnvironmentFile=-/etc/upstox/upstox.env
-EnvironmentFile=/etc/multibagger/worker.env
-EnvironmentFile=-/etc/multibagger/telegram.env
-Environment=PYTHONPATH=/opt/multibagger
-Environment=ENABLE_LIVE_TRADING=false
-Environment=LIVE_TRADING_ENABLED=false
-Environment=UPSTOX_MODE=SANDBOX
-Environment=PYTHONDONTWRITEBYTECODE=1
-Environment=OPENBLAS_NUM_THREADS=1
-Environment=OMP_NUM_THREADS=1
-ExecStart=/opt/breeze/venv/bin/python -m scripts.market_engine worker --scan-interval 900 --monitor-interval 30 --scan-max-runtime 240 --monitor-max-runtime 45 --job-lock-path /var/lib/multibagger/paper_jobs.lock
+User=ubuntu
+WorkingDirectory=/home/ubuntu/Multibagger
+Environment="PYTHONPATH=.:.python-packages"
+Environment="ENABLE_LIVE_TRADING=false"
+EnvironmentFile=-/home/ubuntu/Multibagger/.env.local
+ExecStart=/home/ubuntu/Multibagger/.venv/bin/python engine/main.py --mode paper
 Restart=on-failure
-RestartSec=10
-UMask=0077
-NoNewPrivileges=true
-PrivateTmp=true
-ProtectSystem=strict
-ProtectHome=true
-ReadWritePaths=/var/lib/multibagger
-CapabilityBoundingSet=
-LockPersonality=true
-MemoryDenyWriteExecute=true
-MemoryMax=750M
+RestartSec=10s
+MemoryMax=1G
+CPUQuota=150%
 
 [Install]
 WantedBy=multi-user.target

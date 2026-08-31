@@ -222,13 +222,13 @@ def evaluate_opportunity(frame: pd.DataFrame, settings: Settings, now: datetime 
         calculated_stop = max(vwap - 0.25 * atr, entry - 1.5 * atr) if thesis == "CONTINUATION" else (entry - 1.2 * atr)
         stop = round_to_tick(min(calculated_stop, entry - min_stop_distance))
         risk = entry - stop
-        target = round_to_tick(entry + risk * 2.0)
+        target = round_to_tick(entry + risk * settings.reward_risk)
     else:
         entry = round_to_tick(bid)
         calculated_stop = min(vwap + 0.25 * atr, entry + 1.5 * atr) if thesis == "CONTINUATION" else (entry + 1.2 * atr)
         stop = round_to_tick(max(calculated_stop, entry + min_stop_distance))
         risk = stop - entry
-        target = round_to_tick(entry - risk * 2.0)
+        target = round_to_tick(entry - risk * settings.reward_risk)
 
     if risk <= 0:
         return None
@@ -303,7 +303,8 @@ def evaluate_opportunity(frame: pd.DataFrame, settings: Settings, now: datetime 
         "momentumBps": round((close - float(recent.iloc[0].close)) / float(recent.iloc[0].close) * 10_000, 2),
     }
 
-    candidate = Candidate(str(last.symbol), side, entry, stop, target, thesis, now, expiry, score, common) if status == "TRADE" else None
+    strategy_name = f"VWAP_PULLBACK_{thesis}"
+    candidate = Candidate(str(last.symbol), side, entry, stop, target, strategy_name, now, expiry, score, common) if status == "TRADE" else None
 
     return OpportunityEvaluation(
         symbol=str(last.symbol),
@@ -331,15 +332,42 @@ def scan_symbol(frame: pd.DataFrame, settings: Settings, now: datetime | None = 
 
 
 def active_agent(now: datetime) -> str | None:
-    return EXECUTION_ENGINE_IDENTITY
+    local = now.astimezone(ZoneInfo("Asia/Kolkata"))
+    minute = local.hour * 60 + local.minute
+    if 9 * 60 + 30 <= minute < 11 * 60 + 0:
+        return "ALPHA"
+    if 11 * 60 + 0 <= minute < 13 * 60 + 30:
+        return "BETA"
+    if 13 * 60 + 30 <= minute < 14 * 60 + 30:
+        return "GAMMA"
+    return None
 
 
 def entry_score_threshold(now: datetime) -> int | None:
-    return 55
+    local = now.astimezone(ZoneInfo("Asia/Kolkata"))
+    minute = local.hour * 60 + local.minute
+    if 9 * 60 + 30 <= minute < 10 * 60 + 30:
+        return 65
+    if 10 * 60 + 30 <= minute < 12 * 60 + 30:
+        return 75
+    if 13 * 60 + 30 <= minute < 14 * 60 + 30:
+        return 75
+    return None
 
 
 def score_setup(candidate: Candidate, confirmations: dict[str, object]) -> int:
-    return int(candidate.rank_score)
+    side_key = "vwapSlopeAlignedLong" if candidate.side == "LONG" else "vwapSlopeAlignedShort"
+    val = sum((
+        20 if confirmations.get(side_key) is True else 0,
+        15 if confirmations.get("volumeAboveLast5x1_5") is True else 0,
+        15 if confirmations.get("momentum") is True else 0,
+        10 if confirmations.get("sectorTop3") is True else 0,
+        10 if confirmations.get("niftyStronglyAligned") is True else 0,
+        10 if confirmations.get("supportResistance") is True else 0,
+        10 if float(confirmations.get("spreadBps") or 10_000) < 5 else 0,
+        10 if confirmations.get("noAdverseNewsLastHour") is True else 0,
+    ))
+    return val if val > 0 else int(candidate.rank_score)
 
 
 def _utc_datetime(value: object) -> datetime:

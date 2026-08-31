@@ -1,0 +1,15 @@
+[Unit]
+Description=Multibagger Independent Watchdog Supervisor Service
+After=network.target
+
+[Service]
+Type=simple
+User=ubuntu
+WorkingDirectory=/home/ubuntu/Multibagger
+Environment="PYTHONPATH=.:.python-packages"
+ExecStart=/home/ubuntu/Multibagger/.venv/bin/python engine/standalone_watchdog.py
+Restart=always
+RestartSec=5s
+
+[Install]
+WantedBy=multi-user.target

@@ -29,7 +29,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
-from engine.calendar import get_market_session_state
+from engine.trading_calendar import get_market_session_state
 from engine.forensic_agent.checks import run_all_checks
 from engine.forensic_agent.history import get_open_critical_incidents
 from engine.forensic_agent.manifest import verify_self_integrity

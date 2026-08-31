@@ -1,0 +1,9 @@
+[Unit]
+Description=Multibagger Pre-Market Paper Trading Timer (Mon-Fri 08:35 AM IST)
+
+[Timer]
+OnCalendar=Mon..Fri *-*-* 08:35:00 Asia/Kolkata
+Persistent=true
+
+[Install]
+WantedBy=timers.target

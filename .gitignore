@@ -40,3 +40,8 @@ data/portfolio-backups/
 
 .env*
 .local-paper-fallback/
+*.db
+*.db-shm
+*.db-wal
+logs/
+intraday_bot_log.txt

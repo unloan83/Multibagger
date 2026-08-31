@@ -119,6 +119,13 @@ def detect_regime(index_frame: pd.DataFrame, vix_frame: pd.DataFrame,
                   advance_decline_ratio: float | None, settings: Settings,
                   now: datetime, stocks_above_vwap_pct: float | None = None) -> RegimeDetection:
     """Multi-factor Market Context Evaluator. Index direction alone does not dictate market bias."""
+    event_labels = tuple(_event_labels(settings, now))
+    if index_frame.empty or vix_frame.empty:
+        return RegimeDetection(
+            "TRANSITION", None, None, None, None, None, event_labels,
+            ("REGIME_TRANSITION", "REGIME_INPUT_UNAVAILABLE"), now.isoformat()
+        )
+
     index_session = _current_session(index_frame)
     vix_session = _current_session(vix_frame)
     adx = atr_pct = gap = None
@@ -130,9 +137,12 @@ def detect_regime(index_frame: pd.DataFrame, vix_frame: pd.DataFrame,
     
     if not index_session.empty and len(index_session) >= 14:
         typical = (index_session.high + index_session.low + index_session.close) / 3
-        cum_vol = index_session.volume.cumsum().replace(0, float("nan"))
-        cum_val = (typical * index_session.volume).cumsum()
-        vwap_series = (cum_val / cum_vol).fillna(index_session.close)
+        if "volume" in index_session.columns and index_session.volume.sum() > 0:
+            cum_vol = index_session.volume.cumsum().replace(0, float("nan"))
+            cum_val = (typical * index_session.volume).cumsum()
+            vwap_series = (cum_val / cum_vol).fillna(index_session.close)
+        else:
+            vwap_series = index_session.close
         first_open = float(index_session.open.iloc[0])
         last_close = float(index_session.close.iloc[-1])
         index_ret_pct = (last_close - first_open) / first_open * 100 if first_open > 0 else 0.0
@@ -142,7 +152,6 @@ def detect_regime(index_frame: pd.DataFrame, vix_frame: pd.DataFrame,
         index_above_vwap = True
 
     vix = float(vix_session.close.iloc[-1]) if (not vix_session.empty and vix_fresh) else 15.0
-    event_labels = tuple(_event_labels(settings, now))
 
     effective_ad = advance_decline_ratio if (advance_decline_ratio is not None and math.isfinite(advance_decline_ratio)) else 1.0
     effective_vwap_pct = stocks_above_vwap_pct if (stocks_above_vwap_pct is not None and math.isfinite(stocks_above_vwap_pct)) else 50.0
@@ -179,6 +188,9 @@ def detect_regime(index_frame: pd.DataFrame, vix_frame: pd.DataFrame,
     if vix > 30.0:
         regime: Regime = "UNSAFE"
         reasons.append("VIX_EXTREME_UNSAFE")
+    elif vix > 20.0:
+        regime = "HIGH_VOL"
+        reasons.append("VIX_ABOVE_20")
     elif score >= 5.0:
         regime = "STRONGLY_POSITIVE"
     elif score >= 2.0:

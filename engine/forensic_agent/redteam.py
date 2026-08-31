@@ -147,8 +147,8 @@ def run_all_redteam_traps() -> tuple[list[RedTeamTrapResult], int]:
         results.append(RedTeamTrapResult("TRAP-13", "Stale / Legacy DB Path", "Nonexistent DB path fails schema check", caught13, not caught13, res09.evidence))
 
     # TRAP-14: Malformed calendar
-    from engine.calendar import load_authoritative_calendar
-    with mock.patch("engine.calendar.EVENTS_PATH") as mock_cal_path:
+    from engine.trading_calendar import load_authoritative_calendar
+    with mock.patch("engine.trading_calendar.EVENTS_PATH") as mock_cal_path:
         mock_cal_path.exists.return_value = True
         mock_cal_path.read_bytes.return_value = b"{malformed_json"
         ok, csum, hols, meta = load_authoritative_calendar()

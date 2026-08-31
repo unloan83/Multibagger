@@ -384,7 +384,7 @@ def _open_trade(con: Any, candidate: Candidate, quote: dict[str, Any], now: date
     # if reward * quantity <= 2 * modeled_round_trip_cost:
     #     return None, "EXPECTED_PROFIT_NOT_TWICE_COST"
     raw_rr = reward / stop_distance
-    if raw_rr < settings.reward_risk:
+    if raw_rr < settings.min_reward_risk_floor:
         return None, "RISK_REWARD_OUTSIDE_POLICY"
     slippage_factor = settings.paper_slippage_bps_per_side / 10_000
     entry_fill = entry_quote * (1 + slippage_factor if side == "LONG" else 1 - slippage_factor)

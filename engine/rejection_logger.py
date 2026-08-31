@@ -170,30 +170,43 @@ class DecisionLogger:
             
             closed_trades = conn.execute("SELECT net_pnl, gross_pnl FROM trades WHERE state = 'CLOSED'").fetchall()
             
-            winners = len([t for t in closed_trades if float(t["net_pnl"]) > 0])
-            losers = len([t for t in closed_trades if float(t["net_pnl"]) < 0])
+            winning_pnls = [float(t["net_pnl"]) for t in closed_trades if float(t["net_pnl"]) > 0]
+            losing_pnls = [float(t["net_pnl"]) for t in closed_trades if float(t["net_pnl"]) < 0]
+
+            winners = len(winning_pnls)
+            losers = len(losing_pnls)
             
             gross_pnl = sum([float(t["gross_pnl"]) for t in closed_trades])
             net_pnl = sum([float(t["net_pnl"]) for t in closed_trades])
             total_fees = gross_pnl - net_pnl
             
-            pnls = [float(t["net_pnl"]) for t in closed_trades]
-            largest_winner = max(pnls) if pnls else 0.0
-            largest_loser = min(pnls) if pnls else 0.0
+            largest_winner = max(winning_pnls) if winning_pnls else 0.0
+            largest_loser = min(losing_pnls) if losing_pnls else 0.0
 
             # System Config table for system state
             sys_row = conn.execute("SELECT value FROM system_config WHERE key = 'system_state'").fetchone() if conn.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='system_config'").fetchone() else None
-            system_state = sys_row["value"] if sys_row else "RUNNING"
+            raw_state = str(sys_row["value"]).upper() if sys_row and sys_row["value"] else "NOT_TRIGGERED"
+            if raw_state in {"BREAKER_TRIPPED", "HALTED", "TRIGGERED", "STOPPED", "RISK_BREAKER_TRIGGERED"}:
+                risk_breaker_status = "TRIGGERED"
+            else:
+                risk_breaker_status = "NOT_TRIGGERED"
         finally:
             conn.close()
 
         notifier_stats = get_notifier_stats()
+
+        data_integrity_warning = (
+            "trades_executed > 0 but universe_scanned == 0 — scan log missing or trade bypassed scanning"
+            if (filled_orders > 0 and scanned_count == 0)
+            else None
+        )
 
         report = {
             "date": today_str,
             "universe_scanned": scanned_count,
             "candidates_generated": scanned_count,
             "qualified_candidates": trade_decisions_count,
+            "data_integrity_warning": data_integrity_warning,
             "trades_executed": filled_orders,
             "winners": winners,
             "losers": losers,
@@ -213,7 +226,7 @@ class DecisionLogger:
             "orphan_orders_or_positions": 0,
             "telegram_sent_count": notifier_stats["sent_count"],
             "telegram_failed_count": notifier_stats["failed_count"],
-            "risk_breaker_status": system_state,
+            "risk_breaker_status": risk_breaker_status,
         }
 
         report_file = self.log_dir / f"eod_report_{today_str}.json"

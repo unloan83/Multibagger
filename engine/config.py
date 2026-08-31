@@ -96,8 +96,14 @@ class Settings:
     min_score_midday: float = 50.0
     min_score_afternoon: float = 50.0
     atr_stop_multiple: float = 3.0
-    reward_risk: float = 2.0
+    target_reward_risk_multiple: float = 2.0
+    min_reward_risk_floor: float = 1.5
+    learning_confirmation_threshold: float = 2.0
     max_reward_risk: float = 2.0
+
+    @property
+    def reward_risk(self) -> float:
+        return self.target_reward_risk_multiple
     min_average_volume: int = 150_000
     min_average_daily_range_pct: float = 0.85
     min_opportunity_score: float = 55.0

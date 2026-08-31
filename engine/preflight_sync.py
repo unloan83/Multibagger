@@ -14,8 +14,9 @@ from engine.notifier import send_telegram_alert
 logger = logging.getLogger("preflight_sync")
 
 class PreflightSync:
-    def __init__(self, settings: Settings):
+    def __init__(self, settings: Settings, is_dry: bool = True):
         self.settings = settings
+        self.is_dry = is_dry
         self.headers = {
             "Accept": "application/json",
             "Authorization": f"Bearer {self.settings.access_token}",
@@ -25,6 +26,8 @@ class PreflightSync:
         self.market_data_ready = False
 
     def check_upstox_auth(self) -> Tuple[bool, str]:
+        if self.is_dry:
+            return True, "Skipped: dry-run mode"
         if not self.settings.access_token:
             return True, "Mock token accepted for paper trading"
         url = f"{UPSTOX_BASE_URL}/user/profile"
@@ -79,12 +82,20 @@ class PreflightSync:
 
         if all_passed:
             logger.info("PREMARKET_READY: All 9 Stage A checks passed.")
-            send_telegram_alert("✅ <b>PREMARKET_READY</b> - 08:35 AM Systems Intact")
+            msg = "✅ <b>PREMARKET_READY</b> - 08:35 AM Systems Intact"
+            if self.is_dry:
+                logger.info("[DRY-RUN] Telegram alert skipped: %s", msg)
+            else:
+                send_telegram_alert(msg)
         else:
             failed_keys = [k for k, v in checks.items() if not v]
             fail_reason = f"Premarket check failed on: {', '.join(failed_keys)}"
             logger.critical("PREMARKET_FAILED: %s", fail_reason)
-            send_telegram_alert(f"🚨 <b>PREMARKET_FAILED / NOT READY</b>: {fail_reason}")
+            msg = f"🚨 <b>PREMARKET_FAILED / NOT READY</b>: {fail_reason}"
+            if self.is_dry:
+                logger.info("[DRY-RUN] Telegram alert skipped: %s", msg)
+            else:
+                send_telegram_alert(msg)
 
         return all_passed, checks
 
@@ -148,3 +159,19 @@ class PreflightSync:
 
     def run_full_preflight_checks(self) -> Tuple[bool, Dict[str, Any]]:
         return self.run_premarket_checks()
+
+if __name__ == "__main__":
+    import argparse
+    parser = argparse.ArgumentParser(description="Premarket preflight sync runner")
+    parser.add_argument("--dry-run", action="store_true", default=True, help="Run preflight sync in dry-run mode (default: True)")
+    parser.add_argument("--execute", action="store_true", help="Execute preflight sync with live checks (disables dry-run)")
+    args = parser.parse_args()
+
+    is_dry = not args.execute
+    mode_label = "DRY-RUN" if is_dry else "LIVE EXECUTE"
+    print(f"[PreflightSync] Running in {mode_label} mode")
+
+    sync = PreflightSync(Settings.from_env(), is_dry=is_dry)
+    ok, checks = sync.run_premarket_checks()
+    print(f"[PreflightSync] Premarket checks result: ok={ok}, checks={checks}")
+

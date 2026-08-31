@@ -24,7 +24,7 @@ class ChallengerEngine:
             version=current_version,
             parameters={
                 "min_score": 50.0,
-                "reward_risk": 1.5,
+                "target_reward_risk_multiple": 2.0,
                 "max_risk_per_trade": 500.0,
                 "daily_loss_limit": 1000.0,
             },

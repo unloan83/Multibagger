@@ -26,8 +26,8 @@ def setup_isolation(tmp_path, monkeypatch):
     sm.init_db()
     yield test_db
 
-def test_1_invalid_upstox_token_handling():
-    settings = Settings(access_token="INVALID_TOKEN_123")
+def test_1_invalid_upstox_token_handling(setup_isolation):
+    settings = Settings(access_token="INVALID_TOKEN_123", db_path=Path(setup_isolation))
     sync = PreflightSync(settings)
     ok, checks = sync.run_premarket_checks()
     assert "upstox_auth" in checks
@@ -44,8 +44,8 @@ def test_2_stale_quote_rejection():
     assert passed is False
     assert code == "DATA_STALE"
 
-def test_3_empty_instrument_master_preflight_failure():
-    settings = Settings()
+def test_3_empty_instrument_master_preflight_failure(setup_isolation):
+    settings = Settings(db_path=Path(setup_isolation))
     sync = PreflightSync(settings)
     with mock.patch.object(sync, "fetch_bod_master_and_surveillance", return_value=[]):
         ok, checks = sync.run_premarket_checks()
@@ -123,9 +123,9 @@ def test_10_zero_tick_failure_regression():
     assert feed.quote_ticks == 1
     assert feed.is_market_data_ready(now_ts=now_ts) is True
 
-def test_11_two_stage_readiness_verification():
+def test_11_two_stage_readiness_verification(setup_isolation):
     """TASK 4: Two-stage readiness test."""
-    settings = Settings()
+    settings = Settings(db_path=Path(setup_isolation))
     sync = PreflightSync(settings)
     feed = UpstoxMarketDataFeed("test_token")
 

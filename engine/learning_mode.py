@@ -62,7 +62,7 @@ def prepare_learning_shortlist(
             "setupSource": "PRICE_VOLUME_ONLY",
             "vwap": _vwap_aligned(candidate.side, candidate.entry, confirmations.get("vwapPrice")),
             "strategyQualified": True,
-            "riskReward": float(confirmations.get("expectedR") or 0.0) >= settings.reward_risk,
+            "riskReward": float(confirmations.get("expectedR") or 0.0) >= settings.learning_confirmation_threshold,
             "learningMode": True,
             "learningModeDate": settings.paper_learning_mode_date,
             "learningObjectiveInr": settings.paper_learning_profit_objective,

@@ -222,13 +222,13 @@ def evaluate_opportunity(frame: pd.DataFrame, settings: Settings, now: datetime 
         calculated_stop = max(vwap - 0.25 * atr, entry - 1.5 * atr) if thesis == "CONTINUATION" else (entry - 1.2 * atr)
         stop = round_to_tick(min(calculated_stop, entry - min_stop_distance))
         risk = entry - stop
-        target = round_to_tick(entry + risk * settings.reward_risk)
+        target = round_to_tick(entry + risk * settings.target_reward_risk_multiple)
     else:
         entry = round_to_tick(bid)
         calculated_stop = min(vwap + 0.25 * atr, entry + 1.5 * atr) if thesis == "CONTINUATION" else (entry + 1.2 * atr)
         stop = round_to_tick(max(calculated_stop, entry + min_stop_distance))
         risk = stop - entry
-        target = round_to_tick(entry - risk * settings.reward_risk)
+        target = round_to_tick(entry - risk * settings.target_reward_risk_multiple)
 
     if risk <= 0:
         return None

@@ -159,6 +159,38 @@ CREATE TABLE IF NOT EXISTS final_session_plan (
   status VARCHAR NOT NULL,
   locked_at TIMESTAMPTZ NOT NULL
 );
+CREATE TABLE IF NOT EXISTS stock_strategy_map (
+  symbol VARCHAR PRIMARY KEY,
+  instrument_key VARCHAR NOT NULL,
+  strategy VARCHAR NOT NULL,
+  direction VARCHAR NOT NULL,
+  sample_count INTEGER NOT NULL,
+  post_cost_expectancy DOUBLE NOT NULL,
+  win_rate DOUBLE NOT NULL,
+  avg_win DOUBLE NOT NULL,
+  avg_loss DOUBLE NOT NULL,
+  max_drawdown DOUBLE NOT NULL,
+  profit_factor DOUBLE NOT NULL,
+  recent_regime_performance DOUBLE NOT NULL,
+  data_from VARCHAR NOT NULL,
+  data_to VARCHAR NOT NULL,
+  candle_count INTEGER NOT NULL,
+  calculation_timestamp TIMESTAMPTZ NOT NULL,
+  last_updated TIMESTAMPTZ NOT NULL
+);
+CREATE TABLE IF NOT EXISTS daily_watchlist (
+  watchlist_id VARCHAR PRIMARY KEY,
+  trading_day DATE NOT NULL,
+  symbol VARCHAR NOT NULL,
+  strategy VARCHAR NOT NULL,
+  historical_edge DOUBLE NOT NULL,
+  gap DOUBLE NOT NULL,
+  liquidity DOUBLE NOT NULL,
+  volume DOUBLE NOT NULL,
+  volatility DOUBLE NOT NULL,
+  watchlist_rank INTEGER NOT NULL,
+  created_at TIMESTAMPTZ NOT NULL
+);
 CREATE TABLE IF NOT EXISTS active_strategy (
   id INTEGER PRIMARY KEY, candidate_id VARCHAR NOT NULL,
   name VARCHAR NOT NULL, direction VARCHAR NOT NULL DEFAULT 'LONG',

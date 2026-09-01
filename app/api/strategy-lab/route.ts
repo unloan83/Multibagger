@@ -40,7 +40,7 @@ export async function GET() {
 export async function POST(request: Request) {
   try {
     const body = await request.json();
-    const action = body.action || "approve";
+    const action = body.action || (body.callback_query ? "telegram-webhook" : "approve");
     
     if (action === "approve" && (!body.candidate_id || typeof body.candidate_id !== "string" || !body.candidate_id.trim())) {
       return NextResponse.json({ ok: false, error: "candidate_id is required and must be a non-empty string" }, { status: 400 });

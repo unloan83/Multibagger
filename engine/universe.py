@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import json
 import logging
-from datetime import datetime
+from datetime import datetime, timezone
 from zoneinfo import ZoneInfo
 
 import pandas as pd
@@ -65,7 +65,9 @@ def build_daily_trading_universe(settings: Settings, store: MarketStore,
     return symbols
 
 
-def active_trading_symbols(settings: Settings, now: datetime) -> list[str]:
+def active_trading_symbols(settings: Settings, now: datetime | None = None) -> list[str]:
+    if now is None:
+        now = datetime.now(timezone.utc)
     try:
         if settings.active_universe_path.exists():
             payload = json.loads(settings.active_universe_path.read_text())

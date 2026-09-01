@@ -50,6 +50,8 @@ export async function POST(request: Request) {
     
     const endpoint = action === "import-algoverse" 
       ? "/api/internal/strategy-lab/import-algoverse"
+      : action === "telegram-webhook"
+      ? "/api/internal/strategy-lab/telegram-webhook"
       : "/api/internal/strategy-lab/approve";
 
     const resp = await fetch(`${tunnelUrl}${endpoint}`, {

@@ -126,6 +126,28 @@ CREATE TABLE IF NOT EXISTS learning_store (
   fresh_override_rvol_threshold DOUBLE NOT NULL DEFAULT 2.5,
   created_at TIMESTAMPTZ NOT NULL
 );
+CREATE TABLE IF NOT EXISTS final_session_plan (
+  plan_id VARCHAR PRIMARY KEY,
+  trading_day DATE NOT NULL,
+  symbol VARCHAR NOT NULL,
+  strategy_template VARCHAR NOT NULL,
+  strategy_id VARCHAR NOT NULL,
+  direction VARCHAR NOT NULL,
+  entry_rule VARCHAR NOT NULL,
+  adx DOUBLE NOT NULL,
+  vwap_orb_rule VARCHAR NOT NULL,
+  sl_pct DOUBLE NOT NULL,
+  target_pct DOUBLE NOT NULL,
+  validator_source VARCHAR NOT NULL,
+  backtest_trades INTEGER NOT NULL,
+  win_rate DOUBLE NOT NULL,
+  avg_win_loss DOUBLE NOT NULL,
+  max_drawdown DOUBLE NOT NULL,
+  learning_adjustment DOUBLE NOT NULL,
+  final_score DOUBLE NOT NULL,
+  status VARCHAR NOT NULL,
+  locked_at TIMESTAMPTZ NOT NULL
+);
 CREATE TABLE IF NOT EXISTS active_strategy (
   id INTEGER PRIMARY KEY, candidate_id VARCHAR NOT NULL,
   name VARCHAR NOT NULL, direction VARCHAR NOT NULL DEFAULT 'LONG',

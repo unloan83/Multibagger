@@ -794,3 +794,122 @@ def generate_premarket_shortlist(
     shortlist.sort(key=lambda x: (x["final_score"], x["symbol"]), reverse=True)
     return shortlist
 
+
+def save_final_session_plan(
+    db_path_or_store: Any,
+    shortlist: List[dict[str, Any]],
+    trading_day: Optional[str] = None,
+) -> List[dict[str, Any]]:
+    """
+    Persists the canonical premarket stock x strategy plan into final_session_plan.
+    This plan becomes the immutable single source of truth for execution, Telegram, and Strategy Lab.
+    """
+    now = datetime.now(timezone.utc)
+    day_str = trading_day or now.strftime("%Y-%m-%d")
+
+    if isinstance(db_path_or_store, str):
+        store = MarketStore(db_path_or_store)
+    else:
+        store = db_path_or_store
+
+    with store.connect() as con:
+        con.execute("DELETE FROM final_session_plan WHERE trading_day = ?", [day_str])
+
+        for item in shortlist:
+            plan_id = f"PLAN-{day_str}-{item['symbol']}"
+            con.execute("""
+                INSERT INTO final_session_plan (
+                    plan_id, trading_day, symbol, strategy_template, strategy_id,
+                    direction, entry_rule, adx, vwap_orb_rule, sl_pct, target_pct,
+                    validator_source, backtest_trades, win_rate, avg_win_loss,
+                    max_drawdown, learning_adjustment, final_score, status, locked_at
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """, [
+                plan_id,
+                day_str,
+                item["symbol"],
+                item["strategy"],
+                item["strategy_id"],
+                item["direction"],
+                item.get("entry_rule", f"UNIFIED_RANKING_BREAKOUT_{item['direction']}"),
+                float(item["adx_threshold"]),
+                item["vwap_rule"],
+                float(item["sl_pct"]),
+                float(item["target_pct"]),
+                item["backtest_source"],
+                int(item.get("backtest_trades", 35)),
+                float(item["win_rate"]),
+                float(item["avg_win_loss"]),
+                float(item["max_dd"]),
+                float(item["yesterday_learning_adjustment"]),
+                float(item["final_score"]),
+                item["status"],
+                now,
+            ])
+
+    logger.info("FINAL_SESSION_PLAN saved for day %s with %d symbols", day_str, len(shortlist))
+    return get_final_session_plan(store, day_str)
+
+
+def get_final_session_plan(
+    db_path_or_store: Any,
+    trading_day: Optional[str] = None,
+) -> List[dict[str, Any]]:
+    """
+    Reads the canonical persisted session plan for the given trading day.
+    """
+    now = datetime.now(timezone.utc)
+    day_str = trading_day or now.strftime("%Y-%m-%d")
+
+    if isinstance(db_path_or_store, str):
+        store = MarketStore(db_path_or_store)
+    else:
+        store = db_path_or_store
+
+    plan_items: List[dict[str, Any]] = []
+    try:
+        with store.connect() as con:
+            rows = con.execute("""
+                SELECT symbol, strategy_template, strategy_id, direction, entry_rule,
+                       adx, vwap_orb_rule, sl_pct, target_pct, validator_source,
+                       backtest_trades, win_rate, avg_win_loss, max_drawdown,
+                       learning_adjustment, final_score, status, locked_at
+                FROM final_session_plan
+                WHERE trading_day = ?
+                ORDER BY final_score DESC, symbol ASC
+            """, [day_str]).fetchall()
+
+            for r in rows:
+                plan_items.append({
+                    "symbol": r[0],
+                    "strategy_template": r[1],
+                    "strategy": r[1],
+                    "strategy_id": r[2],
+                    "direction": r[3],
+                    "entry_rule": r[4],
+                    "ADX": r[5],
+                    "vwap_rule": r[6],
+                    "VWAP/ORB rule": r[6],
+                    "sl_pct": r[7],
+                    "SL": f"{r[7]:.1f}%",
+                    "target_pct": r[8],
+                    "target": f"{r[8]:.1f}%",
+                    "validator_source": r[9],
+                    "backtest_source": r[9],
+                    "backtest_trades": r[10],
+                    "win_rate": r[11],
+                    "avg_win_loss": r[12],
+                    "max_drawdown": r[13],
+                    "learning_adjustment": r[14],
+                    "yesterday_learning_adjustment": r[14],
+                    "final_score": r[15],
+                    "status": r[16],
+                    "TRADE/NO_TRADE": r[16],
+                    "locked_at": str(r[17]),
+                })
+    except Exception as exc:
+        logger.warning("Error reading final_session_plan: %s", exc)
+
+    return plan_items
+
+

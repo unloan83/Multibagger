@@ -325,6 +325,21 @@ def _open_trade(con: Any, candidate: Candidate, quote: dict[str, Any], now: date
     is_acceptance_test = candidate.confirmations.get("tag") == "ACCEPTANCE_TEST"
     if settings.execution_paused and not is_acceptance_test:
         return None, "EXECUTION_PAUSED"
+
+    # Canonical FINAL_SESSION_PLAN Fail-Closed Guard
+    if not is_acceptance_test:
+        try:
+            plan_row = con.execute("""
+                SELECT status FROM final_session_plan
+                WHERE trading_day = ? AND symbol = ?
+            """, [trading_day, candidate.symbol]).fetchone()
+            if not plan_row:
+                return None, "NOT_PRESENT_IN_FINAL_SESSION_PLAN"
+            if str(plan_row[0]).upper() != "TRADE":
+                return None, f"FINAL_SESSION_PLAN_STATUS_{str(plan_row[0]).upper()}"
+        except Exception:
+            return None, "FINAL_SESSION_PLAN_UNAVAILABLE"
+
     from .degraded import DEGRADED_MANAGER
     if DEGRADED_MANAGER.is_degraded:
         return None, "SAFE_DEGRADED_ACTIVE"

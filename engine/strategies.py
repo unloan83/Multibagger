@@ -182,18 +182,11 @@ def evaluate_opportunity(frame: pd.DataFrame, settings: Settings, now: datetime 
         reasons.append(f"PRICE_OUT_OF_BOUNDS({close:.1f})")
     if spread_bps > settings.max_spread_bps:
         reasons.append(f"SPREAD_TOO_HIGH({spread_bps:.1f}bps)")
-    if atr_pct < settings.min_intraday_atr_pct:
-        reasons.append(f"ATR_TOO_LOW({atr_pct:.2f}%)")
-    if market_bias == "UNSAFE":
-        reasons.append("UNSAFE_MARKET_BIAS")
-
-    # Upper / Lower Circuit Limit Protection
-    upper_circuit = float(getattr(last, "upper_circuit_limit", getattr(last, "upper_circuit", 0.0)) or 0.0)
-    lower_circuit = float(getattr(last, "lower_circuit_limit", getattr(last, "lower_circuit", 0.0)) or 0.0)
-    if upper_circuit > 0 and (upper_circuit - close) / close <= 0.005:
-        reasons.append("CIRCUIT_LIMIT_NEAR")
-    if lower_circuit > 0 and (close - lower_circuit) / close <= 0.005:
-        reasons.append("CIRCUIT_LIMIT_NEAR")
+    # Single Sector Strength Gate: Sector RS Score >= +0.20% vs benchmark
+    sector_rs_val = getattr(last, "sector_rs", 0.25)
+    sector_rs = float(sector_rs_val) if pd.notna(sector_rs_val) else 0.25
+    if sector_rs < 0.20:
+        reasons.append(f"SECTOR_STRENGTH_FAILED({sector_rs:.2f}%<+0.20%)")
 
     vwap = float(last.vwap)
     side: TradeSide = "LONG" if close >= vwap else "SHORT"
@@ -214,6 +207,22 @@ def evaluate_opportunity(frame: pd.DataFrame, settings: Settings, now: datetime 
         thesis = "REVERSAL"
     else:
         thesis = "CONTINUATION"
+
+    # Exhaustion / Chase Filter (Sole place overextension is evaluated using 5-min ATR)
+    atr_5m_val = getattr(last, "atr_5m", getattr(last, "atr", atr))
+    atr_5m = float(atr_5m_val) if pd.notna(atr_5m_val) and float(atr_5m_val) > 0 else float(atr)
+    orb_high = float(session.iloc[:3].high.max()) if len(session) >= 3 else float(last.high)
+    orb_low = float(session.iloc[:3].low.min()) if len(session) >= 3 else float(last.low)
+    if side == "LONG":
+        if close > (vwap + 2.5 * atr_5m):
+            reasons.append(f"EXHAUSTION_VWAP_OVEREXTENSION({close:.1f}>{vwap + 2.5 * atr_5m:.1f})")
+        if thesis == "BREAKOUT" and close > (orb_high + 2.5 * atr_5m):
+            reasons.append(f"EXHAUSTION_ORB_OVEREXTENSION({close:.1f}>{orb_high + 2.5 * atr_5m:.1f})")
+    else:
+        if close < (vwap - 2.5 * atr_5m):
+            reasons.append(f"EXHAUSTION_VWAP_OVEREXTENSION({close:.1f}<{vwap - 2.5 * atr_5m:.1f})")
+        if thesis == "BREAKOUT" and close < (orb_low - 2.5 * atr_5m):
+            reasons.append(f"EXHAUSTION_ORB_OVEREXTENSION({close:.1f}<{orb_low - 2.5 * atr_5m:.1f})")
 
     # Stop & Target Calculation
     min_stop_distance = max(0.5 * atr, close * 0.002)

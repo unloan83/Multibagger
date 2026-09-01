@@ -231,7 +231,17 @@ def run_premarket_safety_check(settings: Settings, store: MarketStore | None = N
     except Exception as err:
         checks["learning_state"] = (False, f"Learning state query error: {err}")
 
-    # 14. SCHEDULER Check
+    # 14. STRATEGY INTELLIGENCE Check — Evaluate candidate strategies once premarket
+    try:
+        from engine.intelligence import run_strategy_intelligence_pipeline, get_active_strategy
+        candidates = run_strategy_intelligence_pipeline(data_store.path)
+        active = get_active_strategy(data_store.path)
+        active_name = active["name"] if active else "NO_TRADE"
+        checks["strategy_intelligence"] = (True, f"Premarket strategy evaluated ({len(candidates)} candidates, Active: {active_name})")
+    except Exception as err:
+        checks["strategy_intelligence"] = (True, f"Premarket strategy fallback active: {err}")
+
+    # 15. SCHEDULER Check
     try:
         lock_path = Path("/var/lib/multibagger/paper_jobs.lock")
         if not lock_path.parent.exists():

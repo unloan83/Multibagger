@@ -23,6 +23,12 @@ CREATE TABLE IF NOT EXISTS minute_bars (
   volume BIGINT NOT NULL, bid DOUBLE, ask DOUBLE, received_at TIMESTAMPTZ NOT NULL,
   PRIMARY KEY (instrument_key, ts)
 );
+CREATE TABLE IF NOT EXISTS daily_bars (
+  instrument_key VARCHAR NOT NULL, symbol VARCHAR NOT NULL, trading_day DATE NOT NULL,
+  open DOUBLE NOT NULL, high DOUBLE NOT NULL, low DOUBLE NOT NULL, close DOUBLE NOT NULL,
+  volume BIGINT NOT NULL, received_at TIMESTAMPTZ NOT NULL,
+  PRIMARY KEY (instrument_key, trading_day)
+);
 CREATE TABLE IF NOT EXISTS scanner_runs (
   run_id VARCHAR PRIMARY KEY, started_at TIMESTAMPTZ NOT NULL, completed_at TIMESTAMPTZ,
   status VARCHAR NOT NULL, universe_size INTEGER NOT NULL, fresh_symbols INTEGER NOT NULL DEFAULT 0,
@@ -94,13 +100,36 @@ CREATE TABLE IF NOT EXISTS intraday_audit_log (
   entry DOUBLE, stop DOUBLE, risk DOUBLE, quantity INTEGER, partial_exit DOUBLE,
   final_exit DOUBLE, total_pnl DOUBLE, no_scale_out_pnl DOUBLE, rejection_reason VARCHAR
 );
+CREATE TABLE IF NOT EXISTS strategy_candidates (
+  candidate_id VARCHAR PRIMARY KEY, name VARCHAR NOT NULL,
+  direction VARCHAR NOT NULL DEFAULT 'LONG', backtest_source VARCHAR NOT NULL DEFAULT 'LOCAL_FALLBACK',
+  adx_threshold DOUBLE NOT NULL, vwap_mode VARCHAR NOT NULL,
+  stop_loss_pct DOUBLE NOT NULL, target_pct DOUBLE NOT NULL,
+  entry_time VARCHAR NOT NULL, rvol_min DOUBLE NOT NULL DEFAULT 1.2,
+  atr_window INTEGER NOT NULL DEFAULT 14, backtest_pnl DOUBLE NOT NULL,
+  win_rate DOUBLE NOT NULL, avg_win DOUBLE NOT NULL DEFAULT 0.0,
+  avg_loss DOUBLE NOT NULL DEFAULT 0.0, avg_win_loss_ratio DOUBLE NOT NULL,
+  max_drawdown DOUBLE NOT NULL, trade_count INTEGER NOT NULL,
+  stability_score DOUBLE NOT NULL, rank INTEGER NOT NULL,
+  status VARCHAR NOT NULL DEFAULT 'CANDIDATE', created_at TIMESTAMPTZ NOT NULL
+);
+CREATE TABLE IF NOT EXISTS active_strategy (
+  id INTEGER PRIMARY KEY, candidate_id VARCHAR NOT NULL,
+  name VARCHAR NOT NULL, direction VARCHAR NOT NULL DEFAULT 'LONG',
+  backtest_source VARCHAR NOT NULL DEFAULT 'LOCAL_FALLBACK',
+  adx_threshold DOUBLE NOT NULL, vwap_mode VARCHAR NOT NULL,
+  stop_loss_pct DOUBLE NOT NULL, target_pct DOUBLE NOT NULL,
+  entry_time VARCHAR NOT NULL, rvol_min DOUBLE NOT NULL DEFAULT 1.2,
+  status VARCHAR NOT NULL DEFAULT 'ACTIVE', activated_at TIMESTAMPTZ NOT NULL,
+  approved_by VARCHAR NOT NULL DEFAULT 'TELEGRAM'
+);
 """
 
 
 class MarketStore:
-    def __init__(self, path: Path, read_only: bool = False):
-        self.path = path
-        path.parent.mkdir(parents=True, exist_ok=True)
+    def __init__(self, path: Path | str, read_only: bool = False):
+        self.path = Path(path)
+        self.path.parent.mkdir(parents=True, exist_ok=True)
         if not read_only:
             try:
                 with self.connect(read_only=False) as con:
@@ -120,6 +149,12 @@ class MarketStore:
                     con.execute("ALTER TABLE paper_trades ADD COLUMN IF NOT EXISTS agent VARCHAR")
                     con.execute("ALTER TABLE paper_trades ADD COLUMN IF NOT EXISTS initial_quantity INTEGER")
                     con.execute("ALTER TABLE paper_trades ADD COLUMN IF NOT EXISTS original_stop_price DOUBLE")
+                    con.execute("ALTER TABLE strategy_candidates ADD COLUMN IF NOT EXISTS direction VARCHAR DEFAULT 'LONG'")
+                    con.execute("ALTER TABLE strategy_candidates ADD COLUMN IF NOT EXISTS backtest_source VARCHAR DEFAULT 'LOCAL_FALLBACK'")
+                    con.execute("ALTER TABLE strategy_candidates ADD COLUMN IF NOT EXISTS avg_win DOUBLE DEFAULT 0.0")
+                    con.execute("ALTER TABLE strategy_candidates ADD COLUMN IF NOT EXISTS avg_loss DOUBLE DEFAULT 0.0")
+                    con.execute("ALTER TABLE active_strategy ADD COLUMN IF NOT EXISTS direction VARCHAR DEFAULT 'LONG'")
+                    con.execute("ALTER TABLE active_strategy ADD COLUMN IF NOT EXISTS backtest_source VARCHAR DEFAULT 'LOCAL_FALLBACK'")
                     con.execute("ALTER TABLE paper_trades ADD COLUMN IF NOT EXISTS allowed_risk DOUBLE")
                     con.execute("ALTER TABLE paper_trades ADD COLUMN IF NOT EXISTS partial_quantity INTEGER DEFAULT 0")
                     con.execute("ALTER TABLE paper_trades ADD COLUMN IF NOT EXISTS partial_exit_quote DOUBLE")
@@ -177,6 +212,18 @@ class MarketStore:
               INSERT OR REPLACE INTO minute_bars
               SELECT instrument_key, symbol, ts, open, high, low, close, volume,
                      bid, ask, received_at FROM incoming_bars
+            """)
+        return len(frame)
+
+    def upsert_daily_bars(self, frame: pd.DataFrame) -> int:
+        if frame.empty:
+            return 0
+        with self.connect() as con:
+            con.register("incoming_daily_bars", frame)
+            con.execute("""
+              INSERT OR REPLACE INTO daily_bars
+              SELECT instrument_key, symbol, trading_day, open, high, low, close, volume, received_at
+              FROM incoming_daily_bars
             """)
         return len(frame)
 

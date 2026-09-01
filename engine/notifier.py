@@ -6,7 +6,7 @@ import queue
 import threading
 import time
 from pathlib import Path
-from typing import Dict, Optional, Tuple
+from typing import Dict, Optional, Tuple, Any
 import requests
 
 logger = logging.getLogger("notifier")
@@ -117,3 +117,122 @@ def get_notifier_stats() -> Dict[str, int]:
 
 def shutdown_notifier(timeout: float = 2.0):
     _global_notifier.stop(timeout=timeout)
+
+
+def send_telegram_inline_keyboard(message: str, reply_markup: dict) -> bool:
+    """Sends a Telegram message with inline keyboard markup synchronously."""
+    token, chat_id = _load_env_tokens()
+    if not token or not chat_id:
+        logger.info("[Telegram Inline Keyboard - Local Log Only]: %s | Markup: %s", message, reply_markup)
+        return True
+    url = f"https://api.telegram.org/bot{token}/sendMessage"
+    payload = {
+        "chat_id": chat_id,
+        "text": message,
+        "parse_mode": "HTML",
+        "reply_markup": reply_markup,
+        "disable_web_page_preview": True,
+    }
+    try:
+        resp = requests.post(url, json=payload, timeout=3.0)
+        if resp.status_code == 200:
+            logger.info("Telegram inline keyboard dispatched successfully.")
+            return True
+        logger.warning("Telegram inline keyboard API error %d: %s", resp.status_code, resp.text)
+        return False
+    except Exception as e:
+        logger.warning("Telegram inline keyboard dispatch failed: %s", e)
+        return False
+
+
+def send_strategy_selected_telegram_alert(cand: Any) -> bool:
+    """Sends notification-only Telegram alert when a strategy candidate is selected automatically."""
+    p = cand.params
+    source = getattr(cand, "backtest_source", "LOCAL_FALLBACK")
+    direction = getattr(p, "direction", "LONG")
+    msg = (
+        f"<b>Strategy Selected</b> | Direction={direction} | ADX={int(p.adx_threshold)} | VWAP={p.vwap_mode} | "
+        f"SL={p.stop_loss_pct:.1f}% | Target={p.target_pct:.1f}% | Entry={p.entry_time} | "
+        f"Backtest Source={source} | P&L=₹{cand.backtest_pnl:,.0f} | Win={cand.win_rate:.0f}% | DD=₹{cand.max_drawdown:,.0f}\n\n"
+        f"<i>Activated Automatically (#1 Rank: {cand.name})</i>"
+    )
+    return send_telegram_alert(msg)
+
+
+def send_strategy_proposal_telegram_alert(cand: Any, current_idx: int = 0, total_count: int = 5) -> bool:
+    """Sends Telegram strategy proposal formatted as specified with interactive inline action buttons."""
+    p = cand.params
+    source = getattr(cand, "backtest_source", "LOCAL_FALLBACK")
+    direction = getattr(p, "direction", "LONG")
+    msg = (
+        f"<b>ALGORITHMIC BACKTEST SOURCE = {source}</b>\n\n"
+        f"<b>Strategy proposed:</b> Direction={direction} | ADX={int(p.adx_threshold)} | VWAP={p.vwap_mode} | "
+        f"SL={p.stop_loss_pct:.1f}% | Target={p.target_pct:.1f}% | Entry={p.entry_time} | "
+        f"Backtest P&L=₹{cand.backtest_pnl:,.0f} | Win={cand.win_rate:.0f}% | DD=₹{cand.max_drawdown:,.0f}\n\n"
+        f"<i>Candidate #{cand.rank} of {total_count} ({cand.name})</i>"
+    )
+    next_idx = (current_idx + 1) % max(total_count, 1)
+    reply_markup = {
+        "inline_keyboard": [
+            [
+                {"text": "✅ Accept Strategy", "callback_data": f"cb:accept:{cand.candidate_id}"},
+                {"text": "🔄 Choose Another", "callback_data": f"cb:next:{next_idx}"},
+            ],
+            [
+                {"text": "✏️ Select Parameters", "callback_data": f"cb:param_select:{cand.candidate_id}"},
+                {"text": "❌ No Trade", "callback_data": "cb:notrade"},
+            ]
+        ]
+    }
+    return send_telegram_inline_keyboard(msg, reply_markup)
+
+
+def handle_telegram_callback(callback_data: str, db_path: str) -> str:
+    """Handles Telegram callback query actions from inline buttons."""
+    from .intelligence import get_candidates_from_store, set_active_strategy, deactivate_active_strategy
+
+    if callback_data.startswith("cb:accept:"):
+        cand_id = callback_data.split(":", 2)[2]
+        activated = set_active_strategy(cand_id, db_path, approved_by="TELEGRAM")
+        if activated:
+            p = activated.params
+            summary = f"Source={activated.backtest_source} | Direction={p.direction} | ADX={int(p.adx_threshold)} | VWAP={p.vwap_mode} | SL={p.stop_loss_pct:.1f}% | Target={p.target_pct:.1f}% | Entry={p.entry_time}"
+            msg = f"✅ <b>Strategy Accepted & Activated:</b> {activated.name}\n<code>{summary}</code>\nPaper execution enabled."
+            send_telegram_alert(msg)
+            return f"Strategy accepted: {activated.name}"
+        return "Failed to activate strategy: candidate not found."
+
+    elif callback_data.startswith("cb:next:"):
+        try:
+            idx = int(callback_data.split(":", 2)[2])
+        except (IndexError, ValueError):
+            idx = 0
+        candidates = get_candidates_from_store(db_path)
+        valid = [c for c in candidates if c.status != "REJECTED"]
+        if not valid:
+            send_telegram_alert("❌ No valid candidate strategies available.")
+            return "No valid candidate strategies."
+        target_cand = valid[idx % len(valid)]
+        send_strategy_proposal_telegram_alert(target_cand, current_idx=idx, total_count=len(valid))
+        return f"Proposed strategy candidate #{target_cand.rank}"
+
+    elif callback_data.startswith("cb:param_select"):
+        candidates = get_candidates_from_store(db_path)
+        valid = [c for c in candidates if c.status != "REJECTED"]
+        buttons = []
+        for c in valid:
+            p = c.params
+            btn_text = f"Rank #{c.rank}: ADX={int(p.adx_threshold)} SL={p.stop_loss_pct}% TP={p.target_pct}% E={p.entry_time}"
+            buttons.append([{"text": btn_text, "callback_data": f"cb:accept:{c.candidate_id}"}])
+        buttons.append([{"text": "❌ No Trade", "callback_data": "cb:notrade"}])
+        msg = "<b>Select Parameters:</b>\nChoose from pre-tested candidate sets (untested values restricted)."
+        send_telegram_inline_keyboard(msg, {"inline_keyboard": buttons})
+        return "Parameter selection menu sent."
+
+    elif callback_data == "cb:notrade":
+        deactivate_active_strategy(db_path)
+        msg = "❌ <b>Trading Deactivated:</b> System state set to NO_TRADE. No orders will be submitted."
+        send_telegram_alert(msg)
+        return "Trading set to NO_TRADE."
+
+    return f"Unknown callback query: {callback_data}"

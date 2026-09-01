@@ -76,7 +76,24 @@ def test_price_outside_configured_cmp_range_is_no_trade(tmp_path):
     now = datetime.now(timezone.utc)
     frame = bars(now)
     frame.loc[:, ["open", "high", "low", "close", "bid", "ask"]] += 600
-    assert scan_symbol(frame, settings(tmp_path), now) == []
+    st = Settings(
+        access_token="",
+        db_path=tmp_path / "test.duckdb",
+        snapshot_path=tmp_path / "signals.json",
+        universe_path=tmp_path / "universe.json",
+        max_symbols=1,
+        min_daily_value=1,
+        min_relative_volume=1,
+        max_spread_bps=20,
+        min_intraday_atr_pct=0.05,
+        max_breakout_extension_atr=2.1,
+        min_atr_stop_pct=0.1,
+        min_confluence_score=50.0,
+        min_average_volume=1,
+        min_average_daily_range_pct=0.01,
+        max_price=500.0,
+    )
+    assert scan_symbol(frame, st, now) == []
 
 
 def test_reverse_orb_conditions_create_only_short_setup(tmp_path):

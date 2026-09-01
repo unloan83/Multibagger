@@ -1,6 +1,6 @@
 {
   "schema_version": "1.0",
-  "last_updated": "2026-09-01T15:05:56.979344+00:00",
+  "last_updated": "2026-09-01T15:13:49.060322+00:00",
   "description": "Multibagger Self-Learning Failure Register -- backfilled from runtime logs, git history, and trade audit docs. Updated by engine/forensic_review.py post-EOD and verified by scripts/system_forensic_audit.py.",
   "incidents": [
     {
@@ -396,7 +396,7 @@
       "fix_description": "PENDING",
       "fix_verified": false,
       "fix_verified_note": "Newly discovered \u2014 awaiting fix",
-      "recurrence_count": 14,
+      "recurrence_count": 15,
       "regression_check_id": "RC-09",
       "evidence_source": "EOD_FORENSIC_REVIEW",
       "evidence_ref": "EOD_forensic_review:2026-09-01",

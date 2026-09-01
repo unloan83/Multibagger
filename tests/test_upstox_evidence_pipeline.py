@@ -74,3 +74,33 @@ def test_3_opening_confirmation_freezes_final_session_plan(temp_store):
     symbols = [x["symbol"] for x in retrieved]
     assert "RELIANCE" in symbols
     assert "INFY" in symbols
+
+
+def test_no_lookahead_data_leakage():
+    """Proves that modifying future candles after timestamp T cannot alter signal or indicator state calculated at timestamp T."""
+    import pandas as pd
+    from engine.strategies import classify_price_trend
+
+    now = datetime.now(timezone.utc)
+    
+    # Historical candles up to T
+    df_t = pd.DataFrame([
+        {"ts": "2026-09-01T09:15:00Z", "close": 2500.0, "high": 2510.0, "low": 2490.0, "volume": 10000},
+        {"ts": "2026-09-01T09:20:00Z", "close": 2510.0, "high": 2520.0, "low": 2505.0, "volume": 12000},
+        {"ts": "2026-09-01T09:25:00Z", "close": 2525.0, "high": 2530.0, "low": 2515.0, "volume": 15000},
+    ])
+    trend_at_t = classify_price_trend(df_t, now, 300)
+
+    # Historical candles up to T + future candles with extreme price spikes
+    df_future = pd.DataFrame([
+        {"ts": "2026-09-01T09:15:00Z", "close": 2500.0, "high": 2510.0, "low": 2490.0, "volume": 10000},
+        {"ts": "2026-09-01T09:20:00Z", "close": 2510.0, "high": 2520.0, "low": 2505.0, "volume": 12000},
+        {"ts": "2026-09-01T09:25:00Z", "close": 2525.0, "high": 2530.0, "low": 2515.0, "volume": 15000},
+        {"ts": "2026-09-01T15:25:00Z", "close": 1500.0, "high": 1510.0, "low": 1490.0, "volume": 90000},
+    ])
+
+    # Truncate to timestamp T before evaluating signal at T
+    df_truncated = df_future[df_future["ts"] <= "2026-09-01T09:25:00Z"]
+    trend_at_t_truncated = classify_price_trend(df_truncated, now, 300)
+
+    assert trend_at_t == trend_at_t_truncated

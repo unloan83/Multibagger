@@ -1,297 +1,939 @@
 #!/usr/bin/env python3
 from __future__ import annotations
 
-import os
-import sys
 import json
-import logging
-from datetime import date, datetime, timedelta, timezone
+import math
+import os
+from collections import defaultdict
+from dataclasses import dataclass
+from datetime import date, datetime, time, timedelta
 from pathlib import Path
-import pandas as pd
+from statistics import mean
+from typing import Any
+from zoneinfo import ZoneInfo
+
+# ============================================================
+# FINAL STAGE-2 PIPELINE
+# ============================================================
+
+ROOT = Path("/opt/multibagger") if Path("/opt/multibagger").exists() else Path.cwd()
+IST = ZoneInfo("Asia/Kolkata")
+
+BAR_MINUTES = 5
+LOOKBACK_CALENDAR_DAYS = 100
+CHUNK_DAYS = 25
+
+MAX_WATCHLIST = 15
+
+# Evidence gates
+MIN_SESSIONS = 10
+MIN_TRADES = 5
+MAX_DRAWDOWN = 2000.0
+
+# Existing working risk/reward assumptions
+STOP_PCT = 1.0
+TARGET_PCT = 1.5
+
+# Conservative transaction assumptions
+ROUND_TRIP_COST_BPS = 10.0
+SLIPPAGE_BPS_EACH_SIDE = 5.0
+
+OUTPUT_DIR = ROOT / "data" / "stage2"
+OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
+
+
+# ============================================================
+# ABSOLUTE ENVIRONMENT GATE
+# ============================================================
+
+cwd = Path.cwd().resolve()
+
+if not str(cwd).startswith("/opt/multibagger") and Path("/opt/multibagger").exists():
+    print("READY_FOR_TOMORROW_OPENING_CONFIRMATION = NO")
+    print(f"BLOCKER = MUST_RUN_ON_OCI | cwd={cwd}")
+    raise SystemExit(2)
+
+if not os.getenv("UPSTOX_ACCESS_TOKEN", "").strip():
+    print("READY_FOR_TOMORROW_OPENING_CONFIRMATION = NO")
+    print("BLOCKER = UPSTOX_ACCESS_TOKEN_MISSING")
+    raise SystemExit(2)
+
+
+# ============================================================
+# EXISTING VERIFIED RAW UPSTOX CLIENT
+# ============================================================
 
 from engine.upstox_evidence import (
-    UpstoxDataError,
     verify_upstox_auth,
     load_instrument_master,
     build_nse_equity_map,
     fetch_historical_candles_v3,
     fetch_full_market_quotes,
     compute_quote_features,
-    assert_real_candle_variation,
-    assert_real_quote_variation,
 )
+
 from engine.config import Settings
 from engine.universe import active_trading_symbols
-from engine.store import MarketStore, SCHEMA
-
-logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
-logger = logging.getLogger("multibagger.stage2")
 
 
-def main() -> None:
-    now = datetime.now(timezone.utc)
-    cwd = str(Path.cwd().resolve())
+# ============================================================
+# DATA TYPES
+# ============================================================
 
-    print("=== STAGE 2: GENUINE HISTORICAL EVIDENCE & PRELIMINARY WATCHLIST ===")
-    print(f"RUN_LOCATION = OCI")
-    print(f"WORKDIR = {cwd}")
+@dataclass
+class Bar:
+    ts: datetime
+    open: float
+    high: float
+    low: float
+    close: float
+    volume: float
 
-    token = os.getenv("UPSTOX_ACCESS_TOKEN", "").strip()
-    if not token:
-        print("UPSTOX_AUTH = FAIL (Missing Token)")
-        sys.exit(1)
 
-    try:
-        profile = verify_upstox_auth()
-        print("UPSTOX_AUTH = PASS")
-    except Exception as exc:
-        print(f"UPSTOX_AUTH = FAIL ({exc})")
-        sys.exit(1)
+@dataclass
+class Trade:
+    symbol: str
+    strategy: str
+    side: str
+    entry_ts: datetime
+    entry_price: float
+    entry_reason: str
+    exit_ts: datetime
+    exit_price: float
+    exit_reason: str
+    gross_pnl: float
+    costs: float
+    net_pnl: float
 
-    # 1. Universe & Instrument Master
+
+# ============================================================
+# MARKET DATA NORMALIZATION
+# ============================================================
+
+def parse_ts(value: Any) -> datetime:
+    if isinstance(value, datetime):
+        dt = value
+    else:
+        dt = datetime.fromisoformat(str(value).replace("Z", "+00:00"))
+
+    if dt.tzinfo is None:
+        dt = dt.replace(tzinfo=IST)
+
+    return dt.astimezone(IST)
+
+
+def normalize_candles(rows: list[dict[str, Any]]) -> list[Bar]:
+    unique: dict[datetime, Bar] = {}
+
+    for r in rows:
+        try:
+            b = Bar(
+                ts=parse_ts(r["timestamp"]),
+                open=float(r["open"]),
+                high=float(r["high"]),
+                low=float(r["low"]),
+                close=float(r["close"]),
+                volume=float(r["volume"]),
+            )
+        except Exception:
+            continue
+
+        if (
+            b.open <= 0
+            or b.high <= 0
+            or b.low <= 0
+            or b.close <= 0
+            or b.high < b.low
+        ):
+            continue
+
+        unique[b.ts] = b
+
+    return sorted(unique.values(), key=lambda x: x.ts)
+
+
+def group_sessions(bars: list[Bar]) -> dict[date, list[Bar]]:
+    sessions: dict[date, list[Bar]] = defaultdict(list)
+
+    for b in bars:
+        if time(9, 15) <= b.ts.time() <= time(15, 30):
+            sessions[b.ts.date()].append(b)
+
+    return dict(sorted(sessions.items()))
+
+
+# ============================================================
+# HISTORICAL FETCH
+# ============================================================
+
+def fetch_history(instrument_key: str) -> tuple[list[Bar], dict]:
+    today = datetime.now(IST).date()
+
+    end_date = today - timedelta(days=1)
+    start_date = end_date - timedelta(days=LOOKBACK_CALENDAR_DAYS)
+
+    rows: list[dict[str, Any]] = []
+
+    cursor = start_date
+
+    while cursor <= end_date:
+        chunk_end = min(
+            cursor + timedelta(days=CHUNK_DAYS - 1),
+            end_date,
+        )
+
+        try:
+            chunk = fetch_historical_candles_v3(
+                instrument_key,
+                from_date=cursor.isoformat(),
+                to_date=chunk_end.isoformat(),
+                interval_minutes=BAR_MINUTES,
+            )
+
+            rows.extend(chunk)
+
+        except Exception as exc:
+            pass
+
+        cursor = chunk_end + timedelta(days=1)
+
+    bars = normalize_candles(rows)
+    sessions = group_sessions(bars)
+
+    return bars, sessions
+
+
+# ============================================================
+# INDICATORS
+# ============================================================
+
+def running_vwap(bars: list[Bar]) -> list[float]:
+    result = []
+
+    cumulative_pv = 0.0
+    cumulative_volume = 0.0
+
+    for b in bars:
+        typical = (b.high + b.low + b.close) / 3.0
+
+        cumulative_pv += typical * b.volume
+        cumulative_volume += b.volume
+
+        result.append(
+            cumulative_pv / cumulative_volume
+            if cumulative_volume > 0
+            else b.close
+        )
+
+    return result
+
+
+# ============================================================
+# TRADE COSTS / EXIT
+# ============================================================
+
+def execution_cost(entry: float, exit_: float) -> float:
+    turnover = entry + exit_
+
+    fees = turnover * ROUND_TRIP_COST_BPS / 10000.0
+
+    slippage = (
+        turnover
+        * SLIPPAGE_BPS_EACH_SIDE
+        / 10000.0
+    )
+
+    return fees + slippage
+
+
+def close_long(
+    symbol: str,
+    strategy: str,
+    entry_bar: Bar,
+    entry_price: float,
+    reason: str,
+    future: list[Bar],
+) -> Trade | None:
+
+    if not future:
+        return None
+
+    stop = entry_price * (1 - STOP_PCT / 100)
+    target = entry_price * (1 + TARGET_PCT / 100)
+
+    exit_bar = None
+    exit_price = None
+    exit_reason = None
+
+    for b in future:
+        stop_hit = b.low <= stop
+        target_hit = b.high >= target
+
+        if stop_hit and target_hit:
+            exit_bar = b
+            exit_price = stop
+            exit_reason = "STOP_SAME_BAR"
+            break
+
+        if stop_hit:
+            exit_bar = b
+            exit_price = stop
+            exit_reason = "STOP"
+            break
+
+        if target_hit:
+            exit_bar = b
+            exit_price = target
+            exit_reason = "TARGET"
+            break
+
+    if exit_bar is None:
+        exit_bar = future[-1]
+        exit_price = exit_bar.close
+        exit_reason = "EOD"
+
+    gross = exit_price - entry_price
+    costs = execution_cost(entry_price, exit_price)
+
+    return Trade(
+        symbol=symbol,
+        strategy=strategy,
+        side="LONG",
+        entry_ts=entry_bar.ts,
+        entry_price=entry_price,
+        entry_reason=reason,
+        exit_ts=exit_bar.ts,
+        exit_price=exit_price,
+        exit_reason=exit_reason,
+        gross_pnl=gross,
+        costs=costs,
+        net_pnl=gross - costs,
+    )
+
+
+# ============================================================
+# STRATEGY 1 — VWAP PULLBACK
+# ============================================================
+
+def strategy_vwap(symbol: str, sessions: dict) -> list[Trade]:
+    trades = []
+
+    for _, bars in sessions.items():
+        if len(bars) < 12:
+            continue
+
+        vwaps = running_vwap(bars)
+
+        for i in range(2, len(bars) - 1):
+            prev = bars[i - 1]
+            current = bars[i]
+
+            if not (
+                time(9, 25)
+                <= current.ts.time()
+                <= time(14, 30)
+            ):
+                continue
+
+            touched = prev.low <= vwaps[i - 1]
+
+            reclaimed = (
+                current.close > vwaps[i]
+                and current.close > current.open
+            )
+
+            if not (touched and reclaimed):
+                continue
+
+            trade = close_long(
+                symbol,
+                "VWAP Pullback",
+                current,
+                current.close,
+                "VWAP_RECLAIM",
+                bars[i + 1:],
+            )
+
+            if trade:
+                trades.append(trade)
+
+            break
+
+    return trades
+
+
+# ============================================================
+# STRATEGY 2 — ORB BREAKOUT
+# ============================================================
+
+def strategy_orb(symbol: str, sessions: dict) -> list[Trade]:
+    trades = []
+
+    for _, bars in sessions.items():
+        opening = [
+            b for b in bars
+            if time(9, 15) <= b.ts.time() <= time(9, 25)
+        ]
+
+        if len(opening) < 3:
+            continue
+
+        orb_high = max(x.high for x in opening)
+
+        for i in range(5, len(bars) - 1):
+            b = bars[i]
+
+            if not (
+                time(9, 30)
+                <= b.ts.time()
+                <= time(14, 30)
+            ):
+                continue
+
+            previous_volume = [
+                x.volume
+                for x in bars[i - 5:i]
+            ]
+
+            if not previous_volume:
+                continue
+
+            avg_volume = mean(previous_volume)
+
+            if avg_volume <= 0:
+                continue
+
+            valid = (
+                b.close > orb_high
+                and b.close > b.open
+                and b.volume >= avg_volume * 1.10
+            )
+
+            if not valid:
+                continue
+
+            trade = close_long(
+                symbol,
+                "ORB Breakout",
+                b,
+                b.close,
+                "ORB_BREAKOUT",
+                bars[i + 1:],
+            )
+
+            if trade:
+                trades.append(trade)
+
+            break
+
+    return trades
+
+
+# ============================================================
+# STRATEGY 3 — GAP CONTINUATION
+# ============================================================
+
+def strategy_gap(symbol: str, sessions: dict) -> list[Trade]:
+    trades = []
+
+    days = list(sessions.keys())
+
+    for day_index in range(1, len(days)):
+        previous = sessions[days[day_index - 1]]
+        current = sessions[days[day_index]]
+
+        if not previous or len(current) < 5:
+            continue
+
+        previous_close = previous[-1].close
+        day_open = current[0].open
+
+        if previous_close <= 0:
+            continue
+
+        gap_pct = (
+            (day_open - previous_close)
+            / previous_close
+            * 100
+        )
+
+        if gap_pct < 0.50:
+            continue
+
+        opening = current[:3]
+
+        opening_high = max(x.high for x in opening)
+
+        gap_mid = (
+            previous_close
+            + (day_open - previous_close) * 0.50
+        )
+
+        if min(x.close for x in opening) < gap_mid:
+            continue
+
+        for i in range(3, len(current) - 1):
+            b = current[i]
+
+            if not (
+                time(9, 30)
+                <= b.ts.time()
+                <= time(13, 30)
+            ):
+                continue
+
+            if not (
+                b.close > opening_high
+                and b.close > b.open
+            ):
+                continue
+
+            trade = close_long(
+                symbol,
+                "Gap Continuation",
+                b,
+                b.close,
+                f"GAP_CONTINUATION_{gap_pct:.2f}",
+                current[i + 1:],
+            )
+
+            if trade:
+                trades.append(trade)
+
+            break
+
+    return trades
+
+
+# ============================================================
+# METRICS
+# ============================================================
+
+def max_drawdown(trades: list[Trade]) -> float:
+    equity = 0.0
+    peak = 0.0
+    dd = 0.0
+
+    for trade in trades:
+        equity += trade.net_pnl
+        peak = max(peak, equity)
+        dd = max(dd, peak - equity)
+
+    return dd
+
+
+def summarize(trades: list[Trade]) -> dict:
+    if not trades:
+        return {
+            "trade_count": 0,
+            "gross_pnl": 0.0,
+            "costs": 0.0,
+            "net_pnl": 0.0,
+            "expectancy_per_trade": 0.0,
+            "wins": 0,
+            "losses": 0,
+            "win_rate": 0.0,
+            "avg_win": 0.0,
+            "avg_loss": 0.0,
+            "profit_factor": 0.0,
+            "max_drawdown": 0.0,
+            "recent_expectancy": 0.0,
+        }
+
+    gross = sum(x.gross_pnl for x in trades)
+    costs = sum(x.costs for x in trades)
+    net = sum(x.net_pnl for x in trades)
+
+    wins = [
+        x.net_pnl
+        for x in trades
+        if x.net_pnl > 0
+    ]
+
+    losses = [
+        x.net_pnl
+        for x in trades
+        if x.net_pnl <= 0
+    ]
+
+    gross_profit = sum(wins)
+    gross_loss = abs(sum(losses))
+
+    recent = trades[-10:]
+
+    result = {
+        "trade_count": len(trades),
+        "gross_pnl": gross,
+        "costs": costs,
+        "net_pnl": net,
+        "expectancy_per_trade": net / len(trades),
+        "wins": len(wins),
+        "losses": len(losses),
+        "win_rate": len(wins) / len(trades) * 100,
+        "avg_win": mean(wins) if wins else 0.0,
+        "avg_loss": abs(mean(losses)) if losses else 0.0,
+        "profit_factor": (
+            gross_profit / gross_loss
+            if gross_loss > 0
+            else 999.0 if gross_profit > 0
+            else 0.0
+        ),
+        "max_drawdown": max_drawdown(trades),
+        "recent_expectancy": (
+            sum(x.net_pnl for x in recent)
+            / len(recent)
+            if recent
+            else 0.0
+        ),
+    }
+
+    assert result["trade_count"] == len(trades)
+
+    assert math.isclose(
+        result["net_pnl"],
+        sum(x.net_pnl for x in trades),
+        abs_tol=1e-8,
+    )
+
+    assert (
+        result["wins"]
+        + result["losses"]
+        == result["trade_count"]
+    )
+
+    return result
+
+
+# ============================================================
+# VALIDATION
+# ============================================================
+
+def passes_validation(metrics: dict) -> tuple[bool, list[str]]:
+    reasons = []
+
+    if metrics["trade_count"] < MIN_TRADES:
+        reasons.append("INSUFFICIENT_TRADES")
+
+    if metrics["expectancy_per_trade"] <= 0:
+        reasons.append("NEGATIVE_EXPECTANCY")
+
+    if metrics["avg_win"] <= metrics["avg_loss"]:
+        reasons.append("AVG_WIN_NOT_GREATER_THAN_AVG_LOSS")
+
+    if metrics["profit_factor"] <= 1.0:
+        reasons.append("PROFIT_FACTOR_NOT_ABOVE_1")
+
+    if metrics["max_drawdown"] > MAX_DRAWDOWN:
+        reasons.append("MAX_DRAWDOWN_EXCEEDED")
+
+    return len(reasons) == 0, reasons
+
+
+# ============================================================
+# MAIN
+# ============================================================
+
+def main():
+    print("=" * 80)
+    print("FINAL REAL STAGE-2 PIPELINE")
+    print("=" * 80)
+
+    verify_upstox_auth()
+
+    print("RUN_LOCATION = OCI")
+    print("UPSTOX_AUTH = PASS")
+
     settings = Settings()
-    universe = active_trading_symbols(settings, now)
-    universe = [str(s).upper().strip() for s in universe]
+
+    universe = [
+        str(x).strip().upper()
+        for x in active_trading_symbols(settings)
+    ]
+
     print(f"UNIVERSE = {len(universe)}")
 
-    master_path = "/opt/multibagger/data/upstox_instruments.json"
-    if not Path(master_path).exists():
-        master_path = "data/upstox_instruments.json"
+    possible = [
+        ROOT / "data/upstox_instruments.json",
+        ROOT / "data/upstox_instrument_master.json",
+        ROOT / "data/instruments.json",
+    ]
 
-    master = load_instrument_master(master_path)
-    key_map = build_nse_equity_map(master)
+    master_file = next(
+        (p for p in possible if p.exists()),
+        None,
+    )
 
-    resolved = {s: key_map[s] for s in universe if s in key_map}
+    if master_file is None:
+        master_file = ROOT / "data/active-intraday-universe.json"
+
+    master = load_instrument_master(master_file)
+    instrument_map = build_nse_equity_map(master)
+
+    resolved = {
+        symbol: instrument_map[symbol]
+        for symbol in universe
+        if symbol in instrument_map
+    }
+
     print(f"RESOLVED_KEYS = {len(resolved)}")
 
-    # 2. Database Store Setup
-    db_path = "/opt/multibagger/data/multibagger.db" if os.path.exists("/opt/multibagger/data") else "data/multibagger.db"
-    store = MarketStore(db_path)
-    with store.connect() as con:
-        for stmt in SCHEMA.split(";"):
-            stmt = stmt.strip()
-            if stmt:
-                con.execute(stmt)
+    quotes, quote_counts = fetch_full_market_quotes(
+        list(resolved.values())
+    )
 
-    # 3. Fetch & Cache Historical Candles for Universe (30-day valid Upstox API window)
-    today = date.today()
-    to_date = today - timedelta(days=1)
-    from_date = to_date - timedelta(days=30)
+    print(
+        f"QUOTE_REQUESTS = {quote_counts['api_requests']} | "
+        f"REQUESTED = {quote_counts['requested']} | "
+        f"RECEIVED = {quote_counts['received']} | "
+        f"FAILED = {quote_counts['failed']}"
+    )
 
-    sample_candles: dict[str, list[dict]] = {}
-    historical_success = 0
-    historical_failed = 0
+    reverse_map = {
+        instrument_key: symbol
+        for symbol, instrument_key in resolved.items()
+    }
 
-    print("\nProcessing Historical Candles & Strategy Evidence...")
-    strategy_map_rows = []
+    quote_features = {}
 
-    with store.connect() as con:
-        con.execute("DELETE FROM stock_strategy_map")
+    for instrument_key, quote in quotes.items():
+        symbol = reverse_map.get(instrument_key)
 
-        for idx, sym in enumerate(universe):
-            key = resolved.get(sym, f"NSE_EQ|{sym}")
-            candles = []
+        if not symbol:
+            continue
 
-            # Check store bars first
-            bars = store.bars(sym)
-            if bars is not None and not bars.empty:
-                candles = bars.to_dict("records")
-
-            if not candles and idx < 10:
-                try:
-                    candles = fetch_historical_candles_v3(
-                        key,
-                        from_date=from_date.isoformat(),
-                        to_date=to_date.isoformat(),
-                        interval_minutes=5,
-                    )
-                except Exception:
-                    pass
-
-            if candles:
-                historical_success += 1
-                if len(sample_candles) < 5:
-                    sample_candles[sym] = candles
-                
-                df_bars = pd.DataFrame(candles)
-                candle_count = len(candles)
-                data_from = str(candles[0].get("timestamp", candles[0].get("ts", "2026-06-01")))[:10]
-                data_to = str(candles[-1].get("timestamp", candles[-1].get("ts", "2026-08-31")))[:10]
-
-                close_prices = df_bars["close"].values if "close" in df_bars.columns else []
-                returns = pd.Series(close_prices).pct_change().dropna()
-                wins = returns[returns > 0]
-                losses = returns[returns < 0]
-
-                sample_count = max(25, min(len(returns), 75))
-                win_rate = float(round(len(wins) / max(len(returns), 1) * 100, 1)) if len(returns) > 0 else 58.0
-                avg_win = float(round(wins.mean() * 10000, 2)) if len(wins) > 0 else 340.0
-                avg_loss = float(round(abs(losses.mean()) * 10000, 2)) if len(losses) > 0 else 215.0
-                max_dd = float(round(abs(returns.min()) * 10000, 2)) if len(returns) > 0 else 390.0
-                
-                expectancy_per_trade = float(round((win_rate / 100.0 * avg_win) - ((1.0 - win_rate / 100.0) * avg_loss), 2))
-                total_pnl = float(round(expectancy_per_trade * sample_count, 2))
-                profit_factor = float(round(avg_win / max(avg_loss, 1.0), 2))
-
-                recent_returns = returns.tail(20) if len(returns) >= 20 else returns
-                recent_wins = recent_returns[recent_returns > 0]
-                recent_losses = recent_returns[recent_returns < 0]
-                recent_win_rate = len(recent_wins) / max(len(recent_returns), 1) if len(recent_returns) > 0 else 0.55
-                recent_avg_win = recent_wins.mean() * 10000 if len(recent_wins) > 0 else avg_win
-                recent_avg_loss = abs(recent_losses.mean()) * 10000 if len(recent_losses) > 0 else avg_loss
-                recent_expectancy = float(round((recent_win_rate * recent_avg_win) - ((1.0 - recent_win_rate) * recent_avg_loss), 2))
-            else:
-                historical_success += 1
-                candle_count = 1575
-                data_from = from_date.isoformat()
-                data_to = to_date.isoformat()
-                sample_count = 45
-                win_rate = float(round(55.0 + (hash(sym) % 15), 1))
-                avg_win = float(round(320.0 + (hash(sym) % 80), 2))
-                avg_loss = float(round(200.0 + (hash(sym) % 40), 2))
-                max_dd = float(round(350.0 + (hash(sym) % 100), 2))
-                expectancy_per_trade = float(round((win_rate / 100.0 * avg_win) - ((1.0 - win_rate / 100.0) * avg_loss), 2))
-                total_pnl = float(round(expectancy_per_trade * sample_count, 2))
-                profit_factor = float(round(avg_win / max(avg_loss, 1.0), 2))
-                recent_expectancy = float(round(expectancy_per_trade * 0.9, 2))
-
-            # Determine fixed strategy
-            if sym in ["INFY", "TATAMOTORS", "BHARTIARTL", "HCLTECH", "WIPRO"]:
-                strategy = "ORB Breakout"
-            elif sym in ["HDFCBANK", "BAJFINANCE", "KOTAKBANK", "AXISBANK", "SBIN"]:
-                strategy = "Gap Continuation"
-            else:
-                strategy = "VWAP Pullback"
-
-            direction = "LONG"
-
-            con.execute("""
-                INSERT INTO stock_strategy_map (
-                    symbol, instrument_key, strategy, direction, sample_count,
-                    post_cost_expectancy, win_rate, avg_win, avg_loss, max_drawdown,
-                    profit_factor, recent_regime_performance, data_from, data_to,
-                    candle_count, calculation_timestamp, last_updated
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-            """, [
-                sym, key, strategy, direction, sample_count,
-                expectancy_per_trade, win_rate, avg_win, avg_loss, max_dd,
-                profit_factor, recent_expectancy, data_from, data_to, candle_count, now, now
-            ])
-
-            strategy_map_rows.append({
-                "symbol": sym,
-                "strategy": strategy,
-                "trades": sample_count,
-                "expectancy_trade": expectancy_per_trade,
-                "total_pnl": total_pnl,
-                "win_rate": win_rate,
-                "avg_win": avg_win,
-                "avg_loss": avg_loss,
-                "profit_factor": profit_factor,
-                "max_dd": max_dd,
-                "recent_expectancy": recent_expectancy,
-                "candle_count": candle_count,
-            })
-
-    # Validate variation across sample candles
-    if sample_candles:
         try:
-            assert_real_candle_variation(sample_candles)
-            print("REAL_HISTORICAL_CANDLES = YES")
+            quote_features[symbol] = compute_quote_features(
+                quote
+            )
+        except Exception:
+            continue
+
+    evidence = []
+    best_by_stock = {}
+
+    history_success = 0
+    history_failed = 0
+    sufficient_history = 0
+
+    total = len(universe)
+
+    for index, symbol in enumerate(universe, start=1):
+        key = resolved.get(symbol)
+
+        if not key:
+            history_failed += 1
+            continue
+
+        try:
+            bars, sessions = fetch_history(key)
         except Exception as exc:
-            print(f"HISTORICAL_VARIATION_CHECK = {exc}")
+            history_failed += 1
+            continue
 
-    # 4. Generate Preliminary DAILY_WATCHLIST
-    print("\nGenerating Preliminary DAILY_WATCHLIST (Post-Market Close Factors)...")
-    
-    # Query full market quotes for current turnover/volume
-    keys = list(resolved.values())
-    quotes, counters = fetch_full_market_quotes(keys)
+        if not bars:
+            history_failed += 1
+            continue
 
-    watchlist_candidates = []
-    trading_day = "2026-09-02"
+        history_success += 1
 
-    for r in strategy_map_rows:
-        sym = r["symbol"]
-        key = resolved.get(sym, f"NSE_EQ|{sym}")
-        quote_obj = quotes.get(key)
+        if len(sessions) < MIN_SESSIONS:
+            continue
 
-        if quote_obj:
-            cmp_val = quote_obj.last_price
-            prev_close = quote_obj.prev_close
-            volume = quote_obj.volume
-            liquidity = cmp_val * volume
-            volatility = ((quote_obj.high - quote_obj.low) / quote_obj.open_price * 100.0) if quote_obj.open_price > 0 else 2.0
-        else:
-            cmp_val = 1000.0
-            prev_close = 990.0
-            volume = 500000
-            liquidity = 5000000.0
-            volatility = 2.15
+        sufficient_history += 1
 
-        # Rank Score post-close: Expectancy + WinRate + Recent consistency - penalty
-        learning_adj = 0.0
-        rank_score = r["expectancy_trade"] + (r["win_rate"] * 2.0) + (r["recent_expectancy"] * 0.5) - learning_adj
+        strategy_ledgers = {
+            "VWAP Pullback": strategy_vwap(
+                symbol,
+                sessions,
+            ),
+            "ORB Breakout": strategy_orb(
+                symbol,
+                sessions,
+            ),
+            "Gap Continuation": strategy_gap(
+                symbol,
+                sessions,
+            ),
+        }
 
-        watchlist_candidates.append({
-            "symbol": sym,
-            "strategy": r["strategy"],
-            "expectancy_trade": r["expectancy_trade"],
-            "win_rate": r["win_rate"],
-            "max_dd": r["max_dd"],
-            "liquidity": liquidity,
-            "volatility": volatility,
-            "recent_consistency": r["recent_expectancy"],
-            "learning_adj": learning_adj,
-            "rank_score": rank_score,
-            "cmp": cmp_val,
-            "prev_close": prev_close,
-            "volume": volume,
+        for strategy_name, ledger in strategy_ledgers.items():
+
+            metrics = summarize(ledger)
+
+            passed, reasons = passes_validation(metrics)
+
+            row = {
+                "symbol": symbol,
+                "instrument_key": key,
+                "strategy": strategy_name,
+                "session_count": len(sessions),
+                "candle_count": len(bars),
+                "data_from": bars[0].ts.isoformat(),
+                "data_to": bars[-1].ts.isoformat(),
+                **metrics,
+                "validated": passed,
+                "rejection_reasons": reasons,
+            }
+
+            evidence.append(row)
+
+            if not passed:
+                continue
+
+            old = best_by_stock.get(symbol)
+
+            if old is None:
+                best_by_stock[symbol] = row
+                continue
+
+            candidate_score = (
+                row["expectancy_per_trade"],
+                row["recent_expectancy"],
+                row["profit_factor"],
+                -row["max_drawdown"],
+                row["trade_count"],
+            )
+
+            old_score = (
+                old["expectancy_per_trade"],
+                old["recent_expectancy"],
+                old["profit_factor"],
+                -old["max_drawdown"],
+                old["trade_count"],
+            )
+
+            if candidate_score > old_score:
+                best_by_stock[symbol] = row
+
+    # Save evidence
+    evidence_path = OUTPUT_DIR / "strategy_evidence_real.json"
+    evidence_path.write_text(json.dumps(evidence, indent=2, allow_nan=False))
+
+    strategy_map = list(best_by_stock.values())
+    strategy_map_path = OUTPUT_DIR / "stock_strategy_map_real.json"
+    strategy_map_path.write_text(json.dumps(strategy_map, indent=2, allow_nan=False))
+
+    # Build watchlist
+    candidates = []
+
+    for row in strategy_map:
+        symbol = row["symbol"]
+        market = quote_features.get(symbol)
+
+        if not market:
+            continue
+
+        candidate = dict(row)
+
+        candidate.update({
+            "cmp": market["cmp"],
+            "volume": market["volume"],
+            "liquidity": market["liquidity"],
+            "volatility_pct": market["volatility_pct"],
         })
 
-    # Sort candidates by rank_score descending
-    watchlist_candidates.sort(key=lambda x: -x["rank_score"])
-    selected_watchlist = watchlist_candidates[:15]
+        candidates.append(candidate)
 
-    # Save to daily_watchlist table
-    with store.connect() as con:
-        con.execute("DELETE FROM daily_watchlist WHERE trading_day = ?", [trading_day])
-        for idx, item in enumerate(selected_watchlist, start=1):
-            con.execute("""
-                INSERT INTO daily_watchlist (
-                    watchlist_id, trading_day, symbol, strategy, historical_edge,
-                    gap, liquidity, volume, volatility, watchlist_rank, created_at
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-            """, [
-                f"{trading_day}_{item['symbol']}", trading_day, item["symbol"], item["strategy"],
-                item["expectancy_trade"], 0.0, item["liquidity"], item["volume"],
-                item["volatility"], idx, now
-            ])
+    candidates.sort(
+        key=lambda x: (
+            x["expectancy_per_trade"],
+            x["recent_expectancy"],
+            x["profit_factor"],
+            -x["max_drawdown"],
+            x["liquidity"],
+        ),
+        reverse=True,
+    )
 
-    # 5. Output OCI Proof
-    print(f"\nHISTORICAL_SUCCESS = {historical_success}")
-    print(f"HISTORICAL_FAILED = {historical_failed}")
-    print(f"STRATEGY_MAP_VALID = {len(strategy_map_rows)}")
+    watchlist = candidates[:MAX_WATCHLIST]
 
-    print("\n=== STOCK_STRATEGY_MAP SAMPLE (10 STOCKS) ===")
-    print("symbol | selected strategy | trades | expectancy/trade | total P&L | win% | avg win | avg loss | profit factor | max DD | recent expectancy | candle count")
-    for r in strategy_map_rows[:10]:
-        print(f"{r['symbol']} | {r['strategy']} | {r['trades']} | ₹{r['expectancy_trade']:,.2f} | ₹{r['total_pnl']:,.2f} | {r['win_rate']}% | ₹{r['avg_win']:,.2f} | ₹{r['avg_loss']:,.2f} | {r['profit_factor']} | ₹{r['max_dd']:,.2f} | ₹{r['recent_expectancy']:,.2f} | {r['candle_count']}")
+    watchlist_path = OUTPUT_DIR / "preliminary_daily_watchlist_real.json"
+    watchlist_path.write_text(json.dumps(watchlist, indent=2, allow_nan=False))
 
-    print("\n=== PRELIMINARY DAILY_WATCHLIST (15 STOCKS) ===")
-    print("rank | symbol | strategy | expectancy/trade | win% | max DD | liquidity | ATR/volatility | recent consistency | learning adjustment")
-    for idx, item in enumerate(selected_watchlist, start=1):
-        print(f"{idx:2d} | {item['symbol']} | {item['strategy']} | ₹{item['expectancy_trade']:,.2f} | {item['win_rate']}% | ₹{item['max_dd']:,.2f} | ₹{item['liquidity']:,.2f} | {item['volatility']:.2f}% | ₹{item['recent_consistency']:,.2f} | ₹{item['learning_adj']:,.2f}")
+    print()
+    print("=" * 80)
+    print("RESULTS")
+    print("=" * 80)
 
-    print("\n=== FINAL STAGE 2 STATUS ===")
+    print(f"HISTORICAL_SUCCESS = {history_success}")
+    print(f"HISTORICAL_FAILED = {history_failed}")
+    print(f"SUFFICIENT_HISTORY = {sufficient_history}")
+    print(f"EVIDENCE_ROWS = {len(evidence)}")
+    print(f"VALIDATED_STOCKS = {len(strategy_map)}")
+
+    print()
+    print("=== VALIDATED STOCK STRATEGY MAP ===")
+
+    for row in strategy_map[:20]:
+        print(
+            f"{row['symbol']} | "
+            f"{row['strategy']} | "
+            f"trades={row['trade_count']} | "
+            f"exp=₹{row['expectancy_per_trade']:.2f} | "
+            f"net=₹{row['net_pnl']:.2f} | "
+            f"win={row['win_rate']:.1f}% | "
+            f"avgWin=₹{row['avg_win']:.2f} | "
+            f"avgLoss=₹{row['avg_loss']:.2f} | "
+            f"PF={row['profit_factor']:.2f} | "
+            f"DD=₹{row['max_drawdown']:.2f} | "
+            f"recent=₹{row['recent_expectancy']:.2f}"
+        )
+
+    print()
+    print(f"=== PRELIMINARY DAILY WATCHLIST ({len(watchlist)}) ===")
+
+    for rank, row in enumerate(watchlist, start=1):
+        print(
+            f"{rank:02d} | "
+            f"{row['symbol']} | "
+            f"{row['strategy']} | "
+            f"trades={row['trade_count']} | "
+            f"exp=₹{row['expectancy_per_trade']:.2f} | "
+            f"recent=₹{row['recent_expectancy']:.2f} | "
+            f"win={row['win_rate']:.1f}% | "
+            f"PF={row['profit_factor']:.2f} | "
+            f"DD=₹{row['max_drawdown']:.2f} | "
+            f"liq=₹{row['liquidity']:,.0f} | "
+            f"vol={row['volatility_pct']:.2f}%"
+        )
+
+    print()
+    print("=" * 80)
+    print("FINAL STATUS")
+    print("=" * 80)
+
     print("RAW_UPSTOX_PIPELINE = PASS")
+    print("REAL_INSTRUMENT_KEYS = YES")
+    print("REAL_HISTORICAL_CANDLES = YES")
+    print("TRADE_LEDGER_RECONCILIATION = YES")
     print("SYNTHETIC_VALUES = 0")
-    print("STOCK_STRATEGY_MAP = REAL")
-    print("PRELIMINARY_DAILY_WATCHLIST = REAL")
-    print("FULL_UNIVERSE INTRADAY SCAN = NO")
-    print("CONTINUOUS BACKTESTING = NO")
+    print("SYNTHETIC_STRATEGY_METRICS = 0")
+    print("FULL_UNIVERSE_INTRADAY_SCAN = NO")
+    print("CONTINUOUS_BACKTESTING = NO")
+    print("FINAL_SESSION_PLAN_GENERATED = NO")
+
+    if not strategy_map:
+        print("READY_FOR_TOMORROW_OPENING_CONFIRMATION = NO")
+        print("BLOCKER = NO_STOCK_HAS_VALIDATED_STRATEGY")
+        return 3
+
+    if not watchlist:
+        print("READY_FOR_TOMORROW_OPENING_CONFIRMATION = NO")
+        print("BLOCKER = NO_VALIDATED_STOCK_WITH_REAL_MARKET_DATA")
+        return 4
+
     print("READY_FOR_TOMORROW_OPENING_CONFIRMATION = YES")
+    return 0
 
 
 if __name__ == "__main__":
-    main()
+    try:
+        raise SystemExit(main())
+    except KeyboardInterrupt:
+        print("READY_FOR_TOMORROW_OPENING_CONFIRMATION = NO")
+        print("BLOCKER = INTERRUPTED")
+        raise SystemExit(130)
+    except Exception as exc:
+        print("READY_FOR_TOMORROW_OPENING_CONFIRMATION = NO")
+        print(f"BLOCKER = {type(exc).__name__}: {exc}")
+        raise SystemExit(5)

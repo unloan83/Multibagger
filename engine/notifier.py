@@ -148,7 +148,7 @@ def send_telegram_inline_keyboard(message: str, reply_markup: dict) -> bool:
 def send_strategy_selected_telegram_alert(cand: Any) -> bool:
     """Sends notification-only Telegram alert when a strategy candidate is selected automatically."""
     p = cand.params
-    source = getattr(cand, "backtest_source", "LOCAL_FALLBACK")
+    source = getattr(cand, "backtest_source", "IN_HOUSE_ENGINE")
     direction = getattr(p, "direction", "LONG")
     msg = (
         f"<b>Strategy Selected</b> | Direction={direction} | ADX={int(p.adx_threshold)} | VWAP={p.vwap_mode} | "
@@ -162,7 +162,7 @@ def send_strategy_selected_telegram_alert(cand: Any) -> bool:
 def send_strategy_proposal_telegram_alert(cand: Any, current_idx: int = 0, total_count: int = 5) -> bool:
     """Sends Telegram strategy proposal formatted as specified with interactive inline action buttons."""
     p = cand.params
-    source = getattr(cand, "backtest_source", "LOCAL_FALLBACK")
+    source = getattr(cand, "backtest_source", "IN_HOUSE_ENGINE")
     direction = getattr(p, "direction", "LONG")
     msg = (
         f"<b>ALGORITHMIC BACKTEST SOURCE = {source}</b>\n\n"

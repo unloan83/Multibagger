@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 import math
 import uuid
 from dataclasses import asdict, dataclass, field
@@ -9,6 +10,8 @@ import pandas as pd
 import numpy as np
 
 from .store import MarketStore
+
+logger = logging.getLogger("intelligence")
 
 
 @dataclass
@@ -598,16 +601,20 @@ def run_strategy_intelligence_pipeline(db_path: str) -> List[StrategyCandidate]:
     combined = evaluated + [c for c in secondary_cands if not any(e.candidate_id == c.candidate_id for e in evaluated)]
     ranked = rank_and_filter_candidates(combined)
 
-    # Automatic selection of top-ranked valid strategy
+    # Proposal of top-ranked valid strategy (requires explicit approval before activation)
     valid_cands = [c for c in ranked if c.status != "REJECTED"]
     if valid_cands:
         top_cand = valid_cands[0]
-        set_active_strategy(top_cand.candidate_id, db_path, approved_by="AUTO_RANK")
+        # Dispatch strategy proposal with interactive Telegram approval buttons
         try:
-            from .notifier import send_strategy_selected_telegram_alert
-            send_strategy_selected_telegram_alert(top_cand)
-        except Exception:
-            pass
+            from .notifier import send_strategy_proposal_telegram_alert
+            sent = send_strategy_proposal_telegram_alert(top_cand, current_idx=0, total_count=len(valid_cands))
+            if sent:
+                logger.info("Telegram proposal dispatched successfully for candidate %s", top_cand.candidate_id)
+            else:
+                logger.warning("NOTIFIER_FAILURE: Failed to dispatch Telegram proposal for candidate %s", top_cand.candidate_id)
+        except Exception as exc:
+            logger.error("NOTIFIER_FAILURE: Exception dispatching Telegram proposal: %s", exc, exc_info=True)
 
     save_candidates_to_store(ranked, db_path)
     return ranked

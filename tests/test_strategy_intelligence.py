@@ -286,3 +286,47 @@ def test_deterministic_ranking_reproducibility():
 
     assert ids_run1 == ids_run2
     assert ids_run1[0] == "cand-a"
+
+
+def test_position_cannot_open_without_explicit_telegram_approval(temp_db, monkeypatch):
+    """Enforces Part 2 Requirement: Asserts that running pipeline DOES NOT automatically activate/open strategy.
+    Strategy remains NO_TRADE / unapproved until explicit Telegram callback 'cb:accept:<id>' is invoked."""
+    monkeypatch.setenv("STRICT_STRATEGY_GATE", "1")
+    ranked = run_strategy_intelligence_pipeline(temp_db)
+    assert len(ranked) > 0
+
+    # 1. Verify NO strategy is active automatically
+    active_before = get_active_strategy(temp_db)
+    assert active_before is None
+
+    # 2. Verify top candidate status is PROPOSED (not ACCEPTED)
+    top_cand = next(c for c in ranked if c.status != "REJECTED")
+    assert top_cand.status == "PROPOSED"
+
+    # 3. Attempting paper buy without approval returns BLOCKED_NO_STRATEGY_APPROVAL
+    sqlite_db = os.path.join(os.path.dirname(temp_db), "test_paper_state.db")
+    engine = PaperExecutionEngine(db_path=sqlite_db)
+    engine.market_db_path = temp_db
+    assert engine.is_strategy_approved() is False
+
+    res_buy = engine.execute_paper_buy(
+        trade_id="tr-test-unapproved",
+        instrument_key="NSE_EQ|INE002A01018",
+        qty=10,
+        buy_limit=2450.0,
+        ask=2450.0
+    )
+    assert res_buy["status"] == "BLOCKED_NO_STRATEGY_APPROVAL"
+    assert res_buy["filled_qty"] == 0
+
+    # 4. Explicitly send Telegram approval callback
+    res_cb = handle_telegram_callback(f"cb:accept:{top_cand.candidate_id}", temp_db)
+    assert "Strategy accepted" in res_cb
+
+    # 5. Verify strategy is now ACTIVE and approved after explicit approval
+    active_after = get_active_strategy(temp_db)
+    assert active_after is not None
+    assert active_after["candidate_id"] == top_cand.candidate_id
+    assert active_after["approved_by"] == "TELEGRAM"
+    assert engine.is_strategy_approved() is True
+

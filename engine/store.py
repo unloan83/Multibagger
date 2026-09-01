@@ -114,6 +114,18 @@ CREATE TABLE IF NOT EXISTS strategy_candidates (
   status VARCHAR NOT NULL DEFAULT 'CANDIDATE', created_at TIMESTAMPTZ NOT NULL,
   in_sample_json VARCHAR, out_of_sample_json VARCHAR, regime_breakdown_json VARCHAR
 );
+CREATE TABLE IF NOT EXISTS learning_store (
+  lesson_id VARCHAR PRIMARY KEY,
+  trading_day DATE NOT NULL,
+  symbol VARCHAR NOT NULL,
+  strategy_id VARCHAR NOT NULL,
+  failure_category VARCHAR NOT NULL,
+  penalty_score DOUBLE NOT NULL DEFAULT 15.0,
+  reason VARCHAR NOT NULL,
+  fresh_override_adx_threshold DOUBLE NOT NULL DEFAULT 30.0,
+  fresh_override_rvol_threshold DOUBLE NOT NULL DEFAULT 2.5,
+  created_at TIMESTAMPTZ NOT NULL
+);
 CREATE TABLE IF NOT EXISTS active_strategy (
   id INTEGER PRIMARY KEY, candidate_id VARCHAR NOT NULL,
   name VARCHAR NOT NULL, direction VARCHAR NOT NULL DEFAULT 'LONG',

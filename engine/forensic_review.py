@@ -147,30 +147,134 @@ class EODForensicSummary:
         return asdict(self)
 
 
+REQUIRED_FAILURE_CATEGORIES = [
+    "stock selection",
+    "late entry",
+    "market/sector misalignment",
+    "overextension/chasing",
+    "weak volume quality",
+    "wrong strategy template",
+    "SL/target issue",
+    "exit/thesis-failure handling",
+]
+
+
+def classify_trade_failure(trade: dict[str, Any]) -> tuple[str, str, float]:
+    """
+    Classifies a paper trade failure into one of the 8 required categories.
+    Returns (failure_category, reason, penalty_score).
+    """
+    pnl = float(trade.get("net_pnl") or 0.0)
+    exit_reason = str(trade.get("exit_reason") or "").upper()
+    signal_entry = float(trade.get("signal_entry") or 0.0)
+    entry_fill = float(trade.get("entry_fill") or 0.0)
+    strategy = str(trade.get("strategy") or "cand-long-25-strict-sl0.8-tp1.8-e0930")
+    
+    order_json = trade.get("intended_order_json") or "{}"
+    if isinstance(order_json, str):
+        try:
+            details = json.loads(order_json)
+        except Exception:
+            details = {}
+    else:
+        details = order_json if isinstance(order_json, dict) else {}
+
+    # 1. Exit/Thesis-Failure Handling
+    if exit_reason in ("MANUAL_PANIC", "HARD_BREAKER", "THESIS_FAILURE", "EOD_FORCE_CLOSE"):
+        return (
+            "exit/thesis-failure handling",
+            f"Adverse exit triggered by {exit_reason} (net PnL: Rs{pnl:.2f})",
+            25.0,
+        )
+
+    # 2. Late Entry
+    if signal_entry > 0 and entry_fill > signal_entry * 1.015:
+        slippage_pct = ((entry_fill - signal_entry) / signal_entry) * 100
+        return (
+            "late entry",
+            f"Slippage/late entry execution ({slippage_pct:.2f}% above signal entry)",
+            20.0,
+        )
+
+    # 3. Market/Sector Misalignment
+    market_aligned = details.get("market_aligned", True)
+    sector_rank = details.get("sector_rank", 1)
+    if not market_aligned or (isinstance(sector_rank, int) and sector_rank > 8):
+        return (
+            "market/sector misalignment",
+            f"Trade entered against weak sector (rank: {sector_rank}) or market trend",
+            18.0,
+        )
+
+    # 4. Overextension/Chasing
+    adx = float(details.get("adx") or 0.0)
+    rsi = float(details.get("rsi") or 0.0)
+    if adx > 40.0 or rsi > 72.0:
+        return (
+            "overextension/chasing",
+            f"Chased overextended setup (ADX={adx:.1f}, RSI={rsi:.1f})",
+            20.0,
+        )
+
+    # 5. Weak Volume Quality
+    rvol = float(details.get("rvol") or 1.0)
+    if rvol < 1.0:
+        return (
+            "weak volume quality",
+            f"Sub-par relative volume on breakout (RVOL={rvol:.2f}x < 1.0x)",
+            15.0,
+        )
+
+    # 6. Wrong Strategy Template
+    regime = details.get("regime", "RANGE_BOUND")
+    if regime == "RANGE_BOUND" and "breakout" in strategy.lower():
+        return (
+            "wrong strategy template",
+            f"Breakout strategy applied in range-bound market regime ({regime})",
+            20.0,
+        )
+
+    # 7. SL/Target Issue
+    stop_price = float(trade.get("stop_price") or 0.0)
+    target_price = float(trade.get("target_price") or 0.0)
+    if entry_fill > 0 and stop_price > 0 and target_price > 0:
+        risk = abs(entry_fill - stop_price)
+        reward = abs(target_price - entry_fill)
+        rr_ratio = reward / risk if risk > 0 else 0
+        if rr_ratio < 1.2:
+            return (
+                "SL/target issue",
+                f"Sub-optimal risk-reward setup (R:R = {rr_ratio:.2f} < 1.2)",
+                15.0,
+            )
+
+    # 8. Stock Selection (Default fallback for unprofitable setups)
+    return (
+        "stock selection",
+        f"Stock selection failure (net PnL: Rs{pnl:.2f})",
+        15.0,
+    )
+
+
 def run_eod_forensic_review(store, trading_day: str | None = None) -> EODForensicSummary:
     """
     Automated Post-Market Forensic Audit (12-Question Analysis)
-    Produces structured EOD output:
-    - Daily Result (P&L | Trades | Win Rate | Max Drawdown | Target Hit? | Loss Limit Hit?)
-    - Regime Performance (Regime | Strategy | Trades | P&L | Expectancy)
-    - Rejected Setups Audit (REJECTED SETUPS | REJECTION REASON | WOULD_HAVE_P&L)
-    - Failures Found (Problem | Root Cause | Fix)
-    - Tomorrow's Changes (Change | Evidence | Validation | Strategy Version)
+    Produces structured EOD output and persists classified failure lessons into learning_store.
     """
     now = datetime.now(timezone.utc)
     day_str = trading_day or now.strftime("%Y-%m-%d")
 
     with store.connect() as con:
         trades = con.execute("""
-            SELECT trade_id, symbol, side, agent, entry_fill, exit_fill, net_pnl, exit_reason
+            SELECT trade_id, symbol, side, strategy, entry_fill, exit_fill, net_pnl, exit_reason, signal_entry, stop_price, target_price, intended_order_json
             FROM paper_trades
             WHERE trading_day = ?
         """, [day_str]).fetchall()
 
         # Query rejected setups from intraday_audit_log
         audit_rows = con.execute("""
-            SELECT symbol, reason_code FROM intraday_audit_log
-            WHERE date(evaluated_at) = ? AND action = 'SCAN' AND reason_code != 'NO_VALID_SETUP'
+            SELECT symbol, rejection_reason FROM intraday_audit_log
+            WHERE date(observed_at) = ? AND rejection_reason IS NOT NULL AND rejection_reason != 'NO_VALID_SETUP'
             LIMIT 50
         """, [day_str]).fetchall()
 
@@ -194,6 +298,42 @@ def run_eod_forensic_review(store, trading_day: str | None = None) -> EODForensi
 
     target_hit = total_pnl >= 4000.0
     loss_limit_hit = total_pnl <= -1000.0
+
+    # Classify every losing trade and write lessons to learning_store
+    failures: list[dict[str, str]] = []
+    with store.connect() as con:
+        for t in trades:
+            t_dict = {
+                "trade_id": str(t[0]),
+                "symbol": str(t[1]),
+                "side": str(t[2]),
+                "strategy": str(t[3]),
+                "entry_fill": float(t[4] or 0.0),
+                "exit_fill": float(t[5] or 0.0),
+                "net_pnl": float(t[6] or 0.0),
+                "exit_reason": str(t[7] or ""),
+                "signal_entry": float(t[8] or 0.0),
+                "stop_price": float(t[9] or 0.0),
+                "target_price": float(t[10] or 0.0),
+                "intended_order_json": t[11],
+            }
+            if t_dict["net_pnl"] < 0 or t_dict["exit_reason"] in ("MANUAL_PANIC", "HARD_BREAKER", "THESIS_FAILURE", "STOP_LOSS"):
+                cat, reason, penalty = classify_trade_failure(t_dict)
+                failures.append({
+                    "symbol": t_dict["symbol"],
+                    "strategy": t_dict["strategy"],
+                    "problem": cat.upper().replace(" ", "_"),
+                    "root_cause": reason,
+                    "fix": f"PENALIZE_REPEAT_{cat.upper().replace(' ', '_')}",
+                })
+                
+                lesson_id = f"LESSON-{uuid.uuid4().hex[:8].upper()}"
+                con.execute("""
+                    INSERT INTO learning_store (
+                        lesson_id, trading_day, symbol, strategy_id, failure_category,
+                        penalty_score, reason, fresh_override_adx_threshold, fresh_override_rvol_threshold, created_at
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, 30.0, 2.5, ?)
+                """, [lesson_id, day_str, t_dict["symbol"], t_dict["strategy"], cat, penalty, reason, now])
 
     # Regime Breakdown
     regime_map: dict[str, dict[str, Any]] = {}
@@ -222,17 +362,15 @@ def run_eod_forensic_review(store, trading_day: str | None = None) -> EODForensi
         rejected_setups.append({
             "symbol": str(r[0]),
             "rejection_reason": str(r[1] or "FILTER_REJECTED"),
-            "would_have_pnl": 0.0  # Hypothesized shadow PnL
+            "would_have_pnl": 0.0
         })
 
-    failures: list[dict[str, str]] = []
     if loss_limit_hit:
         failures.append({
             "problem": "DAILY_LOSS_LIMIT_HIT",
             "root_cause": "ADVERSE_MARKET_REGIME_SHIFT",
             "fix": "TIGHTEN_ENTRY_CONFLUENCE_SCORE",
         })
-        # Persist to failure register so this is not silently forgotten
         append_to_failure_register(
             category="RISK_PNL",
             severity="HIGH",
@@ -240,23 +378,6 @@ def run_eod_forensic_review(store, trading_day: str | None = None) -> EODForensi
             root_cause="ADVERSE_MARKET_REGIME_SHIFT or entry quality failure",
             pnl_impact_inr=total_pnl,
             regression_check_id="RC-09",
-            evidence_ref=f"EOD_forensic_review:{day_str}",
-        )
-
-    # Persist any additional failures detected during the day
-    if win_rate < 30.0 and total_trades >= 3:
-        failures.append({
-            "problem": "LOW_WIN_RATE",
-            "root_cause": f"Win rate {win_rate:.1f}% below 30% threshold with {total_trades} trades",
-            "fix": "REVIEW_ENTRY_CRITERIA_AND_REGIME_FILTER",
-        })
-        append_to_failure_register(
-            category="SIGNAL",
-            severity="MEDIUM",
-            symptom=f"Win rate {win_rate:.1f}% below 30% on {day_str} with {total_trades} trades",
-            root_cause="Entry quality or regime filter not rejecting poor setups",
-            pnl_impact_inr=total_pnl,
-            regression_check_id="RC-07",
             evidence_ref=f"EOD_forensic_review:{day_str}",
         )
 
@@ -284,3 +405,4 @@ def run_eod_forensic_review(store, trading_day: str | None = None) -> EODForensi
     LOG.info("EOD Forensic Audit Complete for %s: PnL=Rs%.2f, Trades=%d, RejectedSetups=%d, Failures=%d",
              day_str, total_pnl, total_trades, len(rejected_setups), len(failures))
     return summary
+

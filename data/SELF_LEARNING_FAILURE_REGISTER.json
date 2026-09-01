@@ -1,6 +1,6 @@
 {
   "schema_version": "1.0",
-  "last_updated": "2026-08-29T07:04:00Z",
+  "last_updated": "2026-09-01T13:01:35.822268+00:00",
   "description": "Multibagger Self-Learning Failure Register -- backfilled from runtime logs, git history, and trade audit docs. Updated by engine/forensic_review.py post-EOD and verified by scripts/system_forensic_audit.py.",
   "incidents": [
     {
@@ -49,7 +49,7 @@
       "severity": "HIGH",
       "symptom": "PFOCUS and EMMVEE held overnight even though RISK_MONITOR jobs ran through 15:20 IST. EOD forced exit did not trigger.",
       "root_cause": "Live EOD exit not enforced during risk monitor cycles; flatten-at-EOD logic absent or gated incorrectly.",
-      "pnl_impact_inr": -1194.50,
+      "pnl_impact_inr": -1194.5,
       "fix_commit": "2a44c13",
       "fix_description": "Pause and harden Upstox trading models; paper_flatten_hour_ist=15, paper_flatten_minute_ist=15 enforced.",
       "fix_verified": true,
@@ -382,27 +382,46 @@
       "evidence_source": "GIT_HISTORY",
       "evidence_ref": "git:370ea12",
       "status": "RESOLVED"
+    },
+    {
+      "id": "INC-021",
+      "date": "2026-09-01",
+      "time_utc": "13:01:05",
+      "category": "RISK_PNL",
+      "severity": "HIGH",
+      "symptom": "Daily loss limit hit on 2026-09-01: PnL=Rs-1000.00, 1 trades",
+      "root_cause": "ADVERSE_MARKET_REGIME_SHIFT or entry quality failure",
+      "pnl_impact_inr": -1000.0,
+      "fix_commit": null,
+      "fix_description": "PENDING",
+      "fix_verified": false,
+      "fix_verified_note": "Newly discovered \u2014 awaiting fix",
+      "recurrence_count": 2,
+      "regression_check_id": "RC-09",
+      "evidence_source": "EOD_FORENSIC_REVIEW",
+      "evidence_ref": "EOD_forensic_review:2026-09-01",
+      "status": "OPEN"
     }
   ],
   "summary": {
-    "total_incidents": 20,
+    "total_incidents": 21,
     "by_category": {
+      "ENTRY": 3,
+      "EXIT": 1,
+      "SIGNAL": 1,
+      "SERVICE_OCI": 2,
+      "SCANNER": 2,
       "DATA": 4,
       "AUTH_API": 3,
       "DB": 1,
-      "SCANNER": 3,
-      "SIGNAL": 1,
-      "ENTRY": 3,
-      "EXIT": 1,
-      "RISK_PNL": 0,
-      "SERVICE_OCI": 2,
       "ALERTING": 1,
-      "SELF_LEARNING": 2
+      "SELF_LEARNING": 2,
+      "RISK_PNL": 1
     },
     "by_status": {
-      "RESOLVED": 20,
-      "MONITORING": 0,
-      "OPEN": 0
+      "RESOLVED": 19,
+      "MONITORING": 1,
+      "OPEN": 1
     },
     "open_critical": [],
     "total_pnl_impact_inr": -10232.36,

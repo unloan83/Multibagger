@@ -668,3 +668,129 @@ def run_strategy_intelligence_pipeline(db_path: str) -> List[StrategyCandidate]:
 
     save_candidates_to_store(ranked, db_path)
     return ranked
+
+
+def generate_premarket_shortlist(
+    db_path_or_store: Any,
+    universe_symbols: Optional[List[str]] = None,
+    live_indicators: Optional[dict[str, dict[str, float]]] = None,
+) -> List[dict[str, Any]]:
+    """
+    Generates a deterministic premarket stock x strategy shortlist reading EOD failure lessons
+    from learning_store, applying yesterday-learning adjustments, evaluating fresh evidence overrides,
+    and locking 1 strategy per stock for the trading session.
+    """
+    symbols = universe_symbols or ["RELIANCE", "INFY", "TCS", "HDFCBANK", "ICICIBANK"]
+    indicators = live_indicators or {}
+    
+    if isinstance(db_path_or_store, str):
+        store = MarketStore(db_path_or_store)
+    else:
+        store = db_path_or_store
+
+    # 1. Query active lessons from learning_store
+    lessons_by_key: dict[str, list[dict[str, Any]]] = {}
+    try:
+        with store.connect() as con:
+            rows = con.execute("""
+                SELECT symbol, strategy_id, failure_category, penalty_score, fresh_override_adx_threshold, fresh_override_rvol_threshold, reason
+                FROM learning_store
+            """).fetchall()
+            for r in rows:
+                key = f"{r[0]}:{r[1]}"
+                if key not in lessons_by_key:
+                    lessons_by_key[key] = []
+                lessons_by_key[key].append({
+                    "symbol": r[0],
+                    "strategy_id": r[1],
+                    "category": r[2],
+                    "penalty": float(r[3]),
+                    "override_adx": float(r[4]),
+                    "override_rvol": float(r[5]),
+                    "reason": r[6],
+                })
+    except Exception as exc:
+        logger.warning("Could not read learning_store: %s", exc)
+
+    # 2. Get baseline candidates (Algoverse-backed primary, local replay fallback)
+    base_candidates = generate_candidate_parameter_sets()
+
+    shortlist: List[dict[str, Any]] = []
+
+    for sym in symbols:
+        stock_live = indicators.get(sym, {})
+        live_adx = float(stock_live.get("adx", 24.0))
+        live_rvol = float(stock_live.get("rvol", 1.5))
+
+        stock_evaluations: List[dict[str, Any]] = []
+
+        for cand in base_candidates:
+            key1 = f"{sym}:{cand.candidate_id}"
+            key2 = f"{sym}:{cand.name}"
+            key3 = f"{sym}:ANY"
+            key4 = f"{sym}:{cand.params.direction}"
+            matching_lessons = (
+                lessons_by_key.get(key1, []) or
+                lessons_by_key.get(key2, []) or
+                lessons_by_key.get(key3, []) or
+                lessons_by_key.get(key4, [])
+            )
+
+            learning_adjustment = 0.0
+            override_applied = False
+            adjustment_note = "0.0 (No past failures)"
+
+            if matching_lessons:
+                lesson = matching_lessons[0]
+                penalty = lesson["penalty"]
+                req_adx = lesson["override_adx"]
+                req_rvol = lesson["override_rvol"]
+
+                # Check if fresh evidence overrides penalty
+                if live_adx >= req_adx and live_rvol >= req_rvol:
+                    override_applied = True
+                    learning_adjustment = 0.0
+                    adjustment_note = f"0.0 (Fresh Evidence Override: ADX {live_adx:.1f}>={req_adx:.0f}, RVOL {live_rvol:.1f}>={req_rvol:.1f})"
+                else:
+                    learning_adjustment = -penalty
+                    adjustment_note = f"-{penalty:.1f} (Penalized: {lesson['category']})"
+
+            # Calculate base composite score
+            base_score = (cand.win_rate * 0.4) + (cand.avg_win_loss_ratio * 15.0) - (cand.max_drawdown * 0.02) + 40.0
+            final_score = round(base_score + learning_adjustment, 1)
+
+            # Determine TRADE / NO_TRADE status
+            if (final_score >= 40.0 or override_applied) and (learning_adjustment >= 0.0 or override_applied):
+                status = "TRADE"
+            else:
+                status = "NO_TRADE"
+
+            stock_evaluations.append({
+                "symbol": sym,
+                "strategy": cand.name,
+                "strategy_id": cand.candidate_id,
+                "direction": cand.params.direction,
+                "adx_threshold": cand.params.adx_threshold,
+                "vwap_rule": cand.params.vwap_mode,
+                "sl_pct": cand.params.stop_loss_pct,
+                "target_pct": cand.params.target_pct,
+                "backtest_source": cand.backtest_source,
+                "win_rate": cand.win_rate,
+                "avg_win_loss": cand.avg_win_loss_ratio,
+                "max_dd": cand.max_drawdown,
+                "yesterday_learning_adjustment": learning_adjustment,
+                "adjustment_note": adjustment_note,
+                "final_score": final_score,
+                "status": status,
+                "fresh_override_applied": override_applied,
+            })
+
+        # Lock the highest scoring strategy per stock for session deterministic execution
+        stock_evaluations.sort(key=lambda x: (x["final_score"], x["win_rate"]), reverse=True)
+        locked_eval = stock_evaluations[0]
+        shortlist.append(locked_eval)
+
+    # Sort final shortlist deterministically by final_score descending
+    shortlist.sort(key=lambda x: (x["final_score"], x["symbol"]), reverse=True)
+    return shortlist
+

@@ -1,7 +1,7 @@
 {
   "schema_version": "1.0",
   "description": "Multibagger Forensic Agent Review History -- records every verdict, check result, pipeline validation, failure injection, resource proof, and PREVIOUS_VERDICT_INVALIDATED record.",
-  "last_updated": "2026-09-01T11:35:41.511824+00:00",
+  "last_updated": "2026-09-01T13:02:01.288075+00:00",
   "reviews": [
     {
       "review_id": "FA-0001",
@@ -18888,6 +18888,978 @@
         "BREACH_REASONS": [
           "CPU 221.3% > 50.0%",
           "RAM 183.2MB > 150.0MB"
+        ],
+        "TELEMETRY_VERIFIED": true
+      },
+      "verdict": "PASS",
+      "ready_to_trade": "NO",
+      "blocking_reasons": [
+        "Auth token check CHK-13 is FAIL"
+      ],
+      "previous_verdict_invalidated": null
+    },
+    {
+      "review_id": "FA-0117",
+      "trigger": "pytest_test",
+      "started_at": "2026-09-01T12:58:38.179923+00:00",
+      "duration_sec": 0.0,
+      "check_results": [],
+      "pipeline_results": [],
+      "injection_results": [],
+      "resource_proof": {
+        "FORENSIC_CPU": 1.0,
+        "PEAK_RAM_MB": 40.0,
+        "DURATION_SEC": 0.5,
+        "DB_QUERY_COUNT": 0,
+        "API_CALL_COUNT": 0,
+        "RESOURCE_LIMIT_BREACH": "NO"
+      },
+      "verdict": "VERIFIED_COMPLETE",
+      "ready_to_trade": "NO",
+      "blocking_reasons": [
+        "Pytest test execution"
+      ],
+      "previous_verdict_invalidated": null
+    },
+    {
+      "review_id": "FA-0118",
+      "trigger": "cli_quick",
+      "started_at": "2026-09-01T12:59:04.916838+00:00",
+      "duration_sec": 0.0,
+      "check_results": [
+        {
+          "check_id": "CHK-01",
+          "name": "CONFIG_FIELDS_PRESENT",
+          "status": "PASS",
+          "evidence": "engine/config.py contains all 8 fields",
+          "detail": "All required config fields present in Settings dataclass",
+          "severity": "HIGH"
+        },
+        {
+          "check_id": "CHK-02",
+          "name": "RISK_CAPS_HARDCODED",
+          "status": "PASS",
+          "evidence": "Settings.from_env(): max_risk=500.0, daily_loss=1000.0, agg_risk=750.0",
+          "detail": "Risk caps match hardcoded baseline (Rs500/trade, Rs1000/day, Rs750 agg)",
+          "severity": "HIGH"
+        },
+        {
+          "check_id": "CHK-03",
+          "name": "EXECUTION_PAUSED_FLAG",
+          "status": "PASS",
+          "evidence": "config.execution_paused=True, env.TRADING_EXECUTION_PAUSED=True",
+          "detail": "Execution gate consistent: PAUSED (safe)",
+          "severity": "HIGH"
+        },
+        {
+          "check_id": "CHK-04",
+          "name": "CONSECUTIVE_LOSS_LIMIT",
+          "status": "PASS",
+          "evidence": "engine/paper.py contains consecutive loss hard-stop breaker logic",
+          "detail": "Consecutive loss breaker present in paper.py",
+          "severity": "HIGH"
+        },
+        {
+          "check_id": "CHK-05",
+          "name": "EOD_FLATTEN_FIELDS",
+          "status": "PASS",
+          "evidence": "flatten_hour=15, flatten_minute=10",
+          "detail": "EOD flatten hour/minute IST fields configured in Settings",
+          "severity": "HIGH"
+        },
+        {
+          "check_id": "CHK-06",
+          "name": "PREMARKET_USES_REST",
+          "status": "PASS",
+          "evidence": "engine/premarket_check.py: check 2 calls live REST endpoint for quote validation",
+          "detail": "Premarket check validates live REST quotes rather than token string presence only",
+          "severity": "HIGH"
+        },
+        {
+          "check_id": "CHK-07",
+          "name": "PREMARKET_GATES_ON_REGISTER",
+          "status": "PASS",
+          "evidence": "engine/premarket_check.py: includes Check 15 (failure_register gate)",
+          "detail": "Premarket check gates execution on SELF_LEARNING_FAILURE_REGISTER.json",
+          "severity": "HIGH"
+        },
+        {
+          "check_id": "CHK-08",
+          "name": "FAILURE_REGISTER_EXISTS",
+          "status": "PASS",
+          "evidence": "file=SELF_LEARNING_FAILURE_REGISTER.json, schema_version=1.0, incidents=20",
+          "detail": "Failure register exists and populated with 20 historical incidents",
+          "severity": "HIGH"
+        },
+        {
+          "check_id": "CHK-09",
+          "name": "DB_SCHEMA_COMPLETE",
+          "status": "PASS",
+          "evidence": "db_path=trading_state.db, tables=21 (contains paper_trade_events, minute_bars, paper_trades, paper_signals, scanner_runs)",
+          "detail": "DuckDB schema integrity verified",
+          "severity": "HIGH"
+        },
+        {
+          "check_id": "CHK-10",
+          "name": "DB_WRITE_ACCESS",
+          "status": "PASS",
+          "evidence": "db_path=trading_state.db, test write+insert+drop succeeded",
+          "detail": "DuckDB write access confirmed",
+          "severity": "HIGH"
+        },
+        {
+          "check_id": "CHK-11",
+          "name": "DATA_FRESHNESS",
+          "status": "NOT_VERIFIED",
+          "evidence": "0 bars in DB outside market hours",
+          "detail": "No data bars in DB to verify freshness",
+          "severity": "HIGH"
+        },
+        {
+          "check_id": "CHK-12",
+          "name": "QUOTE_TICK_DELTA",
+          "status": "NOT_VERIFIED",
+          "evidence": "Log file missing at intraday_bot_log.txt",
+          "detail": "intraday_bot_log.txt not found",
+          "severity": "HIGH"
+        },
+        {
+          "check_id": "CHK-13",
+          "name": "AUTH_TOKEN_REST",
+          "status": "FAIL",
+          "evidence": "HTTP Auth Error: HTTP Error 403: Forbidden",
+          "detail": "Upstox REST auth failed (token expired \u2014 INC-016)",
+          "severity": "HIGH"
+        },
+        {
+          "check_id": "CHK-14",
+          "name": "SCANNER_NOT_STALLED",
+          "status": "NOT_VERIFIED",
+          "evidence": "scanner_runs table empty",
+          "detail": "No scanner runs recorded in DuckDB store",
+          "severity": "HIGH"
+        },
+        {
+          "check_id": "CHK-15",
+          "name": "REGIME_DATA_TODAY",
+          "status": "NOT_VERIFIED",
+          "evidence": "today=2026-09-01, NIFTY_50_bars=0, INDIA_VIX_bars=0, session=POST_MARKET",
+          "detail": "Outside market hours (POST_MARKET); 0 regime bars for today (2026-09-01)",
+          "severity": "HIGH"
+        },
+        {
+          "check_id": "CHK-16",
+          "name": "FEED_HEALTHY_WITH_ZERO_TICKS",
+          "status": "NOT_VERIFIED",
+          "evidence": "Log file missing at intraday_bot_log.txt",
+          "detail": "intraday_bot_log.txt not found",
+          "severity": "HIGH"
+        },
+        {
+          "check_id": "CHK-17",
+          "name": "FROZEN_TICK_COUNTER",
+          "status": "NOT_VERIFIED",
+          "evidence": "Log file missing at intraday_bot_log.txt",
+          "detail": "intraday_bot_log.txt not found",
+          "severity": "HIGH"
+        },
+        {
+          "check_id": "CHK-18",
+          "name": "403_503_IN_LOG",
+          "status": "NOT_VERIFIED",
+          "evidence": "Log file missing at intraday_bot_log.txt",
+          "detail": "intraday_bot_log.txt not found",
+          "severity": "HIGH"
+        },
+        {
+          "check_id": "CHK-19",
+          "name": "NO_TRADE_EVENTS_FILE",
+          "status": "PASS",
+          "evidence": "file=no-trade-events.json, size=3 events",
+          "detail": "no-trade-events.json exists and valid JSON",
+          "severity": "HIGH"
+        },
+        {
+          "check_id": "CHK-20",
+          "name": "DEGRADED_MODE_CONSISTENT",
+          "status": "PASS",
+          "evidence": "is_degraded=False, active_failures={}",
+          "detail": "Degraded mode state queryable (active=False)",
+          "severity": "HIGH"
+        },
+        {
+          "check_id": "CHK-21",
+          "name": "HISTORICAL_REGRESSION",
+          "status": "PASS",
+          "evidence": "Register total=20, 0 OPEN CRITICAL, 1 monitoring items",
+          "detail": "No open critical historical incidents in failure register",
+          "severity": "HIGH"
+        },
+        {
+          "check_id": "CHK-22",
+          "name": "FALSE_PASS_DETECTION",
+          "status": "PASS",
+          "evidence": "History has 117 review records; 0 verdict invalidations",
+          "detail": "No prior verdict invalidations in history",
+          "severity": "HIGH"
+        },
+        {
+          "check_id": "CHK-23",
+          "name": "BLUNDER_TRACEABILITY",
+          "status": "PASS",
+          "evidence": "Fingerprint memory has 11 items; 0 ACTIVE_CRITICAL unresolved",
+          "detail": "All failure fingerprints tracked and resolved/monitored",
+          "severity": "HIGH"
+        },
+        {
+          "check_id": "CHK-25",
+          "name": "DB_LOCK_CLEARED",
+          "status": "PASS",
+          "evidence": "db_path=trading_state.db, read connection acquired without lock timeout",
+          "detail": "DuckDB is accessible and unlocked",
+          "severity": "HIGH"
+        },
+        {
+          "check_id": "CHK-26",
+          "name": "FORENSIC_AGENT_NOT_STARVING_TRADING",
+          "status": "NOT_VERIFIED",
+          "evidence": "psutil process telemetry error: No module named 'psutil'",
+          "detail": "Process memory could not be verified",
+          "severity": "HIGH"
+        },
+        {
+          "check_id": "CHK-24",
+          "name": "OCI_RESOURCE_PROOF",
+          "status": "NOT_VERIFIED",
+          "evidence": "Resource proof dict not supplied",
+          "detail": "Resource proof telemetry not supplied",
+          "severity": "HIGH"
+        }
+      ],
+      "pipeline_results": [
+        {
+          "stage_num": 1,
+          "stage_name": "FRESH_DATA",
+          "status": "NOT_VERIFIED",
+          "evidence": "session=POST_MARKET, market_status=POST_MARKET, total_bars=0",
+          "detail": "Outside active market hours (POST_MARKET); live feed freshness unverified"
+        },
+        {
+          "stage_num": 2,
+          "stage_name": "UNIVERSE",
+          "status": "PASS",
+          "evidence": "active_symbols_count=250, sample=['360ONE', '3MINDIA', 'ABB', 'ABBOTINDIA', 'ABCAPITAL']",
+          "detail": "Active universe resolved (250 symbols)"
+        },
+        {
+          "stage_num": 3,
+          "stage_name": "SCANNER",
+          "status": "NOT_VERIFIED",
+          "evidence": "scanner_runs table empty",
+          "detail": "No scanner runs recorded in DuckDB store"
+        },
+        {
+          "stage_num": 4,
+          "stage_name": "CANDIDATE",
+          "status": "NOT_VERIFIED",
+          "evidence": "No current-session scanner run for today (2026-09-01)",
+          "detail": "Cannot verify candidates without active current-session run_id"
+        },
+        {
+          "stage_num": 5,
+          "stage_name": "SIGNAL",
+          "status": "NOT_VERIFIED",
+          "evidence": "No current-session run_id for today (2026-09-01)",
+          "detail": "Cannot verify signals without active current-session run_id"
+        },
+        {
+          "stage_num": 6,
+          "stage_name": "VALIDATION",
+          "status": "NOT_VERIFIED",
+          "evidence": "No current-session run_id for today (2026-09-01)",
+          "detail": "Historical rejection counts never prove current-run validation; current run_id required"
+        },
+        {
+          "stage_num": 7,
+          "stage_name": "RISK",
+          "status": "PASS",
+          "evidence": "max_risk_per_trade=500.0, daily_loss_limit=1000.0, max_aggregate_risk=750.0",
+          "detail": "Risk engine parameters verified (\u20b9500/trade, \u20b91000/day, \u20b9750 aggregate)"
+        },
+        {
+          "stage_num": 8,
+          "stage_name": "PAPER_ORDER",
+          "status": "NOT_VERIFIED",
+          "evidence": "No current-session run_id for today (2026-09-01)",
+          "detail": "Cannot verify paper order execution without current-session run_id"
+        },
+        {
+          "stage_num": 9,
+          "stage_name": "EXIT_AND_PNL",
+          "status": "NOT_VERIFIED",
+          "evidence": "0 closed trades in paper_trades",
+          "detail": "No closed trades available to audit P&L math"
+        }
+      ],
+      "injection_results": [],
+      "resource_proof": {
+        "FORENSIC_CPU": 162.18,
+        "PEAK_RAM_MB": 185.98,
+        "DURATION_SEC": 9.81,
+        "DB_QUERY_COUNT": 9,
+        "API_CALL_COUNT": 0,
+        "RESOURCE_LIMIT_BREACH": "YES",
+        "BREACH_REASONS": [
+          "CPU 162.2% > 50.0%",
+          "RAM 186.0MB > 150.0MB"
+        ],
+        "TELEMETRY_VERIFIED": true
+      },
+      "verdict": "PASS",
+      "ready_to_trade": "NO",
+      "blocking_reasons": [
+        "Auth token check CHK-13 is FAIL"
+      ],
+      "previous_verdict_invalidated": null
+    },
+    {
+      "review_id": "FA-0119",
+      "trigger": "pytest_test",
+      "started_at": "2026-09-01T12:59:18.984666+00:00",
+      "duration_sec": 0.0,
+      "check_results": [],
+      "pipeline_results": [],
+      "injection_results": [],
+      "resource_proof": {
+        "FORENSIC_CPU": 1.0,
+        "PEAK_RAM_MB": 40.0,
+        "DURATION_SEC": 0.5,
+        "DB_QUERY_COUNT": 0,
+        "API_CALL_COUNT": 0,
+        "RESOURCE_LIMIT_BREACH": "NO"
+      },
+      "verdict": "VERIFIED_COMPLETE",
+      "ready_to_trade": "NO",
+      "blocking_reasons": [
+        "Pytest test execution"
+      ],
+      "previous_verdict_invalidated": null
+    },
+    {
+      "review_id": "FA-0120",
+      "trigger": "cli_quick",
+      "started_at": "2026-09-01T12:59:47.422658+00:00",
+      "duration_sec": 0.0,
+      "check_results": [
+        {
+          "check_id": "CHK-01",
+          "name": "CONFIG_FIELDS_PRESENT",
+          "status": "PASS",
+          "evidence": "engine/config.py contains all 8 fields",
+          "detail": "All required config fields present in Settings dataclass",
+          "severity": "HIGH"
+        },
+        {
+          "check_id": "CHK-02",
+          "name": "RISK_CAPS_HARDCODED",
+          "status": "PASS",
+          "evidence": "Settings.from_env(): max_risk=500.0, daily_loss=1000.0, agg_risk=750.0",
+          "detail": "Risk caps match hardcoded baseline (Rs500/trade, Rs1000/day, Rs750 agg)",
+          "severity": "HIGH"
+        },
+        {
+          "check_id": "CHK-03",
+          "name": "EXECUTION_PAUSED_FLAG",
+          "status": "PASS",
+          "evidence": "config.execution_paused=True, env.TRADING_EXECUTION_PAUSED=True",
+          "detail": "Execution gate consistent: PAUSED (safe)",
+          "severity": "HIGH"
+        },
+        {
+          "check_id": "CHK-04",
+          "name": "CONSECUTIVE_LOSS_LIMIT",
+          "status": "PASS",
+          "evidence": "engine/paper.py contains consecutive loss hard-stop breaker logic",
+          "detail": "Consecutive loss breaker present in paper.py",
+          "severity": "HIGH"
+        },
+        {
+          "check_id": "CHK-05",
+          "name": "EOD_FLATTEN_FIELDS",
+          "status": "PASS",
+          "evidence": "flatten_hour=15, flatten_minute=10",
+          "detail": "EOD flatten hour/minute IST fields configured in Settings",
+          "severity": "HIGH"
+        },
+        {
+          "check_id": "CHK-06",
+          "name": "PREMARKET_USES_REST",
+          "status": "PASS",
+          "evidence": "engine/premarket_check.py: check 2 calls live REST endpoint for quote validation",
+          "detail": "Premarket check validates live REST quotes rather than token string presence only",
+          "severity": "HIGH"
+        },
+        {
+          "check_id": "CHK-07",
+          "name": "PREMARKET_GATES_ON_REGISTER",
+          "status": "PASS",
+          "evidence": "engine/premarket_check.py: includes Check 15 (failure_register gate)",
+          "detail": "Premarket check gates execution on SELF_LEARNING_FAILURE_REGISTER.json",
+          "severity": "HIGH"
+        },
+        {
+          "check_id": "CHK-08",
+          "name": "FAILURE_REGISTER_EXISTS",
+          "status": "PASS",
+          "evidence": "file=SELF_LEARNING_FAILURE_REGISTER.json, schema_version=1.0, incidents=20",
+          "detail": "Failure register exists and populated with 20 historical incidents",
+          "severity": "HIGH"
+        },
+        {
+          "check_id": "CHK-09",
+          "name": "DB_SCHEMA_COMPLETE",
+          "status": "PASS",
+          "evidence": "db_path=trading_state.db, tables=21 (contains paper_trade_events, minute_bars, paper_signals, scanner_runs, paper_trades)",
+          "detail": "DuckDB schema integrity verified",
+          "severity": "HIGH"
+        },
+        {
+          "check_id": "CHK-10",
+          "name": "DB_WRITE_ACCESS",
+          "status": "PASS",
+          "evidence": "db_path=trading_state.db, test write+insert+drop succeeded",
+          "detail": "DuckDB write access confirmed",
+          "severity": "HIGH"
+        },
+        {
+          "check_id": "CHK-11",
+          "name": "DATA_FRESHNESS",
+          "status": "NOT_VERIFIED",
+          "evidence": "0 bars in DB outside market hours",
+          "detail": "No data bars in DB to verify freshness",
+          "severity": "HIGH"
+        },
+        {
+          "check_id": "CHK-12",
+          "name": "QUOTE_TICK_DELTA",
+          "status": "NOT_VERIFIED",
+          "evidence": "Log file missing at intraday_bot_log.txt",
+          "detail": "intraday_bot_log.txt not found",
+          "severity": "HIGH"
+        },
+        {
+          "check_id": "CHK-13",
+          "name": "AUTH_TOKEN_REST",
+          "status": "FAIL",
+          "evidence": "HTTP Auth Error: HTTP Error 403: Forbidden",
+          "detail": "Upstox REST auth failed (token expired \u2014 INC-016)",
+          "severity": "HIGH"
+        },
+        {
+          "check_id": "CHK-14",
+          "name": "SCANNER_NOT_STALLED",
+          "status": "NOT_VERIFIED",
+          "evidence": "scanner_runs table empty",
+          "detail": "No scanner runs recorded in DuckDB store",
+          "severity": "HIGH"
+        },
+        {
+          "check_id": "CHK-15",
+          "name": "REGIME_DATA_TODAY",
+          "status": "NOT_VERIFIED",
+          "evidence": "today=2026-09-01, NIFTY_50_bars=0, INDIA_VIX_bars=0, session=POST_MARKET",
+          "detail": "Outside market hours (POST_MARKET); 0 regime bars for today (2026-09-01)",
+          "severity": "HIGH"
+        },
+        {
+          "check_id": "CHK-16",
+          "name": "FEED_HEALTHY_WITH_ZERO_TICKS",
+          "status": "NOT_VERIFIED",
+          "evidence": "Log file missing at intraday_bot_log.txt",
+          "detail": "intraday_bot_log.txt not found",
+          "severity": "HIGH"
+        },
+        {
+          "check_id": "CHK-17",
+          "name": "FROZEN_TICK_COUNTER",
+          "status": "NOT_VERIFIED",
+          "evidence": "Log file missing at intraday_bot_log.txt",
+          "detail": "intraday_bot_log.txt not found",
+          "severity": "HIGH"
+        },
+        {
+          "check_id": "CHK-18",
+          "name": "403_503_IN_LOG",
+          "status": "NOT_VERIFIED",
+          "evidence": "Log file missing at intraday_bot_log.txt",
+          "detail": "intraday_bot_log.txt not found",
+          "severity": "HIGH"
+        },
+        {
+          "check_id": "CHK-19",
+          "name": "NO_TRADE_EVENTS_FILE",
+          "status": "PASS",
+          "evidence": "file=no-trade-events.json, size=3 events",
+          "detail": "no-trade-events.json exists and valid JSON",
+          "severity": "HIGH"
+        },
+        {
+          "check_id": "CHK-20",
+          "name": "DEGRADED_MODE_CONSISTENT",
+          "status": "PASS",
+          "evidence": "is_degraded=False, active_failures={}",
+          "detail": "Degraded mode state queryable (active=False)",
+          "severity": "HIGH"
+        },
+        {
+          "check_id": "CHK-21",
+          "name": "HISTORICAL_REGRESSION",
+          "status": "PASS",
+          "evidence": "Register total=20, 0 OPEN CRITICAL, 1 monitoring items",
+          "detail": "No open critical historical incidents in failure register",
+          "severity": "HIGH"
+        },
+        {
+          "check_id": "CHK-22",
+          "name": "FALSE_PASS_DETECTION",
+          "status": "PASS",
+          "evidence": "History has 119 review records; 0 verdict invalidations",
+          "detail": "No prior verdict invalidations in history",
+          "severity": "HIGH"
+        },
+        {
+          "check_id": "CHK-23",
+          "name": "BLUNDER_TRACEABILITY",
+          "status": "PASS",
+          "evidence": "Fingerprint memory has 11 items; 0 ACTIVE_CRITICAL unresolved",
+          "detail": "All failure fingerprints tracked and resolved/monitored",
+          "severity": "HIGH"
+        },
+        {
+          "check_id": "CHK-25",
+          "name": "DB_LOCK_CLEARED",
+          "status": "PASS",
+          "evidence": "db_path=trading_state.db, read connection acquired without lock timeout",
+          "detail": "DuckDB is accessible and unlocked",
+          "severity": "HIGH"
+        },
+        {
+          "check_id": "CHK-26",
+          "name": "FORENSIC_AGENT_NOT_STARVING_TRADING",
+          "status": "NOT_VERIFIED",
+          "evidence": "psutil process telemetry error: No module named 'psutil'",
+          "detail": "Process memory could not be verified",
+          "severity": "HIGH"
+        },
+        {
+          "check_id": "CHK-24",
+          "name": "OCI_RESOURCE_PROOF",
+          "status": "NOT_VERIFIED",
+          "evidence": "Resource proof dict not supplied",
+          "detail": "Resource proof telemetry not supplied",
+          "severity": "HIGH"
+        }
+      ],
+      "pipeline_results": [
+        {
+          "stage_num": 1,
+          "stage_name": "FRESH_DATA",
+          "status": "NOT_VERIFIED",
+          "evidence": "session=POST_MARKET, market_status=POST_MARKET, total_bars=0",
+          "detail": "Outside active market hours (POST_MARKET); live feed freshness unverified"
+        },
+        {
+          "stage_num": 2,
+          "stage_name": "UNIVERSE",
+          "status": "PASS",
+          "evidence": "active_symbols_count=250, sample=['360ONE', '3MINDIA', 'ABB', 'ABBOTINDIA', 'ABCAPITAL']",
+          "detail": "Active universe resolved (250 symbols)"
+        },
+        {
+          "stage_num": 3,
+          "stage_name": "SCANNER",
+          "status": "NOT_VERIFIED",
+          "evidence": "scanner_runs table empty",
+          "detail": "No scanner runs recorded in DuckDB store"
+        },
+        {
+          "stage_num": 4,
+          "stage_name": "CANDIDATE",
+          "status": "NOT_VERIFIED",
+          "evidence": "No current-session scanner run for today (2026-09-01)",
+          "detail": "Cannot verify candidates without active current-session run_id"
+        },
+        {
+          "stage_num": 5,
+          "stage_name": "SIGNAL",
+          "status": "NOT_VERIFIED",
+          "evidence": "No current-session run_id for today (2026-09-01)",
+          "detail": "Cannot verify signals without active current-session run_id"
+        },
+        {
+          "stage_num": 6,
+          "stage_name": "VALIDATION",
+          "status": "NOT_VERIFIED",
+          "evidence": "No current-session run_id for today (2026-09-01)",
+          "detail": "Historical rejection counts never prove current-run validation; current run_id required"
+        },
+        {
+          "stage_num": 7,
+          "stage_name": "RISK",
+          "status": "PASS",
+          "evidence": "max_risk_per_trade=500.0, daily_loss_limit=1000.0, max_aggregate_risk=750.0",
+          "detail": "Risk engine parameters verified (\u20b9500/trade, \u20b91000/day, \u20b9750 aggregate)"
+        },
+        {
+          "stage_num": 8,
+          "stage_name": "PAPER_ORDER",
+          "status": "NOT_VERIFIED",
+          "evidence": "No current-session run_id for today (2026-09-01)",
+          "detail": "Cannot verify paper order execution without current-session run_id"
+        },
+        {
+          "stage_num": 9,
+          "stage_name": "EXIT_AND_PNL",
+          "status": "NOT_VERIFIED",
+          "evidence": "0 closed trades in paper_trades",
+          "detail": "No closed trades available to audit P&L math"
+        }
+      ],
+      "injection_results": [],
+      "resource_proof": {
+        "FORENSIC_CPU": 221.53,
+        "PEAK_RAM_MB": 183.3,
+        "DURATION_SEC": 7.1,
+        "DB_QUERY_COUNT": 9,
+        "API_CALL_COUNT": 0,
+        "RESOURCE_LIMIT_BREACH": "YES",
+        "BREACH_REASONS": [
+          "CPU 221.5% > 50.0%",
+          "RAM 183.3MB > 150.0MB"
+        ],
+        "TELEMETRY_VERIFIED": true
+      },
+      "verdict": "PASS",
+      "ready_to_trade": "NO",
+      "blocking_reasons": [
+        "Auth token check CHK-13 is FAIL"
+      ],
+      "previous_verdict_invalidated": null
+    },
+    {
+      "review_id": "FA-0121",
+      "trigger": "pytest_test",
+      "started_at": "2026-09-01T13:01:33.289444+00:00",
+      "duration_sec": 0.0,
+      "check_results": [],
+      "pipeline_results": [],
+      "injection_results": [],
+      "resource_proof": {
+        "FORENSIC_CPU": 1.0,
+        "PEAK_RAM_MB": 40.0,
+        "DURATION_SEC": 0.5,
+        "DB_QUERY_COUNT": 0,
+        "API_CALL_COUNT": 0,
+        "RESOURCE_LIMIT_BREACH": "NO"
+      },
+      "verdict": "VERIFIED_COMPLETE",
+      "ready_to_trade": "NO",
+      "blocking_reasons": [
+        "Pytest test execution"
+      ],
+      "previous_verdict_invalidated": null
+    },
+    {
+      "review_id": "FA-0122",
+      "trigger": "cli_quick",
+      "started_at": "2026-09-01T13:02:01.288049+00:00",
+      "duration_sec": 0.0,
+      "check_results": [
+        {
+          "check_id": "CHK-01",
+          "name": "CONFIG_FIELDS_PRESENT",
+          "status": "PASS",
+          "evidence": "engine/config.py contains all 8 fields",
+          "detail": "All required config fields present in Settings dataclass",
+          "severity": "HIGH"
+        },
+        {
+          "check_id": "CHK-02",
+          "name": "RISK_CAPS_HARDCODED",
+          "status": "PASS",
+          "evidence": "Settings.from_env(): max_risk=500.0, daily_loss=1000.0, agg_risk=750.0",
+          "detail": "Risk caps match hardcoded baseline (Rs500/trade, Rs1000/day, Rs750 agg)",
+          "severity": "HIGH"
+        },
+        {
+          "check_id": "CHK-03",
+          "name": "EXECUTION_PAUSED_FLAG",
+          "status": "PASS",
+          "evidence": "config.execution_paused=True, env.TRADING_EXECUTION_PAUSED=True",
+          "detail": "Execution gate consistent: PAUSED (safe)",
+          "severity": "HIGH"
+        },
+        {
+          "check_id": "CHK-04",
+          "name": "CONSECUTIVE_LOSS_LIMIT",
+          "status": "PASS",
+          "evidence": "engine/paper.py contains consecutive loss hard-stop breaker logic",
+          "detail": "Consecutive loss breaker present in paper.py",
+          "severity": "HIGH"
+        },
+        {
+          "check_id": "CHK-05",
+          "name": "EOD_FLATTEN_FIELDS",
+          "status": "PASS",
+          "evidence": "flatten_hour=15, flatten_minute=10",
+          "detail": "EOD flatten hour/minute IST fields configured in Settings",
+          "severity": "HIGH"
+        },
+        {
+          "check_id": "CHK-06",
+          "name": "PREMARKET_USES_REST",
+          "status": "PASS",
+          "evidence": "engine/premarket_check.py: check 2 calls live REST endpoint for quote validation",
+          "detail": "Premarket check validates live REST quotes rather than token string presence only",
+          "severity": "HIGH"
+        },
+        {
+          "check_id": "CHK-07",
+          "name": "PREMARKET_GATES_ON_REGISTER",
+          "status": "PASS",
+          "evidence": "engine/premarket_check.py: includes Check 15 (failure_register gate)",
+          "detail": "Premarket check gates execution on SELF_LEARNING_FAILURE_REGISTER.json",
+          "severity": "HIGH"
+        },
+        {
+          "check_id": "CHK-08",
+          "name": "FAILURE_REGISTER_EXISTS",
+          "status": "PASS",
+          "evidence": "file=SELF_LEARNING_FAILURE_REGISTER.json, schema_version=1.0, incidents=21",
+          "detail": "Failure register exists and populated with 21 historical incidents",
+          "severity": "HIGH"
+        },
+        {
+          "check_id": "CHK-09",
+          "name": "DB_SCHEMA_COMPLETE",
+          "status": "PASS",
+          "evidence": "db_path=trading_state.db, tables=22 (contains paper_trades, minute_bars, scanner_runs, paper_trade_events, paper_signals)",
+          "detail": "DuckDB schema integrity verified",
+          "severity": "HIGH"
+        },
+        {
+          "check_id": "CHK-10",
+          "name": "DB_WRITE_ACCESS",
+          "status": "PASS",
+          "evidence": "db_path=trading_state.db, test write+insert+drop succeeded",
+          "detail": "DuckDB write access confirmed",
+          "severity": "HIGH"
+        },
+        {
+          "check_id": "CHK-11",
+          "name": "DATA_FRESHNESS",
+          "status": "NOT_VERIFIED",
+          "evidence": "0 bars in DB outside market hours",
+          "detail": "No data bars in DB to verify freshness",
+          "severity": "HIGH"
+        },
+        {
+          "check_id": "CHK-12",
+          "name": "QUOTE_TICK_DELTA",
+          "status": "NOT_VERIFIED",
+          "evidence": "Log file missing at intraday_bot_log.txt",
+          "detail": "intraday_bot_log.txt not found",
+          "severity": "HIGH"
+        },
+        {
+          "check_id": "CHK-13",
+          "name": "AUTH_TOKEN_REST",
+          "status": "FAIL",
+          "evidence": "HTTP Auth Error: HTTP Error 403: Forbidden",
+          "detail": "Upstox REST auth failed (token expired \u2014 INC-016)",
+          "severity": "HIGH"
+        },
+        {
+          "check_id": "CHK-14",
+          "name": "SCANNER_NOT_STALLED",
+          "status": "NOT_VERIFIED",
+          "evidence": "scanner_runs table empty",
+          "detail": "No scanner runs recorded in DuckDB store",
+          "severity": "HIGH"
+        },
+        {
+          "check_id": "CHK-15",
+          "name": "REGIME_DATA_TODAY",
+          "status": "NOT_VERIFIED",
+          "evidence": "today=2026-09-01, NIFTY_50_bars=0, INDIA_VIX_bars=0, session=POST_MARKET",
+          "detail": "Outside market hours (POST_MARKET); 0 regime bars for today (2026-09-01)",
+          "severity": "HIGH"
+        },
+        {
+          "check_id": "CHK-16",
+          "name": "FEED_HEALTHY_WITH_ZERO_TICKS",
+          "status": "NOT_VERIFIED",
+          "evidence": "Log file missing at intraday_bot_log.txt",
+          "detail": "intraday_bot_log.txt not found",
+          "severity": "HIGH"
+        },
+        {
+          "check_id": "CHK-17",
+          "name": "FROZEN_TICK_COUNTER",
+          "status": "NOT_VERIFIED",
+          "evidence": "Log file missing at intraday_bot_log.txt",
+          "detail": "intraday_bot_log.txt not found",
+          "severity": "HIGH"
+        },
+        {
+          "check_id": "CHK-18",
+          "name": "403_503_IN_LOG",
+          "status": "NOT_VERIFIED",
+          "evidence": "Log file missing at intraday_bot_log.txt",
+          "detail": "intraday_bot_log.txt not found",
+          "severity": "HIGH"
+        },
+        {
+          "check_id": "CHK-19",
+          "name": "NO_TRADE_EVENTS_FILE",
+          "status": "PASS",
+          "evidence": "file=no-trade-events.json, size=3 events",
+          "detail": "no-trade-events.json exists and valid JSON",
+          "severity": "HIGH"
+        },
+        {
+          "check_id": "CHK-20",
+          "name": "DEGRADED_MODE_CONSISTENT",
+          "status": "PASS",
+          "evidence": "is_degraded=False, active_failures={}",
+          "detail": "Degraded mode state queryable (active=False)",
+          "severity": "HIGH"
+        },
+        {
+          "check_id": "CHK-21",
+          "name": "HISTORICAL_REGRESSION",
+          "status": "PASS",
+          "evidence": "Register total=21, 0 OPEN CRITICAL, 2 monitoring items",
+          "detail": "No open critical historical incidents in failure register",
+          "severity": "HIGH"
+        },
+        {
+          "check_id": "CHK-22",
+          "name": "FALSE_PASS_DETECTION",
+          "status": "PASS",
+          "evidence": "History has 121 review records; 0 verdict invalidations",
+          "detail": "No prior verdict invalidations in history",
+          "severity": "HIGH"
+        },
+        {
+          "check_id": "CHK-23",
+          "name": "BLUNDER_TRACEABILITY",
+          "status": "PASS",
+          "evidence": "Fingerprint memory has 11 items; 0 ACTIVE_CRITICAL unresolved",
+          "detail": "All failure fingerprints tracked and resolved/monitored",
+          "severity": "HIGH"
+        },
+        {
+          "check_id": "CHK-25",
+          "name": "DB_LOCK_CLEARED",
+          "status": "PASS",
+          "evidence": "db_path=trading_state.db, read connection acquired without lock timeout",
+          "detail": "DuckDB is accessible and unlocked",
+          "severity": "HIGH"
+        },
+        {
+          "check_id": "CHK-26",
+          "name": "FORENSIC_AGENT_NOT_STARVING_TRADING",
+          "status": "NOT_VERIFIED",
+          "evidence": "psutil process telemetry error: No module named 'psutil'",
+          "detail": "Process memory could not be verified",
+          "severity": "HIGH"
+        },
+        {
+          "check_id": "CHK-24",
+          "name": "OCI_RESOURCE_PROOF",
+          "status": "NOT_VERIFIED",
+          "evidence": "Resource proof dict not supplied",
+          "detail": "Resource proof telemetry not supplied",
+          "severity": "HIGH"
+        }
+      ],
+      "pipeline_results": [
+        {
+          "stage_num": 1,
+          "stage_name": "FRESH_DATA",
+          "status": "NOT_VERIFIED",
+          "evidence": "session=POST_MARKET, market_status=POST_MARKET, total_bars=0",
+          "detail": "Outside active market hours (POST_MARKET); live feed freshness unverified"
+        },
+        {
+          "stage_num": 2,
+          "stage_name": "UNIVERSE",
+          "status": "PASS",
+          "evidence": "active_symbols_count=250, sample=['360ONE', '3MINDIA', 'ABB', 'ABBOTINDIA', 'ABCAPITAL']",
+          "detail": "Active universe resolved (250 symbols)"
+        },
+        {
+          "stage_num": 3,
+          "stage_name": "SCANNER",
+          "status": "NOT_VERIFIED",
+          "evidence": "scanner_runs table empty",
+          "detail": "No scanner runs recorded in DuckDB store"
+        },
+        {
+          "stage_num": 4,
+          "stage_name": "CANDIDATE",
+          "status": "NOT_VERIFIED",
+          "evidence": "No current-session scanner run for today (2026-09-01)",
+          "detail": "Cannot verify candidates without active current-session run_id"
+        },
+        {
+          "stage_num": 5,
+          "stage_name": "SIGNAL",
+          "status": "NOT_VERIFIED",
+          "evidence": "No current-session run_id for today (2026-09-01)",
+          "detail": "Cannot verify signals without active current-session run_id"
+        },
+        {
+          "stage_num": 6,
+          "stage_name": "VALIDATION",
+          "status": "NOT_VERIFIED",
+          "evidence": "No current-session run_id for today (2026-09-01)",
+          "detail": "Historical rejection counts never prove current-run validation; current run_id required"
+        },
+        {
+          "stage_num": 7,
+          "stage_name": "RISK",
+          "status": "PASS",
+          "evidence": "max_risk_per_trade=500.0, daily_loss_limit=1000.0, max_aggregate_risk=750.0",
+          "detail": "Risk engine parameters verified (\u20b9500/trade, \u20b91000/day, \u20b9750 aggregate)"
+        },
+        {
+          "stage_num": 8,
+          "stage_name": "PAPER_ORDER",
+          "status": "NOT_VERIFIED",
+          "evidence": "No current-session run_id for today (2026-09-01)",
+          "detail": "Cannot verify paper order execution without current-session run_id"
+        },
+        {
+          "stage_num": 9,
+          "stage_name": "EXIT_AND_PNL",
+          "status": "NOT_VERIFIED",
+          "evidence": "0 closed trades in paper_trades",
+          "detail": "No closed trades available to audit P&L math"
+        }
+      ],
+      "injection_results": [],
+      "resource_proof": {
+        "FORENSIC_CPU": 212.9,
+        "PEAK_RAM_MB": 181.29,
+        "DURATION_SEC": 7.37,
+        "DB_QUERY_COUNT": 9,
+        "API_CALL_COUNT": 0,
+        "RESOURCE_LIMIT_BREACH": "YES",
+        "BREACH_REASONS": [
+          "CPU 212.9% > 50.0%",
+          "RAM 181.3MB > 150.0MB"
         ],
         "TELEMETRY_VERIFIED": true
       },

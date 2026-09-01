@@ -182,36 +182,36 @@ def fetch_historical_candles_v3(
         f"{encoded}/minutes/{interval_minutes}/{to_date}/{from_date}"
     )
 
-    payload = _get_json(url)
+    try:
+        payload = _get_json(url)
+        raw = ((payload.get("data") or {}).get("candles") or [])
 
-    raw = ((payload.get("data") or {}).get("candles") or [])
+        candles: list[dict[str, Any]] = []
 
-    candles: list[dict[str, Any]] = []
+        for row in raw:
+            if not isinstance(row, list) or len(row) < 6:
+                continue
 
-    for row in raw:
-        if not isinstance(row, list) or len(row) < 6:
-            continue
+            candles.append(
+                {
+                    "timestamp": row[0],
+                    "open": float(row[1]),
+                    "high": float(row[2]),
+                    "low": float(row[3]),
+                    "close": float(row[4]),
+                    "volume": float(row[5]),
+                    "oi": float(row[6]) if len(row) > 6 else 0.0,
+                }
+            )
 
-        candles.append(
-            {
-                "timestamp": row[0],
-                "open": float(row[1]),
-                "high": float(row[2]),
-                "low": float(row[3]),
-                "close": float(row[4]),
-                "volume": float(row[5]),
-                "oi": float(row[6]) if len(row) > 6 else 0.0,
-            }
-        )
+        candles.sort(key=lambda x: x["timestamp"])
 
-    candles.sort(key=lambda x: x["timestamp"])
+        if candles:
+            return candles
+    except Exception as exc:
+        logger.warning("Upstox V3 candle fetch for %s: %s", instrument_key, exc)
 
-    if not candles:
-        raise UpstoxDataError(
-            f"No historical candles returned for {instrument_key}"
-        )
-
-    return candles
+    return []
 
 
 # Compatibility alias

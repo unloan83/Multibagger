@@ -41,6 +41,11 @@ export async function POST(request: Request) {
   try {
     const body = await request.json();
     const action = body.action || "approve";
+    
+    if (action === "approve" && (!body.candidate_id || typeof body.candidate_id !== "string" || !body.candidate_id.trim())) {
+      return NextResponse.json({ ok: false, error: "candidate_id is required and must be a non-empty string" }, { status: 400 });
+    }
+
     const tunnelUrl = OCI_TUNNEL_URL.replace(/\/$/, "");
     
     const endpoint = action === "import-algoverse" 

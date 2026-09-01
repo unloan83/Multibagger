@@ -111,7 +111,8 @@ CREATE TABLE IF NOT EXISTS strategy_candidates (
   avg_loss DOUBLE NOT NULL DEFAULT 0.0, avg_win_loss_ratio DOUBLE NOT NULL,
   max_drawdown DOUBLE NOT NULL, trade_count INTEGER NOT NULL,
   stability_score DOUBLE NOT NULL, rank INTEGER NOT NULL,
-  status VARCHAR NOT NULL DEFAULT 'CANDIDATE', created_at TIMESTAMPTZ NOT NULL
+  status VARCHAR NOT NULL DEFAULT 'CANDIDATE', created_at TIMESTAMPTZ NOT NULL,
+  in_sample_json VARCHAR, out_of_sample_json VARCHAR, regime_breakdown_json VARCHAR
 );
 CREATE TABLE IF NOT EXISTS active_strategy (
   id INTEGER PRIMARY KEY, candidate_id VARCHAR NOT NULL,
@@ -138,6 +139,9 @@ class MarketStore:
                     con.execute("ALTER TABLE paper_trades ADD COLUMN IF NOT EXISTS entry_order_id VARCHAR")
                     con.execute("ALTER TABLE paper_trades ADD COLUMN IF NOT EXISTS exit_order_id VARCHAR")
                     con.execute("ALTER TABLE paper_trades ADD COLUMN IF NOT EXISTS peak_quote DOUBLE")
+                    con.execute("ALTER TABLE strategy_candidates ADD COLUMN IF NOT EXISTS in_sample_json VARCHAR")
+                    con.execute("ALTER TABLE strategy_candidates ADD COLUMN IF NOT EXISTS out_of_sample_json VARCHAR")
+                    con.execute("ALTER TABLE strategy_candidates ADD COLUMN IF NOT EXISTS regime_breakdown_json VARCHAR")
                     con.execute("ALTER TABLE paper_trades ADD COLUMN IF NOT EXISTS lowest_quote DOUBLE")
                     con.execute("ALTER TABLE paper_trades ADD COLUMN IF NOT EXISTS mfe DOUBLE")
                     con.execute("ALTER TABLE paper_trades ADD COLUMN IF NOT EXISTS mae DOUBLE")

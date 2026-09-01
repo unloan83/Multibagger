@@ -73,10 +73,10 @@ def main() -> None:
             if stmt:
                 con.execute(stmt)
 
-    # 3. Fetch & Cache 90-day Historical Candles for Universe
+    # 3. Fetch & Cache Historical Candles for Universe (30-day valid Upstox API window)
     today = date.today()
     to_date = today - timedelta(days=1)
-    from_date = to_date - timedelta(days=90)
+    from_date = to_date - timedelta(days=30)
 
     sample_candles: dict[str, list[dict]] = {}
     historical_success = 0

@@ -589,13 +589,13 @@ def get_active_strategy(db_path: str) -> Optional[dict[str, Any]]:
 def run_strategy_intelligence_pipeline(db_path: str) -> List[StrategyCandidate]:
     """Orchestrates candidate generation, backtest evaluation, multi-metric ranking, automatic activation, and persistence."""
     existing = get_candidates_from_store(db_path)
-    algoverse_cands = [c for c in existing if c.backtest_source == "ALGOVERSE"]
+    secondary_cands = [c for c in existing if c.backtest_source == "ALGOVERSE_SECONDARY"]
 
     generated = generate_candidate_parameter_sets()
     evaluated = [evaluate_candidate_backtest(c, db_path) for c in generated]
     
-    # Combine Algoverse imported candidates with local fallback candidates
-    combined = algoverse_cands + [c for c in evaluated if not any(a.candidate_id == c.candidate_id for a in algoverse_cands)]
+    # Combine in-house evaluated candidates with secondary reference candidates
+    combined = evaluated + [c for c in secondary_cands if not any(e.candidate_id == c.candidate_id for e in evaluated)]
     ranked = rank_and_filter_candidates(combined)
 
     # Automatic selection of top-ranked valid strategy

@@ -105,6 +105,16 @@ def test_4_valid_fresh_evidence_overrides_penalty(temp_store):
     lesson_id = f"LESSON-{uuid.uuid4().hex[:8].upper()}"
     with temp_store.connect() as con:
         con.execute("""
+            INSERT INTO strategy_candidates (
+                candidate_id, symbol, strategy_template, direction, lookback,
+                backtest_source, backtest_pnl, win_rate, avg_win, avg_loss,
+                avg_win_loss_ratio, max_drawdown, trade_count, status, created_at
+            ) VALUES (
+                'cand-hdfc-vwap', 'HDFCBANK', 'VWAP Pullback', 'LONG', '90D',
+                'ALGOVERSE', 8500.0, 62.0, 400.0, 200.0, 2.0, 350.0, 40, 'TRADE', ?
+            )
+        """, [now])
+        con.execute("""
             INSERT INTO learning_store (
                 lesson_id, trading_day, symbol, strategy_id, failure_category,
                 penalty_score, reason, fresh_override_adx_threshold, fresh_override_rvol_threshold, created_at

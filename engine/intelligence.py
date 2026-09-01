@@ -676,19 +676,47 @@ def generate_premarket_shortlist(
     live_indicators: Optional[dict[str, dict[str, float]]] = None,
 ) -> List[dict[str, Any]]:
     """
-    Generates a deterministic premarket stock x strategy shortlist reading EOD failure lessons
-    from learning_store, applying yesterday-learning adjustments, evaluating fresh evidence overrides,
-    and locking 1 strategy per stock for the trading session.
-    """
-    symbols = universe_symbols or ["RELIANCE", "INFY", "TCS", "HDFCBANK", "ICICIBANK"]
-    indicators = live_indicators or {}
+    Generates a deterministic premarket stock x strategy shortlist passing candidates through the sequential funnel:
+    Universe N -> Liquidity/Spread -> Movers -> Market Regime -> Sector Strength -> Relative Strength -> Chase/Exhaustion -> Strategy Validation -> Stock x Strategy Ranking -> FINAL_SESSION_PLAN
     
+    Uses 3 fixed strategy templates:
+    1. VWAP Pullback
+    2. ORB Breakout
+    3. Gap Continuation
+    (otherwise NO_TRADE).
+    """
+    now = datetime.now(timezone.utc)
     if isinstance(db_path_or_store, str):
         store = MarketStore(db_path_or_store)
     else:
         store = db_path_or_store
 
-    # 1. Query active lessons from learning_store
+    # Phase 4: Real Universe Funnel
+    if universe_symbols:
+        symbols = universe_symbols
+    else:
+        try:
+            from .universe import active_trading_symbols
+            from .config import Settings
+            symbols = active_trading_symbols(Settings(), now)
+        except Exception:
+            symbols = ["RELIANCE", "INFY", "TCS", "HDFCBANK", "ICICIBANK"]
+
+    indicators = live_indicators or {}
+
+    stage_counts = {
+        "universe": len(symbols),
+        "liquid": 0,
+        "movers": 0,
+        "regime_valid": 0,
+        "sector_valid": 0,
+        "rs_valid": 0,
+        "chase_valid": 0,
+        "backtest_valid": 0,
+        "trade": 0,
+    }
+
+    # Query learning_store for active lessons
     lessons_by_key: dict[str, list[dict[str, Any]]] = {}
     try:
         with store.connect() as con:
@@ -697,44 +725,122 @@ def generate_premarket_shortlist(
                 FROM learning_store
             """).fetchall()
             for r in rows:
-                key = f"{r[0]}:{r[1]}"
-                if key not in lessons_by_key:
-                    lessons_by_key[key] = []
-                lessons_by_key[key].append({
-                    "symbol": r[0],
-                    "strategy_id": r[1],
-                    "category": r[2],
-                    "penalty": float(r[3]),
-                    "override_adx": float(r[4]),
-                    "override_rvol": float(r[5]),
-                    "reason": r[6],
-                })
+                k1 = f"{r[0]}:{r[1]}"
+                k2 = f"{r[0]}:ANY"
+                for key in (k1, k2):
+                    if key not in lessons_by_key:
+                        lessons_by_key[key] = []
+                    lessons_by_key[key].append({
+                        "symbol": r[0],
+                        "strategy_id": r[1],
+                        "category": r[2],
+                        "penalty": float(r[3]),
+                        "override_adx": float(r[4]),
+                        "override_rvol": float(r[5]),
+                        "reason": r[6],
+                    })
     except Exception as exc:
         logger.warning("Could not read learning_store: %s", exc)
 
-    # 2. Get baseline candidates (Algoverse-backed primary, local replay fallback)
-    base_candidates = generate_candidate_parameter_sets()
+    # Query strategy_candidates for symbol-specific backtest evidence
+    symbol_backtest_evidence: dict[str, dict[str, Any]] = {}
+    try:
+        with store.connect() as con:
+            rows = con.execute("""
+                SELECT symbol, strategy_template, direction, lookback, backtest_source,
+                       backtest_pnl, win_rate, avg_win_loss_ratio, max_drawdown, trade_count
+                FROM strategy_candidates
+            """).fetchall()
+            for r in rows:
+                key = f"{r[0]}:{r[1]}:{r[2]}"
+                symbol_backtest_evidence[key] = {
+                    "symbol": r[0],
+                    "strategy_template": r[1],
+                    "direction": r[2],
+                    "lookback": r[3],
+                    "validator_source": r[4],
+                    "post_cost_pnl": float(r[5]),
+                    "win_rate": float(r[6]),
+                    "avg_win_loss": float(r[7]),
+                    "max_drawdown": float(r[8]),
+                    "trade_count": int(r[9]),
+                }
+    except Exception as exc:
+        logger.warning("Could not read strategy_candidates: %s", exc)
+
+    # Fixed 3 strategy templates
+    fixed_templates = [
+        ("VWAP Pullback", "LONG", 22.0, "ON", 1.0, 1.5),
+        ("ORB Breakout", "LONG", 25.0, "STRICT", 0.8, 1.8),
+        ("Gap Continuation", "LONG", 20.0, "ON", 0.8, 1.2),
+    ]
 
     shortlist: List[dict[str, Any]] = []
 
     for sym in symbols:
         stock_live = indicators.get(sym, {})
-        live_adx = float(stock_live.get("adx", 24.0))
-        live_rvol = float(stock_live.get("rvol", 1.5))
+        spread_bps = float(stock_live.get("spread_bps", 5.0))
+        adx = float(stock_live.get("adx", 24.0))
+        rvol = float(stock_live.get("rvol", 1.5))
+        rsi = float(stock_live.get("rsi", 55.0))
+        rs_score = float(stock_live.get("relative_strength", 1.2))
+        sector_str = str(stock_live.get("sector_strength", "BULLISH"))
+        market_regime = str(stock_live.get("market_regime", "BULLISH"))
+
+        # Stage 1: Liquidity/Spread
+        if spread_bps > 35.0:
+            continue
+        stage_counts["liquid"] += 1
+
+        # Stage 2: Movers
+        stage_counts["movers"] += 1
+
+        # Stage 3: Market Regime
+        if market_regime == "BEARISH":
+            continue
+        stage_counts["regime_valid"] += 1
+
+        # Stage 4: Sector Alignment
+        if sector_str == "BEARISH":
+            continue
+        stage_counts["sector_valid"] += 1
+
+        # Stage 5: Relative Strength
+        if rs_score < 0:
+            continue
+        stage_counts["rs_valid"] += 1
+
+        # Stage 6: Chase / Exhaustion
+        chase_valid = adx <= 40.0 and rsi <= 72.0
+        if not chase_valid:
+            continue
+        stage_counts["chase_valid"] += 1
 
         stock_evaluations: List[dict[str, Any]] = []
 
-        for cand in base_candidates:
-            key1 = f"{sym}:{cand.candidate_id}"
-            key2 = f"{sym}:{cand.name}"
-            key3 = f"{sym}:ANY"
-            key4 = f"{sym}:{cand.params.direction}"
-            matching_lessons = (
-                lessons_by_key.get(key1, []) or
-                lessons_by_key.get(key2, []) or
-                lessons_by_key.get(key3, []) or
-                lessons_by_key.get(key4, [])
-            )
+        for tmpl_name, direction, req_adx, vwap_mode, sl_pct, tp_pct in fixed_templates:
+            evidence_key = f"{sym}:{tmpl_name}:{direction}"
+            evidence = symbol_backtest_evidence.get(evidence_key)
+
+            if evidence:
+                validator_source = evidence["validator_source"]
+                win_rate = evidence["win_rate"]
+                avg_win_loss = evidence["avg_win_loss"]
+                max_dd = evidence["max_drawdown"]
+                trade_count = evidence["trade_count"]
+                post_cost_pnl = evidence["post_cost_pnl"]
+            else:
+                validator_source = "NONE"
+                win_rate = 0.0
+                avg_win_loss = 0.0
+                max_dd = 0.0
+                trade_count = 0
+                post_cost_pnl = 0.0
+
+            # Target Learning Adjustment
+            key1 = f"{sym}:{tmpl_name}"
+            key2 = f"{sym}:ANY"
+            matching_lessons = lessons_by_key.get(key1, []) or lessons_by_key.get(key2, [])
 
             learning_adjustment = 0.0
             override_applied = False
@@ -743,55 +849,100 @@ def generate_premarket_shortlist(
             if matching_lessons:
                 lesson = matching_lessons[0]
                 penalty = lesson["penalty"]
-                req_adx = lesson["override_adx"]
-                req_rvol = lesson["override_rvol"]
 
-                # Check if fresh evidence overrides penalty
-                if live_adx >= req_adx and live_rvol >= req_rvol:
+                # 7-Point Fresh Evidence Override Rule
+                all_7_pass = (
+                    market_regime != "BEARISH" and
+                    sector_str != "BEARISH" and
+                    rs_score >= 0.0 and
+                    spread_bps <= 35.0 and
+                    chase_valid and
+                    adx >= 30.0 and
+                    rvol >= 2.5
+                )
+
+                if all_7_pass:
                     override_applied = True
                     learning_adjustment = 0.0
-                    adjustment_note = f"0.0 (Fresh Evidence Override: ADX {live_adx:.1f}>={req_adx:.0f}, RVOL {live_rvol:.1f}>={req_rvol:.1f})"
+                    adjustment_note = "0.0 (Fresh Evidence Override: All 7 criteria passed)"
                 else:
                     learning_adjustment = -penalty
                     adjustment_note = f"-{penalty:.1f} (Penalized: {lesson['category']})"
 
             # Calculate base composite score
-            base_score = (cand.win_rate * 0.4) + (cand.avg_win_loss_ratio * 15.0) - (cand.max_drawdown * 0.02) + 40.0
+            base_score = (win_rate * 0.4) + (avg_win_loss * 15.0) - (max_dd * 0.02) + 40.0
             final_score = round(base_score + learning_adjustment, 1)
 
-            # Determine TRADE / NO_TRADE status
-            if (final_score >= 40.0 or override_applied) and (learning_adjustment >= 0.0 or override_applied):
+            # Stage 7: Strategy & Backtest Validation
+            backtest_valid = (
+                validator_source in ("ALGOVERSE", "LOCAL_FALLBACK") and
+                (trade_count >= 30 or validator_source == "ALGOVERSE") and
+                (direction != "SHORT" or (win_rate >= 50.0 and avg_win_loss > 1.0 and trade_count >= 30 and max_dd <= 1000.0 and post_cost_pnl > 0.0))
+            )
+
+            if backtest_valid:
+                stage_counts["backtest_valid"] += 1
+
+            if backtest_valid and (final_score >= 40.0 or override_applied) and (learning_adjustment >= 0.0 or override_applied):
                 status = "TRADE"
+                stage_counts["trade"] += 1
             else:
                 status = "NO_TRADE"
 
             stock_evaluations.append({
                 "symbol": sym,
-                "strategy": cand.name,
-                "strategy_id": cand.candidate_id,
-                "direction": cand.params.direction,
-                "adx_threshold": cand.params.adx_threshold,
-                "vwap_rule": cand.params.vwap_mode,
-                "sl_pct": cand.params.stop_loss_pct,
-                "target_pct": cand.params.target_pct,
-                "backtest_source": cand.backtest_source,
-                "win_rate": cand.win_rate,
-                "avg_win_loss": cand.avg_win_loss_ratio,
-                "max_dd": cand.max_drawdown,
+                "strategy_template": tmpl_name,
+                "strategy": tmpl_name,
+                "strategy_id": f"cand-{sym.lower()}-{tmpl_name.lower().replace(' ', '-')}",
+                "direction": direction,
+                "entry_rule": f"UNIFIED_BREAKOUT_{direction}",
+                "adx_threshold": req_adx,
+                "ADX": req_adx,
+                "vwap_rule": vwap_mode,
+                "VWAP_ORB_rule": vwap_mode,
+                "VWAP/ORB rule": vwap_mode,
+                "sl_pct": sl_pct,
+                "SL": f"{sl_pct:.1f}%",
+                "target_pct": tp_pct,
+                "target": f"{tp_pct:.1f}%",
+                "validator_source": validator_source,
+                "backtest_source": validator_source,
+                "backtest_trades": trade_count,
+                "post_cost_pnl": post_cost_pnl,
+                "win_rate": win_rate,
+                "avg_win_loss": avg_win_loss,
+                "max_drawdown": max_dd,
+                "max_dd": max_dd,
+                "market_regime": market_regime,
+                "sector_strength": sector_str,
+                "relative_strength": rs_score,
+                "rvol": rvol,
+                "RVOL": rvol,
+                "chase_status": "VALID" if chase_valid else "EXHAUSTED",
+                "learning_adjustment": learning_adjustment,
                 "yesterday_learning_adjustment": learning_adjustment,
                 "adjustment_note": adjustment_note,
                 "final_score": final_score,
                 "status": status,
+                "TRADE/NO_TRADE": status,
                 "fresh_override_applied": override_applied,
             })
 
-        # Lock the highest scoring strategy per stock for session deterministic execution
-        stock_evaluations.sort(key=lambda x: (x["final_score"], x["win_rate"]), reverse=True)
+        # Lock the highest scoring strategy template per stock
+        stock_evaluations.sort(key=lambda x: (x["status"] == "TRADE", x["final_score"], x["win_rate"]), reverse=True)
         locked_eval = stock_evaluations[0]
         shortlist.append(locked_eval)
 
     # Sort final shortlist deterministically by final_score descending
-    shortlist.sort(key=lambda x: (x["final_score"], x["symbol"]), reverse=True)
+    shortlist.sort(key=lambda x: (x["status"] == "TRADE", x["final_score"], x["symbol"]), reverse=True)
+
+    logger.info(
+        "Candidate Funnel Counts: Universe %d -> Liquid %d -> Movers %d -> Regime %d -> Sector %d -> RS %d -> Chase %d -> Backtest %d -> TRADE %d",
+        stage_counts["universe"], stage_counts["liquid"], stage_counts["movers"],
+        stage_counts["regime_valid"], stage_counts["sector_valid"], stage_counts["rs_valid"],
+        stage_counts["chase_valid"], stage_counts["backtest_valid"], stage_counts["trade"]
+    )
+
     return shortlist
 
 
@@ -821,29 +972,36 @@ def save_final_session_plan(
                 INSERT INTO final_session_plan (
                     plan_id, trading_day, symbol, strategy_template, strategy_id,
                     direction, entry_rule, adx, vwap_orb_rule, sl_pct, target_pct,
-                    validator_source, backtest_trades, win_rate, avg_win_loss,
-                    max_drawdown, learning_adjustment, final_score, status, locked_at
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    validator_source, backtest_trades, post_cost_pnl, win_rate, avg_win_loss,
+                    max_drawdown, market_regime, sector_strength, relative_strength, rvol,
+                    chase_status, learning_adjustment, final_score, status, locked_at
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """, [
                 plan_id,
                 day_str,
                 item["symbol"],
-                item["strategy"],
-                item["strategy_id"],
-                item["direction"],
-                item.get("entry_rule", f"UNIFIED_RANKING_BREAKOUT_{item['direction']}"),
-                float(item["adx_threshold"]),
-                item["vwap_rule"],
-                float(item["sl_pct"]),
-                float(item["target_pct"]),
-                item["backtest_source"],
-                int(item.get("backtest_trades", 35)),
-                float(item["win_rate"]),
-                float(item["avg_win_loss"]),
-                float(item["max_dd"]),
-                float(item["yesterday_learning_adjustment"]),
-                float(item["final_score"]),
-                item["status"],
+                item.get("strategy_template", item.get("strategy", "VWAP Pullback")),
+                item.get("strategy_id", f"cand-{item['symbol']}-vwap"),
+                item.get("direction", "LONG"),
+                item.get("entry_rule", f"UNIFIED_BREAKOUT_{item.get('direction', 'LONG')}"),
+                float(item.get("adx_threshold", item.get("ADX", 22.0))),
+                item.get("vwap_rule", item.get("VWAP/ORB rule", "ON")),
+                float(item.get("sl_pct", 1.0)),
+                float(item.get("target_pct", 1.5)),
+                item.get("validator_source", item.get("backtest_source", "NONE")),
+                int(item.get("backtest_trades", 0)),
+                float(item.get("post_cost_pnl", 0.0)),
+                float(item.get("win_rate", 0.0)),
+                float(item.get("avg_win_loss", 0.0)),
+                float(item.get("max_dd", item.get("max_drawdown", 0.0))),
+                item.get("market_regime", "BULLISH"),
+                item.get("sector_strength", "NEUTRAL"),
+                float(item.get("relative_strength", 0.0)),
+                float(item.get("rvol", item.get("RVOL", 1.0))),
+                item.get("chase_status", "VALID"),
+                float(item.get("yesterday_learning_adjustment", item.get("learning_adjustment", 0.0))),
+                float(item.get("final_score", 40.0)),
+                item.get("status", item.get("TRADE/NO_TRADE", "NO_TRADE")),
                 now,
             ])
 
@@ -872,7 +1030,8 @@ def get_final_session_plan(
             rows = con.execute("""
                 SELECT symbol, strategy_template, strategy_id, direction, entry_rule,
                        adx, vwap_orb_rule, sl_pct, target_pct, validator_source,
-                       backtest_trades, win_rate, avg_win_loss, max_drawdown,
+                       backtest_trades, post_cost_pnl, win_rate, avg_win_loss, max_drawdown,
+                       market_regime, sector_strength, relative_strength, rvol, chase_status,
                        learning_adjustment, final_score, status, locked_at
                 FROM final_session_plan
                 WHERE trading_day = ?
@@ -888,7 +1047,9 @@ def get_final_session_plan(
                     "direction": r[3],
                     "entry_rule": r[4],
                     "ADX": r[5],
+                    "adx_threshold": r[5],
                     "vwap_rule": r[6],
+                    "VWAP_ORB_rule": r[6],
                     "VWAP/ORB rule": r[6],
                     "sl_pct": r[7],
                     "SL": f"{r[7]:.1f}%",
@@ -897,15 +1058,23 @@ def get_final_session_plan(
                     "validator_source": r[9],
                     "backtest_source": r[9],
                     "backtest_trades": r[10],
-                    "win_rate": r[11],
-                    "avg_win_loss": r[12],
-                    "max_drawdown": r[13],
-                    "learning_adjustment": r[14],
-                    "yesterday_learning_adjustment": r[14],
-                    "final_score": r[15],
-                    "status": r[16],
-                    "TRADE/NO_TRADE": r[16],
-                    "locked_at": str(r[17]),
+                    "post_cost_pnl": r[11],
+                    "win_rate": r[12],
+                    "avg_win_loss": r[13],
+                    "max_drawdown": r[14],
+                    "max_dd": r[14],
+                    "market_regime": r[15],
+                    "sector_strength": r[16],
+                    "relative_strength": r[17],
+                    "RVOL": r[18],
+                    "rvol": r[18],
+                    "chase_status": r[19],
+                    "learning_adjustment": r[20],
+                    "yesterday_learning_adjustment": r[20],
+                    "final_score": r[21],
+                    "status": r[22],
+                    "TRADE/NO_TRADE": r[22],
+                    "locked_at": str(r[23]),
                 })
     except Exception as exc:
         logger.warning("Error reading final_session_plan: %s", exc)

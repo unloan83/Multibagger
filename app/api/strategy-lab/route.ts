@@ -3,8 +3,8 @@ import { NextResponse } from "next/server";
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
 
-const OCI_TUNNEL_URL = process.env.OCI_TUNNEL_URL || "https://vol-fleet-clouds-broken.trycloudflare.com";
-const INTERNAL_TOKEN = process.env.INTERNAL_ENGINE_TOKEN || "oci_mb_secret_token_9921";
+const OCI_TUNNEL_URL = process.env.OCI_TUNNEL_URL || "https://receptor-filing-illustration-sizes.trycloudflare.com";
+const INTERNAL_TOKEN = process.env.INTERNAL_ENGINE_TOKEN || "3IiyWTTNW8jsRnDQrRcurSz9k1g_4aYmRMbpZ3XEUDipLQLJh";
 
 export async function GET() {
   try {

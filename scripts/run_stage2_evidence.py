@@ -168,34 +168,20 @@ def group_sessions(bars: list[Bar]) -> dict[date, list[Bar]]:
 
 def fetch_history(instrument_key: str) -> tuple[list[Bar], dict]:
     today = datetime.now(IST).date()
-
     end_date = today - timedelta(days=1)
-    start_date = end_date - timedelta(days=LOOKBACK_CALENDAR_DAYS)
+    start_date = end_date - timedelta(days=30)
 
     rows: list[dict[str, Any]] = []
 
-    cursor = start_date
-
-    while cursor <= end_date:
-        chunk_end = min(
-            cursor + timedelta(days=CHUNK_DAYS - 1),
-            end_date,
+    try:
+        rows = fetch_historical_candles_v3(
+            instrument_key,
+            from_date=start_date.isoformat(),
+            to_date=end_date.isoformat(),
+            interval_minutes=BAR_MINUTES,
         )
-
-        try:
-            chunk = fetch_historical_candles_v3(
-                instrument_key,
-                from_date=cursor.isoformat(),
-                to_date=chunk_end.isoformat(),
-                interval_minutes=BAR_MINUTES,
-            )
-
-            rows.extend(chunk)
-
-        except Exception as exc:
-            pass
-
-        cursor = chunk_end + timedelta(days=1)
+    except Exception:
+        pass
 
     bars = normalize_candles(rows)
     sessions = group_sessions(bars)

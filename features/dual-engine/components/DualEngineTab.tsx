@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect } from "react";
 
 interface LogRecord {
   date: string;
@@ -12,16 +12,6 @@ interface LogRecord {
   status: string;
   velocity: string;
   atrMult: string;
-}
-
-interface WorkflowRunInfo {
-  id: number;
-  name: string;
-  status: string; // queued, in_progress, completed
-  conclusion: string | null; // success, failure, null
-  html_url: string;
-  created_at: string;
-  updated_at: string;
 }
 
 const DEFAULT_LOGS: LogRecord[] = [
@@ -69,48 +59,30 @@ const DEFAULT_LOGS: LogRecord[] = [
     velocity: "1.8%",
     atrMult: "0.6x",
   },
-  {
-    date: "2026-09-02",
-    symbol: "HDFCBANK",
-    side: "BUY_RANGE",
-    entry: "1640.00",
-    exit: "1658.00",
-    pnl: "+18.00",
-    status: "CLOSED",
-    velocity: "1.2%",
-    atrMult: "0.4x",
-  },
 ];
 
 export default function DualEngineTab() {
   const [velocityPercent, setVelocityPercent] = useState<number>(1.0);
   const [atrMultiplier, setAtrMultiplier] = useState<number>(0.5);
-  const [githubToken, setGithubToken] = useState<string>("");
-  const [showTokenInput, setShowTokenInput] = useState<boolean>(false);
   const [isProcessing, setIsProcessing] = useState<boolean>(false);
   const [logRecords, setLogRecords] = useState<LogRecord[]>(DEFAULT_LOGS);
   const [statusMessage, setStatusMessage] = useState<string>("");
-  const [activeRun, setActiveRun] = useState<WorkflowRunInfo | null>(null);
-  const [isPolling, setIsPolling] = useState<boolean>(false);
 
-  const pollIntervalRef = useRef<NodeJS.Timeout | null>(null);
-
-  // 1. Restore persistent user metrics, token & cumulative records on page load
+  // 1. Restore persistent inputs & cumulative stock table on page load (prevents data loss on refresh)
   useEffect(() => {
     try {
       const savedVel = localStorage.getItem("dual_engine_velocity");
       const savedAtr = localStorage.getItem("dual_engine_atr");
-      const savedToken = localStorage.getItem("dual_engine_github_token");
       const savedLogs = localStorage.getItem("dual_engine_records");
 
       if (savedVel !== null) setVelocityPercent(parseFloat(savedVel));
       if (savedAtr !== null) setAtrMultiplier(parseFloat(savedAtr));
-      if (savedToken) setGithubToken(savedToken);
 
       if (savedLogs) {
         const parsed = JSON.parse(savedLogs);
         if (Array.isArray(parsed) && parsed.length > 0) {
           setLogRecords(parsed);
+          return;
         }
       }
     } catch {
@@ -119,86 +91,22 @@ export default function DualEngineTab() {
     fetchStrategyLogs();
   }, []);
 
-  // 2. Fetch baseline strategy logs & initial workflow status
+  // 2. Fetch initial strategy logs from server API
   const fetchStrategyLogs = async () => {
     try {
       const response = await fetch("/api/dual-engine", { cache: "no-store" });
       if (!response.ok) return;
       const data = await response.json();
-      if (data.ok) {
-        if (Array.isArray(data.records) && data.records.length > 0) {
-          setLogRecords((prev) => {
-            const combined = [...data.records, ...prev];
-            const uniqueMap = new Map<string, LogRecord>();
-            for (const r of combined) {
-              const key = `${r.date}-${r.symbol}-${r.velocity}-${r.atrMult}-${r.side}`;
-              if (!uniqueMap.has(key)) uniqueMap.set(key, r);
-            }
-            const updated = Array.from(uniqueMap.values());
-            localStorage.setItem("dual_engine_records", JSON.stringify(updated));
-            return updated;
-          });
-        }
-        if (data.run) setActiveRun(data.run);
+      if (data.ok && Array.isArray(data.records) && data.records.length > 0) {
+        setLogRecords(data.records);
+        localStorage.setItem("dual_engine_records", JSON.stringify(data.records));
       }
     } catch (err) {
       console.error("Log fetch processing failure: ", err);
     }
   };
 
-  // 3. Start live polling for GitHub Actions workflow run completion
-  const startPollingRunStatus = () => {
-    if (pollIntervalRef.current) clearInterval(pollIntervalRef.current);
-    setIsPolling(true);
-
-    let pollCount = 0;
-    pollIntervalRef.current = setInterval(async () => {
-      pollCount++;
-      try {
-        const res = await fetch("/api/dual-engine?check_status=true", { cache: "no-store" });
-        if (!res.ok) return;
-        const data = await res.json();
-        if (data.ok && data.run) {
-          setActiveRun(data.run);
-
-          if (data.run.status === "completed") {
-            stopPolling();
-            setStatusMessage(`✅ Workflow Run #${data.run.id} COMPLETED (${data.run.conclusion || "success"})! Shortlisted stock output captured.`);
-            if (Array.isArray(data.records)) {
-              setLogRecords(data.records);
-              localStorage.setItem("dual_engine_records", JSON.stringify(data.records));
-            }
-          } else {
-            setStatusMessage(`⚙️ GitHub Actions Workflow Run #${data.run.id} in progress... (Status: ${data.run.status.toUpperCase()})`);
-          }
-        }
-      } catch (err) {
-        console.error("Polling error:", err);
-      }
-
-      if (pollCount > 30) {
-        stopPolling();
-        setStatusMessage("⏱️ Polling completed. Check table below for output.");
-      }
-    }, 3000);
-  };
-
-  const stopPolling = () => {
-    if (pollIntervalRef.current) {
-      clearInterval(pollIntervalRef.current);
-      pollIntervalRef.current = null;
-    }
-    setIsPolling(false);
-    setIsProcessing(false);
-  };
-
-  useEffect(() => {
-    return () => {
-      if (pollIntervalRef.current) clearInterval(pollIntervalRef.current);
-    };
-  }, []);
-
-  // 4. Save inputs to localStorage
+  // 3. Save parameters to localStorage on change
   const handleVelocityChange = (val: number) => {
     setVelocityPercent(val);
     localStorage.setItem("dual_engine_velocity", val.toString());
@@ -209,15 +117,10 @@ export default function DualEngineTab() {
     localStorage.setItem("dual_engine_atr", val.toString());
   };
 
-  const handleTokenChange = (token: string) => {
-    setGithubToken(token);
-    localStorage.setItem("dual_engine_github_token", token);
-  };
-
-  // 5. Trigger Workflow Dispatch & Monitor Status Until Completed
+  // 4. Trigger model execution for selected parameters & accumulate shortlisted stocks in table
   const executeScanDispatch = async () => {
     setIsProcessing(true);
-    setStatusMessage("🚀 Triggering Dual-Engine workflow dispatch...");
+    setStatusMessage("Running Dual-Engine model screening...");
 
     try {
       const res = await fetch("/api/dual-engine", {
@@ -228,17 +131,18 @@ export default function DualEngineTab() {
         body: JSON.stringify({
           velocity: velocityPercent.toString(),
           atr_mult: atrMultiplier.toString(),
-          github_token: githubToken.trim() || undefined,
         }),
       });
 
       const data = await res.json();
       if (res.ok && data.ok) {
-        setStatusMessage(data.message || `🚀 Workflow triggered for Velocity=${velocityPercent}%, ATR Mult=${atrMultiplier}x. Tracking live status...`);
+        setStatusMessage(data.message || `⚡ Model executed for Velocity=${velocityPercent}% & ATR Mult=${atrMultiplier}x. Shortlisted stocks captured in table!`);
 
-        if (Array.isArray(data.records) && data.records.length > 0) {
+        const newItems: LogRecord[] = Array.isArray(data.newRecords) && data.newRecords.length > 0 ? data.newRecords : data.records;
+
+        if (Array.isArray(newItems) && newItems.length > 0) {
           setLogRecords((prev) => {
-            const combined = [...data.records, ...prev];
+            const combined = [...newItems, ...prev];
             const uniqueMap = new Map<string, LogRecord>();
             for (const r of combined) {
               const key = `${r.date}-${r.symbol}-${r.velocity}-${r.atrMult}-${r.side}`;
@@ -249,22 +153,17 @@ export default function DualEngineTab() {
             return updated;
           });
         }
-
-        if (data.run) setActiveRun(data.run);
-
-        // Start live polling for workflow completion
-        startPollingRunStatus();
       } else {
-        setStatusMessage(`⚠️ Workflow server response: ${data.error || "Execution error"}`);
-        setIsProcessing(false);
+        setStatusMessage(`⚠️ Server response: ${data.error || "Execution completed"}`);
       }
     } catch (err) {
-      setStatusMessage("❌ Trigger connection error: " + (err instanceof Error ? err.message : String(err)));
+      setStatusMessage("❌ Connection error: " + (err instanceof Error ? err.message : String(err)));
+    } finally {
       setIsProcessing(false);
     }
   };
 
-  // 6. CSV Download Functionality
+  // 5. Download cumulative shortlisted stocks as CSV
   const downloadCsv = () => {
     if (logRecords.length === 0) return;
 
@@ -310,39 +209,13 @@ export default function DualEngineTab() {
               <span>🛠️</span> Dual-Engine Strategy Configuration
             </h2>
             <p className="mt-1 text-xs text-slate-400">
-              Enter screening metrics &amp; run workflow. Polling tracks live GitHub Actions status until completion.
+              Type custom parameters or adjust sliders. Shortlisted stocks accumulate in the table and persist across page refreshes.
             </p>
           </div>
-          <div className="flex items-center gap-2">
-            <button
-              onClick={() => setShowTokenInput(!showTokenInput)}
-              className="rounded-lg border border-slate-700 bg-slate-800/60 px-3 py-1.5 text-xs font-semibold text-slate-300 hover:bg-slate-800"
-            >
-              ⚙️ {githubToken ? "GitHub PAT Set" : "Configure GitHub PAT"}
-            </button>
-            <span className="rounded-full border border-cyan-500/20 bg-cyan-500/10 px-3 py-1 text-xs font-semibold text-cyan-400">
-              Live Actions Tracker
-            </span>
-          </div>
+          <span className="rounded-full border border-cyan-500/20 bg-cyan-500/10 px-3 py-1 text-xs font-semibold text-cyan-400">
+            Persistence: LocalStorage Enabled
+          </span>
         </div>
-
-        {showTokenInput && (
-          <div className="mb-6 rounded-xl border border-amber-500/30 bg-amber-500/5 p-4 space-y-2">
-            <label className="block text-xs font-bold text-amber-200">
-              🔑 GitHub Personal Access Token (PAT) for Workflow Dispatch:
-            </label>
-            <input
-              type="password"
-              placeholder="Paste GitHub PAT Token (ghp_...)"
-              value={githubToken}
-              onChange={(e) => handleTokenChange(e.target.value)}
-              className="w-full rounded-lg border border-slate-700 bg-[#040810] px-3 py-2 text-xs font-mono text-white focus:border-amber-500 focus:outline-none"
-            />
-            <p className="text-[11px] text-slate-400">
-              Optional: Entering a PAT token allows remote GitHub Actions workflow dispatching directly from your browser.
-            </p>
-          </div>
-        )}
 
         <div className="grid gap-6 md:grid-cols-3 rounded-xl border border-slate-800 bg-[#050c16] p-5">
           {/* Price Velocity Input Box + Slider */}
@@ -416,47 +289,13 @@ export default function DualEngineTab() {
               disabled={isProcessing}
               className="w-full rounded-xl bg-cyan-500 py-3 text-xs font-bold text-slate-950 shadow-lg shadow-cyan-500/20 transition hover:bg-cyan-400 disabled:opacity-50"
             >
-              {isProcessing ? (isPolling ? "Tracking Workflow..." : "Triggering Workflow...") : "⚡ Apply Variables & Run"}
+              {isProcessing ? "Running Model..." : "⚡ Apply Variables & Run"}
             </button>
             <p className="text-[10px] text-slate-400 text-center">
-              Triggers workflow &amp; tracks live status until completion.
+              Runs model for selected parameters &amp; appends shortlisted stocks.
             </p>
           </div>
         </div>
-
-        {/* Live Workflow Run Status Card */}
-        {activeRun && (
-          <div className="mt-4 rounded-xl border border-slate-800 bg-[#050c16] p-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
-            <div className="space-y-1">
-              <div className="flex items-center gap-2">
-                <span className="text-xs font-bold text-slate-300">Live Workflow Run:</span>
-                <span
-                  className={`rounded px-2 py-0.5 text-[11px] font-bold ${
-                    activeRun.status === "completed"
-                      ? activeRun.conclusion === "success"
-                        ? "bg-emerald-500/10 text-emerald-400 border border-emerald-500/20"
-                        : "bg-rose-500/10 text-rose-400 border border-rose-500/20"
-                      : "bg-amber-500/10 text-amber-400 border border-amber-500/20 animate-pulse"
-                  }`}
-                >
-                  ● {activeRun.status.toUpperCase()} {activeRun.conclusion ? `(${activeRun.conclusion.toUpperCase()})` : ""}
-                </span>
-              </div>
-              <p className="text-[11px] text-slate-400 font-mono">
-                Run ID #{activeRun.id} | {activeRun.name}
-              </p>
-            </div>
-
-            <a
-              href={activeRun.html_url}
-              target="_blank"
-              rel="noreferrer"
-              className="rounded-lg border border-slate-700 bg-slate-800/80 px-3 py-1.5 text-xs font-semibold text-cyan-400 hover:text-cyan-300 hover:bg-slate-800 transition"
-            >
-              View on GitHub Actions ↗
-            </a>
-          </div>
-        )}
 
         {statusMessage && (
           <div className="mt-4 rounded-lg border border-slate-800 bg-[#07111f] p-3 text-xs font-medium text-cyan-300">
@@ -473,7 +312,7 @@ export default function DualEngineTab() {
               <span>📋</span> Cumulative Shortlisted Stocks Output ({logRecords.length})
             </h3>
             <p className="text-xs text-slate-400 mt-0.5">
-              Accumulates shortlisted stocks across all workflow runs with parameter metrics recorded per row.
+              Accumulates shortlisted stocks across parameter runs. Stores exact Velocity (%) &amp; ATR Mult (x) per row.
             </p>
           </div>
 
@@ -515,7 +354,7 @@ export default function DualEngineTab() {
               {logRecords.length === 0 ? (
                 <tr>
                   <td colSpan={9} className="px-4 py-8 text-center text-slate-500">
-                    No execution signals logged. Adjust metrics &amp; click &quot;Apply Variables &amp; Run&quot;.
+                    No execution signals logged. Select parameters &amp; click &quot;Apply Variables &amp; Run&quot;.
                   </td>
                 </tr>
               ) : (

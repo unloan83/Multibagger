@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Link from "next/link";
 import DualEngineTab from "@/features/dual-engine/components/DualEngineTab";
 
 export default function DualEnginePage() {
@@ -66,12 +67,12 @@ export default function DualEnginePage() {
                 Price velocity target &amp; ATR range threshold screening model → automated signal dispatch &amp; real-time execution outputs.
               </p>
             </div>
-            <a
+            <Link
               href="/?tab=dual-engine"
               className="rounded-xl border border-slate-800 bg-[#050c16] px-4 py-2 text-xs font-bold text-cyan-400 hover:text-cyan-300 transition"
             >
               ← Back to Main Portal
-            </a>
+            </Link>
           </div>
         </header>
 

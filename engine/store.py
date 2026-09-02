@@ -102,8 +102,8 @@ CREATE TABLE IF NOT EXISTS intraday_audit_log (
 );
 CREATE TABLE IF NOT EXISTS strategy_candidates (
   candidate_id VARCHAR PRIMARY KEY,
-  symbol VARCHAR NOT NULL,
-  strategy_template VARCHAR NOT NULL,
+  symbol VARCHAR DEFAULT 'ALL',
+  strategy_template VARCHAR DEFAULT 'INTRADAY_PULLBACK',
   direction VARCHAR NOT NULL DEFAULT 'LONG',
   lookback VARCHAR NOT NULL DEFAULT '90D',
   backtest_source VARCHAR NOT NULL DEFAULT 'NONE',
@@ -230,6 +230,15 @@ class MarketStore:
                     con.execute("ALTER TABLE paper_trades ADD COLUMN IF NOT EXISTS agent VARCHAR")
                     con.execute("ALTER TABLE paper_trades ADD COLUMN IF NOT EXISTS initial_quantity INTEGER")
                     con.execute("ALTER TABLE paper_trades ADD COLUMN IF NOT EXISTS original_stop_price DOUBLE")
+                    con.execute("ALTER TABLE strategy_candidates ADD COLUMN IF NOT EXISTS name VARCHAR")
+                    con.execute("ALTER TABLE strategy_candidates ADD COLUMN IF NOT EXISTS adx_threshold DOUBLE")
+                    con.execute("ALTER TABLE strategy_candidates ADD COLUMN IF NOT EXISTS vwap_mode VARCHAR")
+                    con.execute("ALTER TABLE strategy_candidates ADD COLUMN IF NOT EXISTS stop_loss_pct DOUBLE")
+                    con.execute("ALTER TABLE strategy_candidates ADD COLUMN IF NOT EXISTS target_pct DOUBLE")
+                    con.execute("ALTER TABLE strategy_candidates ADD COLUMN IF NOT EXISTS entry_time VARCHAR")
+                    con.execute("ALTER TABLE strategy_candidates ADD COLUMN IF NOT EXISTS rvol_min DOUBLE")
+                    con.execute("ALTER TABLE strategy_candidates ADD COLUMN IF NOT EXISTS atr_window INTEGER")
+                    con.execute("ALTER TABLE strategy_candidates ADD COLUMN IF NOT EXISTS rank INTEGER")
                     con.execute("ALTER TABLE strategy_candidates ADD COLUMN IF NOT EXISTS direction VARCHAR DEFAULT 'LONG'")
                     con.execute("ALTER TABLE strategy_candidates ADD COLUMN IF NOT EXISTS backtest_source VARCHAR DEFAULT 'LOCAL_FALLBACK'")
                     con.execute("ALTER TABLE strategy_candidates ADD COLUMN IF NOT EXISTS avg_win DOUBLE DEFAULT 0.0")

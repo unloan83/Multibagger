@@ -498,14 +498,14 @@ def save_candidates_to_store(candidates: List[StrategyCandidate], db_path: str) 
 
             con.execute("""
               INSERT INTO strategy_candidates (
-                candidate_id, name, direction, backtest_source, adx_threshold,
+                candidate_id, symbol, strategy_template, name, direction, backtest_source, adx_threshold,
                 vwap_mode, stop_loss_pct, target_pct, entry_time, rvol_min,
                 atr_window, backtest_pnl, win_rate, avg_win, avg_loss,
                 avg_win_loss_ratio, max_drawdown, trade_count, stability_score,
                 rank, status, created_at, in_sample_json, out_of_sample_json, regime_breakdown_json
-              ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+              ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """, [
-                c.candidate_id, c.name, c.params.direction, c.backtest_source,
+                c.candidate_id, "ALL", "INTRADAY_PULLBACK", c.name, c.params.direction, c.backtest_source,
                 c.params.adx_threshold, c.params.vwap_mode, c.params.stop_loss_pct,
                 c.params.target_pct, c.params.entry_time, c.params.rvol_min,
                 c.params.atr_window, c.backtest_pnl, c.win_rate, c.avg_win,

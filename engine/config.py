@@ -77,9 +77,9 @@ class StatutoryFees:
 @dataclass(frozen=True)
 class Settings:
     access_token: str = ""
-    db_path: Path = field(default_factory=lambda: ROOT / "data" / "trading_state.db")
-    snapshot_path: Path = field(default_factory=lambda: ROOT / "data" / "paper_signals.json")
-    universe_path: Path = field(default_factory=lambda: ROOT / "data" / "market-universe.json")
+    db_path: Path = field(default_factory=lambda: Path(os.getenv("MARKET_DATA_DB") or os.getenv("TRADING_DB_PATH") or str(ROOT / "data" / "trading_state.db")))
+    snapshot_path: Path = field(default_factory=lambda: Path(os.getenv("SIGNAL_SNAPSHOT_PATH") or str(ROOT / "data" / "paper_signals.json")))
+    universe_path: Path = field(default_factory=lambda: Path(os.getenv("NSE_UNIVERSE_PATH") or str(ROOT / "data" / "market-universe.json")))
     max_symbols: int = 500
     trading_universe_size: int = 250
     stale_seconds: int = 120
@@ -115,8 +115,8 @@ class Settings:
     vix_symbol: str = "INDIA VIX"
     vix_instrument_key: str = "NSE_INDEX|India VIX"
     max_opening_gap_pct: float = 1.5
-    no_trade_events_path: Path = field(default_factory=lambda: ROOT / "data" / "no-trade-events.json")
-    active_universe_path: Path = field(default_factory=lambda: ROOT / "data" / "active-intraday-universe.json")
+    no_trade_events_path: Path = field(default_factory=lambda: Path(os.getenv("NO_TRADE_EVENTS_PATH") or str(ROOT / "data" / "no-trade-events.json")))
+    active_universe_path: Path = field(default_factory=lambda: Path(os.getenv("ACTIVE_INTRADAY_UNIVERSE_PATH") or str(ROOT / "data" / "active-intraday-universe.json")))
     signal_expiry_minutes: int = 20
     paper_portfolio_capital: float = 500_000.0
     paper_risk_per_trade_pct: float = 0.25
@@ -233,13 +233,28 @@ class Settings:
             raise RuntimeError(f"ENABLED_AGENTS must be {EXECUTION_ENGINE_IDENTITY} so scheduled scans can execute")
 
         token = os.getenv("UPSTOX_ACCESS_TOKEN", "").strip()
-        db_p = Path(os.getenv("TRADING_DB_PATH", str(ROOT / "data" / "trading_state.db")))
-        db_p.parent.mkdir(parents=True, exist_ok=True)
-        (ROOT / "logs").mkdir(parents=True, exist_ok=True)
+        db_p = Path(os.getenv("MARKET_DATA_DB") or os.getenv("TRADING_DB_PATH") or str(ROOT / "data" / "trading_state.db"))
+        try:
+            db_p.parent.mkdir(parents=True, exist_ok=True)
+        except OSError:
+            pass
+        try:
+            (ROOT / "logs").mkdir(parents=True, exist_ok=True)
+        except OSError:
+            pass
+
+        snapshot_p = Path(os.getenv("SIGNAL_SNAPSHOT_PATH") or str(ROOT / "data" / "paper_signals.json"))
+        active_u_p = Path(os.getenv("ACTIVE_INTRADAY_UNIVERSE_PATH") or str(ROOT / "data" / "active-intraday-universe.json"))
+        universe_p = Path(os.getenv("NSE_UNIVERSE_PATH") or str(ROOT / "data" / "market-universe.json"))
+        no_trade_p = Path(os.getenv("NO_TRADE_EVENTS_PATH") or str(ROOT / "data" / "no-trade-events.json"))
 
         return cls(
             access_token=token,
             db_path=db_p,
+            snapshot_path=snapshot_p,
+            active_universe_path=active_u_p,
+            universe_path=universe_p,
+            no_trade_events_path=no_trade_p,
             max_symbols=max_symbols,
             min_price=min_price,
             max_price=max_price,

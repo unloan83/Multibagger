@@ -5,9 +5,10 @@ import BreezeMultibaggerTab from "@/features/breeze/components/BreezeMultibagger
 import OptionsQuantTab from "@/features/options-quant/components/OptionsQuantTab";
 import UpstoxRecommendationsTab from "@/features/upstox/components/UpstoxRecommendationsTab";
 import StrategyLabTab from "@/features/strategy-lab/components/StrategyLabTab";
+import DualEngineTab from "@/features/dual-engine/components/DualEngineTab";
 
 type Market = "india" | "us";
-type IndiaModel = "breeze-multibagger" | "upstox-intraday" | "strategy-lab" | "options-quant";
+type IndiaModel = "breeze-multibagger" | "upstox-intraday" | "strategy-lab" | "options-quant" | "dual-engine";
 
 const modelLogic: Record<IndiaModel, { title: string; flow: string; purpose: string }> = {
   "breeze-multibagger": {
@@ -30,6 +31,11 @@ const modelLogic: Record<IndiaModel, { title: string; flow: string; purpose: str
     flow: "Market regime → breadth and sector → institutional plus expert direction → Upstox NIFTY chain → OI, IV, Greeks and liquidity → defined-risk debit spread → SHADOW / NO TRADE",
     purpose: "Bull Call or Bear Put spreads only. Upstox sandbox validates order payloads; real-money execution remains unavailable.",
   },
+  "dual-engine": {
+    title: "Dual Engine Strategy Configuration",
+    flow: "Price velocity target & ATR range threshold parameters → automated scan dispatch → real-time execution log & shortlisted stock spreadsheet output",
+    purpose: "Interactive morning strategy parameter tuning and execution log tracking for dual-engine momentum models.",
+  },
 };
 
 export default function HomePage() {
@@ -41,7 +47,7 @@ export default function HomePage() {
 
   useEffect(() => {
     const requested = new URLSearchParams(window.location.search).get("tab");
-    if (requested === "breeze-multibagger" || requested === "upstox-intraday" || requested === "strategy-lab" || requested === "options-quant") {
+    if (requested === "breeze-multibagger" || requested === "upstox-intraday" || requested === "strategy-lab" || requested === "options-quant" || requested === "dual-engine") {
       setActiveModel(requested as IndiaModel);
     }
     setIsUnlocked(sessionStorage.getItem("stock_planner_pin") === "1083");
@@ -92,12 +98,14 @@ export default function HomePage() {
           <>
             <nav className="flex max-w-full gap-2 overflow-x-auto rounded-xl border border-slate-800 bg-[#0d1b2e] p-1.5" aria-label="Indian trading models">
               <ModelButton active={activeModel === "strategy-lab"} onClick={() => setActiveModel("strategy-lab")} title="Strategy Lab" detail="Live Interactive Engine" />
+              <ModelButton active={activeModel === "dual-engine"} onClick={() => setActiveModel("dual-engine")} title="Dual Engine" detail="Velocity & ATR metrics" />
               <ModelButton active={activeModel === "breeze-multibagger"} onClick={() => setActiveModel("breeze-multibagger")} title="Breeze Multibagger" detail="6–24+ months" />
               <ModelButton active={activeModel === "upstox-intraday"} onClick={() => setActiveModel("upstox-intraday")} title="Upstox Intraday" detail="Broker-feed paper" />
               <ModelButton active={activeModel === "options-quant"} onClick={() => setActiveModel("options-quant")} title="Options Quant" detail="NIFTY spreads" />
             </nav>
             <section className="rounded-xl border border-slate-800 bg-[#0b1626] p-4"><h2 className="text-sm font-bold text-white">{logic.title} recommendation logic</h2><p className="mt-2 text-xs leading-relaxed text-cyan-200">{logic.flow}</p><p className="mt-2 text-xs leading-relaxed text-slate-400">{logic.purpose}</p></section>
             {activeModel === "strategy-lab" ? <StrategyLabTab /> : null}
+            {activeModel === "dual-engine" ? <DualEngineTab /> : null}
             {activeModel === "breeze-multibagger" ? <BreezeMultibaggerTab /> : null}
             {activeModel === "upstox-intraday" ? <UpstoxRecommendationsTab /> : null}
             {activeModel === "options-quant" ? <OptionsQuantTab /> : null}

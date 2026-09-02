@@ -3,7 +3,7 @@ import { NextResponse } from "next/server";
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
 
-const OCI_TUNNEL_URL = process.env.OCI_TUNNEL_URL || "https://medical-editor-develop-toilet.trycloudflare.com";
+const OCI_TUNNEL_URL = process.env.OCI_TUNNEL_URL || "https://springer-behaviour-bare-richard.trycloudflare.com";
 const INTERNAL_TOKEN = process.env.INTERNAL_ENGINE_TOKEN || "3IiyWTTNW8jsRnDQrRcurSz9k1g_4aYmRMbpZ3XEUDipLQLJh";
 
 export async function GET() {

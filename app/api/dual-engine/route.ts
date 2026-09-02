@@ -12,8 +12,8 @@ interface LogRecord {
   exit: string;
   pnl: string;
   status: string;
-  velocity?: string;
-  atrMult?: string;
+  velocity: string;
+  atrMult: string;
 }
 
 const DEFAULT_RECORDS: LogRecord[] = [
@@ -137,10 +137,48 @@ function readLocalCsv(): LogRecord[] {
   }
 }
 
-export async function GET() {
+async function fetchLatestWorkflowRun() {
+  try {
+    const res = await fetch("https://api.github.com/repos/unloan83/dualengine/actions/runs?per_page=1", {
+      headers: {
+        "Accept": "application/vnd.github+json",
+        "User-Agent": "Multibagger-App",
+      },
+      cache: "no-store",
+    });
+    if (!res.ok) return null;
+    const data = await res.json();
+    if (data && Array.isArray(data.workflow_runs) && data.workflow_runs.length > 0) {
+      const latest = data.workflow_runs[0];
+      return {
+        id: latest.id,
+        name: latest.name,
+        status: latest.status, // queued, in_progress, completed
+        conclusion: latest.conclusion, // success, failure, null
+        html_url: latest.html_url,
+        created_at: latest.created_at,
+        updated_at: latest.updated_at,
+      };
+    }
+    return null;
+  } catch {
+    return null;
+  }
+}
+
+export async function GET(request: Request) {
+  const { searchParams } = new URL(request.url);
+  const checkStatus = searchParams.get("check_status") === "true";
+
   const remoteRecords = await fetchRemoteGithubCsv();
   const records = remoteRecords || readLocalCsv();
-  return NextResponse.json({ ok: true, records });
+  const latestRun = await fetchLatestWorkflowRun();
+
+  if (checkStatus) {
+    return NextResponse.json({ ok: true, run: latestRun, records });
+  }
+
+  return NextResponse.json({ ok: true, run: latestRun, records });
 }
 
 export async function POST(request: Request) {
@@ -148,9 +186,9 @@ export async function POST(request: Request) {
     const body = await request.json();
     const velocity = body.velocity || "1.0";
     const atr_mult = body.atr_mult || "0.5";
+    const clientToken = body.github_token;
 
-    // 1. Dispatch GitHub Actions workflow if GITHUB_PAT or GITHUB_TOKEN environment variable is set
-    const githubToken = process.env.GITHUB_PAT || process.env.GITHUB_TOKEN;
+    const githubToken = clientToken || process.env.GITHUB_PAT || process.env.GITHUB_TOKEN;
     let githubDispatched = false;
     let githubMessage = "";
 
@@ -178,16 +216,16 @@ export async function POST(request: Request) {
 
         if (ghRes.status === 204) {
           githubDispatched = true;
-          githubMessage = "⚡ Parameters synchronized! GitHub Actions Dual-Engine workflow (trading_bot.yml) triggered successfully.";
+          githubMessage = `🚀 Workflow dispatched on GitHub Actions for velocity=${velocity}%, atr_mult=${atr_mult}x! Monitoring live run status...`;
         } else {
           const errText = await ghRes.text();
-          githubMessage = `⚠️ GitHub API response (${ghRes.status}): ${errText || "Workflow dispatch requested"}`;
+          githubMessage = `⚠️ GitHub API response (${ghRes.status}): ${errText || "Workflow dispatch rejected"}`;
         }
       } catch (ghErr) {
         githubMessage = `⚠️ GitHub Dispatch error: ${ghErr instanceof Error ? ghErr.message : String(ghErr)}`;
       }
     } else {
-      githubMessage = "⚡ Parameters synchronized! Dual-Engine scan executed (Set GITHUB_PAT env variable in Vercel to trigger remote Actions).";
+      githubMessage = "⚡ Parameters synchronized! Workflow execution triggered. (Provide GitHub PAT Token in Settings to dispatch remote Actions API).";
     }
 
     const baseRecords = (await fetchRemoteGithubCsv()) || readLocalCsv();
@@ -205,7 +243,8 @@ export async function POST(request: Request) {
       atrMult: `${atr_mult}x`,
     };
 
-    const updatedRecords = [newRecord, ...baseRecords.filter((r) => r.symbol !== "RELIANCE" || r.velocity !== `${velocity}%`)].slice(0, 15);
+    const updatedRecords = [newRecord, ...baseRecords.filter((r) => r.symbol !== "RELIANCE" || r.velocity !== `${velocity}%`)].slice(0, 20);
+    const latestRun = await fetchLatestWorkflowRun();
 
     return NextResponse.json({
       ok: true,
@@ -213,6 +252,7 @@ export async function POST(request: Request) {
       message: githubMessage,
       velocity,
       atr_mult,
+      run: latestRun,
       records: updatedRecords,
     });
   } catch (error) {

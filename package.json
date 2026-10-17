@@ -20,7 +20,7 @@
     "engine:local-agent": "bash scripts/run_local_agent_offload.sh",
     "engine:backfill": "PYTHONPATH=.python-packages python3 -m scripts.market_engine backfill --start 2022-01-01",
     "engine:backtest": "PYTHONPATH=.python-packages python3 -m scripts.market_engine backtest",
-    "engine:test": "PYTHONPATH=.:.python-packages python3 -m pytest tests features/breeze/python features/upstox/python",
+    "engine:test": "PYTHONPATH=.:.python-packages python3 -m pytest tests features/breeze/python features/upstox/python features/options-quant/python",
     "test:breeze-multibagger": "node --import tsx --test features/breeze/lib/breeze-multibagger.test.ts",
     "test:options-quant": "node --import tsx --test features/options-quant/lib/*.test.ts",
     "test:intraday-engine": "node --import tsx --test lib/intraday-engine.test.ts",

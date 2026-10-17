@@ -1,0 +1,9 @@
+[Unit]
+Description=Multibagger daily market intelligence (Mon-Fri 08:40 IST; holidays exit as NOT_A_SESSION)
+
+[Timer]
+OnCalendar=Mon..Fri *-*-* 08:40:00 Asia/Kolkata
+Persistent=false
+
+[Install]
+WantedBy=timers.target

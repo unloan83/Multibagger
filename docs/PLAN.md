@@ -13,17 +13,20 @@ Every trading day before 09:00 IST: market mood (Nifty trend, India VIX, breadth
 news/events and named-analyst morning calls weighted by each analyst's measured track record. Output is a short pick
 list with entry, stop and target, or `NO TRADE`. Every pick is logged before the open and scored against real prices.
 
+Code: `intel/` (broker-neutral), Upstox read-only data in `features/upstox/python/daily_data.py`, units
+`deploy/multibagger-intel-*`. Details: `intel/README.md`. State: `SHADOW` (paper only, no order code).
+
 ## Category order
 
-| # | Category | Code | Status |
+| # | Category | Rule in `daily-intel-v1` | Status |
 |---|---|---|---|
-| 1 | Intraday | `engine/`, `features/upstox/` | Paused (see tested strategies) |
-| 2 | Short-term (2 days-4 weeks) | to be added | Not started |
-| 3 | Long-term (3-24 months) | `features/breeze/` (expert triage, fundamentals) | Expert data empty |
-| 4 | Options: call, put, long, short | `features/options-quant/` | **Untested; first to test** |
-| 5 | ETF (idle money) | regime detector `engine/regime_detector.py` | After options |
+| 1 | Intraday | News or proven-analyst catalyst aligned with market mood; exit at close | Built, paper |
+| 2 | Short-term (2 days-4 weeks) | 20-day momentum near 52-week high, stop 2 ATR, target 4 ATR, max 10 sessions | Built, paper |
+| 3 | Long-term (3-24 months) | 12-1 momentum, monthly, only while Nifty is above its 200-day average | Built, paper |
+| 4 | Options | Nifty debit spread (bull call / bear put) held to expiry; option selling not included | Built, paper; needs Upstox token |
+| 5 | ETF (idle money) | NIFTYBEES in an uptrend, LIQUIDBEES otherwise; logged on each switch | Built, paper |
 
 ## Next
 
-1. Options: forward paper test of the existing bull-call / bear-put spread engine on the Breeze VM, using live
-   option-chain data, plus futures OI state (`oi_intelligence.py`) as a direction input.
+1. Install the two timers on the Breeze VM and let every category collect paper evidence.
+2. A category with 30 closed picks and no positive net expectancy is marked `FAILED` automatically.

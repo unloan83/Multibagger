@@ -298,3 +298,11 @@ def test_no_order_endpoint_in_model_code():
 def test_runs_on_vm_python_3_10():
     for path in _sources():
         ast.parse(path.read_text(), feature_version=(3, 10))
+
+
+def test_after_open_run_scores_but_logs_no_picks(tmp_path):
+    conn = store.connect(tmp_path / "intel.db")
+    code, rep = run.morning(conn, FakeFetcher(date(2026, 10, 16)), date(2026, 10, 19),
+                            datetime(2026, 10, 19, 4, 0, tzinfo=timezone.utc))  # 09:30 IST
+    assert code == run.OK and rep["picks"] == []
+    assert set(rep["no_trade"].values()) == {"AFTER_OPEN_SCORING_ONLY"}

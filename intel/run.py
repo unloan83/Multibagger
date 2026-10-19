@@ -210,7 +210,13 @@ def morning(conn, fetch: Fetcher, today: date, now: datetime) -> tuple[int, dict
     report: dict[str, Any] = {"run_date": run_date, "prev_session": prev.isoformat(), "model": C.MODEL_VERSION,
                               "state": C.STRATEGY_STATE}
 
-    if not nifty or not vix or nifty[-1]["date"] != prev.isoformat() or vix[-1]["date"] != prev.isoformat():
+    local = now.astimezone(IST)
+    if local.hour * 60 + local.minute >= 9 * 60 + 15:
+        # The open is already known; a pick logged now could not be scored honestly.
+        for cat in C.CATEGORIES:
+            no_trade[cat] = "AFTER_OPEN_SCORING_ONLY"
+        status = OK
+    elif not nifty or not vix or nifty[-1]["date"] != prev.isoformat() or vix[-1]["date"] != prev.isoformat():
         for cat in C.CATEGORIES:
             no_trade[cat] = "MARKET_DATA_STALE"
         report["blocked"] = "MARKET_DATA_STALE"

@@ -1,6 +1,6 @@
 {
   "schema_version": "1.0",
-  "last_updated": "2026-10-17T13:36:58.772025+00:00",
+  "last_updated": "2026-10-19T04:47:56.177749+00:00",
   "description": "Multibagger Self-Learning Failure Register -- backfilled from runtime logs, git history, and trade audit docs. Updated by engine/forensic_review.py post-EOD and verified by scripts/system_forensic_audit.py.",
   "incidents": [
     {
@@ -420,10 +420,29 @@
       "evidence_source": "EOD_FORENSIC_REVIEW",
       "evidence_ref": "EOD_forensic_review:2026-10-17",
       "status": "OPEN"
+    },
+    {
+      "id": "INC-023",
+      "date": "2026-10-19",
+      "time_utc": "04:31:20",
+      "category": "RISK_PNL",
+      "severity": "HIGH",
+      "symptom": "Daily loss limit hit on 2026-10-19: PnL=Rs-1000.00, 1 trades",
+      "root_cause": "ADVERSE_MARKET_REGIME_SHIFT or entry quality failure",
+      "pnl_impact_inr": -1000.0,
+      "fix_commit": null,
+      "fix_description": "PENDING",
+      "fix_verified": false,
+      "fix_verified_note": "Newly discovered \u2014 awaiting fix",
+      "recurrence_count": 2,
+      "regression_check_id": "RC-09",
+      "evidence_source": "EOD_FORENSIC_REVIEW",
+      "evidence_ref": "EOD_forensic_review:2026-10-19",
+      "status": "OPEN"
     }
   ],
   "summary": {
-    "total_incidents": 22,
+    "total_incidents": 23,
     "by_category": {
       "ENTRY": 3,
       "EXIT": 1,
@@ -435,12 +454,12 @@
       "DB": 1,
       "ALERTING": 1,
       "SELF_LEARNING": 2,
-      "RISK_PNL": 2
+      "RISK_PNL": 3
     },
     "by_status": {
       "RESOLVED": 19,
       "MONITORING": 1,
-      "OPEN": 2
+      "OPEN": 3
     },
     "open_critical": [],
     "total_pnl_impact_inr": -10232.36,

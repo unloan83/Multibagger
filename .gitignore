@@ -45,3 +45,6 @@ data/portfolio-backups/
 *.db-wal
 logs/
 intraday_bot_log.txt
+
+# Daily intel model local state (database, reports)
+var/

@@ -1,0 +1,22 @@
+[Unit]
+Description=Multibagger daily market intelligence: score open paper picks, log today's picks or NO TRADE
+Wants=network-online.target
+After=network-online.target
+
+[Service]
+Type=oneshot
+User=ubuntu
+Group=ubuntu
+WorkingDirectory=/home/ubuntu/multibagger
+EnvironmentFile=-/home/ubuntu/multibagger/.env
+Environment=MB_INTEL_HOME=/home/ubuntu/multibagger-data/intel
+Environment=PYTHONDONTWRITEBYTECODE=1
+ExecStart=/usr/bin/python3 -m intel.run morning
+SuccessExitStatus=10
+TimeoutStartSec=1200
+UMask=0077
+NoNewPrivileges=true
+PrivateTmp=true
+MemoryMax=300M
+CPUQuota=80%
+Nice=10

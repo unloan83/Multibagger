@@ -1,0 +1,9 @@
+[Unit]
+Description=Multibagger option spread fill (Mon-Fri 09:25 IST)
+
+[Timer]
+OnCalendar=Mon..Fri *-*-* 09:25:00 Asia/Kolkata
+Persistent=false
+
+[Install]
+WantedBy=timers.target

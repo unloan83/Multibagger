@@ -64,6 +64,11 @@ def insert_no_trade(conn: sqlite3.Connection, run_date: str, category: str, reas
 
 
 def insert_call(conn: sqlite3.Connection, run_date: str, call: Any) -> bool:
+    # The same call is often republished by several outlets over a few days: count it once.
+    if conn.execute("SELECT 1 FROM analyst_calls WHERE analyst=? AND symbol=? AND side=? AND target=?"
+                    " AND run_date >= date(?, '-10 day')",
+                    (call.analyst, call.symbol, call.side, call.target, run_date)).fetchone():
+        return False
     cur = conn.execute(
         "INSERT OR IGNORE INTO analyst_calls (analyst, source, symbol, side, target, stop, horizon, link,"
         " published, run_date, status) VALUES (?,?,?,?,?,?,?,?,?,?,'PENDING')",

@@ -1,9 +1,11 @@
 import json
+import shutil
 import uuid
 from datetime import datetime, timezone
 import pytest
 
 from engine.store import MarketStore
+from engine import forensic_review
 from engine.forensic_review import run_eod_forensic_review, classify_trade_failure
 from engine.intelligence import generate_premarket_shortlist
 
@@ -15,7 +17,16 @@ def temp_store(tmp_path):
     return store
 
 
-def test_1_losing_pattern_written_to_learning_store(temp_store):
+@pytest.fixture
+def temp_register(tmp_path):
+    """Copy of the failure register so tests never write to the tracked data/ file."""
+    path = tmp_path / "SELF_LEARNING_FAILURE_REGISTER.json"
+    if forensic_review._REGISTER_PATH.exists():
+        shutil.copy(forensic_review._REGISTER_PATH, path)
+    return path
+
+
+def test_1_losing_pattern_written_to_learning_store(temp_store, temp_register):
     """Proves a losing trade is classified into 1 of 8 failure categories and written to learning_store."""
     now = datetime.now(timezone.utc)
     day_str = now.strftime("%Y-%m-%d")
@@ -35,8 +46,13 @@ def test_1_losing_pattern_written_to_learning_store(temp_store):
             )
         """, [day_str, now, now, now])
 
-    summary = run_eod_forensic_review(temp_store, day_str)
+    summary = run_eod_forensic_review(temp_store, day_str, register_path=temp_register)
     assert len(summary.failures_found) > 0
+    register = json.loads(temp_register.read_text())
+    assert any(
+        inc["symptom"].startswith(f"Daily loss limit hit on {day_str}")
+        for inc in register["incidents"]
+    )
 
     with temp_store.connect() as con:
         lessons = con.execute("SELECT symbol, strategy_id, failure_category, penalty_score FROM learning_store").fetchall()

@@ -25,6 +25,7 @@ def append_to_failure_register(
     pnl_impact_inr: float = 0.0,
     regression_check_id: str | None = None,
     evidence_ref: str = "",
+    register_path: Path | None = None,
 ) -> str:
     """
     Append a newly confirmed failure to SELF_LEARNING_FAILURE_REGISTER.json.
@@ -33,9 +34,12 @@ def append_to_failure_register(
     Status is set to OPEN; fix_commit and fix_verified default to null/false.
     The register is the single source of truth — failures persist across restarts.
     Only mark RESOLVED after fix is verified in production code.
+
+    ``register_path`` overrides the default ``data/`` register (used by tests).
     """
-    if not _REGISTER_PATH.exists():
-        LOG.warning("Failure register not found at %s — creating new one", _REGISTER_PATH)
+    path = register_path if register_path is not None else _REGISTER_PATH
+    if not path.exists():
+        LOG.warning("Failure register not found at %s — creating new one", path)
         register: dict[str, Any] = {
             "schema_version": "1.0",
             "last_updated": datetime.now(timezone.utc).isoformat(),
@@ -45,7 +49,7 @@ def append_to_failure_register(
         }
     else:
         try:
-            register = json.loads(_REGISTER_PATH.read_text())
+            register = json.loads(path.read_text())
         except Exception as e:
             LOG.error("Cannot load failure register: %s", e)
             return ""
@@ -63,7 +67,7 @@ def append_to_failure_register(
             inc["recurrence_count"] = inc.get("recurrence_count", 0) + 1
             register["last_updated"] = datetime.now(timezone.utc).isoformat()
             try:
-                _REGISTER_PATH.write_text(json.dumps(register, indent=2))
+                path.write_text(json.dumps(register, indent=2))
             except Exception as e:
                 LOG.error("Cannot write failure register: %s", e)
             LOG.warning("Failure register: incremented recurrence for %s -> count=%d",
@@ -120,7 +124,7 @@ def append_to_failure_register(
     register["summary"] = summary
 
     try:
-        _REGISTER_PATH.write_text(json.dumps(register, indent=2))
+        path.write_text(json.dumps(register, indent=2))
     except Exception as e:
         LOG.error("Cannot write failure register: %s", e)
         return ""
@@ -256,7 +260,11 @@ def classify_trade_failure(trade: dict[str, Any]) -> tuple[str, str, float]:
     )
 
 
-def run_eod_forensic_review(store, trading_day: str | None = None) -> EODForensicSummary:
+def run_eod_forensic_review(
+    store,
+    trading_day: str | None = None,
+    register_path: Path | None = None,
+) -> EODForensicSummary:
     """
     Automated Post-Market Forensic Audit (12-Question Analysis)
     Produces structured EOD output and persists classified failure lessons into learning_store.
@@ -379,6 +387,7 @@ def run_eod_forensic_review(store, trading_day: str | None = None) -> EODForensi
             pnl_impact_inr=total_pnl,
             regression_check_id="RC-09",
             evidence_ref=f"EOD_forensic_review:{day_str}",
+            register_path=register_path,
         )
 
     tomorrow_changes = {

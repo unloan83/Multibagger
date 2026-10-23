@@ -6,7 +6,7 @@ One job per trading day, 08:40 IST on the Breeze VM:
 2. Reads market mood: Nifty trend (20/50/200-day averages), India VIX level and 5-day change, breadth
    (% of Nifty 200 above the 50-day average), FII+DII net cash (NSE).
 3. Reads news RSS from Moneycontrol, ET Markets, Business Standard and CNBC-TV18: headline tone per stock and
-   macro-event days (news since the previous close), plus calls from the last 30 hours of two kinds:
+   macro-event days (news since the previous close), plus calls published since the previous session opened, of two kinds:
    trader calls with target and stop, and brokerage rating calls ("MOFSL reiterates Sell on Cyient, target ₹1,020").
    Zee Business answers 403 to the VM and NSE FII/DII answers 403 as well; mood runs without FII/DII.
 4. Logs picks per category with entry, stop and target, or a `NO TRADE` reason. Picks are write-once.

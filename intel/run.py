@@ -239,8 +239,10 @@ def morning(conn, fetch: Fetcher, today: date, now: datetime) -> tuple[int, dict
         prev_close = datetime(prev.year, prev.month, prev.day, 15, 30, tzinfo=IST)
         recent = news.since(items, prev_close, now)
         matcher = news.SymbolMatcher(members)
-        # Calls are measured from today's open, so anything published in the last 30 hours is usable.
-        calls = news.extract_calls(news.since(items, now - timedelta(hours=30), now),
+        # Calls are measured from today's open, so anything since the previous session opened is usable
+        # (covers weekends and holidays; a call already logged is not counted again).
+        prev_open = datetime(prev.year, prev.month, prev.day, 9, 15, tzinfo=IST)
+        calls = news.extract_calls(news.since(items, prev_open, now),
                                    news.SymbolMatcher(load_wide_universe()))
         for call in calls:
             store.insert_call(conn, run_date, call)

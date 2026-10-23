@@ -18,16 +18,31 @@ FEEDS = {
     "moneycontrol": [
         "https://www.moneycontrol.com/rss/marketreports.xml",
         "https://www.moneycontrol.com/rss/buzzingstocks.xml",
-        "https://www.moneycontrol.com/rss/marketoutlook.xml",
     ],
-    "etmarkets": [
-        "https://economictimes.indiatimes.com/markets/stocks/rssfeeds/2146842.cms",
-        "https://economictimes.indiatimes.com/markets/stocks/recos/rssfeeds/46797542.cms",
-    ],
+    "etmarkets": ["https://economictimes.indiatimes.com/markets/stocks/rssfeeds/2146842.cms"],
     "business_standard": ["https://www.business-standard.com/rss/markets-106.rss"],
     "cnbctv18": ["https://www.cnbctv18.com/commonfeeds/v1/cne/rss/market.xml"],
-    "zeebiz": ["https://www.zeebiz.com/markets/stocks.xml"],
+    # Zee Business answers 403 to the VM (2026-10-23); its RSS is left out until a reachable feed is found.
 }
+
+# Brokerages named in rating calls; aliases map to one name so each track record is counted once.
+BROKERS = {
+    "goldman sachs": "Goldman Sachs", "morgan stanley": "Morgan Stanley", "jpmorgan": "JPMorgan",
+    "jp morgan": "JPMorgan", "clsa": "CLSA", "jefferies": "Jefferies", "nomura": "Nomura", "ubs": "UBS",
+    "citi": "Citi", "macquarie": "Macquarie", "bernstein": "Bernstein", "hsbc": "HSBC", "bofa": "BofA",
+    "bank of america": "BofA", "kotak institutional": "Kotak Institutional Equities",
+    "motilal oswal": "Motilal Oswal", "mofsl": "Motilal Oswal", "icici securities": "ICICI Securities",
+    "axis securities": "Axis Securities", "axis direct": "Axis Securities", "jm financial": "JM Financial",
+    "emkay": "Emkay", "nuvama": "Nuvama", "pl capital": "PL Capital", "prabhudas lilladher": "PL Capital",
+    "sharekhan": "Sharekhan", "hdfc securities": "HDFC Securities", "anand rathi": "Anand Rathi",
+    "choice broking": "Choice Broking", "elara": "Elara", "antique": "Antique", "investec": "Investec",
+    "bnp paribas": "BNP Paribas", "incred": "InCred", "centrum": "Centrum", "phillipcapital": "PhillipCapital",
+    "sbi securities": "SBI Securities", "geojit": "Geojit", "ventura": "Ventura", "iifl": "IIFL",
+}
+_BUY_WORDS = re.compile(r"\b(buy|accumulate|outperform|overweight|top(?: \w+)? pick)\b", re.I)
+_SELL_WORDS = re.compile(r"\b(sell(?![- ]off)|reduce|underperform|underweight)\b", re.I)
+_TARGET = re.compile(r"target(?: price)?(?: of| to| at)?\s*(?:rs\.?|₹|inr)\s*([\d,]+(?:\.\d+)?)"
+                     r"|(?:rs\.?|₹|inr)\s*([\d,]+(?:\.\d+)?)\s*target", re.I)
 
 POSITIVE = ("bags order", "wins order", "order win", "secures order", "upgrade", "profit jumps", "profit rises",
             "net profit up", "beats estimates", "record high", "approval", "buyback", "bonus issue",
@@ -170,8 +185,32 @@ def extract_calls(items: Iterable[Item], matcher: SymbolMatcher) -> list[Analyst
                 found = True
             if found:
                 break
+    calls += extract_broker_calls(items, matcher)
     unique = {(c.analyst, c.symbol, c.side, c.target, c.stop): c for c in calls}
     return list(unique.values())
+
+
+def extract_broker_calls(items: Iterable[Item], matcher: SymbolMatcher) -> list[AnalystCall]:
+    """Brokerage rating calls ("MOFSL reiterates Sell on Cyient, target ₹1,020"). They carry a target but no stop,
+    so they are stored with stop 0 and scored on target-or-time. Anything ambiguous is skipped: one broker, one
+    stock, one direction and one target price, or no call."""
+    calls = []
+    for item in items:
+        text = f"{item.title}. {item.summary}"
+        low = text.lower()
+        brokers = {name for alias, name in BROKERS.items() if re.search(rf"\b{re.escape(alias)}\b", low)}
+        targets = {float((a or b).replace(",", "")) for a, b in _TARGET.findall(text)}
+        buy, sell = bool(_BUY_WORDS.search(text)), bool(_SELL_WORDS.search(text))
+        if len(brokers) != 1 or len(targets) != 1 or buy == sell:
+            continue
+        stocks = matcher.mentions(item.title) or matcher.mentions(text)
+        if len(stocks) != 1:
+            continue
+        calls.append(AnalystCall(
+            analyst=brokers.pop(), source=item.source, symbol=stocks.pop(), side="BUY" if buy else "SELL",
+            target=targets.pop(), stop=0.0, horizon="POSITIONAL", link=item.link,
+            published=item.published.isoformat() if item.published else ""))
+    return calls
 
 
 def catalysts(items: Iterable[Item], matcher: SymbolMatcher) -> tuple[dict[str, int], bool]:

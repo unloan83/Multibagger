@@ -75,13 +75,18 @@ def load_calendar() -> Calendar:
 
 # ---------- universe ----------
 
+def load_wide_universe() -> list[dict[str, Any]]:
+    """Nifty 500 and related index members: the stocks an analyst call may name."""
+    return json.loads((ROOT / "data/market-universe.json").read_text())
+
+
 def load_universe() -> tuple[list[dict[str, Any]], dict[str, str], set[str]]:
-    """Nifty 200 members with NSE ISIN-based Upstox keys, plus the F&O-liquid set for intraday."""
-    members = [u for u in json.loads((ROOT / "data/market-universe.json").read_text())
-               if "NIFTY 200" in u.get("sources", [])]
+    """Nifty 200 scan members, NSE ISIN-based Upstox keys for the wide universe, and the F&O-liquid set."""
+    wide = load_wide_universe()
+    members = [u for u in wide if "NIFTY 200" in u.get("sources", [])]
     isin = {s["symbol"]: s["isin"] for s in json.loads((ROOT / "data/multibagger-universe.json").read_text())
             ["securities"] if "NSE" in str(s.get("exchange", "")).split("/") and s.get("isin")}
-    keys = {u["symbol"]: f"NSE_EQ|{isin[u['symbol']]}" for u in members if u["symbol"] in isin}
+    keys = {u["symbol"]: f"NSE_EQ|{isin[u['symbol']]}" for u in wide if u["symbol"] in isin}
     for etf in (C.ETF_RISK, C.ETF_IDLE):
         if etf in isin:
             keys[etf] = f"NSE_EQ|{isin[etf]}"
@@ -177,7 +182,8 @@ def morning(conn, fetch: Fetcher, today: date, now: datetime) -> tuple[int, dict
         nifty, vix = [], []
         degraded.append(f"INDEX_CANDLES:{err}")
 
-    wanted = set(keys)
+    scan = {u["symbol"] for u in members}
+    wanted = scan | {C.ETF_RISK, C.ETF_IDLE}
     for r in store.rows(conn, "SELECT DISTINCT symbol FROM picks WHERE status IN ('PENDING','OPEN') UNION "
                               "SELECT DISTINCT symbol FROM analyst_calls WHERE status IN ('PENDING','OPEN')"):
         wanted.add(r["symbol"])
@@ -233,7 +239,9 @@ def morning(conn, fetch: Fetcher, today: date, now: datetime) -> tuple[int, dict
         prev_close = datetime(prev.year, prev.month, prev.day, 15, 30, tzinfo=IST)
         recent = news.since(items, prev_close, now)
         matcher = news.SymbolMatcher(members)
-        calls = news.extract_calls(recent, matcher)
+        # Calls are measured from today's open, so anything published in the last 30 hours is usable.
+        calls = news.extract_calls(news.since(items, now - timedelta(hours=30), now),
+                                   news.SymbolMatcher(load_wide_universe()))
         for call in calls:
             store.insert_call(conn, run_date, call)
         tone, macro = news.catalysts(recent, matcher)
@@ -250,7 +258,7 @@ def morning(conn, fetch: Fetcher, today: date, now: datetime) -> tuple[int, dict
         except Exception as err:
             degraded.append(f"FII_DII:{type(err).__name__}")
 
-        universe_bars = {s: b for s, b in fresh_bars.items() if s not in (C.ETF_RISK, C.ETF_IDLE)}
+        universe_bars = {s: b for s, b in fresh_bars.items() if s in scan}
         mood = signals.market_mood(nifty, vix, signals.breadth(universe_bars), fii)
         stats = [st for s, b in universe_bars.items() if (st := signals.stock_stats(s, b))]
         by_sym = {s.symbol: s for s in stats}
@@ -363,8 +371,7 @@ def probe(fetch: Fetcher) -> tuple[int, dict[str, Any]]:
     attempt("fii_dii", fetch.fii_dii)
     items, errors = fetch.feeds()
     out["feed_items"], out["feed_errors"] = len(items), errors
-    members, _, _ = load_universe()
-    out["calls_in_feeds"] = [asdict(c) for c in news.extract_calls(items, news.SymbolMatcher(members))][:10]
+    out["calls_in_feeds"] = [asdict(c) for c in news.extract_calls(items, news.SymbolMatcher(load_wide_universe()))][:10]
     attempt("option_expiries", lambda: fetch.expiries()[:3])
     failed = [k for k, v in out.items() if isinstance(v, str) and v.startswith("FAIL")]
     out["failed"] = failed

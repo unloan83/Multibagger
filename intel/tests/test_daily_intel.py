@@ -306,3 +306,59 @@ def test_after_open_run_scores_but_logs_no_picks(tmp_path):
                             datetime(2026, 10, 19, 4, 0, tzinfo=timezone.utc))  # 09:30 IST
     assert code == run.OK and rep["picks"] == []
     assert set(rep["no_trade"].values()) == {"AFTER_OPEN_SCORING_ONLY"}
+
+
+# ---------- brokerage calls, from real feed items seen on the VM (2026-10-23) ----------
+
+def _wide_matcher():
+    return news.SymbolMatcher(run.load_wide_universe())
+
+
+def test_broker_calls_from_real_headlines():
+    items = [
+        item("Cyient shares snap 3-day losing streak, jump 10% post Q2, ₹12 dividend",
+             "MOFSL has reiterated a Sell rating on Cyient Ltd, with SoTP-based target price of ₹1,020, implying an "
+             "11 per cent downside from the previous close of ₹1,144."),
+        item("Bharat Electronics remains PL Capital’s top defence pick as order inflows gather pace in Q4",
+             "PL Capital retains Bharat Electronics as a top defence pick with a ₹452 target price, citing expected "
+             "order inflows, defence electronics demand and growth opportunities."),
+        item("UBS issues 'sell' tag on Bajaj Finance before housing unit board meet over listing",
+             "UBS analysts shared a target price of Rs 6,800 per share for Bajaj Finance, implying 6 percent downside"),
+    ]
+    got = {(c.analyst, c.symbol, c.side, c.target, c.stop, c.horizon)
+           for c in news.extract_calls(items, _wide_matcher())}
+    assert got == {("Motilal Oswal", "CYIENT", "SELL", 1020.0, 0.0, "POSITIONAL"),
+                   ("PL Capital", "BEL", "BUY", 452.0, 0.0, "POSITIONAL"),
+                   ("UBS", "BAJFINANCE", "SELL", 6800.0, 0.0, "POSITIONAL")}
+
+
+def test_broker_call_noise_is_skipped():
+    noise = [
+        item("HPCL shares see small declines after record Q2 refining margins; Analysts choose caution over bullishness",
+             'Of the 33 analysts who have coverage on HPCL, 15 have a "buy" rating, seven have a "hold" rating and 11 '
+             'have a "sell" rating.'),
+        item("FIIs sell ₹3,459 crore of Indian stocks as market falls for third straight session",
+             "Foreign investors turned net sellers on Thursday."),
+        item("Nomura, Axis initiate coverage on 8 stocks with up to 30% upside potential. See full list",
+             "Nomura has issued Buy ratings for Vedanta Aluminum, Hindalco, and Paytm."),
+        item("Stock Crash: This specialty chemical stock has seen its worst weekly fall in nearly two decades",
+             "This sell-off has also ensured that shares of Himadri Specialty Chemicals have given up all the gains."),
+    ]
+    assert news.extract_calls(noise, _wide_matcher()) == []
+
+
+def test_target_only_call_scoring():
+    call = {"side": "SELL", "stop": 0.0, "target": 90.0}
+    hit = scoring.score_call(call, [bar("2026-10-23", 100, 101, 89, 92)], 63)
+    assert hit["exit_reason"] == "TARGET" and hit["r_multiple"] == 1.0
+    timed = scoring.score_call(call, [bar(f"2026-10-{d}", 100, 106, 99, 105) for d in (23, 26, 27)], 3)
+    assert timed["exit_reason"] == "TIME_EXIT" and timed["r_multiple"] == -0.5  # went 5 the wrong way of a 10 call
+    assert scoring.score_call(call, [bar("2026-10-23", 100, 101, 99, 100)], 63)["status"] == "OPEN"
+
+
+def test_republished_call_counted_once(tmp_path):
+    conn = store.connect(tmp_path / "intel.db")
+    c = news.AnalystCall("UBS", "moneycontrol", "BAJFINANCE", "SELL", 6800.0, 0.0, "POSITIONAL", "l", "2026-10-22T10:00")
+    assert store.insert_call(conn, "2026-10-23", c)
+    again = news.AnalystCall("UBS", "cnbctv18", "BAJFINANCE", "SELL", 6800.0, 0.0, "POSITIONAL", "m", "2026-10-23T07:00")
+    assert not store.insert_call(conn, "2026-10-26", again)

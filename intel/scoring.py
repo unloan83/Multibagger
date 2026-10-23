@@ -104,6 +104,10 @@ def score_call(call: dict[str, Any], bars: Bars, max_days: int) -> dict[str, Any
         return None
     side, op = call["side"], bars[0]["open"]
     stop, target = call["stop"], call["target"]
+    # Brokerage calls give no stop: they are scored on target-or-time only (stop 0 never triggers).
+    target_only = stop <= 0
+    if target_only:
+        stop = -math.inf if side == "BUY" else math.inf
     beyond_target = op >= target if side == "BUY" else op <= target
     beyond_stop = op <= stop if side == "BUY" else op >= stop
     if beyond_target or beyond_stop:
@@ -113,7 +117,9 @@ def score_call(call: dict[str, Any], bars: Bars, max_days: int) -> dict[str, Any
     if out is None:
         return {**fields, "status": "OPEN"}
     exit_date, exit_px, reason = out
-    risk = abs(op - stop)
+    # R: move in the called direction per unit of risk; for target-only calls, per unit of the predicted move
+    # (1.0 = target reached, negative = price went the other way).
+    risk = abs(target - op) if target_only else abs(op - stop)
     r = ((exit_px - op) if side == "BUY" else (op - exit_px)) / risk if risk > 0 else 0.0
     return {**fields, "status": "CLOSED", "exit_date": exit_date, "exit_price": round(exit_px, 2),
             "exit_reason": reason, "r_multiple": round(r, 3)}

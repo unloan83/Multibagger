@@ -362,3 +362,15 @@ def test_republished_call_counted_once(tmp_path):
     assert store.insert_call(conn, "2026-10-23", c)
     again = news.AnalystCall("UBS", "cnbctv18", "BAJFINANCE", "SELL", 6800.0, 0.0, "POSITIONAL", "m", "2026-10-23T07:00")
     assert not store.insert_call(conn, "2026-10-26", again)
+
+
+def test_monday_run_logs_fridays_calls(tmp_path):
+    class Weekend(FakeFetcher):
+        def feeds(self):
+            friday_noon = datetime(2026, 10, 16, 6, 30, tzinfo=timezone.utc)  # 12:00 IST Friday
+            return [news.Item("moneycontrol", "Buy Infosys, target Rs 1,500, stop loss Rs 1,300: Jane Analyst", "",
+                              "https://example.test/f", friday_noon)], []
+    conn = store.connect(tmp_path / "intel.db")
+    _, rep = run.morning(conn, Weekend(date(2026, 10, 16)), date(2026, 10, 19),
+                         datetime(2026, 10, 19, 3, 10, tzinfo=timezone.utc))
+    assert rep["analyst_calls_logged"] == 1

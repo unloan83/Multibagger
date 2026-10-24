@@ -115,6 +115,8 @@ def append_to_failure_register(
     open_critical: list[str] = []
     for inc in incidents:
         by_status[inc["status"]] = by_status.get(inc["status"], 0) + 1
+        if inc["status"] == "INVALID_TEST_ARTIFACT":
+            continue
         by_cat[inc["category"]] = by_cat.get(inc["category"], 0) + 1
         if inc.get("severity") == "CRITICAL" and inc.get("status") == "OPEN":
             open_critical.append(inc["id"])

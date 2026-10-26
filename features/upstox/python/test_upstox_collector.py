@@ -212,20 +212,42 @@ def test_async_upstox_connect_stays_alive_until_reconnects_are_exhausted(monkeyp
         access_token="token", market_data_provider="upstox", db_path=tmp_path / "market.duckdb",
         candle_watchdog_seconds=180,
     )
+    # collect_upstox polls REST in a loop with no external stop; keep it off the
+    # network and end it when the test finishes so it cannot outlive pytest.
+    stop_collector = threading.Event()
+
+    def fake_fetch(_access_token, _instrument_keys):
+        if stop_collector.is_set():
+            raise _CollectorStopped
+        return {}
+
+    monkeypatch.setattr("features.upstox.python.upstox_collector.fetch_upstox_quotes_rest", fake_fetch)
     errors = []
-    thread = threading.Thread(target=lambda: _capture_error(errors, collect_upstox, settings))
+    thread = threading.Thread(
+        target=lambda: _capture_error(errors, collect_upstox, settings), daemon=True
+    )
     thread.start()
-    assert connected.wait(timeout=2)
-    assert thread.is_alive()
-    streamers[0].listeners["autoReconnectStopped"]("retry limit reached")
-    thread.join(timeout=2)
-    assert not thread.is_alive()
-    assert len(errors) == 1
-    assert "reconnects exhausted" in str(errors[0])
+    try:
+        assert connected.wait(timeout=2)
+        assert thread.is_alive()
+        streamers[0].listeners["autoReconnectStopped"]("retry limit reached")
+        thread.join(timeout=2)
+        assert not thread.is_alive()
+        assert len(errors) == 1
+        assert "reconnects exhausted" in str(errors[0])
+    finally:
+        stop_collector.set()
+        thread.join(timeout=5)
+
+
+class _CollectorStopped(BaseException):
+    """Escapes collect_upstox's `except Exception` to end its polling loop."""
 
 
 def _capture_error(errors, function, *args):
     try:
         function(*args)
+    except _CollectorStopped:
+        pass
     except Exception as error:
         errors.append(error)

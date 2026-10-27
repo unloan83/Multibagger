@@ -5,11 +5,19 @@ import pandas as pd
 import pytest
 
 from engine.config import Settings
-from engine.paper import _dynamic_risk, _regular_exit_reason, run_paper_cycle
+from engine.paper import _dynamic_risk, _regular_exit_reason, run_paper_cycle as _run_paper_cycle
 from engine.regime_detector import detect_opening_market_gate
 from engine.scanner import _sector_qualified
 from engine.store import MarketStore
 from engine.strategies import Candidate, active_agent
+from session_plan_helpers import seed_trade_plan
+
+
+def run_paper_cycle(store, settings, candidates, quotes, now, run_id):
+    # Every entry must be in today's FINAL_SESSION_PLAN (fail-closed guard in
+    # engine.paper._open_trade); seed it like the premarket job does.
+    seed_trade_plan(store, now, [c.symbol for c in candidates])
+    return _run_paper_cycle(store, settings, candidates, quotes, now, run_id)
 
 
 def _settings(tmp_path):

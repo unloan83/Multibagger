@@ -91,6 +91,29 @@ def test_parse_feed_reads_rss_items():
     assert items[0].summary == "text"
 
 
+def test_parse_feed_repairs_common_publisher_defects():
+    # Leading whitespace before the declaration, a bare '&', an HTML-only entity and a control character
+    # each make a strict XML parser fail with ParseError.
+    xml = ("\n  <?xml version=\"1.0\" encoding=\"UTF-8\"?><rss><channel><item>"
+           "<title>M&M rallies&nbsp;4%\x08</title><link>https://x.test/2?a=1&b=2</link>"
+           "<pubDate>Mon, 19 Oct 2026 07:30:00 +0530</pubDate>"
+           "<description><![CDATA[<p>Q2 &amp; outlook</p>]]></description></item></channel></rss>")
+    items = news.parse_feed("business_standard", xml)
+    assert items[0].title == "M&M rallies\xa04%"
+    assert items[0].link == "https://x.test/2?a=1&b=2"
+    assert items[0].summary == "Q2 & outlook"
+    assert items[0].published.utcoffset() == timedelta(hours=5, minutes=30)
+
+
+@pytest.mark.parametrize("body", [
+    "<html><head><title>Access Denied</title></head><body>blocked</body></html>",
+    "<!DOCTYPE html><html><body><p>Just a moment...<br></body></html>",
+])
+def test_parse_feed_names_html_pages_instead_of_returning_nothing(body):
+    with pytest.raises(news.FeedNotRss):
+        news.parse_feed("business_standard", body)
+
+
 # ---------- signals ----------
 
 def test_mood_and_short_term_picks():

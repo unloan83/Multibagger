@@ -7,6 +7,7 @@ action and price levels is not a call.
 from __future__ import annotations
 
 import html
+import html.entities
 import re
 import xml.etree.ElementTree as ET
 from dataclasses import dataclass
@@ -88,8 +89,42 @@ class AnalystCall:
     published: str
 
 
+class FeedNotRss(ValueError):
+    """The response is not an RSS document (e.g. an HTML error or bot-block page)."""
+
+
+_RSS_START = re.compile(r"<\?xml|<rss\b|<rdf:RDF\b", re.I)
+_BARE_AMP = re.compile(r"&(?!#\d+;|#x[0-9a-fA-F]+;|[A-Za-z][A-Za-z0-9]*;)")
+_NAMED_ENTITY = re.compile(r"&([A-Za-z][A-Za-z0-9]*);")
+_XML_ENTITIES = {"amp", "lt", "gt", "quot", "apos"}
+_INVALID_XML_CHARS = re.compile("[\x00-\x08\x0b\x0c\x0e-\x1f]")
+
+
+def _html_entity_to_ref(match: re.Match) -> str:
+    name = match.group(1)
+    if name in _XML_ENTITIES:
+        return match.group(0)
+    char = html.entities.html5.get(name + ";")
+    return "".join(f"&#{ord(c)};" for c in char) if char else f"&amp;{name};"
+
+
+def _repair_feed_xml(xml_text: str) -> str:
+    """Fix the usual publisher defects: text before the declaration, bare '&', HTML-only entities, control chars."""
+    start = _RSS_START.search(xml_text)
+    if not start:
+        raise FeedNotRss("no RSS root in response")
+    text = _INVALID_XML_CHARS.sub("", xml_text[start.start():])
+    text = _BARE_AMP.sub("&amp;", text)
+    return _NAMED_ENTITY.sub(_html_entity_to_ref, text)
+
+
 def parse_feed(source: str, xml_text: str) -> list[Item]:
-    root = ET.fromstring(xml_text)
+    try:
+        root = ET.fromstring(xml_text)
+    except ET.ParseError:
+        root = ET.fromstring(_repair_feed_xml(xml_text))
+    if root.tag.rsplit("}", 1)[-1] not in ("rss", "RDF"):
+        raise FeedNotRss(f"root element <{root.tag}>")
     out = []
     for node in root.iter("item"):
         def text(tag: str) -> str:

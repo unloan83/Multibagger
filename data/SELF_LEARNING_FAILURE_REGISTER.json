@@ -1,6 +1,6 @@
 {
   "schema_version": "1.0",
-  "last_updated": "2026-10-19T04:47:56.177749+00:00",
+  "last_updated": "2026-10-24T00:00:00+00:00",
   "description": "Multibagger Self-Learning Failure Register -- backfilled from runtime logs, git history, and trade audit docs. Updated by engine/forensic_review.py post-EOD and verified by scripts/system_forensic_audit.py.",
   "incidents": [
     {
@@ -393,14 +393,15 @@
       "root_cause": "ADVERSE_MARKET_REGIME_SHIFT or entry quality failure",
       "pnl_impact_inr": -1000.0,
       "fix_commit": null,
-      "fix_description": "PENDING",
-      "fix_verified": false,
-      "fix_verified_note": "Newly discovered \u2014 awaiting fix",
+      "fix_description": "Test pollution: tests/test_learning_loop.py wrote to the tracked register. Fixed by injecting register_path in tests.",
+      "fix_verified": true,
+      "fix_verified_note": "Written 2026-09-01T13:01:05Z by the first run of tests/test_learning_loop.py, which commit aef7b46 added 9 seconds later. FORENSIC_AGENT_HISTORY.json for 2026-09-01 shows an empty scanner_runs table and no current-session run_id, so no trade could have occurred. Values (1 RELIANCE trade, net PnL Rs-1000.00, RC-09) match the tests/test_learning_loop.py fixture exactly. Not a real trading event; retained for audit. Test now writes to tmp_path (engine/forensic_review.py register_path).",
       "recurrence_count": 16,
       "regression_check_id": "RC-09",
       "evidence_source": "EOD_FORENSIC_REVIEW",
       "evidence_ref": "EOD_forensic_review:2026-09-01",
-      "status": "OPEN"
+      "status": "INVALID_TEST_ARTIFACT",
+      "invalidated_on": "2026-10-24"
     },
     {
       "id": "INC-022",
@@ -412,14 +413,15 @@
       "root_cause": "ADVERSE_MARKET_REGIME_SHIFT or entry quality failure",
       "pnl_impact_inr": -1000.0,
       "fix_commit": null,
-      "fix_description": "PENDING",
-      "fix_verified": false,
-      "fix_verified_note": "Newly discovered \u2014 awaiting fix",
+      "fix_description": "Test pollution: tests/test_learning_loop.py wrote to the tracked register. Fixed by injecting register_path in tests.",
+      "fix_verified": true,
+      "fix_verified_note": "2026-10-17 was a Saturday (market closed). Written 13:25:12Z inside a 13-second burst of test-driven forensic reviews; committed in 95bc3e3. Values (1 RELIANCE trade, net PnL Rs-1000.00, RC-09) match the tests/test_learning_loop.py fixture exactly. Not a real trading event; retained for audit. Test now writes to tmp_path (engine/forensic_review.py register_path).",
       "recurrence_count": 1,
       "regression_check_id": "RC-09",
       "evidence_source": "EOD_FORENSIC_REVIEW",
       "evidence_ref": "EOD_forensic_review:2026-10-17",
-      "status": "OPEN"
+      "status": "INVALID_TEST_ARTIFACT",
+      "invalidated_on": "2026-10-24"
     },
     {
       "id": "INC-023",
@@ -431,14 +433,15 @@
       "root_cause": "ADVERSE_MARKET_REGIME_SHIFT or entry quality failure",
       "pnl_impact_inr": -1000.0,
       "fix_commit": null,
-      "fix_description": "PENDING",
-      "fix_verified": false,
-      "fix_verified_note": "Newly discovered \u2014 awaiting fix",
+      "fix_description": "Test pollution: tests/test_learning_loop.py wrote to the tracked register. Fixed by injecting register_path in tests.",
+      "fix_verified": true,
+      "fix_verified_note": "Written 2026-10-19T04:31:20Z with no forensic review recorded that day; committed 21 minutes later in 41a8973 alongside unrelated intel/tests changes. Values (1 RELIANCE trade, net PnL Rs-1000.00, RC-09) match the tests/test_learning_loop.py fixture exactly. Not a real trading event; retained for audit. Test now writes to tmp_path (engine/forensic_review.py register_path).",
       "recurrence_count": 2,
       "regression_check_id": "RC-09",
       "evidence_source": "EOD_FORENSIC_REVIEW",
       "evidence_ref": "EOD_forensic_review:2026-10-19",
-      "status": "OPEN"
+      "status": "INVALID_TEST_ARTIFACT",
+      "invalidated_on": "2026-10-24"
     }
   ],
   "summary": {
@@ -453,17 +456,22 @@
       "AUTH_API": 3,
       "DB": 1,
       "ALERTING": 1,
-      "SELF_LEARNING": 2,
-      "RISK_PNL": 3
+      "SELF_LEARNING": 2
     },
     "by_status": {
       "RESOLVED": 19,
       "MONITORING": 1,
-      "OPEN": 3
+      "INVALID_TEST_ARTIFACT": 3
     },
     "open_critical": [],
     "total_pnl_impact_inr": -10232.36,
     "window_start": "2026-07-20",
-    "window_end": "2026-08-29"
+    "window_end": "2026-08-29",
+    "excluded_test_artifacts": [
+      "INC-021",
+      "INC-022",
+      "INC-023"
+    ],
+    "note": "by_category and total_pnl_impact_inr exclude INVALID_TEST_ARTIFACT incidents."
   }
 }

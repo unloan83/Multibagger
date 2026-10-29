@@ -3,9 +3,17 @@ from dataclasses import replace
 from datetime import datetime, timedelta, timezone
 
 from engine.config import Settings
-from engine.paper import run_paper_cycle, run_risk_monitor
+from engine.paper import run_paper_cycle as _run_paper_cycle, run_risk_monitor
 from engine.store import MarketStore
 from engine.strategies import Candidate
+from session_plan_helpers import seed_trade_plan
+
+
+def run_paper_cycle(store, settings, candidates, quotes, now, run_id):
+    # Every entry must be in today's FINAL_SESSION_PLAN (fail-closed guard in
+    # engine.paper._open_trade); seed it like the premarket job does.
+    seed_trade_plan(store, now, [c.symbol for c in candidates])
+    return _run_paper_cycle(store, settings, candidates, quotes, now, run_id)
 
 
 def _settings(tmp_path):

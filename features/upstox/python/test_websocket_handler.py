@@ -3,7 +3,17 @@ import sys
 from types import SimpleNamespace
 import pytest
 
+from engine.degraded import DEGRADED_MANAGER
 from features.upstox.python.websocket_handler import reconnect_with_backoff
+
+
+@pytest.fixture(autouse=True)
+def _reset_degraded_state():
+    # reconnect_with_backoff reports to the global manager; don't leak
+    # SAFE_DEGRADED into later tests (it blocks every paper entry).
+    DEGRADED_MANAGER.reset()
+    yield
+    DEGRADED_MANAGER.reset()
 
 
 def test_reconnect_with_backoff_success_on_first_try(monkeypatch):
@@ -68,7 +78,11 @@ def test_reconnect_with_backoff_exhaustion_alerts_and_raises(monkeypatch, caplog
     monkeypatch.setitem(
         sys.modules,
         "scripts.telegram_notify",
-        SimpleNamespace(send_telegram_message=fake_send_telegram),
+        SimpleNamespace(
+            send_telegram_message=fake_send_telegram,
+            # engine.degraded reports each failed attempt through this hook.
+            notify_incident_event=lambda **_kwargs: False,
+        ),
     )
 
     def failing_connect():

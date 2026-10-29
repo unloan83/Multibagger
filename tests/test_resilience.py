@@ -23,10 +23,18 @@ import pytest
 
 from engine.config import Settings
 from engine.degraded import DEGRADED_MANAGER, DegradedModeManager
-from engine.paper import run_paper_cycle
+from engine.paper import run_paper_cycle as _run_paper_cycle
 from engine.store import MarketStore
 from engine.strategies import Candidate
 from scripts.telegram_notify import notify_incident_event, send_telegram_message
+from session_plan_helpers import seed_trade_plan
+
+
+def run_paper_cycle(store, settings, candidates, quotes, now, run_id):
+    # Every entry must be in today's FINAL_SESSION_PLAN (fail-closed guard in
+    # engine.paper._open_trade); seed it like the premarket job does.
+    seed_trade_plan(store, now, [c.symbol for c in candidates])
+    return _run_paper_cycle(store, settings, candidates, quotes, now, run_id)
 
 
 def _candidate(symbol, now, side="LONG"):

@@ -175,57 +175,49 @@ def _watchdog_settings():
     )
 
 
-def test_async_upstox_connect_stays_alive_until_reconnects_are_exhausted(monkeypatch, tmp_path):
-    connected = threading.Event()
-    streamers = []
+def test_rest_collector_keeps_polling_through_fetch_errors(monkeypatch, tmp_path):
+    """A failed REST fetch is reported as degraded and polling continues to the next quote."""
+    store = Store()
+    stop = threading.Event()
+    failures, market_data = [], []
+    responses = [
+        RuntimeError("HTTP 401 Unauthorized"),
+        {"NSE_EQ:TEST": {"last_price": 200.0, "ohlc": {"open": 199.0, "high": 201.0, "low": 198.5, "close": 200.0},
+                         "depth": {"buy": [{"price": 199.9}], "sell": [{"price": 200.1}]}, "volume": 1000}},
+    ]
 
-    class FakeStreamer:
-        def __init__(self, *_args):
-            self.listeners = {}
-            streamers.append(self)
+    def fake_fetch(_access_token, instrument_keys):
+        assert instrument_keys == ["NSE_EQ|TEST"]
+        response = responses.pop(0)
+        if not responses:
+            stop.set()
+        if isinstance(response, Exception):
+            raise response
+        return response
 
-        def on(self, event, listener):
-            self.listeners[event] = listener
-
-        def auto_reconnect(self, *_args):
-            pass
-
-        def connect(self):
-            self.listeners["open"]()
-            connected.set()
-
-        def disconnect(self):
-            pass
-
-    fake_upstox = SimpleNamespace(
-        Configuration=lambda: SimpleNamespace(access_token=None),
-        ApiClient=lambda config: config,
-        MarketDataStreamerV3=FakeStreamer,
-    )
-    monkeypatch.setitem(sys.modules, "upstox_client", fake_upstox)
-    monkeypatch.setattr("features.upstox.python.upstox_collector.MarketStore", lambda _path: Store())
+    monkeypatch.setattr("features.upstox.python.upstox_collector.MarketStore", lambda _path: store)
     monkeypatch.setattr(
         "features.upstox.python.upstox_collector.resolve_upstox_instruments",
         lambda _settings, _store: {"NSE_EQ|TEST": "TEST"},
     )
+    monkeypatch.setattr("features.upstox.python.upstox_collector.fetch_upstox_quotes_rest", fake_fetch)
+    monkeypatch.setattr("engine.degraded.DEGRADED_MANAGER.report_failure",
+                        lambda dependency, reason: failures.append((dependency, reason)))
+    monkeypatch.setattr("engine.degraded.DEGRADED_MANAGER.report_recovery", lambda _dependency: True)
     settings = SimpleNamespace(
         access_token="token", market_data_provider="upstox", db_path=tmp_path / "market.duckdb",
-        candle_watchdog_seconds=180,
     )
-    errors = []
-    thread = threading.Thread(target=lambda: _capture_error(errors, collect_upstox, settings))
+
+    thread = threading.Thread(
+        target=collect_upstox,
+        args=(settings,),
+        kwargs={"on_market_data": lambda: market_data.append(True), "stop": stop, "poll_seconds": 0.01},
+        daemon=True,
+    )
     thread.start()
-    assert connected.wait(timeout=2)
-    assert thread.is_alive()
-    streamers[0].listeners["autoReconnectStopped"]("retry limit reached")
-    thread.join(timeout=2)
+    thread.join(timeout=5)
+
     assert not thread.is_alive()
-    assert len(errors) == 1
-    assert "reconnects exhausted" in str(errors[0])
-
-
-def _capture_error(errors, function, *args):
-    try:
-        function(*args)
-    except Exception as error:
-        errors.append(error)
+    assert failures[0][0] == "AUTH"
+    assert [row["symbol"] for row in store.rows] == ["TEST"]
+    assert market_data == [True]

@@ -52,8 +52,11 @@ def test_3_empty_instrument_master_preflight_failure(setup_isolation):
         assert ok is False
         assert checks["instrument_master"] is False
 
-def test_4_database_write_failure_resilience():
-    settings = Settings(db_path=Path("/invalid_root_dir_path_9999/db.sqlite"))
+def test_4_database_write_failure_resilience(tmp_path):
+    # A regular file as the parent directory is unwritable even for root.
+    blocker = tmp_path / "not_a_directory"
+    blocker.write_text("")
+    settings = Settings(db_path=blocker / "db.sqlite")
     sync = PreflightSync(settings)
     ok, msg = sync.check_database_writable()
     assert ok is False

@@ -228,7 +228,13 @@ class UpstoxTickWriter:
         return True, f"DATA_HEALTHY: quote_ticks={self.quote_ticks}, candle_ticks={self.candle_ticks}"
 
 
-def collect_upstox(settings: Settings, on_market_data: Callable[[], None] | None = None) -> None:
+def collect_upstox(
+    settings: Settings,
+    on_market_data: Callable[[], None] | None = None,
+    stop: threading.Event | None = None,
+    poll_seconds: float = 3.0,
+) -> None:
+    """Poll Upstox REST quotes until `stop` is set (never, by default)."""
     if not settings.access_token:
         raise RuntimeError("UPSTOX_ACCESS_TOKEN is required")
     if settings.market_data_provider != "upstox":
@@ -237,14 +243,15 @@ def collect_upstox(settings: Settings, on_market_data: Callable[[], None] | None
     store = MarketStore(settings.db_path)
     instruments = resolve_upstox_instruments(settings, store)
     writer = UpstoxTickWriter(store, instruments)
-    stop = threading.Event()
+    if stop is None:
+        stop = threading.Event()
 
     from engine.degraded import DEGRADED_MANAGER
 
     LOG.info("Upstox market-data collector active (REST Market Quote Engine)")
 
     last_log = time.monotonic()
-    while not stop.wait(3):
+    while not stop.wait(poll_seconds):
         try:
             quotes = fetch_upstox_quotes_rest(settings.access_token, list(instruments.keys()))
             if quotes:

@@ -40,9 +40,7 @@ def reconnect_with_backoff(
 
     from engine.degraded import DEGRADED_MANAGER
 
-    attempt = 0
-    while True:
-        attempt += 1
+    for attempt in range(1, max_attempts + 1):
         try:
             res = connect_fn()
             DEGRADED_MANAGER.report_recovery("WEBSOCKET")
@@ -50,6 +48,18 @@ def reconnect_with_backoff(
         except Exception as error:
             last_error = error
             DEGRADED_MANAGER.report_failure("WEBSOCKET", f"Reconnection attempt {attempt} failed: {error}")
-            delay = min(max_delay, initial_delay * (2 ** (min(attempt, 10) - 1)))
-            log.warning("WebSocket reconnect attempt %d failed: %s; retrying in %.1fs", attempt, error, delay)
-            time.sleep(delay)
+            log.warning("WebSocket reconnect attempt %d/%d failed: %s", attempt, max_attempts, error)
+            if attempt < max_attempts:
+                time.sleep(min(max_delay, initial_delay * (2 ** min(attempt - 1, 30))))
+
+    log.error("WebSocket reconnection failed after %d attempts: %s", max_attempts, last_error)
+    try:
+        from scripts.telegram_notify import send_telegram_message
+        send_telegram_message(
+            f"🚨 WEBSOCKET DOWN: All reconnection attempts failed ({max_attempts}). Last error: {last_error}",
+            event_key="websocket-reconnect-exhausted",
+            cooldown_seconds=300,
+        )
+    except Exception:
+        log.exception("Failed to send WebSocket exhaustion alert")
+    raise RuntimeError(f"WebSocket reconnection failed after {max_attempts} attempts: {last_error}") from last_error

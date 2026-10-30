@@ -11,7 +11,16 @@ from engine.gates import evaluate_candidate, calculate_adaptive_buy_limit, Candi
 from engine.paper_engine import PaperExecutionEngine
 from engine.position_manager import PositionManager
 from engine.rejection_logger import DecisionLogger
+from engine import notifier
 from engine.notifier import send_telegram_alert, get_notifier_stats
+
+@pytest.fixture(autouse=True)
+def queued_alerts(monkeypatch):
+    """Paper fills, exits and EOD summaries here are synthetic: keep them out of the real Telegram chat."""
+    alerts = []
+    monkeypatch.setattr(notifier._global_notifier, "enqueue_alert",
+                        lambda message: alerts.append(message) or True)
+    return alerts
 
 @pytest.fixture(autouse=True)
 def setup_certification_db(tmp_path, monkeypatch):
@@ -65,10 +74,11 @@ def test_kill_restart_certification(setup_certification_db):
     assert trade_rec["state"] == TradeState.CLOSED.value
     assert trade_rec["net_pnl"] > 0.0
 
-def test_complete_synthetic_session_certification(setup_certification_db):
+def test_complete_synthetic_session_certification(setup_certification_db, tmp_path, queued_alerts):
     """TASK 18: Complete Synthetic Session Certification Test."""
     db_path = setup_certification_db
-    settings = Settings(db_path=Path(db_path))
+    # Synthetic results must never reach the real logs/ directory.
+    settings = Settings(db_path=Path(db_path), log_dir=tmp_path / "logs")
     sm = StateMachine(db_path=db_path)
     engine = PaperExecutionEngine(db_path=db_path, settings=settings)
     pm = PositionManager(db_path=db_path, settings=settings)
@@ -120,4 +130,6 @@ def test_complete_synthetic_session_certification(setup_certification_db):
     report = logger.generate_eod_report()
     assert report["trades_executed"] == 1
     assert report["net_realized_pnl"] > 0.0
-    send_telegram_alert(f"📊 Synthetic Session Complete: Net P&L ₹{report['net_realized_pnl']:+.2f}")
+    assert list((tmp_path / "logs").glob("eod_report_*.json"))
+    assert send_telegram_alert(f"📊 Synthetic Session Complete: Net P&L ₹{report['net_realized_pnl']:+.2f}")
+    assert queued_alerts[-1].startswith("📊 Synthetic Session Complete")
